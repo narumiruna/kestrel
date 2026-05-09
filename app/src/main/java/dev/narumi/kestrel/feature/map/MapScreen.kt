@@ -193,6 +193,10 @@ fun MapScreen(
     LaunchedEffect(Unit) {
         libraryRepository.ensureMigrated()
         if (startupResolved) return@LaunchedEffect
+        if (pendingFavoriteApply != null) {
+            startupResolved = true
+            return@LaunchedEffect
+        }
         val pref = prefs.startupPreference.first()
         when (pref.mode) {
             StartupPreference.Mode.Last -> {
