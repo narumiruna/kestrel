@@ -271,7 +271,9 @@ function parseTag(value: unknown, index: number): string {
 
 function parseDefaultSpeedKmh(value: unknown): number {
   if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
-    throw new BadRequestException('defaultSpeedKmh must be a positive number');
+    throw new BadRequestException(
+      'defaultSpeedKmh must be a finite positive number',
+    );
   }
 
   return value;
