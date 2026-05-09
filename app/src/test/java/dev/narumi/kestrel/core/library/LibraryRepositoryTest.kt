@@ -7,11 +7,35 @@ import dev.narumi.kestrel.core.library.db.RouteEntity
 import dev.narumi.kestrel.core.library.db.RouteRevisionEntity
 import dev.narumi.kestrel.core.library.db.RouteWithContent
 import dev.narumi.kestrel.core.library.db.WaypointEntity
+import dev.narumi.kestrel.core.location.LatLng
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 
 class LibraryRepositoryTest {
+    @Test
+    fun `buildWaypointEntities preserves waypoint order`() {
+        val waypoints =
+            listOf(
+                LatLng(25.0, 121.5),
+                LatLng(25.1, 121.6),
+                LatLng(25.2, 121.7),
+            )
+
+        val entities =
+            buildWaypointEntities(
+                routeRevisionId = "rev-1",
+                waypoints = waypoints,
+                uuidFactory = sequentialUuidFactory(),
+            )
+
+        assertEquals(listOf("wp-1", "wp-2", "wp-3"), entities.map { it.id })
+        assertEquals(listOf("rev-1", "rev-1", "rev-1"), entities.map { it.routeRevisionId })
+        assertEquals(listOf(0, 1, 2), entities.map { it.sequence })
+        assertEquals(listOf(25.0, 25.1, 25.2), entities.map { it.lat })
+        assertEquals(listOf(121.5, 121.6, 121.7), entities.map { it.lng })
+    }
+
     @Test
     fun `reorderLibraryItems rewrites sort order around moved item`() {
         val items =
@@ -24,6 +48,21 @@ class LibraryRepositoryTest {
         val reordered = reorderLibraryItems(items, itemId = "c", toIndex = 0)
 
         assertEquals(listOf("c", "a", "b"), reordered.map { it.id })
+        assertEquals(listOf(0, 1, 2), reordered.map { it.sortOrder })
+    }
+
+    @Test
+    fun `reorderLibraryItems clamps destination index`() {
+        val items =
+            listOf(
+                LibraryItemEntity(id = "a", kind = LibraryItemKind.Place, placeId = "place-a", sortOrder = 0, createdAt = 1L, updatedAt = 1L),
+                LibraryItemEntity(id = "b", kind = LibraryItemKind.Place, placeId = "place-b", sortOrder = 1, createdAt = 2L, updatedAt = 2L),
+                LibraryItemEntity(id = "c", kind = LibraryItemKind.Route, routeId = "route-c", sortOrder = 2, createdAt = 3L, updatedAt = 3L),
+            )
+
+        val reordered = reorderLibraryItems(items, itemId = "a", toIndex = 99)
+
+        assertEquals(listOf("b", "c", "a"), reordered.map { it.id })
         assertEquals(listOf(0, 1, 2), reordered.map { it.sortOrder })
     }
 
@@ -107,5 +146,13 @@ class LibraryRepositoryTest {
         assertEquals(LibraryItemKind.Place, domain.kind)
         assertEquals(25.0, domain.place?.lat)
         assertNull(domain.route)
+    }
+
+    private fun sequentialUuidFactory(): () -> String {
+        var current = 0
+        return {
+            current += 1
+            "wp-$current"
+        }
     }
 }
