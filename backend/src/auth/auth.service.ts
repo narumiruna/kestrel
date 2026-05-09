@@ -4,6 +4,7 @@ import {
   HttpException,
   Injectable,
   InternalServerErrorException,
+  Logger,
   UnauthorizedException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
@@ -20,6 +21,8 @@ import { TotpService } from './totp.service';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly accessTokenService: AccessTokenService,
     private readonly authAuditService: AuthAuditService,
@@ -495,8 +498,11 @@ export class AuthService {
   ): Promise<void> {
     try {
       await this.authAuditService.log(entry);
-    } catch {
-      // Authentication must still return its primary result if audit persistence fails.
+    } catch (error) {
+      this.logger.warn(
+        `failed to persist auth audit log for ${entry.event}`,
+        error instanceof Error ? error.stack : undefined,
+      );
     }
   }
 
