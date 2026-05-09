@@ -19,12 +19,37 @@ type AuthUserRecord = {
 
 type MockPrismaService = {
   user: {
-    create: jest.Mock<Promise<Record<string, unknown>>, [Prisma.UserCreateArgs]>;
+    create: jest.Mock<
+      Promise<Record<string, unknown>>,
+      [Prisma.UserCreateArgs]
+    >;
     findUnique: jest.Mock<
       Promise<Record<string, unknown> | null>,
       [Prisma.UserFindUniqueArgs]
     >;
-    update: jest.Mock<Promise<Record<string, unknown>>, [Prisma.UserUpdateArgs]>;
+    update: jest.Mock<
+      Promise<Record<string, unknown>>,
+      [Prisma.UserUpdateArgs]
+    >;
+  };
+};
+
+type TotpSetupResponse = {
+  otpauthUrl: string;
+  qrCodeDataUrl: string;
+  secret: string;
+  user: {
+    id: string;
+    username: string;
+  };
+};
+
+type TotpVerifyResponse = {
+  nextStep: string;
+  user: {
+    id: string;
+    totpEnabledAt: string;
+    username: string;
   };
 };
 
@@ -145,14 +170,15 @@ describe('AppController (e2e)', () => {
         username: 'alice',
       })
       .expect(201);
+    const setupBody = setupResponse.body as TotpSetupResponse;
 
-    expect(setupResponse.body.user).toEqual({
+    expect(setupBody.user).toEqual({
       id: 'user-1',
       username: 'alice',
     });
-    expect(setupResponse.body.secret).toMatch(/^[A-Z2-7]+$/);
-    expect(setupResponse.body.otpauthUrl).toContain('otpauth://totp/');
-    expect(setupResponse.body.qrCodeDataUrl).toMatch(/^data:image\/png;base64,/);
+    expect(setupBody.secret).toMatch(/^[A-Z2-7]+$/);
+    expect(setupBody.otpauthUrl).toContain('otpauth://totp/');
+    expect(setupBody.qrCodeDataUrl).toMatch(/^data:image\/png;base64,/);
 
     const persistedUser = storedUsers.get('alice');
     const totpService = app.get(TotpService);
@@ -171,10 +197,12 @@ describe('AppController (e2e)', () => {
       })
       .expect(201)
       .expect((response) => {
-        expect(response.body.nextStep).toBe('login');
-        expect(response.body.user.id).toBe('user-1');
-        expect(response.body.user.username).toBe('alice');
-        expect(response.body.user.totpEnabledAt).toBe(
+        const responseBody = response.body as TotpVerifyResponse;
+
+        expect(responseBody.nextStep).toBe('login');
+        expect(responseBody.user.id).toBe('user-1');
+        expect(responseBody.user.username).toBe('alice');
+        expect(responseBody.user.totpEnabledAt).toBe(
           '2026-05-09T15:33:00.000Z',
         );
       });
@@ -183,6 +211,7 @@ describe('AppController (e2e)', () => {
   });
 
   afterEach(async () => {
+    jest.useRealTimers();
     await app.close();
     delete process.env.AUTH_TOTP_ENCRYPTION_KEY;
     delete process.env.AUTH_TOTP_ISSUER;
