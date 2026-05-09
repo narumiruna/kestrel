@@ -33,7 +33,7 @@
 
 ## Quick wins（30 分 – 1 小時）
 
-- [ ] **單元測試**：`MovementEngine`（Once/Loop/PingPong 邊界）、`RouteGenerator`（種子可重現、間距 ±誤差）、`Geo`（haversine、bearing、destinationPoint 球面繞回）。純 Kotlin，幾十行覆蓋。
+- [x] **單元測試**：`MovementEngine`（Once/Loop/PingPong 邊界）、`RouteGenerator`（種子可重現、間距 ±誤差）、`Geo`（haversine、bearing、destinationPoint 球面繞回）。純 Kotlin，幾十行覆蓋。
 - [ ] **抖動 (jitter)**：`LocationService.pushSample` / `pushLocation` 加 lat/lng ±N m、speed ±5% 隨機擾動。讓 mock 軌跡不像鐵軌。預設可關。
 - [x] **收藏 rename**：Favorites 列表加 edit icon，跳輸入框；`KestrelPrefs` 加 `renameFavorite(old, new)`，連帶處理 `StartupPreference.favoriteName`。
 - [ ] **通知文案微調 + channel description**：通知列現在 title/text 偏陽春，加 channel description（系統設定才看得到）與更明確的 mode 子標題。
