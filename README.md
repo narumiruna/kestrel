@@ -77,7 +77,9 @@ app/src/main/java/dev/narumi/kestrel/
 ### Unit tests
 
 ```bash
-JAVA_HOME="<path-to-jbr>" ./gradlew :app:testDebugUnitTest
+# macOS example — adjust to match your Android Studio installation
+JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" \
+  ./gradlew :app:testDebugUnitTest
 ```
 
 Pure-Kotlin tests (no Android context needed) live in `app/src/test/`. Tests that require an Android context go in `app/src/androidTest/`.
@@ -101,4 +103,4 @@ Pure-Kotlin tests (no Android context needed) live in `app/src/test/`. Tests tha
 
 ## License
 
-See [LICENSE](LICENSE) if present; otherwise all rights reserved.
+This project does not currently include a license file. All rights reserved unless otherwise stated.
