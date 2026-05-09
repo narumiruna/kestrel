@@ -1,9 +1,10 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 
-const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
-const RATE_LIMIT_BLOCK_MS = 15 * 60 * 1000;
-const RATE_LIMIT_MAX_ATTEMPTS = 5;
+const DEFAULT_RATE_LIMIT_WINDOW_SECONDS = 15 * 60;
+const DEFAULT_RATE_LIMIT_BLOCK_SECONDS = 15 * 60;
+const DEFAULT_RATE_LIMIT_MAX_ATTEMPTS = 5;
 
 export const AUTH_RATE_LIMIT_TYPE = {
   PASSWORD: 'password',
@@ -16,7 +17,10 @@ export type AuthRateLimitType =
 
 @Injectable()
 export class AuthRateLimitService {
-  constructor(private readonly prismaService: PrismaService) {}
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly prismaService: PrismaService,
+  ) {}
 
   async assertAllowed(
     type: AuthRateLimitType,
@@ -57,7 +61,10 @@ export class AuthRateLimitService {
       },
     });
 
-    if (rateLimit == null || isWindowExpired(rateLimit.windowStartedAt, now)) {
+    if (
+      rateLimit == null ||
+      isWindowExpired(rateLimit.windowStartedAt, now, this.getWindowMs())
+    ) {
       await this.prismaService.authRateLimit.upsert({
         create: {
           attempts: 1,
@@ -88,8 +95,8 @@ export class AuthRateLimitService {
       data: {
         attempts,
         blockedUntil:
-          attempts >= RATE_LIMIT_MAX_ATTEMPTS
-            ? new Date(now.getTime() + RATE_LIMIT_BLOCK_MS)
+          attempts >= this.getMaxAttempts()
+            ? new Date(now.getTime() + this.getBlockWindowMs())
             : null,
       },
       where: {
@@ -109,6 +116,47 @@ export class AuthRateLimitService {
       },
     });
   }
+
+  private getBlockWindowMs(): number {
+    return (
+      this.getPositiveIntegerConfig(
+        'AUTH_RATE_LIMIT_BLOCK_SECONDS',
+        DEFAULT_RATE_LIMIT_BLOCK_SECONDS,
+      ) * 1000
+    );
+  }
+
+  private getMaxAttempts(): number {
+    return this.getPositiveIntegerConfig(
+      'AUTH_RATE_LIMIT_MAX_ATTEMPTS',
+      DEFAULT_RATE_LIMIT_MAX_ATTEMPTS,
+    );
+  }
+
+  private getWindowMs(): number {
+    return (
+      this.getPositiveIntegerConfig(
+        'AUTH_RATE_LIMIT_WINDOW_SECONDS',
+        DEFAULT_RATE_LIMIT_WINDOW_SECONDS,
+      ) * 1000
+    );
+  }
+
+  private getPositiveIntegerConfig(key: string, defaultValue: number): number {
+    const configuredValue = this.configService.get<string>(key);
+
+    if (configuredValue == null || configuredValue.trim() === '') {
+      return defaultValue;
+    }
+
+    const parsedValue = Number.parseInt(configuredValue, 10);
+
+    if (!Number.isInteger(parsedValue) || parsedValue <= 0) {
+      return defaultValue;
+    }
+
+    return parsedValue;
+  }
 }
 
 function getRateLimitMessage(type: AuthRateLimitType): string {
@@ -122,6 +170,10 @@ function getRateLimitMessage(type: AuthRateLimitType): string {
   }
 }
 
-function isWindowExpired(windowStartedAt: Date, now: Date): boolean {
-  return now.getTime() - windowStartedAt.getTime() >= RATE_LIMIT_WINDOW_MS;
+function isWindowExpired(
+  windowStartedAt: Date,
+  now: Date,
+  windowMs: number,
+): boolean {
+  return now.getTime() - windowStartedAt.getTime() >= windowMs;
 }
