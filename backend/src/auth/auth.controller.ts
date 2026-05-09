@@ -1,12 +1,7 @@
-import {
-  Body,
-  Controller,
-  Post,
-  Req,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { Body, Controller, Post, Req } from '@nestjs/common';
 import type { Request } from 'express';
 import { AuthAuditMetadata } from './auth-audit.service';
+import { getBearerToken } from './auth-request';
 import { AuthService } from './auth.service';
 
 @Controller('auth')
@@ -45,17 +40,6 @@ export class AuthController {
       getRequestMetadata(request),
     );
   }
-}
-
-function getBearerToken(request: Request): string {
-  const authorizationHeader = request.header('authorization');
-  const [scheme, token, ...rest] = authorizationHeader?.split(' ') ?? [];
-
-  if (scheme !== 'Bearer' || token == null || rest.length > 0) {
-    throw new UnauthorizedException('missing bearer token');
-  }
-
-  return token;
 }
 
 function getRequestMetadata(request: Request): AuthAuditMetadata {
