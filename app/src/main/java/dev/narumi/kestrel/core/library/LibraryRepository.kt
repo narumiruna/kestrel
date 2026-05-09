@@ -13,18 +13,14 @@ import dev.narumi.kestrel.core.library.db.PlaceEntity
 import dev.narumi.kestrel.core.library.db.RouteEntity
 import dev.narumi.kestrel.core.library.db.RouteRevisionEntity
 import dev.narumi.kestrel.core.library.db.WaypointEntity
-import dev.narumi.kestrel.core.library.migration.FavoriteToLibraryMigrator
 import dev.narumi.kestrel.core.location.LatLng
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import java.util.UUID
 
-@Suppress("TooManyFunctions")
 interface LibraryRepository {
     val items: Flow<List<LibraryItemWithContent>>
     val sortMode: Flow<FavoritesSortMode>
-
-    suspend fun ensureMigrated()
 
     suspend fun addPlace(
         name: String,
@@ -91,52 +87,10 @@ private class RoomLibraryRepository(
 ) : LibraryRepository {
     private val dao: LibraryDao = database.libraryDao()
 
-    @Volatile private var migrationEnsured = false
-
     override val items: Flow<List<LibraryItemWithContent>> =
         dao.observeLibraryItems().map { records -> records.map(LibraryItemRecord::toDomain) }
 
     override val sortMode: Flow<FavoritesSortMode> = prefs.favoritesSortMode
-
-    override suspend fun ensureMigrated() {
-        if (migrationEnsured) return
-        if (prefs.libraryRoomMigratedValue()) {
-            resolveLegacyStartupPreference()
-            migrationEnsured = true
-            return
-        }
-
-        val startup = prefs.startupPreferenceValue()
-        val migration =
-            if (dao.countLibraryItems() == 0) {
-                FavoriteToLibraryMigrator.migrate(
-                    favorites = prefs.legacyFavoritesValue(),
-                    startupPreference = startup,
-                )
-            } else {
-                null
-            }
-        database.withTransaction {
-            if (migration != null) {
-                migration.rows.forEach { row ->
-                    row.place?.let { dao.insertPlace(it) }
-                    row.route?.let { dao.insertRoute(it) }
-                    row.routeRevision?.let { dao.insertRouteRevision(it) }
-                    if (row.waypoints.isNotEmpty()) {
-                        dao.insertWaypoints(row.waypoints)
-                    }
-                    dao.insertLibraryItem(row.libraryItem)
-                }
-            }
-        }
-        val startupLibraryItemId =
-            migration?.startupLibraryItemId
-                ?: startup.libraryItemId
-                ?: startup.favoriteName?.let { dao.findLibraryItemIdByName(it) }
-        updateStartupPreference(startupLibraryItemId)
-        prefs.setLibraryRoomMigrated(true)
-        migrationEnsured = true
-    }
 
     override suspend fun addPlace(
         name: String,
@@ -145,7 +99,6 @@ private class RoomLibraryRepository(
         description: String?,
         tags: List<String>,
     ): String {
-        ensureMigrated()
         val rows =
             buildPlaceLibraryRows(
                 name = name,
@@ -168,7 +121,6 @@ private class RoomLibraryRepository(
         mode: String,
         description: String?,
     ): String {
-        ensureMigrated()
         val rows =
             buildRouteLibraryRows(
                 name = name,
@@ -189,31 +141,20 @@ private class RoomLibraryRepository(
         return rows.item.id
     }
 
-    override suspend fun getItem(itemId: String): LibraryItemWithContent? {
-        ensureMigrated()
-        return dao.getLibraryItem(itemId)?.toDomain()
-    }
+    override suspend fun getItem(itemId: String): LibraryItemWithContent? = dao.getLibraryItem(itemId)?.toDomain()
 
     override suspend fun renameItem(
         itemId: String,
         newName: String,
     ) {
-        ensureMigrated()
         val trimmedName = normalizedLibraryItemName(newName) ?: return
         val record = dao.getLibraryItem(itemId) ?: return
         val updatedAt = System.currentTimeMillis()
-        val startupPreference = prefs.startupPreferenceValue()
-        val shouldUpdateStartupPreference = shouldRenameStartupFavorite(startupPreference, itemId)
         database.withTransaction {
             when (record.item.kind) {
                 LibraryItemKind.Place -> record.item.placeId?.let { dao.renamePlace(it, trimmedName, updatedAt) }
                 LibraryItemKind.Route -> record.item.routeId?.let { dao.renameRoute(it, trimmedName, updatedAt) }
             }
-        }
-        if (shouldUpdateStartupPreference) {
-            prefs.setStartupPreference(
-                startupPreference.copy(favoriteName = trimmedName),
-            )
         }
     }
 
@@ -222,7 +163,6 @@ private class RoomLibraryRepository(
         lat: Double,
         lng: Double,
     ) {
-        ensureMigrated()
         dao.updatePlace(placeId, lat, lng, System.currentTimeMillis())
     }
 
@@ -231,15 +171,13 @@ private class RoomLibraryRepository(
         speedKmh: Double,
         mode: String,
     ) {
-        ensureMigrated()
         dao.updateRoute(routeId, speedKmh, mode, System.currentTimeMillis())
     }
 
     override suspend fun removeItem(itemId: String) {
-        ensureMigrated()
         val record = dao.getLibraryItem(itemId) ?: return
         val startupPreference = prefs.startupPreferenceValue()
-        val shouldResetStartupPreference = shouldResetStartupFavorite(startupPreference, itemId)
+        val shouldResetStartupPreference = isStartupFavoriteItem(startupPreference, itemId)
         database.withTransaction {
             when (record.item.kind) {
                 LibraryItemKind.Place -> record.item.placeId?.let { dao.deletePlace(it) }
@@ -255,7 +193,6 @@ private class RoomLibraryRepository(
         itemId: String,
         toIndex: Int,
     ) {
-        ensureMigrated()
         database.withTransaction {
             val reordered = reorderLibraryItems(dao.getLibraryItemsSnapshot(), itemId, toIndex)
             if (reordered.isNotEmpty()) {
@@ -265,30 +202,12 @@ private class RoomLibraryRepository(
     }
 
     override suspend fun touchItem(itemId: String) {
-        ensureMigrated()
         val touch = touchLibraryItemValues(System.currentTimeMillis())
         dao.touchLibraryItem(itemId, touch.lastUsedAt, touch.updatedAt)
     }
 
     override suspend fun setSortMode(mode: FavoritesSortMode.Mode) {
         prefs.setFavoritesSortMode(mode)
-    }
-
-    private suspend fun resolveLegacyStartupPreference() {
-        val startup = prefs.startupPreferenceValue()
-        if (startup.libraryItemId != null || startup.favoriteName == null) return
-        updateStartupPreference(dao.findLibraryItemIdByName(startup.favoriteName))
-    }
-
-    private suspend fun updateStartupPreference(libraryItemId: String?) {
-        val startup = prefs.startupPreferenceValue()
-        if (startup.mode != StartupPreference.Mode.Favorite && libraryItemId == null) return
-        prefs.setStartupPreference(
-            startup.copy(
-                libraryItemId = libraryItemId,
-                favoriteName = startup.favoriteName,
-            ),
-        )
     }
 }
 
@@ -299,17 +218,12 @@ internal data class LibraryItemTouchValues(
 
 internal fun normalizedLibraryItemName(newName: String): String? = newName.trim().takeIf { it.isNotEmpty() }
 
-internal fun shouldRenameStartupFavorite(
+internal fun isStartupFavoriteItem(
     startupPreference: StartupPreference,
     itemId: String,
 ): Boolean =
     startupPreference.mode == StartupPreference.Mode.Favorite &&
         startupPreference.libraryItemId == itemId
-
-internal fun shouldResetStartupFavorite(
-    startupPreference: StartupPreference,
-    itemId: String,
-): Boolean = shouldRenameStartupFavorite(startupPreference, itemId)
 
 internal fun touchLibraryItemValues(now: Long): LibraryItemTouchValues =
     LibraryItemTouchValues(

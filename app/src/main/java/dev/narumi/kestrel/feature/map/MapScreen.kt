@@ -191,7 +191,6 @@ fun MapScreen(
     }
 
     LaunchedEffect(Unit) {
-        libraryRepository.ensureMigrated()
         if (startupResolved) return@LaunchedEffect
         if (pendingFavoriteApply != null) {
             startupResolved = true
@@ -207,13 +206,7 @@ fun MapScreen(
                 val currentItems = libraryRepository.items.first()
                 val startupItem =
                     pref.libraryItemId?.let { itemId -> currentItems.firstOrNull { it.item.id == itemId } }
-                        ?: currentItems.firstOrNull { it.name == pref.favoriteName }
                 startupItem?.let { item ->
-                    if (pref.libraryItemId == null) {
-                        prefs.setStartupPreference(
-                            pref.copy(libraryItemId = item.item.id, favoriteName = item.name),
-                        )
-                    }
                     applyStartupItem(
                         item = item,
                         context = context,
