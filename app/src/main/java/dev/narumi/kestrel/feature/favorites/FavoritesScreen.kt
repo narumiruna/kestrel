@@ -9,7 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.MoreVert
@@ -141,6 +141,7 @@ fun FavoritesScreen(
                         .getOrDefault(MovementEngine.Mode.Once)
             }
         },
+        onMove = { fav, toIndex -> scope.launch { prefs.reorderFavorite(fav.name, toIndex) } },
         onDelete = { fav ->
             scope.launch {
                 prefs.removeFavorite(fav.name)
@@ -216,6 +217,7 @@ private fun FavoritesContent(
     onApply: (Favorite) -> Unit,
     onRename: (Favorite) -> Unit,
     onEdit: (Favorite) -> Unit,
+    onMove: (Favorite, Int) -> Unit,
     onDelete: (Favorite) -> Unit,
 ) {
     Column(
@@ -234,6 +236,7 @@ private fun FavoritesContent(
                 )
             else ->
                 FavoritesListContent(
+                    favorites = favorites,
                     visibleFavorites = visibleFavorites,
                     selectedTab = selectedTab,
                     sortMode = sortMode,
@@ -242,6 +245,7 @@ private fun FavoritesContent(
                     onApply = onApply,
                     onRename = onRename,
                     onEdit = onEdit,
+                    onMove = onMove,
                     onDelete = onDelete,
                 )
         }
@@ -251,6 +255,7 @@ private fun FavoritesContent(
 @Suppress("LongParameterList")
 @Composable
 private fun FavoritesListContent(
+    favorites: List<Favorite>,
     visibleFavorites: List<Favorite>,
     selectedTab: Int,
     sortMode: FavoritesSortMode.Mode,
@@ -259,6 +264,7 @@ private fun FavoritesListContent(
     onApply: (Favorite) -> Unit,
     onRename: (Favorite) -> Unit,
     onEdit: (Favorite) -> Unit,
+    onMove: (Favorite, Int) -> Unit,
     onDelete: (Favorite) -> Unit,
 ) {
     PrimaryTabRow(selectedTabIndex = selectedTab) {
@@ -279,12 +285,19 @@ private fun FavoritesListContent(
     } else {
         Card(modifier = Modifier.fillMaxWidth()) {
             LazyColumn {
-                items(visibleFavorites, key = { it.name }) { fav ->
+                itemsIndexed(visibleFavorites, key = { _, item -> item.name }) { index, fav ->
+                    val previousIndex = visibleFavorites.getOrNull(index - 1)?.globalIndexIn(favorites)
+                    val nextIndex = visibleFavorites.getOrNull(index + 1)?.globalIndexIn(favorites)
                     FavoriteRow(
                         favorite = fav,
+                        canReorder = sortMode == FavoritesSortMode.Mode.Manual,
+                        canMoveUp = previousIndex != null,
+                        canMoveDown = nextIndex != null,
                         onApply = { onApply(fav) },
                         onRename = { onRename(fav) },
                         onEdit = { onEdit(fav) },
+                        onMoveUp = { previousIndex?.let { onMove(fav, it) } },
+                        onMoveDown = { nextIndex?.let { onMove(fav, it) } },
                         onDelete = { onDelete(fav) },
                     )
                     HorizontalDivider()
@@ -352,9 +365,14 @@ private fun SortModeMenu(
 @Composable
 private fun FavoriteRow(
     favorite: Favorite,
+    canReorder: Boolean,
+    canMoveUp: Boolean,
+    canMoveDown: Boolean,
     onApply: () -> Unit,
     onRename: () -> Unit,
     onEdit: () -> Unit,
+    onMoveUp: () -> Unit,
+    onMoveDown: () -> Unit,
     onDelete: () -> Unit,
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
@@ -386,6 +404,24 @@ private fun FavoriteRow(
                                 onEdit()
                             },
                         )
+                        if (canReorder) {
+                            DropdownMenuItem(
+                                text = { Text("Move up") },
+                                enabled = canMoveUp,
+                                onClick = {
+                                    menuExpanded = false
+                                    onMoveUp()
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Move down") },
+                                enabled = canMoveDown,
+                                onClick = {
+                                    menuExpanded = false
+                                    onMoveDown()
+                                },
+                            )
+                        }
                         DropdownMenuItem(
                             text = { Text("Delete") },
                             onClick = {
@@ -499,6 +535,8 @@ private fun EditRouteDialog(
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
 }
+
+private fun Favorite.globalIndexIn(favorites: List<Favorite>): Int? = favorites.indexOfFirst { it.name == name }.takeIf { it >= 0 }
 
 private fun Favorite.description(): String {
     val route = route
