@@ -96,7 +96,7 @@ fun LibraryItemWithContent.description(): String {
 
 fun List<LibraryItemWithContent>.sortedFor(sortMode: FavoritesSortMode.Mode): List<LibraryItemWithContent> =
     when (sortMode) {
-        FavoritesSortMode.Mode.Manual -> sortedBy(LibraryItemWithContent::manualOrder)
+        FavoritesSortMode.Mode.Manual -> sortedWith(compareByManualOrder())
         FavoritesSortMode.Mode.Recent ->
             sortedWith(
                 compareByDescending<LibraryItemWithContent> { it.item.lastUsedAt ?: Long.MIN_VALUE }
@@ -105,7 +105,8 @@ fun List<LibraryItemWithContent>.sortedFor(sortMode: FavoritesSortMode.Mode): Li
         FavoritesSortMode.Mode.Alphabetical ->
             sortedWith(
                 compareBy<LibraryItemWithContent> { it.name.lowercase() }
-                    .thenBy(LibraryItemWithContent::manualOrder),
+                    .thenBy { it.item.sortOrder }
+                    .thenBy { it.item.createdAt },
             )
     }
 
@@ -116,7 +117,8 @@ fun FavoritesSortMode.Mode.label(): String =
         FavoritesSortMode.Mode.Alphabetical -> "Alphabetical"
     }
 
-fun LibraryItemWithContent.globalIndexIn(items: List<LibraryItemWithContent>): Int? =
-    items.indexOfFirst { it.item.id == item.id }.takeIf { it >= 0 }
+fun LibraryItemWithContent.globalIndexIn(items: List<LibraryItemWithContent>): Int? = items.indexOfFirst { it.item.id == item.id }.takeIf { it >= 0 }
 
-private fun LibraryItemWithContent.manualOrder(): Pair<Int, Long> = item.sortOrder to item.createdAt
+private fun compareByManualOrder(): Comparator<LibraryItemWithContent> =
+    compareBy<LibraryItemWithContent> { it.item.sortOrder }
+        .thenBy { it.item.createdAt }

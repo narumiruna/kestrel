@@ -3,6 +3,7 @@ package dev.narumi.kestrel.core.library.db
 import androidx.room.TypeConverter
 import dev.narumi.kestrel.core.library.LibraryItemKind
 import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 
 class LibraryConverters {

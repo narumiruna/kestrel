@@ -5,7 +5,6 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
-import androidx.room.Update
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -62,21 +61,43 @@ interface LibraryDao {
     suspend fun upsertLibraryItems(items: List<LibraryItemEntity>)
 
     @Query("UPDATE places SET name = :newName, updated_at = :updatedAt WHERE id = :placeId")
-    suspend fun renamePlace(placeId: String, newName: String, updatedAt: Long)
+    suspend fun renamePlace(
+        placeId: String,
+        newName: String,
+        updatedAt: Long,
+    )
 
     @Query("UPDATE routes SET name = :newName, updated_at = :updatedAt WHERE id = :routeId")
-    suspend fun renameRoute(routeId: String, newName: String, updatedAt: Long)
+    suspend fun renameRoute(
+        routeId: String,
+        newName: String,
+        updatedAt: Long,
+    )
 
     @Query("UPDATE places SET lat = :lat, lng = :lng, updated_at = :updatedAt WHERE id = :placeId")
-    suspend fun updatePlace(placeId: String, lat: Double, lng: Double, updatedAt: Long)
+    suspend fun updatePlace(
+        placeId: String,
+        lat: Double,
+        lng: Double,
+        updatedAt: Long,
+    )
 
     @Query(
         "UPDATE routes SET default_speed_kmh = :speedKmh, mode = :mode, updated_at = :updatedAt WHERE id = :routeId",
     )
-    suspend fun updateRoute(routeId: String, speedKmh: Double, mode: String, updatedAt: Long)
+    suspend fun updateRoute(
+        routeId: String,
+        speedKmh: Double,
+        mode: String,
+        updatedAt: Long,
+    )
 
     @Query("UPDATE library_items SET last_used_at = :lastUsedAt, updated_at = :updatedAt WHERE id = :itemId")
-    suspend fun touchLibraryItem(itemId: String, lastUsedAt: Long, updatedAt: Long)
+    suspend fun touchLibraryItem(
+        itemId: String,
+        lastUsedAt: Long,
+        updatedAt: Long,
+    )
 
     @Query("DELETE FROM places WHERE id = :placeId")
     suspend fun deletePlace(placeId: String)
