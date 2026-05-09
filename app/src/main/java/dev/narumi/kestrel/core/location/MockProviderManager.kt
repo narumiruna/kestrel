@@ -8,8 +8,9 @@ import android.os.Build
 import android.os.SystemClock
 import androidx.core.content.getSystemService
 
-class MockProviderManager(context: Context) {
-
+class MockProviderManager(
+    context: Context,
+) {
     private val locationManager: LocationManager =
         requireNotNull(context.getSystemService<LocationManager>()) {
             "LocationManager unavailable"
@@ -43,23 +44,29 @@ class MockProviderManager(context: Context) {
         }
     }
 
-    fun setLocation(point: LatLng, speed: Float = 0f, bearing: Float = 0f, accuracy: Float = 1f) {
+    fun setLocation(
+        point: LatLng,
+        speed: Float = 0f,
+        bearing: Float = 0f,
+        accuracy: Float = 1f,
+    ) {
         if (!enabled) return
         for (provider in MOCK_PROVIDERS) {
-            val location = Location(provider).apply {
-                latitude = point.lat
-                longitude = point.lng
-                this.accuracy = accuracy
-                this.speed = speed
-                this.bearing = bearing
-                time = System.currentTimeMillis()
-                elapsedRealtimeNanos = SystemClock.elapsedRealtimeNanos()
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    speedAccuracyMetersPerSecond = 0.1f
-                    bearingAccuracyDegrees = 0.1f
-                    verticalAccuracyMeters = 1f
+            val location =
+                Location(provider).apply {
+                    latitude = point.lat
+                    longitude = point.lng
+                    this.accuracy = accuracy
+                    this.speed = speed
+                    this.bearing = bearing
+                    time = System.currentTimeMillis()
+                    elapsedRealtimeNanos = SystemClock.elapsedRealtimeNanos()
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        speedAccuracyMetersPerSecond = 0.1f
+                        bearingAccuracyDegrees = 0.1f
+                        verticalAccuracyMeters = 1f
+                    }
                 }
-            }
             runCatching { locationManager.setTestProviderLocation(provider, location) }
         }
     }
@@ -101,12 +108,15 @@ class MockProviderManager(context: Context) {
 
     private companion object {
         const val PROBE_PROVIDER = "kestrel_probe"
-        val MOCK_PROVIDERS = listOf(
-            LocationManager.GPS_PROVIDER,
-            LocationManager.NETWORK_PROVIDER,
-        )
+        val MOCK_PROVIDERS =
+            listOf(
+                LocationManager.GPS_PROVIDER,
+                LocationManager.NETWORK_PROVIDER,
+            )
     }
 }
 
-class MockNotAllowedException(message: String, cause: Throwable? = null) :
-    RuntimeException(message, cause)
+class MockNotAllowedException(
+    message: String,
+    cause: Throwable? = null,
+) : RuntimeException(message, cause)

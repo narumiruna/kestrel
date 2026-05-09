@@ -19,11 +19,11 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.ui.Alignment
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -43,9 +43,10 @@ fun FavoritesScreen(modifier: Modifier = Modifier) {
     val startup by prefs.startupPreference.collectAsStateWithLifecycle(StartupPreference())
 
     Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(16.dp),
+        modifier =
+            modifier
+                .fillMaxSize()
+                .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Text(
@@ -86,7 +87,8 @@ fun FavoritesScreen(modifier: Modifier = Modifier) {
                                 scope.launch {
                                     prefs.removeFavorite(fav.name)
                                     if (startup.mode == StartupPreference.Mode.Favorite &&
-                                        startup.favoriteName == fav.name) {
+                                        startup.favoriteName == fav.name
+                                    ) {
                                         prefs.setStartupPreference(
                                             StartupPreference(StartupPreference.Mode.Last),
                                         )
@@ -107,9 +109,10 @@ private fun FavoriteRow(
     favorite: Favorite,
     onDelete: () -> Unit,
 ) {
-    val supporting = favorite.route?.let {
-        "Route · ${it.lats.size} waypoints · ${it.speedKmh.toInt()} km/h"
-    } ?: "%.5f, %.5f".format(favorite.lat, favorite.lng)
+    val supporting =
+        favorite.route?.let {
+            "Route · ${it.lats.size} waypoints · ${it.speedKmh.toInt()} km/h"
+        } ?: "%.5f, %.5f".format(favorite.lat, favorite.lng)
     ListItem(
         headlineContent = { Text(favorite.name) },
         supportingContent = { Text(supporting) },
