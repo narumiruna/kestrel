@@ -1,0 +1,31 @@
+style:
+  MagicNumber:
+    active: false
+  ReturnCount:
+    max: 4
+  MaxLineLength:
+    active: false
+  WildcardImport:
+    active: false
+  UnusedPrivateMember:
+    active: true
+
+complexity:
+  LongMethod:
+    threshold: 80
+  LongParameterList:
+    functionThreshold: 16
+    constructorThreshold: 16
+  ComplexCondition:
+    threshold: 6
+  CyclomaticComplexMethod:
+    threshold: 20
+  TooManyFunctions:
+    thresholdInFiles: 30
+    thresholdInClasses: 20
+
+naming:
+  FunctionNaming:
+    ignoreAnnotated: ['Composable', 'Preview', 'PreviewScreenSizes']
+  TopLevelPropertyNaming:
+    constantPattern: '[A-Z][_A-Z0-9]*'

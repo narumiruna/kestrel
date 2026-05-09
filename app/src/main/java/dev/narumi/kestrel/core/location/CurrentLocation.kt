@@ -1,7 +1,6 @@
 package dev.narumi.kestrel.core.location
 
 import android.annotation.SuppressLint
-import android.content.Context
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
@@ -21,13 +20,15 @@ fun rememberCurrentLocation(enabled: Boolean): State<LatLng?> {
 
     DisposableEffect(enabled) {
         if (!enabled) return@DisposableEffect onDispose {}
-        val lm = context.getSystemService<LocationManager>()
-            ?: return@DisposableEffect onDispose {}
+        val lm =
+            context.getSystemService<LocationManager>()
+                ?: return@DisposableEffect onDispose {}
         val listener = LocationListener { loc -> state.value = loc.toLatLng() }
-        val providers = listOf(
-            LocationManager.GPS_PROVIDER,
-            LocationManager.NETWORK_PROVIDER,
-        )
+        val providers =
+            listOf(
+                LocationManager.GPS_PROVIDER,
+                LocationManager.NETWORK_PROVIDER,
+            )
         providers.forEach { provider ->
             runCatching {
                 lm.getLastKnownLocation(provider)?.let { state.value = it.toLatLng() }
