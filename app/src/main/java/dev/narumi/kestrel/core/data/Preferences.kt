@@ -37,6 +37,14 @@ data class MockState(
     enum class Mode { Idle, Single, Route }
 }
 
+@Serializable
+data class StartupPreference(
+    val mode: Mode = Mode.Ask,
+    val favoriteName: String? = null,
+) {
+    enum class Mode { Ask, Last, Current, Favorite }
+}
+
 private val Context.prefStore by preferencesDataStore("kestrel_prefs")
 
 private object Keys {
@@ -45,6 +53,7 @@ private object Keys {
     val LAST_CAM_ZOOM = doublePreferencesKey("last_cam_zoom")
     val FAVORITES = stringPreferencesKey("favorites_json")
     val MOCK_STATE = stringPreferencesKey("mock_state_json")
+    val STARTUP_PREF = stringPreferencesKey("startup_pref_json")
 }
 
 class KestrelPrefs(context: Context) {
@@ -54,6 +63,7 @@ class KestrelPrefs(context: Context) {
     val lastCamera: Flow<CameraSnapshot?> = store.data.map { it.toCamera() }
     val favorites: Flow<List<Favorite>> = store.data.map { it.toFavorites(json) }
     val mockState: Flow<MockState?> = store.data.map { it.toMockState(json) }
+    val startupPreference: Flow<StartupPreference> = store.data.map { it.toStartupPref(json) }
 
     suspend fun setLastCamera(snap: CameraSnapshot) {
         store.edit {
@@ -71,6 +81,12 @@ class KestrelPrefs(context: Context) {
 
     suspend fun removeFavorite(name: String) {
         mutateFavorites { current -> current.filter { it.name != name } }
+    }
+
+    suspend fun setStartupPreference(pref: StartupPreference) {
+        store.edit {
+            it[Keys.STARTUP_PREF] = json.encodeToString(StartupPreference.serializer(), pref)
+        }
     }
 
     suspend fun setMockState(state: MockState?) {
@@ -115,5 +131,12 @@ class KestrelPrefs(context: Context) {
         return runCatching {
             json.decodeFromString(MockState.serializer(), raw)
         }.getOrNull()
+    }
+
+    private fun Preferences.toStartupPref(json: Json): StartupPreference {
+        val raw = this[Keys.STARTUP_PREF] ?: return StartupPreference()
+        return runCatching {
+            json.decodeFromString(StartupPreference.serializer(), raw)
+        }.getOrDefault(StartupPreference())
     }
 }
