@@ -13,7 +13,11 @@ import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 
 @Serializable
-data class CameraSnapshot(val lat: Double, val lng: Double, val zoom: Double)
+data class CameraSnapshot(
+    val lat: Double,
+    val lng: Double,
+    val zoom: Double,
+)
 
 @Serializable
 data class Favorite(
@@ -31,12 +35,16 @@ data class FavoriteRoute(
     val lngs: DoubleArray,
     val speedKmh: Double,
 ) {
-    override fun equals(other: Any?): Boolean = other is FavoriteRoute &&
-        lats.contentEquals(other.lats) && lngs.contentEquals(other.lngs) &&
-        speedKmh == other.speedKmh
+    override fun equals(other: Any?): Boolean =
+        other is FavoriteRoute &&
+            lats.contentEquals(other.lats) && lngs.contentEquals(other.lngs) &&
+            speedKmh == other.speedKmh
 
-    override fun hashCode(): Int = (lats.contentHashCode() * 31 +
-        lngs.contentHashCode()) * 31 + speedKmh.hashCode()
+    override fun hashCode(): Int =
+        (
+            lats.contentHashCode() * 31 +
+                lngs.contentHashCode()
+        ) * 31 + speedKmh.hashCode()
 }
 
 @Serializable
@@ -47,7 +55,10 @@ data class RouteState(
 )
 
 @Serializable
-data class SinglePointState(val lat: Double, val lng: Double)
+data class SinglePointState(
+    val lat: Double,
+    val lng: Double,
+)
 
 @Serializable
 data class MockState(
@@ -77,7 +88,9 @@ private object Keys {
     val STARTUP_PREF = stringPreferencesKey("startup_pref_json")
 }
 
-class KestrelPrefs(context: Context) {
+class KestrelPrefs(
+    context: Context,
+) {
     private val json = Json { ignoreUnknownKeys = true }
     private val store = context.applicationContext.prefStore
 
@@ -124,11 +137,12 @@ class KestrelPrefs(context: Context) {
 
     private suspend fun mutateFavorites(transform: (List<Favorite>) -> List<Favorite>) {
         store.edit {
-            val current = it[Keys.FAVORITES]?.let { raw ->
-                runCatching {
-                    json.decodeFromString(favoritesSerializer, raw)
-                }.getOrDefault(emptyList())
-            } ?: emptyList()
+            val current =
+                it[Keys.FAVORITES]?.let { raw ->
+                    runCatching {
+                        json.decodeFromString(favoritesSerializer, raw)
+                    }.getOrDefault(emptyList())
+                } ?: emptyList()
             it[Keys.FAVORITES] = json.encodeToString(favoritesSerializer, transform(current))
         }
     }

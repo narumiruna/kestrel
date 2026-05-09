@@ -15,14 +15,15 @@ class MovementEngine(
         require(speedMps > 0) { "speed must be positive" }
     }
 
-    private val segments: List<Segment> = buildList {
-        for (i in 0 until waypoints.lastIndex) {
-            val a = waypoints[i]
-            val b = waypoints[i + 1]
-            val len = haversineMeters(a, b)
-            if (len > 0.0) add(Segment(a, b, len, bearingDegrees(a, b)))
+    private val segments: List<Segment> =
+        buildList {
+            for (i in 0 until waypoints.lastIndex) {
+                val a = waypoints[i]
+                val b = waypoints[i + 1]
+                val len = haversineMeters(a, b)
+                if (len > 0.0) add(Segment(a, b, len, bearingDegrees(a, b)))
+            }
         }
-    }
     private val totalDistance: Double = segments.sumOf { it.length }
     private var progress: Double = 0.0
 

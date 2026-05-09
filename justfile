@@ -17,6 +17,22 @@ build:
 clean:
     JAVA_HOME="{{java_home}}" PATH="{{java_home}}/bin:$PATH" ./gradlew clean
 
+# auto-format Kotlin / xml / misc with spotless + ktlint
+format:
+    JAVA_HOME="{{java_home}}" PATH="{{java_home}}/bin:$PATH" ./gradlew spotlessApply
+
+# verify formatting without changing files
+check:
+    JAVA_HOME="{{java_home}}" PATH="{{java_home}}/bin:$PATH" ./gradlew spotlessCheck
+
+# install git hooks via prek (drop-in pre-commit replacement)
+hooks:
+    prek install
+
+# run all hooks against every tracked file
+hooks-all:
+    prek run --all-files
+
 # install (replacing) the debug APK on the connected device
 install:
     {{adb}} install -r {{apk}}
