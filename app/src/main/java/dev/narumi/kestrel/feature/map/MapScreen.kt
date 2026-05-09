@@ -1,6 +1,7 @@
 package dev.narumi.kestrel.feature.map
 
 import android.Manifest
+import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.provider.Settings
@@ -645,7 +646,7 @@ private fun handlePrimary(
     ready: Boolean,
     speedKmh: Double,
     routeMode: MovementEngine.Mode,
-    context: android.content.Context,
+    context: Context,
     showGenerate: () -> Unit,
     setRunState: (RunState) -> Unit,
 ) {
