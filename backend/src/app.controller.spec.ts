@@ -24,11 +24,11 @@ describe('AppController', () => {
   });
 
   describe('root', () => {
-    it('should return backend health metadata', () => {
-      expect(appController.getHealth()).toEqual({
+    it('should return backend service metadata', () => {
+      expect(appController.getServiceInfo()).toEqual({
         environment: 'test',
+        phase: 'bootstrap',
         service: 'kestrel-cloud-api',
-        status: 'ok',
       });
     });
   });
