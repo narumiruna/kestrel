@@ -1,21 +1,21 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
-type HealthResponse = {
+type ServiceInfoResponse = {
   environment: string;
+  phase: 'bootstrap';
   service: string;
-  status: 'ok';
 };
 
 @Injectable()
 export class AppService {
   constructor(private readonly configService: ConfigService) {}
 
-  getHealth(): HealthResponse {
+  getServiceInfo(): ServiceInfoResponse {
     return {
       environment: this.configService.get<string>('NODE_ENV') ?? 'development',
+      phase: 'bootstrap',
       service: 'kestrel-cloud-api',
-      status: 'ok',
     };
   }
 }
