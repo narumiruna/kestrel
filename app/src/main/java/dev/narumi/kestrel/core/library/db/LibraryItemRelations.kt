@@ -7,7 +7,11 @@ data class LibraryItemRecord(
     @Embedded val item: LibraryItemEntity,
     @Relation(parentColumn = "place_id", entityColumn = "id")
     val place: PlaceEntity? = null,
-    @Relation(parentColumn = "route_id", entityColumn = "id")
+    @Relation(
+        entity = RouteEntity::class,
+        parentColumn = "route_id",
+        entityColumn = "id",
+    )
     val route: RouteWithContent? = null,
 )
 

@@ -35,47 +35,48 @@
 - UUID 初始決策：
   - 使用 `UUID.randomUUID().toString()`
 
-### 目前進度註記（2026-05-09）
+### 目前進度註記（2026-05-10）
 
-- 目前僅完成第 0 節盤點與決策，尚未開始 Room schema / DAO / Repository 實作。
-- repository 內尚未有 `core/library/` 與 Room library 相關 Kotlin 檔案。
+- Room schema 基礎已建立於 `core/library/db/`。
+- DAO 基礎 query / insert transaction / update / delete API 已補齊。
+- `just build` 已通過 Room KSP / debug APK build。
 
 ---
 
 ## 1. Room schema 基礎
 
-- [ ] 新增 `core/library/db/` package。
-- [ ] 新增 `KestrelDatabase`。
-- [ ] 新增 `PlaceEntity`。
-- [ ] 新增 `RouteEntity`。
-- [ ] 新增 `RouteRevisionEntity`。
-- [ ] 新增 `WaypointEntity`。
-- [ ] 新增 `LibraryItemEntity`。
-- [ ] 新增 `SyncStateEntity`（可先預留最小 key/value）。
-- [ ] 新增 enum / converter：library item kind。
-- [ ] 新增 enum / converter：sync status（可先預留）。
-- [ ] 新增 JSON converter：tags list。
-- [ ] 建立 Room indices：remote id、route id、revision id、sort order。
-- [ ] 建立 foreign key / cascade 規則。
+- [x] 新增 `core/library/db/` package。
+- [x] 新增 `KestrelDatabase`。
+- [x] 新增 `PlaceEntity`。
+- [x] 新增 `RouteEntity`。
+- [x] 新增 `RouteRevisionEntity`。
+- [x] 新增 `WaypointEntity`。
+- [x] 新增 `LibraryItemEntity`。
+- [x] 新增 `SyncStateEntity`（可先預留最小 key/value）。
+- [x] 新增 enum / converter：library item kind。
+- [x] 新增 enum / converter：sync status（可先預留）。
+- [x] 新增 JSON converter：tags list。
+- [x] 建立 Room indices：remote id、route id、revision id、sort order。
+- [x] 建立 foreign key / cascade 規則。
 
 ---
 
 ## 2. DAO
 
-- [ ] 新增 `LibraryDao`。
-- [ ] Query：observe all library items with content。
-- [ ] Query：observe points only。
-- [ ] Query：observe routes only。
-- [ ] Query：get item by id。
-- [ ] Insert：place + library item transaction。
-- [ ] Insert：route + revision + waypoints + library item transaction。
-- [ ] Update：rename place / route。
-- [ ] Update：place coordinates。
-- [ ] Update：route default speed / mode。
-- [ ] Update：touch item lastUsedAt。
-- [ ] Update：reorder item sortOrder。
-- [ ] Delete：remove library item + content policy。
-- [ ] Query：startup library item by id。
+- [x] 新增 `LibraryDao`。
+- [x] Query：observe all library items with content。
+- [x] Query：observe points only。
+- [x] Query：observe routes only。
+- [x] Query：get item by id。
+- [x] Insert：place + library item transaction。
+- [x] Insert：route + revision + waypoints + library item transaction。
+- [x] Update：rename place / route。
+- [x] Update：place coordinates。
+- [x] Update：route default speed / mode。
+- [x] Update：touch item lastUsedAt。
+- [x] Update：reorder item sortOrder。
+- [x] Delete：remove library item + content policy。
+- [x] Query：startup library item by id。
 
 ---
 

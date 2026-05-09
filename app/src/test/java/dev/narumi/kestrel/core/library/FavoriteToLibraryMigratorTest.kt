@@ -73,6 +73,9 @@ class FavoriteToLibraryMigratorTest {
 
     private fun sequentialUuidFactory(): () -> String {
         var current = 0
-        return { current += 1; "uuid-$current" }
+        return {
+            current += 1
+            "uuid-$current"
+        }
     }
 }
