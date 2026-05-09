@@ -23,6 +23,11 @@ Default local database URL:
 postgresql://kestrel:kestrel@localhost:5432/kestrel_cloud?schema=public
 ```
 
+Additional auth settings:
+
+- `AUTH_TOTP_ENCRYPTION_KEY`: 32-byte key encoded as base64 (or 64-char hex) for encrypting stored TOTP secrets
+- `AUTH_TOTP_ISSUER`: optional otpauth issuer label shown in authenticator apps
+
 ## Local development
 
 ```bash
