@@ -23,8 +23,8 @@
 - [x] 建立 `User` table。
 - [x] 實作 username/password 註冊。
 - [x] 密碼 hash 使用 Argon2id 或 bcrypt。
-- [ ] 實作 TOTP setup：產生 secret / QR / verify。
-- [ ] TOTP secret 加密保存。
+- [x] 實作 TOTP setup：產生 secret / QR / verify。
+- [x] TOTP secret 加密保存。
 - [ ] 實作 recovery codes；DB 只存 hash。
 - [ ] 實作 login：password → TOTP → session。
 - [ ] 實作短效 access token。

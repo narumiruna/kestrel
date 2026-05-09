@@ -16,18 +16,18 @@ type MockPrismaService = {
   user: {
     create: jest.Mock<Promise<AuthUserRecord>, [Prisma.UserCreateArgs]>;
     findUnique: jest.Mock<
-      Promise<
-        | {
-            id: string;
-            passwordHash?: string;
-            totpEnabledAt?: Date | null;
-            totpSecretEncrypted?: string | null;
-          }
-        | null
-      >,
+      Promise<{
+        id: string;
+        passwordHash?: string;
+        totpEnabledAt?: Date | null;
+        totpSecretEncrypted?: string | null;
+      } | null>,
       [Prisma.UserFindUniqueArgs]
     >;
-    update: jest.Mock<Promise<Record<string, unknown>>, [Prisma.UserUpdateArgs]>;
+    update: jest.Mock<
+      Promise<Record<string, unknown>>,
+      [Prisma.UserUpdateArgs]
+    >;
   };
 };
 
@@ -50,29 +50,41 @@ describe('AuthService', () => {
   let prismaService: MockPrismaService;
   let totpService: MockTotpService;
 
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   beforeEach(async () => {
     prismaService = {
       user: {
         create: jest.fn<Promise<AuthUserRecord>, [Prisma.UserCreateArgs]>(),
         findUnique: jest.fn<
-          Promise<
-            | {
-                id: string;
-                passwordHash?: string;
-                totpEnabledAt?: Date | null;
-                totpSecretEncrypted?: string | null;
-              }
-            | null
-          >,
+          Promise<{
+            id: string;
+            passwordHash?: string;
+            totpEnabledAt?: Date | null;
+            totpSecretEncrypted?: string | null;
+          } | null>,
           [Prisma.UserFindUniqueArgs]
         >(),
-        update: jest.fn<Promise<Record<string, unknown>>, [Prisma.UserUpdateArgs]>(),
+        update: jest.fn<
+          Promise<Record<string, unknown>>,
+          [Prisma.UserUpdateArgs]
+        >(),
       },
     };
     totpService = {
-      createSetup: jest.fn(),
-      decryptSecret: jest.fn(),
-      verifyCode: jest.fn(),
+      createSetup: jest.fn<
+        Promise<{
+          encryptedSecret: string;
+          otpauthUrl: string;
+          qrCodeDataUrl: string;
+          secret: string;
+        }>,
+        [string]
+      >(),
+      decryptSecret: jest.fn<string, [string]>(),
+      verifyCode: jest.fn<boolean, [string, string]>(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -170,6 +182,7 @@ describe('AuthService', () => {
       passwordHash,
       totpEnabledAt: null,
       totpSecretEncrypted: null,
+      username: 'alice',
     });
     totpService.createSetup.mockResolvedValue({
       encryptedSecret: 'encrypted-secret',
@@ -223,6 +236,7 @@ describe('AuthService', () => {
       passwordHash,
       totpEnabledAt: null,
       totpSecretEncrypted: 'encrypted-secret',
+      username: 'alice',
     });
     totpService.decryptSecret.mockReturnValue('SECRET123');
     totpService.verifyCode.mockReturnValue(true);

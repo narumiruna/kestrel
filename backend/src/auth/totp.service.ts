@@ -43,7 +43,8 @@ export class TotpService {
   }
 
   decryptSecret(encryptedSecret: string): string {
-    const [version, iv, ciphertext, authTag, ...rest] = encryptedSecret.split('.');
+    const [version, iv, ciphertext, authTag, ...rest] =
+      encryptedSecret.split('.');
 
     if (
       version !== ENCRYPTED_SECRET_VERSION ||
@@ -259,7 +260,5 @@ function generateHotp(secret: string, counter: number): string {
     ((digest[offset + 2] & 255) << 8) |
     (digest[offset + 3] & 255);
 
-  return (binaryCode % 10 ** HOTP_DIGITS)
-    .toString()
-    .padStart(HOTP_DIGITS, '0');
+  return (binaryCode % 10 ** HOTP_DIGITS).toString().padStart(HOTP_DIGITS, '0');
 }
