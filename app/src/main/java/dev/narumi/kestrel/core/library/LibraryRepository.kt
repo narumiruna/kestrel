@@ -43,15 +43,29 @@ interface LibraryRepository {
 
     suspend fun getItem(itemId: String): LibraryItemWithContent?
 
-    suspend fun renameItem(itemId: String, newName: String)
+    suspend fun renameItem(
+        itemId: String,
+        newName: String,
+    )
 
-    suspend fun updatePlace(placeId: String, lat: Double, lng: Double)
+    suspend fun updatePlace(
+        placeId: String,
+        lat: Double,
+        lng: Double,
+    )
 
-    suspend fun updateRouteParams(routeId: String, speedKmh: Double, mode: String)
+    suspend fun updateRouteParams(
+        routeId: String,
+        speedKmh: Double,
+        mode: String,
+    )
 
     suspend fun removeItem(itemId: String)
 
-    suspend fun reorderItem(itemId: String, toIndex: Int)
+    suspend fun reorderItem(
+        itemId: String,
+        toIndex: Int,
+    )
 
     suspend fun touchItem(itemId: String)
 
@@ -75,6 +89,7 @@ private class RoomLibraryRepository(
     private val prefs: KestrelPrefs,
 ) : LibraryRepository {
     private val dao: LibraryDao = database.libraryDao()
+
     @Volatile private var migrationEnsured = false
 
     override val items: Flow<List<LibraryItemWithContent>> =
@@ -103,9 +118,9 @@ private class RoomLibraryRepository(
         database.withTransaction {
             if (migration != null) {
                 migration.rows.forEach { row ->
-                    row.place?.let(dao::insertPlace)
-                    row.route?.let(dao::insertRoute)
-                    row.routeRevision?.let(dao::insertRouteRevision)
+                    row.place?.let { dao.insertPlace(it) }
+                    row.route?.let { dao.insertRoute(it) }
+                    row.routeRevision?.let { dao.insertRouteRevision(it) }
                     if (row.waypoints.isNotEmpty()) {
                         dao.insertWaypoints(row.waypoints)
                     }
@@ -116,7 +131,7 @@ private class RoomLibraryRepository(
         val startupLibraryItemId =
             migration?.startupLibraryItemId
                 ?: startup.libraryItemId
-                ?: startup.favoriteName?.let(dao::findLibraryItemIdByName)
+                ?: startup.favoriteName?.let { dao.findLibraryItemIdByName(it) }
         updateStartupPreference(startupLibraryItemId)
         prefs.setLibraryRoomMigrated(true)
         migrationEnsured = true
@@ -225,7 +240,10 @@ private class RoomLibraryRepository(
         return dao.getLibraryItem(itemId)?.toDomain()
     }
 
-    override suspend fun renameItem(itemId: String, newName: String) {
+    override suspend fun renameItem(
+        itemId: String,
+        newName: String,
+    ) {
         ensureMigrated()
         val trimmedName = newName.trim()
         if (trimmedName.isEmpty()) return
@@ -248,12 +266,20 @@ private class RoomLibraryRepository(
         }
     }
 
-    override suspend fun updatePlace(placeId: String, lat: Double, lng: Double) {
+    override suspend fun updatePlace(
+        placeId: String,
+        lat: Double,
+        lng: Double,
+    ) {
         ensureMigrated()
         dao.updatePlace(placeId, lat, lng, System.currentTimeMillis())
     }
 
-    override suspend fun updateRouteParams(routeId: String, speedKmh: Double, mode: String) {
+    override suspend fun updateRouteParams(
+        routeId: String,
+        speedKmh: Double,
+        mode: String,
+    ) {
         ensureMigrated()
         dao.updateRoute(routeId, speedKmh, mode, System.currentTimeMillis())
     }
@@ -267,8 +293,8 @@ private class RoomLibraryRepository(
                 startupPreference.libraryItemId == itemId
         database.withTransaction {
             when (record.item.kind) {
-                LibraryItemKind.Place -> record.item.placeId?.let(dao::deletePlace)
-                LibraryItemKind.Route -> record.item.routeId?.let(dao::deleteRoute)
+                LibraryItemKind.Place -> record.item.placeId?.let { dao.deletePlace(it) }
+                LibraryItemKind.Route -> record.item.routeId?.let { dao.deleteRoute(it) }
             }
         }
         if (shouldResetStartupPreference) {
@@ -276,7 +302,10 @@ private class RoomLibraryRepository(
         }
     }
 
-    override suspend fun reorderItem(itemId: String, toIndex: Int) {
+    override suspend fun reorderItem(
+        itemId: String,
+        toIndex: Int,
+    ) {
         ensureMigrated()
         database.withTransaction {
             val reordered = reorderLibraryItems(dao.getLibraryItemsSnapshot(), itemId, toIndex)
@@ -333,7 +362,12 @@ internal fun LibraryItemRecord.toDomain(): LibraryItemWithContent {
     val placeDomain = place?.toDomain()
     val routeDomain = route?.route?.toDomain()
     val revisionDomain = route?.currentRevision?.toDomain()
-    val waypointDomains = route?.waypoints.orEmpty().map(WaypointEntity::toDomain).sortedBy { it.sequence }
+    val waypointDomains =
+        route
+            ?.waypoints
+            .orEmpty()
+            .map(WaypointEntity::toDomain)
+            .sortedBy { it.sequence }
     return LibraryItemWithContent(
         item = item.toDomain(),
         name = placeDomain?.name ?: routeDomain?.name.orEmpty(),

@@ -35,28 +35,28 @@
 - UUID 初始決策：
   - 使用 `UUID.randomUUID().toString()`
 
-### 目前進度註記（2026-05-09）
+### 目前進度註記（2026-05-10）
 
-- 目前僅完成第 0 節盤點與決策，尚未開始 Room schema / DAO / Repository 實作。
-- repository 內尚未有 `core/library/` 與 Room library 相關 Kotlin 檔案。
+- Room schema 基礎已建立於 `core/library/db/`。
+- `just build` 已通過 Room KSP / debug APK build。
 
 ---
 
 ## 1. Room schema 基礎
 
-- [ ] 新增 `core/library/db/` package。
-- [ ] 新增 `KestrelDatabase`。
-- [ ] 新增 `PlaceEntity`。
-- [ ] 新增 `RouteEntity`。
-- [ ] 新增 `RouteRevisionEntity`。
-- [ ] 新增 `WaypointEntity`。
-- [ ] 新增 `LibraryItemEntity`。
-- [ ] 新增 `SyncStateEntity`（可先預留最小 key/value）。
-- [ ] 新增 enum / converter：library item kind。
-- [ ] 新增 enum / converter：sync status（可先預留）。
-- [ ] 新增 JSON converter：tags list。
-- [ ] 建立 Room indices：remote id、route id、revision id、sort order。
-- [ ] 建立 foreign key / cascade 規則。
+- [x] 新增 `core/library/db/` package。
+- [x] 新增 `KestrelDatabase`。
+- [x] 新增 `PlaceEntity`。
+- [x] 新增 `RouteEntity`。
+- [x] 新增 `RouteRevisionEntity`。
+- [x] 新增 `WaypointEntity`。
+- [x] 新增 `LibraryItemEntity`。
+- [x] 新增 `SyncStateEntity`（可先預留最小 key/value）。
+- [x] 新增 enum / converter：library item kind。
+- [x] 新增 enum / converter：sync status（可先預留）。
+- [x] 新增 JSON converter：tags list。
+- [x] 建立 Room indices：remote id、route id、revision id、sort order。
+- [x] 建立 foreign key / cascade 規則。
 
 ---
 
