@@ -7,10 +7,14 @@ import android.provider.Settings
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
@@ -33,13 +37,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.MultiplePermissionsState
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
-import dev.narumi.kestrel.R
 import dev.narumi.kestrel.core.data.CameraSnapshot
 import dev.narumi.kestrel.core.data.Favorite
 import dev.narumi.kestrel.core.data.FavoriteRoute
@@ -60,7 +62,7 @@ private sealed interface PendingFavorite {
     data class Route(val waypoints: List<LatLng>, val speedKmh: Double) : PendingFavorite
 }
 
-private val SPEED_PRESETS = listOf(5.0, 20.0, 60.0)
+private val SPEED_PRESETS = listOf(5.0, 10.0, 15.0, 20.0, 60.0)
 
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
@@ -194,20 +196,22 @@ fun MapScreen(modifier: Modifier = Modifier) {
     }
 
     Column(modifier = modifier.fillMaxSize()) {
-        StatusBanner(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            permissionState = permissionState,
-            mockAllowed = mockAllowed,
-            onOpenDeveloperOptions = {
-                context.startActivity(
-                    Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS)
-                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-                )
-            },
-            onRefreshMockCheck = { mockAllowed = mockProvider.isMockAllowed() },
-        )
+        if (!permissionState.allPermissionsGranted || !mockAllowed) {
+            StatusBanner(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                permissionState = permissionState,
+                mockAllowed = mockAllowed,
+                onOpenDeveloperOptions = {
+                    context.startActivity(
+                        Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS)
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                    )
+                },
+                onRefreshMockCheck = { mockAllowed = mockProvider.isMockAllowed() },
+            )
+        }
 
         Box(modifier = Modifier
             .fillMaxWidth()
@@ -255,7 +259,7 @@ fun MapScreen(modifier: Modifier = Modifier) {
                     .padding(12.dp),
             ) {
                 Icon(
-                    painter = painterResource(R.drawable.ic_my_location),
+                    imageVector = Icons.Filled.MyLocation,
                     contentDescription = "Center on me",
                 )
             }
@@ -314,31 +318,37 @@ private fun StatusBanner(
     onOpenDeveloperOptions: () -> Unit,
     onRefreshMockCheck: () -> Unit,
 ) {
-    Card(modifier = modifier) {
+    val permissionsOk = permissionState.allPermissionsGranted
+    Card(
+        modifier = modifier,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.errorContainer,
+            contentColor = MaterialTheme.colorScheme.onErrorContainer,
+        ),
+    ) {
         Column(
             modifier = Modifier.padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            val permissionsOk = permissionState.allPermissionsGranted
             Text(
-                text = "Permissions: " + if (permissionsOk) "granted" else "missing",
-                style = MaterialTheme.typography.bodyMedium,
+                text = if (!permissionsOk) "Location / notification permission needed"
+                else "Kestrel isn't selected as the mock location app",
+                style = MaterialTheme.typography.titleSmall,
             )
             Text(
-                text = "Mock app: " + if (mockAllowed) "selected" else "not selected",
-                style = MaterialTheme.typography.bodyMedium,
+                text = if (!permissionsOk) "Grant the permissions below to use mock GPS."
+                else "Open developer options and pick Kestrel as the mock location app.",
+                style = MaterialTheme.typography.bodySmall,
             )
-            if (!permissionsOk || !mockAllowed) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (!permissionsOk) {
-                        Button(onClick = { permissionState.launchMultiplePermissionRequest() }) {
-                            Text("Grant")
-                        }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (!permissionsOk) {
+                    Button(onClick = { permissionState.launchMultiplePermissionRequest() }) {
+                        Text("Grant")
                     }
-                    if (!mockAllowed) {
-                        Button(onClick = onOpenDeveloperOptions) { Text("Dev options") }
-                        OutlinedButton(onClick = onRefreshMockCheck) { Text("Recheck") }
-                    }
+                }
+                if (!mockAllowed) {
+                    Button(onClick = onOpenDeveloperOptions) { Text("Dev options") }
+                    OutlinedButton(onClick = onRefreshMockCheck) { Text("Recheck") }
                 }
             }
         }
@@ -369,6 +379,7 @@ private fun InfoStrip(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ControlPanel(
     modifier: Modifier,
@@ -385,47 +396,54 @@ private fun ControlPanel(
     onResume: () -> Unit,
     onStop: () -> Unit,
 ) {
+    val isRouteRunning = runState == RunState.RoutePlaying || runState == RunState.RoutePaused
     Card(modifier = modifier) {
         Column(
             modifier = Modifier.padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Row(
+            Text(
+                text = "Speed",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
+                verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                Text("Speed:", style = MaterialTheme.typography.bodyMedium)
                 SPEED_PRESETS.forEach { preset ->
+                    val selected = preset == speedKmh
                     AssistChip(
                         onClick = { onSpeedChange(preset) },
                         label = { Text("${preset.toInt()} km/h") },
-                        enabled = runState == RunState.Idle || runState == RunState.Single,
-                        leadingIcon = if (preset == speedKmh) {
+                        enabled = !isRouteRunning,
+                        leadingIcon = if (selected) {
                             { Text("•") }
                         } else null,
                     )
                 }
             }
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                OutlinedButton(
-                    onClick = onClear,
-                    enabled = waypoints.isNotEmpty(),
-                    modifier = Modifier.weight(1f),
-                ) { Text("Clear") }
-                OutlinedButton(
-                    onClick = onSaveRoute,
-                    enabled = waypoints.size >= 2,
-                    modifier = Modifier.weight(1f),
-                ) { Text("Save route") }
-                Button(
-                    onClick = onSetSingle,
-                    enabled = ready && waypoints.isNotEmpty() &&
-                        (runState == RunState.Idle || runState == RunState.Single),
-                    modifier = Modifier.weight(1f),
-                ) { Text("Set last") }
+            if (!isRouteRunning) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    OutlinedButton(
+                        onClick = onClear,
+                        enabled = waypoints.isNotEmpty(),
+                        modifier = Modifier.weight(1f),
+                    ) { Text("Clear") }
+                    OutlinedButton(
+                        onClick = onSaveRoute,
+                        enabled = waypoints.size >= 2,
+                        modifier = Modifier.weight(1f),
+                    ) { Text("Save route") }
+                    Button(
+                        onClick = onSetSingle,
+                        enabled = ready && waypoints.isNotEmpty(),
+                        modifier = Modifier.weight(1f),
+                    ) { Text("Set last") }
+                }
             }
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -444,7 +462,7 @@ private fun ControlPanel(
                         onClick = onPlay,
                         enabled = ready && waypoints.size >= 2,
                         modifier = Modifier.weight(1f),
-                    ) { Text("Play") }
+                    ) { Text("Play route") }
                 }
                 OutlinedButton(
                     onClick = onStop,
