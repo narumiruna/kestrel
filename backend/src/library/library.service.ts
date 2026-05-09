@@ -498,12 +498,6 @@ export class LibraryService {
       const reorderedItems = [...items];
       const [movedItem] = reorderedItems.splice(currentIndex, 1);
 
-      if (movedItem == null) {
-        throw new InternalServerErrorException(
-          'failed to reorder library item',
-        );
-      }
-
       reorderedItems.splice(
         Math.min(toIndex, reorderedItems.length),
         0,
