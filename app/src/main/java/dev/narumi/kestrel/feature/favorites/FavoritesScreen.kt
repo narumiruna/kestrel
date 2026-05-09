@@ -465,7 +465,7 @@ private fun RenameFavoriteDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val invalid = name.trim().isEmpty()
+    val isNameEmpty = name.trim().isEmpty()
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Rename favorite") },
@@ -479,7 +479,7 @@ private fun RenameFavoriteDialog(
             )
         },
         confirmButton = {
-            TextButton(enabled = !invalid, onClick = onConfirm) { Text("Rename") }
+            TextButton(enabled = !isNameEmpty, onClick = onConfirm) { Text("Rename") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
