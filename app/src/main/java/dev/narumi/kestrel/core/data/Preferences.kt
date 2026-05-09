@@ -34,17 +34,20 @@ data class FavoriteRoute(
     val lats: DoubleArray,
     val lngs: DoubleArray,
     val speedKmh: Double,
+    val mode: String = "Once",
 ) {
     override fun equals(other: Any?): Boolean =
         other is FavoriteRoute &&
             lats.contentEquals(other.lats) && lngs.contentEquals(other.lngs) &&
-            speedKmh == other.speedKmh
+            speedKmh == other.speedKmh && mode == other.mode
 
-    override fun hashCode(): Int =
-        (
-            lats.contentHashCode() * 31 +
-                lngs.contentHashCode()
-        ) * 31 + speedKmh.hashCode()
+    override fun hashCode(): Int {
+        var result = lats.contentHashCode()
+        result = result * 31 + lngs.contentHashCode()
+        result = result * 31 + speedKmh.hashCode()
+        result = result * 31 + mode.hashCode()
+        return result
+    }
 }
 
 @Serializable
@@ -52,6 +55,7 @@ data class RouteState(
     val lats: DoubleArray,
     val lngs: DoubleArray,
     val speedKmh: Double,
+    val mode: String = "Once",
 )
 
 @Serializable

@@ -50,6 +50,7 @@ import dev.narumi.kestrel.core.data.StartupPreference
 import dev.narumi.kestrel.core.location.LatLng
 import dev.narumi.kestrel.core.location.LocationService
 import dev.narumi.kestrel.core.location.MockProviderManager
+import dev.narumi.kestrel.core.location.MovementEngine
 import dev.narumi.kestrel.core.location.RouteGenerator
 import dev.narumi.kestrel.core.location.rememberCurrentLocation
 import dev.narumi.kestrel.core.map.KestrelMap
@@ -66,10 +67,18 @@ private sealed interface PendingFavorite {
     data class Route(
         val waypoints: List<LatLng>,
         val speedKmh: Double,
+        val mode: MovementEngine.Mode,
     ) : PendingFavorite
 }
 
 private val SPEED_PRESETS = listOf(5.0, 10.0, 15.0, 20.0)
+
+private fun MovementEngine.Mode.label(): String =
+    when (this) {
+        MovementEngine.Mode.Once -> "Once"
+        MovementEngine.Mode.Loop -> "Loop"
+        MovementEngine.Mode.PingPong -> "Ping-pong"
+    }
 
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
@@ -94,6 +103,7 @@ fun MapScreen(modifier: Modifier = Modifier) {
     var mockAllowed by remember { mutableStateOf(false) }
     var waypoints by remember { mutableStateOf<List<LatLng>>(emptyList()) }
     var speedKmh by remember { mutableStateOf(20.0) }
+    var routeMode by remember { mutableStateOf(MovementEngine.Mode.Once) }
     var runState by remember { mutableStateOf(RunState.Idle) }
     var pendingFavorite by remember { mutableStateOf<PendingFavorite?>(null) }
     var favoriteName by remember { mutableStateOf("") }
@@ -125,6 +135,9 @@ fun MapScreen(modifier: Modifier = Modifier) {
                     if (r != null) {
                         waypoints = r.lats.indices.map { LatLng(r.lats[it], r.lngs[it]) }
                         speedKmh = r.speedKmh
+                        routeMode =
+                            runCatching { MovementEngine.Mode.valueOf(r.mode) }
+                                .getOrDefault(MovementEngine.Mode.Once)
                     } else {
                         LocationService.setLocation(context, LatLng(fav.lat, fav.lng))
                         runState = RunState.Single
@@ -321,11 +334,13 @@ fun MapScreen(modifier: Modifier = Modifier) {
             ready = ready,
             waypoints = waypoints,
             speedKmh = speedKmh,
+            routeMode = routeMode,
             runState = runState,
             onSpeedChange = { speedKmh = it },
+            onModeChange = { routeMode = it },
             onGenerateRoute = { showGenerateDialog = true },
             onSaveRoute = {
-                pendingFavorite = PendingFavorite.Route(waypoints, speedKmh)
+                pendingFavorite = PendingFavorite.Route(waypoints, speedKmh, routeMode)
             },
             onClear = {
                 waypoints = emptyList()
@@ -340,7 +355,7 @@ fun MapScreen(modifier: Modifier = Modifier) {
                 runState = RunState.Single
             },
             onPlay = {
-                LocationService.startRoute(context, waypoints, speedKmh)
+                LocationService.startRoute(context, waypoints, speedKmh, routeMode)
                 runState = RunState.RoutePlaying
             },
             onPause = {
@@ -493,8 +508,10 @@ private fun ControlPanel(
     ready: Boolean,
     waypoints: List<LatLng>,
     speedKmh: Double,
+    routeMode: MovementEngine.Mode,
     runState: RunState,
     onSpeedChange: (Double) -> Unit,
+    onModeChange: (MovementEngine.Mode) -> Unit,
     onGenerateRoute: () -> Unit,
     onSaveRoute: () -> Unit,
     onClear: () -> Unit,
@@ -524,6 +541,30 @@ private fun ControlPanel(
                     AssistChip(
                         onClick = { onSpeedChange(preset) },
                         label = { Text("${preset.toInt()} km/h") },
+                        enabled = !isRouteRunning,
+                        leadingIcon =
+                            if (selected) {
+                                { Text("•") }
+                            } else {
+                                null
+                            },
+                    )
+                }
+            }
+            Text(
+                text = "Mode",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                MovementEngine.Mode.entries.forEach { entry ->
+                    val selected = entry == routeMode
+                    AssistChip(
+                        onClick = { onModeChange(entry) },
+                        label = { Text(entry.label()) },
                         enabled = !isRouteRunning,
                         leadingIcon =
                             if (selected) {
