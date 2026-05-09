@@ -276,7 +276,5 @@ describe('AuthService', () => {
         username: 'alice',
       },
     });
-
-    jest.useRealTimers();
   });
 });
