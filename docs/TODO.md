@@ -2,11 +2,40 @@
 
 依工程量排序的 backlog。打 `[x]` 表示已完成。
 
+## Phase：Go to 面板 + Favorites 整理（A + D）
+
+來源：`docs/plan/phase-quick-jump-and-favorites.md`。
+
+### 實作步驟
+
+- [x] **Schema + prefs 基礎**：加 `lastUsedAt`、`FavoritesSortMode`、相關 `KestrelPrefs` 方法。
+- [ ] **Prefs 單元測試**：覆蓋 sort mode、rename 衝突、startup favorite name 同步、reorder、touch。
+- [x] **座標解析器**：`parseCoordInput(String): LatLng?` + 單元測試（純座標、Google Maps URL、範圍邊界）。
+- [x] **Go to 面板 UI**：`ModalBottomSheet` + 座標欄 + Points / Routes tabs + favorites 列表（sort 套用）。
+- [x] **MapScreen 接線**：新 FAB、開啟面板、apply 動作、套用前先停 route / mock。
+- [ ] **Favorites 頁完整改版**：已完成 tabs / sort / rename / delete；尚缺 overflow menu、Edit coords、Edit route speed-mode、Apply now。
+- [ ] **Apply now / lastUsedAt 串起來**：Go to 面板已 touch；尚缺 Favorites 頁 Apply now 與 Startup 套用時 touch。
+- [ ] **Manual 拖曳重排 UI**：接 `reorderFavorite(name, toIndex)`，順序持久化。
+- [ ] **手動測試 + detekt baseline 更新**：實機驗證後更新。
+
+### 驗收條件
+
+- [x] 貼 `25.0330, 121.5654` / `25.0330 121.5654` / Google Maps URL 都能解析並跳轉。
+- [x] Go to 面板能套用單點 favorite，套完面板關閉、底部 sheet 顯示 Mock this point。
+- [x] Go to 面板能套用 route favorite，套完不自動播、speed / mode 已套上。
+- [x] route 跑步中按 Go to 套東西，會先停舊 mock / route 再套新。
+- [x] Favorites 頁 Points / Routes tabs 切換正常、空狀態文案合理。
+- [x] 三種排序模式皆可運作，設定持久化。
+- [ ] Manual 模式下能拖曳重排、順序持久化。
+- [ ] Rename / Edit coords / Edit speed-mode / Delete / Apply now 都可運作（Rename / Delete 已完成）。
+- [ ] 套用 favorite 會更新 `lastUsedAt`，Recent 排序順序如預期變化（Go to 面板已完成；Favorites / Startup 尚缺）。
+- [x] `just check` / `just lint` 通過。
+
 ## Quick wins（30 分 – 1 小時）
 
 - [ ] **單元測試**：`MovementEngine`（Once/Loop/PingPong 邊界）、`RouteGenerator`（種子可重現、間距 ±誤差）、`Geo`（haversine、bearing、destinationPoint 球面繞回）。純 Kotlin，幾十行覆蓋。
 - [ ] **抖動 (jitter)**：`LocationService.pushSample` / `pushLocation` 加 lat/lng ±N m、speed ±5% 隨機擾動。讓 mock 軌跡不像鐵軌。預設可關。
-- [ ] **收藏 rename**：Favorites 列表加 edit icon，跳輸入框；`KestrelPrefs` 加 `renameFavorite(old, new)`，連帶處理 `StartupPreference.favoriteName`。
+- [x] **收藏 rename**：Favorites 列表加 edit icon，跳輸入框；`KestrelPrefs` 加 `renameFavorite(old, new)`，連帶處理 `StartupPreference.favoriteName`。
 - [ ] **通知文案微調 + channel description**：通知列現在 title/text 偏陽春，加 channel description（系統設定才看得到）與更明確的 mode 子標題。
 - [ ] **App icon**：目前還是 Android Studio 綠機器人。一個 vector + adaptive icon（前景 / 背景）就能換掉。
 
