@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import java.util.UUID
 
+@Suppress("TooManyFunctions")
 interface LibraryRepository {
     val items: Flow<List<LibraryItemWithContent>>
     val sortMode: Flow<FavoritesSortMode>
