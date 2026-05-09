@@ -614,7 +614,7 @@ private fun GoToFavoriteRow(
 @Suppress("LongParameterList")
 private fun applyStartupItem(
     item: LibraryItemWithContent,
-    context: android.content.Context,
+    context: Context,
     setWaypoints: (List<LatLng>) -> Unit,
     setCameraTarget: (CameraSnapshot?) -> Unit,
     setSpeedKmh: (Double) -> Unit,

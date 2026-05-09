@@ -16,7 +16,7 @@ import androidx.room.PrimaryKey
             onDelete = ForeignKey.CASCADE,
         ),
     ],
-    indices = [Index(value = ["route_revision_id"]), Index(value = ["sequence"])],
+    indices = [Index(value = ["route_revision_id", "sequence"])],
 )
 data class WaypointEntity(
     @PrimaryKey val id: String,
