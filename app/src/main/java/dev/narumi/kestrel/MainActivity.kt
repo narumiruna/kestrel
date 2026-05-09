@@ -17,9 +17,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewScreenSizes
+import dev.narumi.kestrel.feature.map.MockDemoScreen
 import dev.narumi.kestrel.ui.theme.KestrelTheme
 
 class MainActivity : ComponentActivity() {
@@ -57,10 +56,7 @@ fun KestrelApp() {
         }
     ) {
         Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-            Greeting(
-                name = "Android",
-                modifier = Modifier.padding(innerPadding)
-            )
+            MockDemoScreen(modifier = Modifier.padding(innerPadding))
         }
     }
 }
@@ -74,18 +70,3 @@ enum class AppDestinations(
     PROFILE("Profile", R.drawable.ic_account_box),
 }
 
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    KestrelTheme {
-        Greeting("Android")
-    }
-}
