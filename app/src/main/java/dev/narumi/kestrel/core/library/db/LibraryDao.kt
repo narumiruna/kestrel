@@ -8,6 +8,7 @@ import androidx.room.Transaction
 import kotlinx.coroutines.flow.Flow
 
 @Dao
+@Suppress("TooManyFunctions")
 abstract class LibraryDao {
     @Transaction
     @Query("SELECT * FROM library_items ORDER BY sort_order ASC, created_at ASC")
