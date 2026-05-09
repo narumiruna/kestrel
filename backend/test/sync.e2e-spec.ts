@@ -373,12 +373,7 @@ function filterLibraryItems(
       return false;
     }
 
-    if (
-      args.where?.id != null &&
-      'in' in args.where.id &&
-      args.where.id.in != null &&
-      !args.where.id.in.includes(libraryItem.id)
-    ) {
+    if (!matchesIdFilter(args.where?.id, libraryItem.id)) {
       return false;
     }
 
@@ -399,12 +394,7 @@ function filterPlaces(
       return false;
     }
 
-    if (
-      args.where?.id != null &&
-      'in' in args.where.id &&
-      args.where.id.in != null &&
-      !args.where.id.in.includes(place.id)
-    ) {
+    if (!matchesIdFilter(args.where?.id, place.id)) {
       return false;
     }
 
@@ -425,12 +415,7 @@ function filterRoutes(
       return false;
     }
 
-    if (
-      args.where?.id != null &&
-      'in' in args.where.id &&
-      args.where.id.in != null &&
-      !args.where.id.in.includes(route.id)
-    ) {
+    if (!matchesIdFilter(args.where?.id, route.id)) {
       return false;
     }
 
@@ -458,4 +443,22 @@ function findBoundarySyncEvent(
   }
 
   return syncEvents.length === 0 ? null : { id: syncEvents[0].id };
+}
+
+function matchesIdFilter(filter: unknown, id: string) {
+  if (filter == null) {
+    return true;
+  }
+
+  if (typeof filter !== 'object' || Array.isArray(filter)) {
+    return true;
+  }
+
+  const values = (filter as { in?: unknown }).in;
+
+  if (!Array.isArray(values)) {
+    return true;
+  }
+
+  return values.includes(id);
 }
