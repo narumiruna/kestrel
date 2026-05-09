@@ -117,7 +117,7 @@ fun MapScreen(modifier: Modifier = Modifier) {
     }
 
     val ready = permissionState.allPermissionsGranted && mockAllowed
-    val mockTarget: LatLng? = if (runState == RunState.Single) waypoints.lastOrNull() else null
+    val mockNow by LocationService.currentMock.collectAsStateWithLifecycle()
 
     pendingFavorite?.let { target ->
         AlertDialog(
@@ -172,13 +172,17 @@ fun MapScreen(modifier: Modifier = Modifier) {
             .weight(1f)) {
             KestrelMap(
                 modifier = Modifier.fillMaxSize(),
-                marker = mockTarget,
+                mockLocation = mockNow,
                 polyline = waypoints,
                 myLocation = myLocation,
                 cameraTarget = cameraTarget,
-                onMapClick = {
+                onMapClick = { point ->
                     if (runState == RunState.Idle || runState == RunState.Single) {
-                        waypoints = waypoints + it
+                        waypoints = waypoints + point
+                        if (ready) {
+                            LocationService.setLocation(context, point)
+                            runState = RunState.Single
+                        }
                     }
                 },
                 onMapLongClick = { pendingFavorite = it },

@@ -34,8 +34,9 @@ import org.maplibre.geojson.Point
 
 private val EMPTY_FEATURES = FeatureCollection.fromFeatures(emptyList<Feature>())
 
-private const val SOURCE_MARKER = "kestrel-marker"
-private const val LAYER_MARKER = "kestrel-marker-layer"
+private const val SOURCE_MOCK = "kestrel-mock"
+private const val LAYER_MOCK = "kestrel-mock-layer"
+private const val LAYER_MOCK_HALO = "kestrel-mock-halo-layer"
 private const val SOURCE_LINE = "kestrel-line"
 private const val LAYER_LINE = "kestrel-line-layer"
 private const val SOURCE_WAYPOINTS = "kestrel-waypoints"
@@ -49,7 +50,7 @@ fun KestrelMap(
     modifier: Modifier = Modifier,
     initialCenter: LatLng = LatLng(25.0330, 121.5654),
     initialZoom: Double = 11.0,
-    marker: LatLng? = null,
+    mockLocation: LatLng? = null,
     polyline: List<LatLng> = emptyList(),
     myLocation: LatLng? = null,
     cameraTarget: CameraSnapshot? = null,
@@ -107,9 +108,16 @@ fun KestrelMap(
                         PropertyFactory.circleStrokeWidth(1.5f),
                     ),
                 )
-                style.addSource(GeoJsonSource(SOURCE_MARKER))
+                style.addSource(GeoJsonSource(SOURCE_MOCK))
                 style.addLayer(
-                    CircleLayer(LAYER_MARKER, SOURCE_MARKER).withProperties(
+                    CircleLayer(LAYER_MOCK_HALO, SOURCE_MOCK).withProperties(
+                        PropertyFactory.circleRadius(20f),
+                        PropertyFactory.circleColor("#d32f2f"),
+                        PropertyFactory.circleOpacity(0.18f),
+                    ),
+                )
+                style.addLayer(
+                    CircleLayer(LAYER_MOCK, SOURCE_MOCK).withProperties(
                         PropertyFactory.circleRadius(9f),
                         PropertyFactory.circleColor("#d32f2f"),
                         PropertyFactory.circleStrokeColor("#ffffff"),
@@ -165,13 +173,13 @@ fun KestrelMap(
         }
     }
 
-    LaunchedEffect(marker, styleRef) {
+    LaunchedEffect(mockLocation, styleRef) {
         val style = styleRef ?: return@LaunchedEffect
-        val source = style.getSourceAs<GeoJsonSource>(SOURCE_MARKER) ?: return@LaunchedEffect
-        if (marker == null) {
+        val source = style.getSourceAs<GeoJsonSource>(SOURCE_MOCK) ?: return@LaunchedEffect
+        if (mockLocation == null) {
             source.setGeoJson(EMPTY_FEATURES)
         } else {
-            source.setGeoJson(Point.fromLngLat(marker.lng, marker.lat))
+            source.setGeoJson(Point.fromLngLat(mockLocation.lng, mockLocation.lat))
         }
     }
 

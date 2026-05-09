@@ -25,6 +25,9 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -58,6 +61,7 @@ class LocationService : Service() {
                 stopRoute()
                 stopMock()
                 currentMode = MockState.Mode.Idle
+                _currentMock.value = null
                 scope.launch { prefs.setMockState(null) }
                 stopForegroundCompat()
                 stopSelf()
@@ -170,6 +174,7 @@ class LocationService : Service() {
 
     private fun pushLocation(point: LatLng) {
         runCatching { mockProvider.setLocation(point) }
+            .onSuccess { _currentMock.value = point }
             .onFailure { Log.w(TAG, "setLocation failed", it) }
     }
 
@@ -180,7 +185,8 @@ class LocationService : Service() {
                 speed = sample.speedMps.toFloat(),
                 bearing = sample.bearingDeg.toFloat(),
             )
-        }.onFailure { Log.w(TAG, "setLocation failed", it) }
+        }.onSuccess { _currentMock.value = sample.point }
+            .onFailure { Log.w(TAG, "setLocation failed", it) }
     }
 
     private fun ensureForeground() {
@@ -299,6 +305,9 @@ class LocationService : Service() {
         private const val REQ_PAUSE = 1
         private const val REQ_RESUME = 2
         private const val REQ_STOP = 3
+
+        private val _currentMock = MutableStateFlow<LatLng?>(null)
+        val currentMock: StateFlow<LatLng?> = _currentMock.asStateFlow()
 
         fun start(context: Context) {
             sendIntent(context, ACTION_START, foreground = true)
