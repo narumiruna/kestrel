@@ -36,23 +36,47 @@ type AuthUserRecord = {
 };
 
 type MockPrismaService = {
-  $transaction: jest.Mock<Promise<unknown>, [(transaction: TransactionClient) => Promise<unknown>]>;
+  $transaction: jest.Mock<
+    Promise<unknown>,
+    [(transaction: TransactionClient) => Promise<unknown>]
+  >;
   recoveryCode: {
-    createMany: jest.Mock<Promise<{ count: number }>, [Prisma.RecoveryCodeCreateManyArgs]>;
-    deleteMany: jest.Mock<Promise<{ count: number }>, [Prisma.RecoveryCodeDeleteManyArgs]>;
+    createMany: jest.Mock<
+      Promise<{ count: number }>,
+      [Prisma.RecoveryCodeCreateManyArgs]
+    >;
+    deleteMany: jest.Mock<
+      Promise<{ count: number }>,
+      [Prisma.RecoveryCodeDeleteManyArgs]
+    >;
     findMany: jest.Mock<
       Promise<Array<Pick<AuthRecoveryCodeRecord, 'codeHash' | 'id'>>>,
       [Prisma.RecoveryCodeFindManyArgs]
     >;
-    update: jest.Mock<Promise<AuthRecoveryCodeRecord>, [Prisma.RecoveryCodeUpdateArgs]>;
+    update: jest.Mock<
+      Promise<AuthRecoveryCodeRecord>,
+      [Prisma.RecoveryCodeUpdateArgs]
+    >;
   };
   session: {
-    create: jest.Mock<Promise<Record<string, unknown>>, [Prisma.SessionCreateArgs]>;
+    create: jest.Mock<
+      Promise<Record<string, unknown>>,
+      [Prisma.SessionCreateArgs]
+    >;
   };
   user: {
-    create: jest.Mock<Promise<Record<string, unknown>>, [Prisma.UserCreateArgs]>;
-    findUnique: jest.Mock<Promise<Record<string, unknown> | null>, [Prisma.UserFindUniqueArgs]>;
-    update: jest.Mock<Promise<Record<string, unknown>>, [Prisma.UserUpdateArgs]>;
+    create: jest.Mock<
+      Promise<Record<string, unknown>>,
+      [Prisma.UserCreateArgs]
+    >;
+    findUnique: jest.Mock<
+      Promise<Record<string, unknown> | null>,
+      [Prisma.UserFindUniqueArgs]
+    >;
+    update: jest.Mock<
+      Promise<Record<string, unknown>>,
+      [Prisma.UserUpdateArgs]
+    >;
   };
 };
 
@@ -139,15 +163,22 @@ describe('AppController (e2e)', () => {
             (record) => record.userId !== userId,
           );
 
-          return Promise.resolve({ count: beforeCount - storedRecoveryCodes.length });
+          return Promise.resolve({
+            count: beforeCount - storedRecoveryCodes.length,
+          });
         }),
         findMany: jest.fn((args: Prisma.RecoveryCodeFindManyArgs) => {
           const userId = args.where?.userId;
 
           return Promise.resolve(
             storedRecoveryCodes
-              .filter((record) => record.userId === userId && record.usedAt == null)
-              .sort((left, right) => left.createdAt.getTime() - right.createdAt.getTime())
+              .filter(
+                (record) => record.userId === userId && record.usedAt == null,
+              )
+              .sort(
+                (left, right) =>
+                  left.createdAt.getTime() - right.createdAt.getTime(),
+              )
               .map((record) => ({
                 codeHash: record.codeHash,
                 id: record.id,
@@ -175,9 +206,9 @@ describe('AppController (e2e)', () => {
         create: jest.fn((args: Prisma.SessionCreateArgs) => {
           const sessionRecord: AuthSessionRecord = {
             createdAt: new Date(),
-            expiresAt: new Date(args.data.expiresAt as Date | string),
+            expiresAt: new Date(args.data.expiresAt),
             id: `session-${storedSessions.length + 1}`,
-            lastUsedAt: new Date(args.data.lastUsedAt as Date | string),
+            lastUsedAt: new Date(args.data.lastUsedAt),
             refreshTokenHash: String(args.data.refreshTokenHash),
             revokedAt: null,
             userId: String(args.data.userId),

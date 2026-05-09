@@ -153,7 +153,10 @@ describe('AuthService', () => {
         >(),
       },
       session: {
-        create: jest.fn<Promise<AuthSessionRecord>, [Prisma.SessionCreateArgs]>(),
+        create: jest.fn<
+          Promise<AuthSessionRecord>,
+          [Prisma.SessionCreateArgs]
+        >(),
       },
       user: {
         create: jest.fn<Promise<AuthUserRecord>, [Prisma.UserCreateArgs]>(),
@@ -479,7 +482,9 @@ describe('AuthService', () => {
         id: true,
       },
     });
-    expect(capturedSessionArgs?.data.refreshTokenHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(capturedSessionArgs?.data.refreshTokenHash).toMatch(
+      /^[a-f0-9]{64}$/,
+    );
     expect(result.authMethod).toBe('totp');
     expect(result.refreshToken).toMatch(/^[A-Za-z0-9_-]+$/);
     expect(result.session).toEqual({
