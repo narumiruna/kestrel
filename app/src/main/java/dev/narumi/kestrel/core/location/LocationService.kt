@@ -15,11 +15,22 @@ import androidx.core.app.NotificationCompat
 import androidx.core.content.getSystemService
 import dev.narumi.kestrel.MainActivity
 import dev.narumi.kestrel.R
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 
 class LocationService : Service() {
 
     private lateinit var mockProvider: MockProviderManager
     private var providerStarted = false
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private var routeJob: Job? = null
+    @Volatile private var paused = false
 
     override fun onCreate() {
         super.onCreate()
@@ -30,6 +41,7 @@ class LocationService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_STOP -> {
+                stopRoute()
                 stopMock()
                 stopForegroundCompat()
                 stopSelf()
@@ -37,25 +49,76 @@ class LocationService : Service() {
             }
             ACTION_SET_LOCATION -> {
                 ensureForeground()
+                stopRoute()
                 val lat = intent.getDoubleExtra(EXTRA_LAT, Double.NaN)
                 val lng = intent.getDoubleExtra(EXTRA_LNG, Double.NaN)
                 if (lat.isFinite() && lng.isFinite()) {
                     ensureMockStarted()
-                    runCatching { mockProvider.setLocation(LatLng(lat, lng)) }
-                        .onFailure { Log.w(TAG, "setLocation failed", it) }
+                    pushLocation(LatLng(lat, lng))
                 }
             }
+            ACTION_START_ROUTE -> {
+                ensureForeground()
+                val lats = intent.getDoubleArrayExtra(EXTRA_LATS)
+                val lngs = intent.getDoubleArrayExtra(EXTRA_LNGS)
+                val speedKmh = intent.getDoubleExtra(EXTRA_SPEED_KMH, Double.NaN)
+                if (lats != null && lngs != null && lats.size == lngs.size &&
+                    lats.size >= 2 && speedKmh.isFinite() && speedKmh > 0) {
+                    val waypoints = lats.indices.map { LatLng(lats[it], lngs[it]) }
+                    startRoute(waypoints, speedKmh)
+                }
+            }
+            ACTION_PAUSE -> paused = true
+            ACTION_RESUME -> paused = false
             else -> ensureForeground()
         }
         return START_STICKY
     }
 
     override fun onDestroy() {
+        stopRoute()
         stopMock()
+        scope.cancel()
         super.onDestroy()
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
+
+    private fun startRoute(waypoints: List<LatLng>, speedKmh: Double) {
+        stopRoute()
+        ensureMockStarted()
+        paused = false
+        val engine = MovementEngine(waypoints, speedKmh / 3.6)
+        routeJob = scope.launch {
+            while (isActive && !engine.isFinished()) {
+                delay(TICK_MILLIS)
+                if (paused) continue
+                val sample = engine.advance(TICK_MILLIS / 1000.0)
+                pushSample(sample)
+            }
+        }
+    }
+
+    private fun stopRoute() {
+        routeJob?.cancel()
+        routeJob = null
+        paused = false
+    }
+
+    private fun pushLocation(point: LatLng) {
+        runCatching { mockProvider.setLocation(point) }
+            .onFailure { Log.w(TAG, "setLocation failed", it) }
+    }
+
+    private fun pushSample(sample: MockSample) {
+        runCatching {
+            mockProvider.setLocation(
+                point = sample.point,
+                speed = sample.speedMps.toFloat(),
+                bearing = sample.bearingDeg.toFloat(),
+            )
+        }.onFailure { Log.w(TAG, "setLocation failed", it) }
+    }
 
     private fun ensureForeground() {
         val notification = buildNotification()
@@ -125,10 +188,17 @@ class LocationService : Service() {
         const val ACTION_START = "dev.narumi.kestrel.action.START"
         const val ACTION_STOP = "dev.narumi.kestrel.action.STOP"
         const val ACTION_SET_LOCATION = "dev.narumi.kestrel.action.SET_LOCATION"
+        const val ACTION_START_ROUTE = "dev.narumi.kestrel.action.START_ROUTE"
+        const val ACTION_PAUSE = "dev.narumi.kestrel.action.PAUSE"
+        const val ACTION_RESUME = "dev.narumi.kestrel.action.RESUME"
         const val EXTRA_LAT = "lat"
         const val EXTRA_LNG = "lng"
+        const val EXTRA_LATS = "lats"
+        const val EXTRA_LNGS = "lngs"
+        const val EXTRA_SPEED_KMH = "speed_kmh"
         private const val CHANNEL_ID = "kestrel_location"
         private const val NOTIFICATION_ID = 1001
+        private const val TICK_MILLIS = 1000L
         private const val TAG = "LocationService"
 
         fun start(context: Context) {
@@ -142,6 +212,27 @@ class LocationService : Service() {
                 putExtra(EXTRA_LNG, point.lng)
             }
             startCompat(context, intent, foreground = true)
+        }
+
+        fun startRoute(context: Context, waypoints: List<LatLng>, speedKmh: Double) {
+            if (waypoints.size < 2) return
+            val lats = DoubleArray(waypoints.size) { waypoints[it].lat }
+            val lngs = DoubleArray(waypoints.size) { waypoints[it].lng }
+            val intent = Intent(context, LocationService::class.java).apply {
+                action = ACTION_START_ROUTE
+                putExtra(EXTRA_LATS, lats)
+                putExtra(EXTRA_LNGS, lngs)
+                putExtra(EXTRA_SPEED_KMH, speedKmh)
+            }
+            startCompat(context, intent, foreground = true)
+        }
+
+        fun pause(context: Context) {
+            sendIntent(context, ACTION_PAUSE, foreground = true)
+        }
+
+        fun resume(context: Context) {
+            sendIntent(context, ACTION_RESUME, foreground = true)
         }
 
         fun stop(context: Context) {

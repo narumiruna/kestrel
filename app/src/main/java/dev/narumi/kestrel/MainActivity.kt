@@ -18,7 +18,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.PreviewScreenSizes
-import dev.narumi.kestrel.feature.map.MockDemoScreen
+import dev.narumi.kestrel.feature.map.MapScreen
 import dev.narumi.kestrel.ui.theme.KestrelTheme
 
 class MainActivity : ComponentActivity() {
@@ -56,7 +56,7 @@ fun KestrelApp() {
         }
     ) {
         Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-            MockDemoScreen(modifier = Modifier.padding(innerPadding))
+            MapScreen(modifier = Modifier.padding(innerPadding))
         }
     }
 }
