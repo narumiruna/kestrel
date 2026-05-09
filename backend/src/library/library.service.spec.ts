@@ -1,5 +1,10 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
-import { LibraryItemKind, RouteMode } from '@prisma/client';
+import {
+  LibraryItemKind,
+  RouteMode,
+  SyncEntityType,
+  SyncOperation,
+} from '@prisma/client';
 import { LibraryService } from './library.service';
 
 type MockLibraryItemRecord = ReturnType<typeof createLibraryItemRecord>;
@@ -11,6 +16,7 @@ type MockTransactionClient = {
   place: MockPrismaService['place'];
   route: MockPrismaService['route'];
   routeRevision: MockPrismaService['routeRevision'];
+  syncEvent: MockPrismaService['syncEvent'];
 };
 
 type MockPrismaService = {
@@ -65,6 +71,9 @@ type MockPrismaService = {
   routeRevision: {
     create: jest.Mock<Promise<{ id: string }>, [unknown]>;
   };
+  syncEvent: {
+    create: jest.Mock<Promise<{ id: bigint }>, [unknown]>;
+  };
 };
 
 describe('LibraryService', () => {
@@ -79,6 +88,7 @@ describe('LibraryService', () => {
         place: prismaService.place,
         route: prismaService.route,
         routeRevision: prismaService.routeRevision,
+        syncEvent: prismaService.syncEvent,
       }),
     );
     libraryService = new LibraryService(prismaService as never);
@@ -128,7 +138,24 @@ describe('LibraryService', () => {
         sortOrder: 0,
         userId: 'user-1',
       },
+      select: {
+        id: true,
+      },
     });
+    expectSyncEvents(prismaService.syncEvent.create, [
+      {
+        entityId: 'place-1',
+        entityType: SyncEntityType.PLACE,
+        operation: SyncOperation.UPSERT,
+        userId: 'user-1',
+      },
+      {
+        entityId: 'library-item-1',
+        entityType: SyncEntityType.LIBRARY_ITEM,
+        operation: SyncOperation.UPSERT,
+        userId: 'user-1',
+      },
+    ]);
     expect(result).toMatchObject({
       id: 'place-1',
       libraryItem: {
@@ -210,6 +237,20 @@ describe('LibraryService', () => {
         id: true,
       },
     });
+    expectSyncEvents(prismaService.syncEvent.create, [
+      {
+        entityId: 'route-1',
+        entityType: SyncEntityType.ROUTE,
+        operation: SyncOperation.UPSERT,
+        userId: 'user-1',
+      },
+      {
+        entityId: 'library-item-2',
+        entityType: SyncEntityType.LIBRARY_ITEM,
+        operation: SyncOperation.UPSERT,
+        userId: 'user-1',
+      },
+    ]);
     expect(result).toMatchObject({
       currentRevision: {
         id: 'revision-1',
@@ -318,6 +359,14 @@ describe('LibraryService', () => {
       id: 'revision-2',
       revisionNumber: 2,
     });
+    expectSyncEvents(prismaService.syncEvent.create, [
+      {
+        entityId: 'route-1',
+        entityType: SyncEntityType.ROUTE,
+        operation: SyncOperation.UPSERT,
+        userId: 'user-1',
+      },
+    ]);
   });
 
   it('soft deletes a route and its library item', async () => {
@@ -358,6 +407,45 @@ describe('LibraryService', () => {
       kind: LibraryItemKind.ROUTE,
       libraryItemId: 'library-item-2',
     });
+    expectSyncEvents(prismaService.syncEvent.create, [
+      {
+        entityId: 'library-item-2',
+        entityType: SyncEntityType.LIBRARY_ITEM,
+        operation: SyncOperation.DELETE,
+        userId: 'user-1',
+      },
+      {
+        entityId: 'route-1',
+        entityType: SyncEntityType.ROUTE,
+        operation: SyncOperation.DELETE,
+        userId: 'user-1',
+      },
+    ]);
+    const firstSyncEventCall: unknown =
+      prismaService.syncEvent.create.mock.calls[0]?.[0];
+    const secondSyncEventCall: unknown =
+      prismaService.syncEvent.create.mock.calls[1]?.[0];
+    const firstDeletedAt = (
+      firstSyncEventCall as {
+        data?: {
+          payload?: {
+            deletedAt?: unknown;
+          };
+        };
+      }
+    ).data?.payload?.deletedAt;
+    const secondDeletedAt = (
+      secondSyncEventCall as {
+        data?: {
+          payload?: {
+            deletedAt?: unknown;
+          };
+        };
+      }
+    ).data?.payload?.deletedAt;
+
+    expect(typeof firstDeletedAt).toBe('string');
+    expect(typeof secondDeletedAt).toBe('string');
   });
 
   it('reorders active library items', async () => {
@@ -417,6 +505,14 @@ describe('LibraryService', () => {
       id: 'item-1',
       sortOrder: 2,
     });
+    expectSyncEvents(prismaService.syncEvent.create, [
+      {
+        entityId: 'item-1',
+        entityType: SyncEntityType.LIBRARY_ITEM,
+        operation: SyncOperation.UPSERT,
+        userId: 'user-1',
+      },
+    ]);
   });
 
   it('touches an active library item', async () => {
@@ -444,6 +540,14 @@ describe('LibraryService', () => {
       id: 'item-1',
       lastUsedAt: new Date('2026-05-09T17:30:00.000Z'),
     });
+    expectSyncEvents(prismaService.syncEvent.create, [
+      {
+        entityId: 'item-1',
+        entityType: SyncEntityType.LIBRARY_ITEM,
+        operation: SyncOperation.UPSERT,
+        userId: 'user-1',
+      },
+    ]);
   });
 
   it('validates route payloads before hitting Prisma', async () => {
@@ -528,6 +632,9 @@ function createMockPrismaService(): MockPrismaService {
     },
     routeRevision: {
       create: createMock<Promise<{ id: string }>, [unknown]>(),
+    },
+    syncEvent: {
+      create: createMock<Promise<{ id: bigint }>, [unknown]>(),
     },
   };
 }
@@ -631,4 +738,16 @@ function createRouteRecord(input: {
     name: 'River ride',
     updatedAt: new Date('2026-05-09T17:00:00.000Z'),
   };
+}
+
+function expectSyncEvents(
+  createMock: jest.Mock<Promise<{ id: bigint }>, [unknown]>,
+  expectedData: unknown[],
+) {
+  expect(createMock.mock.calls).toHaveLength(expectedData.length);
+  expectedData.forEach((expectedEvent, index) => {
+    expect(createMock.mock.calls[index]?.[0]).toMatchObject({
+      data: expectedEvent,
+    });
+  });
 }
