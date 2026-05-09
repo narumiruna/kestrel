@@ -73,6 +73,8 @@ export class SyncService {
       throw new BadRequestException('since cursor is ahead of server state');
     }
 
+    // A cursor exactly one step before the oldest retained event is still valid:
+    // it simply means "return everything we still have from the beginning".
     if (oldestCursor != null && since < oldestCursor - 1n) {
       throwSyncCursorExpired();
     }
