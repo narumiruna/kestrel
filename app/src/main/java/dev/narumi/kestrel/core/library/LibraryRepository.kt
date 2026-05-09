@@ -75,6 +75,7 @@ private class RoomLibraryRepository(
     private val prefs: KestrelPrefs,
 ) : LibraryRepository {
     private val dao: LibraryDao = database.libraryDao()
+    @Volatile private var migrationEnsured = false
 
     override val items: Flow<List<LibraryItemWithContent>> =
         dao.observeLibraryItems().map { records -> records.map(LibraryItemRecord::toDomain) }
@@ -82,8 +83,10 @@ private class RoomLibraryRepository(
     override val sortMode: Flow<FavoritesSortMode> = prefs.favoritesSortMode
 
     override suspend fun ensureMigrated() {
+        if (migrationEnsured) return
         if (prefs.libraryRoomMigratedValue()) {
             resolveLegacyStartupPreference()
+            migrationEnsured = true
             return
         }
 
@@ -116,6 +119,7 @@ private class RoomLibraryRepository(
                 ?: startup.favoriteName?.let(dao::findLibraryItemIdByName)
         updateStartupPreference(startupLibraryItemId)
         prefs.setLibraryRoomMigrated(true)
+        migrationEnsured = true
     }
 
     override suspend fun addPlace(
