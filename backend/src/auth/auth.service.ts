@@ -2,10 +2,12 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  InternalServerErrorException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { argon2id, hash, verify } from 'argon2';
+import { randomBytes } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { TotpService } from './totp.service';
 
@@ -117,22 +119,44 @@ export class AuthService {
     }
 
     const totpEnabledAt = new Date();
-    const updatedUser = await this.prismaService.user.update({
-      data: {
-        totpEnabledAt,
-      },
-      select: {
-        id: true,
-        totpEnabledAt: true,
-        username: true,
-      },
-      where: {
-        id: user.id,
-      },
-    });
+    const { recoveryCodes, updatedUser } =
+      await this.prismaService.$transaction(async (transaction) => {
+        const recoveryCodes = await createRecoveryCodes();
+
+        await transaction.recoveryCode.deleteMany({
+          where: {
+            userId: user.id,
+          },
+        });
+        await transaction.recoveryCode.createMany({
+          data: recoveryCodes.codeHashes.map((codeHash) => ({
+            codeHash,
+            userId: user.id,
+          })),
+        });
+        const updatedUser = await transaction.user.update({
+          data: {
+            totpEnabledAt,
+          },
+          select: {
+            id: true,
+            totpEnabledAt: true,
+            username: true,
+          },
+          where: {
+            id: user.id,
+          },
+        });
+
+        return {
+          recoveryCodes,
+          updatedUser,
+        };
+      });
 
     return {
       nextStep: 'login' as const,
+      recoveryCodes: recoveryCodes.codes,
       user: updatedUser,
     };
   }
@@ -167,6 +191,12 @@ const MIN_PASSWORD_LENGTH = 12;
 const MAX_PASSWORD_LENGTH = 256;
 const MIN_USERNAME_LENGTH = 3;
 const MAX_USERNAME_LENGTH = 64;
+const RECOVERY_CODE_COUNT = 10;
+const RECOVERY_CODE_GROUP_LENGTH = 4;
+const RECOVERY_CODE_GROUP_COUNT = 2;
+const RECOVERY_CODE_ALPHABET_MASK = 31;
+const RECOVERY_CODE_ALPHABET = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+const RECOVERY_CODE_MAX_ATTEMPTS = 100;
 const USERNAME_PATTERN = /^[A-Za-z0-9._-]+$/;
 
 function parseRegisterRequest(input: unknown): {
@@ -259,4 +289,58 @@ function validatePassword(password: unknown): string {
   }
 
   return password;
+}
+
+async function createRecoveryCodes(): Promise<{
+  codeHashes: string[];
+  codes: string[];
+}> {
+  const normalizedCodes = new Set<string>();
+  let attempts = 0;
+
+  while (
+    normalizedCodes.size < RECOVERY_CODE_COUNT &&
+    attempts < RECOVERY_CODE_MAX_ATTEMPTS
+  ) {
+    normalizedCodes.add(createRecoveryCodeValue());
+    attempts += 1;
+  }
+
+  if (normalizedCodes.size < RECOVERY_CODE_COUNT) {
+    throw new InternalServerErrorException('failed to generate recovery codes');
+  }
+
+  const codes = Array.from(normalizedCodes, formatRecoveryCode);
+  const codeHashes = await Promise.all(
+    Array.from(normalizedCodes, (code) =>
+      hash(code, {
+        type: argon2id,
+      }),
+    ),
+  );
+
+  return {
+    codeHashes,
+    codes,
+  };
+}
+
+function createRecoveryCodeValue(): string {
+  let value = '';
+
+  for (const byte of randomBytes(
+    RECOVERY_CODE_GROUP_LENGTH * RECOVERY_CODE_GROUP_COUNT,
+  )) {
+    // The alphabet has 32 symbols, so taking the low 5 bits is uniform.
+    value += RECOVERY_CODE_ALPHABET[byte & RECOVERY_CODE_ALPHABET_MASK];
+  }
+
+  return value;
+}
+
+function formatRecoveryCode(code: string): string {
+  return [
+    code.slice(0, RECOVERY_CODE_GROUP_LENGTH),
+    code.slice(RECOVERY_CODE_GROUP_LENGTH),
+  ].join('-');
 }
