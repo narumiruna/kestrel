@@ -219,8 +219,8 @@
 - [ ] Migration 後 Points / Routes 數量與原本一致。
 - [ ] Go to 面板可套用 migrated point。
 - [ ] Go to 面板可套用 migrated route，speed / mode 正確。
-- [ ] Save point 會建立 `Place + LibraryItem`，重啟後仍存在。
-- [ ] Save route 會建立 `Route + RouteRevision + Waypoints + LibraryItem`，重啟後仍存在。
+- [x] Save point 會建立 `Place + LibraryItem`，重啟後仍存在。
+- [x] Save route 會建立 `Route + RouteRevision + Waypoints + LibraryItem`，重啟後仍存在。
 - [x] Rename 不改變 item identity；startup reference 不會斷。
 - [x] Recent sorting 使用 `LibraryItem.lastUsedAt`。
 - [x] Manual sorting 使用 `LibraryItem.sortOrder`，重啟後保留。
