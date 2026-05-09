@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  InternalServerErrorException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
@@ -186,6 +187,7 @@ const MAX_USERNAME_LENGTH = 64;
 const RECOVERY_CODE_COUNT = 10;
 const RECOVERY_CODE_GROUP_LENGTH = 4;
 const RECOVERY_CODE_ALPHABET = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+const RECOVERY_CODE_MAX_ATTEMPTS = 100;
 const USERNAME_PATTERN = /^[A-Za-z0-9._-]+$/;
 
 function parseRegisterRequest(input: unknown): {
@@ -285,9 +287,18 @@ async function createRecoveryCodes(): Promise<{
   codes: string[];
 }> {
   const normalizedCodes = new Set<string>();
+  let attempts = 0;
 
-  while (normalizedCodes.size < RECOVERY_CODE_COUNT) {
+  while (
+    normalizedCodes.size < RECOVERY_CODE_COUNT &&
+    attempts < RECOVERY_CODE_MAX_ATTEMPTS
+  ) {
     normalizedCodes.add(createRecoveryCodeValue());
+    attempts += 1;
+  }
+
+  if (normalizedCodes.size < RECOVERY_CODE_COUNT) {
+    throw new InternalServerErrorException('failed to generate recovery codes');
   }
 
   const codes = Array.from(normalizedCodes, formatRecoveryCode);
