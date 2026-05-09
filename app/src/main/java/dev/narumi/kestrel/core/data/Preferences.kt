@@ -25,8 +25,16 @@ data class Favorite(
     val lat: Double,
     val lng: Double,
     val route: FavoriteRoute? = null,
+    val lastUsedAt: Long? = null,
 ) {
     val isRoute: Boolean get() = route != null
+}
+
+@Serializable
+data class FavoritesSortMode(
+    val mode: Mode = Mode.Manual,
+) {
+    enum class Mode { Manual, Recent, Alphabetical }
 }
 
 @Serializable
@@ -88,6 +96,7 @@ private object Keys {
     val LAST_CAM_LNG = doublePreferencesKey("last_cam_lng")
     val LAST_CAM_ZOOM = doublePreferencesKey("last_cam_zoom")
     val FAVORITES = stringPreferencesKey("favorites_json")
+    val FAVORITES_SORT_MODE = stringPreferencesKey("favorites_sort_mode_json")
     val MOCK_STATE = stringPreferencesKey("mock_state_json")
     val STARTUP_PREF = stringPreferencesKey("startup_pref_json")
 }
@@ -100,6 +109,7 @@ class KestrelPrefs(
 
     val lastCamera: Flow<CameraSnapshot?> = store.data.map { it.toCamera() }
     val favorites: Flow<List<Favorite>> = store.data.map { it.toFavorites(json) }
+    val favoritesSortMode: Flow<FavoritesSortMode> = store.data.map { it.toFavoritesSortMode(json) }
     val mockState: Flow<MockState?> = store.data.map { it.toMockState(json) }
     val startupPreference: Flow<StartupPreference> = store.data.map { it.toStartupPref(json) }
 
@@ -119,6 +129,76 @@ class KestrelPrefs(
 
     suspend fun removeFavorite(name: String) {
         mutateFavorites { current -> current.filter { it.name != name } }
+    }
+
+    suspend fun renameFavorite(
+        oldName: String,
+        newName: String,
+    ) {
+        if (oldName == newName) return
+        mutateFavorites { current ->
+            if (current.any { it.name == newName }) {
+                current
+            } else {
+                current.map { if (it.name == oldName) it.copy(name = newName) else it }
+            }
+        }
+    }
+
+    suspend fun updateFavoritePoint(
+        name: String,
+        lat: Double,
+        lng: Double,
+    ) {
+        mutateFavorites { current ->
+            current.map { if (it.name == name) it.copy(lat = lat, lng = lng) else it }
+        }
+    }
+
+    suspend fun updateFavoriteRouteParams(
+        name: String,
+        speedKmh: Double,
+        mode: String,
+    ) {
+        mutateFavorites { current ->
+            current.map {
+                if (it.name == name && it.route != null) {
+                    it.copy(route = it.route.copy(speedKmh = speedKmh, mode = mode))
+                } else {
+                    it
+                }
+            }
+        }
+    }
+
+    suspend fun reorderFavorite(
+        name: String,
+        toIndex: Int,
+    ) {
+        mutateFavorites { current ->
+            val from = current.indexOfFirst { it.name == name }
+            if (from < 0) return@mutateFavorites current
+            val clamped = toIndex.coerceIn(0, current.lastIndex)
+            if (clamped == from) return@mutateFavorites current
+            val moved = current.toMutableList()
+            val item = moved.removeAt(from)
+            moved.add(clamped, item)
+            moved
+        }
+    }
+
+    suspend fun touchFavorite(name: String) {
+        val now = System.currentTimeMillis()
+        mutateFavorites { current ->
+            current.map { if (it.name == name) it.copy(lastUsedAt = now) else it }
+        }
+    }
+
+    suspend fun setFavoritesSortMode(mode: FavoritesSortMode.Mode) {
+        store.edit {
+            it[Keys.FAVORITES_SORT_MODE] =
+                json.encodeToString(FavoritesSortMode.serializer(), FavoritesSortMode(mode))
+        }
     }
 
     suspend fun setStartupPreference(pref: StartupPreference) {
@@ -163,6 +243,13 @@ class KestrelPrefs(
         return runCatching {
             json.decodeFromString(favoritesSerializer, raw)
         }.getOrDefault(emptyList())
+    }
+
+    private fun Preferences.toFavoritesSortMode(json: Json): FavoritesSortMode {
+        val raw = this[Keys.FAVORITES_SORT_MODE] ?: return FavoritesSortMode()
+        return runCatching {
+            json.decodeFromString(FavoritesSortMode.serializer(), raw)
+        }.getOrDefault(FavoritesSortMode())
     }
 
     private fun Preferences.toMockState(json: Json): MockState? {
