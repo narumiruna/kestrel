@@ -17,7 +17,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.tooling.preview.PreviewScreenSizes
+import dev.narumi.kestrel.feature.favorites.FavoritesScreen
 import dev.narumi.kestrel.feature.map.MapScreen
 import dev.narumi.kestrel.ui.theme.KestrelTheme
 
@@ -56,7 +58,15 @@ fun KestrelApp() {
         }
     ) {
         Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-            MapScreen(modifier = Modifier.padding(innerPadding))
+            val contentModifier = Modifier.padding(innerPadding)
+            when (currentDestination) {
+                AppDestinations.HOME -> MapScreen(modifier = contentModifier)
+                AppDestinations.FAVORITES -> FavoritesScreen(modifier = contentModifier)
+                AppDestinations.PROFILE -> Text(
+                    text = "Coming soon",
+                    modifier = contentModifier.padding(16.dp),
+                )
+            }
         }
     }
 }

@@ -43,6 +43,7 @@ import dev.narumi.kestrel.R
 import dev.narumi.kestrel.core.data.CameraSnapshot
 import dev.narumi.kestrel.core.data.Favorite
 import dev.narumi.kestrel.core.data.KestrelPrefs
+import dev.narumi.kestrel.core.data.StartupPreference
 import dev.narumi.kestrel.core.location.LatLng
 import dev.narumi.kestrel.core.location.LocationService
 import dev.narumi.kestrel.core.location.MockProviderManager
@@ -50,6 +51,7 @@ import dev.narumi.kestrel.core.location.rememberCurrentLocation
 import dev.narumi.kestrel.core.map.KestrelMap
 import dev.narumi.kestrel.feature.startup.StartupChoice
 import dev.narumi.kestrel.feature.startup.StartupSheet
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 private enum class RunState { Idle, Single, RoutePlaying, RoutePaused }
@@ -80,18 +82,50 @@ fun MapScreen(modifier: Modifier = Modifier) {
     var waypoints by remember { mutableStateOf<List<LatLng>>(emptyList()) }
     var speedKmh by remember { mutableStateOf(20.0) }
     var runState by remember { mutableStateOf(RunState.Idle) }
-    var showStartupSheet by remember { mutableStateOf(true) }
+    var showStartupSheet by remember { mutableStateOf(false) }
     var pendingFavorite by remember { mutableStateOf<LatLng?>(null) }
     var favoriteName by remember { mutableStateOf("") }
     var cameraTarget by remember { mutableStateOf<CameraSnapshot?>(null) }
+    var awaitCurrentForStartup by remember { mutableStateOf(false) }
+    var startupResolved by remember { mutableStateOf(false) }
+
+    val myLocation by rememberCurrentLocation(permissionState.allPermissionsGranted)
 
     LaunchedEffect(permissionState.allPermissionsGranted) {
         mockAllowed = mockProvider.isMockAllowed()
     }
 
+    LaunchedEffect(Unit) {
+        if (startupResolved) return@LaunchedEffect
+        val pref = prefs.startupPreference.first()
+        when (pref.mode) {
+            StartupPreference.Mode.Ask -> showStartupSheet = true
+            StartupPreference.Mode.Last -> {
+                val cam = prefs.lastCamera.first()
+                if (cam != null) cameraTarget = cam else showStartupSheet = true
+            }
+            StartupPreference.Mode.Current -> awaitCurrentForStartup = true
+            StartupPreference.Mode.Favorite -> {
+                val fav = prefs.favorites.first().find { it.name == pref.favoriteName }
+                if (fav != null) {
+                    cameraTarget = CameraSnapshot(fav.lat, fav.lng, 13.0)
+                } else {
+                    showStartupSheet = true
+                }
+            }
+        }
+        startupResolved = true
+    }
+
+    LaunchedEffect(myLocation, awaitCurrentForStartup) {
+        if (!awaitCurrentForStartup) return@LaunchedEffect
+        val ml = myLocation ?: return@LaunchedEffect
+        cameraTarget = CameraSnapshot(ml.lat, ml.lng, 15.0)
+        awaitCurrentForStartup = false
+    }
+
     val ready = permissionState.allPermissionsGranted && mockAllowed
     val mockTarget: LatLng? = if (runState == RunState.Single) waypoints.lastOrNull() else null
-    val myLocation by rememberCurrentLocation(permissionState.allPermissionsGranted)
 
     if (showStartupSheet) {
         StartupSheet(
