@@ -40,6 +40,7 @@ A **foreground service** (type `location`) keeps the mock alive while the UI is 
 ## Project Structure
 
 ```
+backend/                     # NestJS + Prisma cloud platform backend
 app/src/main/java/dev/narumi/kestrel/
 ├── core/
 │   ├── data/        # DataStore Preferences, @Serializable schema
@@ -83,6 +84,18 @@ JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" \
 ```
 
 Pure-Kotlin tests (no Android context needed) live in `app/src/test/`. Tests that require an Android context go in `app/src/androidTest/`.
+
+### Cloud platform backend
+
+The cloud platform backend lives in `/home/runner/work/kestrel/kestrel/backend`.
+
+```bash
+cd backend
+npm install
+npm run db:up
+npm run prisma:migrate:dev
+npm run start:dev
+```
 
 ---
 
