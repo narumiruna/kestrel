@@ -1,9 +1,9 @@
 package dev.narumi.kestrel.core.data
 
 import android.content.Context
-import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.doublePreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -138,6 +138,7 @@ class KestrelPrefs(
     private val store = context.applicationContext.prefStore
 
     val lastCamera: Flow<CameraSnapshot?> = store.data.map { it.toCamera() }
+
     @Deprecated("Library data now lives in Room; use LibraryRepository instead.")
     val favorites: Flow<List<Favorite>> = store.data.map { it.toFavorites(json) }
     val libraryRoomMigrated: Flow<Boolean> = store.data.map { it[Keys.LIBRARY_ROOM_MIGRATED] == true }
