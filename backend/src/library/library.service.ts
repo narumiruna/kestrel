@@ -7,9 +7,19 @@ import {
   LibraryItemKind,
   type Prisma,
   RouteMode,
-  type RouteRevision as PrismaRouteRevision,
+  SyncEntityType,
+  SyncOperation,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  libraryItemSelect,
+  mapLibraryItem,
+  mapPlace,
+  mapRoute,
+  placeSelect,
+  routeRevisionSelect,
+  routeSelect,
+} from './library.models';
 import {
   parseCreatePlaceInput,
   parseCreateRouteInput,
@@ -18,86 +28,6 @@ import {
   parseUpdateRouteInput,
   type RouteWaypointInput,
 } from './library.validation';
-
-const libraryItemSelect = {
-  createdAt: true,
-  deletedAt: true,
-  id: true,
-  kind: true,
-  lastUsedAt: true,
-  pinned: true,
-  placeId: true,
-  routeId: true,
-  sortOrder: true,
-  updatedAt: true,
-} satisfies Prisma.LibraryItemSelect;
-
-const placeSelect = {
-  createdAt: true,
-  deletedAt: true,
-  description: true,
-  id: true,
-  latitude: true,
-  libraryItem: {
-    select: libraryItemSelect,
-  },
-  longitude: true,
-  name: true,
-  tags: true,
-  updatedAt: true,
-} satisfies Prisma.PlaceSelect;
-
-const routeRevisionSelect = {
-  createdAt: true,
-  createdBy: true,
-  id: true,
-  payload: true,
-  revisionNumber: true,
-} satisfies Prisma.RouteRevisionSelect;
-
-const routeSelect = {
-  createdAt: true,
-  currentRevision: {
-    select: routeRevisionSelect,
-  },
-  defaultSpeedKmh: true,
-  deletedAt: true,
-  description: true,
-  id: true,
-  isPublic: true,
-  libraryItem: {
-    select: libraryItemSelect,
-  },
-  mode: true,
-  name: true,
-  updatedAt: true,
-} satisfies Prisma.RouteSelect;
-
-type LibraryItemRecord = Prisma.LibraryItemGetPayload<{
-  select: typeof libraryItemSelect;
-}>;
-
-type PlaceRecord = Prisma.PlaceGetPayload<{
-  select: typeof placeSelect;
-}>;
-
-type RouteRecord = Prisma.RouteGetPayload<{
-  select: typeof routeSelect;
-}>;
-
-type RouteRevisionPayload = {
-  defaultSpeedKmh: number;
-  mode: RouteMode;
-  waypoints: RouteRevisionWaypoint[];
-};
-
-type RouteRevisionWaypoint = {
-  latitude: number;
-  longitude: number;
-  pauseSeconds: number | null;
-  sequence: number;
-  speedKmh: number | null;
-};
 
 @Injectable()
 export class LibraryService {
@@ -151,13 +81,28 @@ export class LibraryService {
         },
       });
 
-      await tx.libraryItem.create({
+      const libraryItem = await tx.libraryItem.create({
         data: {
           kind: LibraryItemKind.PLACE,
           placeId: place.id,
           sortOrder,
           userId,
         },
+        select: {
+          id: true,
+        },
+      });
+      await recordSyncEvent(tx, {
+        entityId: place.id,
+        entityType: SyncEntityType.PLACE,
+        operation: SyncOperation.UPSERT,
+        userId,
+      });
+      await recordSyncEvent(tx, {
+        entityId: libraryItem.id,
+        entityType: SyncEntityType.LIBRARY_ITEM,
+        operation: SyncOperation.UPSERT,
+        userId,
       });
 
       return tx.place.findUniqueOrThrow({
@@ -193,6 +138,12 @@ export class LibraryService {
       where: {
         id: place.id,
       },
+    });
+    await recordSyncEvent(this.prismaService, {
+      entityId: place.id,
+      entityType: SyncEntityType.PLACE,
+      operation: SyncOperation.UPSERT,
+      userId,
     });
 
     return this.getPlace(userId, place.id);
@@ -239,7 +190,25 @@ export class LibraryService {
             id: place.libraryItem.id,
           },
         });
+        await recordSyncEvent(tx, {
+          entityId: place.libraryItem.id,
+          entityType: SyncEntityType.LIBRARY_ITEM,
+          operation: SyncOperation.DELETE,
+          payload: {
+            deletedAt: deletedAt.toISOString(),
+          },
+          userId,
+        });
       }
+      await recordSyncEvent(tx, {
+        entityId: place.id,
+        entityType: SyncEntityType.PLACE,
+        operation: SyncOperation.DELETE,
+        payload: {
+          deletedAt: deletedAt.toISOString(),
+        },
+        userId,
+      });
 
       return {
         deletedAt,
@@ -321,13 +290,28 @@ export class LibraryService {
           id: createdRoute.id,
         },
       });
-      await tx.libraryItem.create({
+      const libraryItem = await tx.libraryItem.create({
         data: {
           kind: LibraryItemKind.ROUTE,
           routeId: createdRoute.id,
           sortOrder,
           userId,
         },
+        select: {
+          id: true,
+        },
+      });
+      await recordSyncEvent(tx, {
+        entityId: createdRoute.id,
+        entityType: SyncEntityType.ROUTE,
+        operation: SyncOperation.UPSERT,
+        userId,
+      });
+      await recordSyncEvent(tx, {
+        entityId: libraryItem.id,
+        entityType: SyncEntityType.LIBRARY_ITEM,
+        operation: SyncOperation.UPSERT,
+        userId,
       });
 
       return tx.route.findUniqueOrThrow({
@@ -413,6 +397,12 @@ export class LibraryService {
           id: existingRoute.id,
         },
       });
+      await recordSyncEvent(tx, {
+        entityId: existingRoute.id,
+        entityType: SyncEntityType.ROUTE,
+        operation: SyncOperation.UPSERT,
+        userId,
+      });
 
       return tx.route.findUniqueOrThrow({
         select: routeSelect,
@@ -466,7 +456,25 @@ export class LibraryService {
             id: route.libraryItem.id,
           },
         });
+        await recordSyncEvent(tx, {
+          entityId: route.libraryItem.id,
+          entityType: SyncEntityType.LIBRARY_ITEM,
+          operation: SyncOperation.DELETE,
+          payload: {
+            deletedAt: deletedAt.toISOString(),
+          },
+          userId,
+        });
       }
+      await recordSyncEvent(tx, {
+        entityId: route.id,
+        entityType: SyncEntityType.ROUTE,
+        operation: SyncOperation.DELETE,
+        payload: {
+          deletedAt: deletedAt.toISOString(),
+        },
+        userId,
+      });
 
       return {
         deletedAt,
@@ -515,6 +523,12 @@ export class LibraryService {
           }),
         ),
       );
+      await recordSyncEvent(tx, {
+        entityId: itemId,
+        entityType: SyncEntityType.LIBRARY_ITEM,
+        operation: SyncOperation.UPSERT,
+        userId,
+      });
 
       return mapLibraryItem(
         await tx.libraryItem.findUniqueOrThrow({
@@ -543,17 +557,23 @@ export class LibraryService {
       throw new NotFoundException('library item not found');
     }
 
-    return mapLibraryItem(
-      await this.prismaService.libraryItem.update({
-        data: {
-          lastUsedAt: new Date(),
-        },
-        select: libraryItemSelect,
-        where: {
-          id: existingItem.id,
-        },
-      }),
-    );
+    const libraryItem = await this.prismaService.libraryItem.update({
+      data: {
+        lastUsedAt: new Date(),
+      },
+      select: libraryItemSelect,
+      where: {
+        id: existingItem.id,
+      },
+    });
+    await recordSyncEvent(this.prismaService, {
+      entityId: existingItem.id,
+      entityType: SyncEntityType.LIBRARY_ITEM,
+      operation: SyncOperation.UPSERT,
+      userId,
+    });
+
+    return mapLibraryItem(libraryItem);
   }
 }
 
@@ -593,88 +613,16 @@ function createRouteRevisionPayload(input: {
   };
 }
 
-function mapPlace(place: PlaceRecord) {
-  return {
-    createdAt: place.createdAt,
-    deletedAt: place.deletedAt,
-    description: place.description,
-    id: place.id,
-    libraryItem:
-      place.libraryItem == null ? null : mapLibraryItem(place.libraryItem),
-    latitude: place.latitude,
-    longitude: place.longitude,
-    name: place.name,
-    tags: parseStoredTags(place.tags),
-    updatedAt: place.updatedAt,
-  };
-}
-
-function mapRoute(route: RouteRecord) {
-  return {
-    createdAt: route.createdAt,
-    currentRevision:
-      route.currentRevision == null
-        ? null
-        : mapRouteRevision(route.currentRevision),
-    defaultSpeedKmh: route.defaultSpeedKmh,
-    deletedAt: route.deletedAt,
-    description: route.description,
-    id: route.id,
-    isPublic: route.isPublic,
-    libraryItem:
-      route.libraryItem == null ? null : mapLibraryItem(route.libraryItem),
-    mode: route.mode,
-    name: route.name,
-    updatedAt: route.updatedAt,
-  };
-}
-
-function mapLibraryItem(libraryItem: LibraryItemRecord) {
-  return {
-    createdAt: libraryItem.createdAt,
-    deletedAt: libraryItem.deletedAt,
-    id: libraryItem.id,
-    kind: libraryItem.kind,
-    lastUsedAt: libraryItem.lastUsedAt,
-    pinned: libraryItem.pinned,
-    placeId: libraryItem.placeId,
-    routeId: libraryItem.routeId,
-    sortOrder: libraryItem.sortOrder,
-    updatedAt: libraryItem.updatedAt,
-  };
-}
-
-function mapRouteRevision(revision: {
-  createdAt: Date;
-  createdBy: string;
-  id: string;
+function parseStoredRouteRevisionPayload(revision: {
   payload: Prisma.JsonValue;
-  revisionNumber: number;
-}) {
-  const payload = parseStoredRouteRevisionPayload(revision);
-
-  return {
-    createdAt: revision.createdAt,
-    createdBy: revision.createdBy,
-    defaultSpeedKmh: payload.defaultSpeedKmh,
-    id: revision.id,
-    mode: payload.mode,
-    revisionNumber: revision.revisionNumber,
-    waypoints: payload.waypoints,
-  };
-}
-
-function parseStoredTags(tags: Prisma.JsonValue): string[] {
-  if (!Array.isArray(tags) || !tags.every((tag) => typeof tag === 'string')) {
-    throw new InternalServerErrorException('stored place tags are invalid');
-  }
-
-  return tags;
-}
-
-function parseStoredRouteRevisionPayload(
-  revision: Pick<PrismaRouteRevision, 'payload'>,
-): RouteRevisionPayload {
+}): {
+  defaultSpeedKmh: number;
+  mode: RouteMode;
+  waypoints: Array<{
+    latitude: number;
+    longitude: number;
+  }>;
+} {
   const payload = revision.payload;
 
   if (
@@ -715,7 +663,10 @@ function parseStoredRouteRevisionPayload(
 function parseStoredRouteWaypoint(
   waypoint: unknown,
   index: number,
-): RouteRevisionWaypoint {
+): {
+  latitude: number;
+  longitude: number;
+} {
   if (
     waypoint == null ||
     typeof waypoint !== 'object' ||
@@ -729,19 +680,12 @@ function parseStoredRouteWaypoint(
   const waypointRecord = waypoint as Record<string, unknown>;
   const latitude = waypointRecord.latitude;
   const longitude = waypointRecord.longitude;
-  const sequence = waypointRecord.sequence;
-  const pauseSeconds = waypointRecord.pauseSeconds;
-  const speedKmh = waypointRecord.speedKmh;
 
   if (
     typeof latitude !== 'number' ||
     !Number.isFinite(latitude) ||
     typeof longitude !== 'number' ||
-    !Number.isFinite(longitude) ||
-    typeof sequence !== 'number' ||
-    !Number.isInteger(sequence) ||
-    !isNullableFiniteNumber(pauseSeconds) ||
-    !isNullableFiniteNumber(speedKmh)
+    !Number.isFinite(longitude)
   ) {
     throw new InternalServerErrorException(
       `stored route waypoint ${index} is invalid`,
@@ -751,12 +695,26 @@ function parseStoredRouteWaypoint(
   return {
     latitude,
     longitude,
-    pauseSeconds,
-    sequence,
-    speedKmh,
   };
 }
 
-function isNullableFiniteNumber(value: unknown): value is number | null {
-  return value == null || (typeof value === 'number' && Number.isFinite(value));
+async function recordSyncEvent(
+  prisma: PrismaService | Prisma.TransactionClient,
+  input: {
+    entityId: string;
+    entityType: SyncEntityType;
+    operation: SyncOperation;
+    payload?: Prisma.InputJsonObject;
+    userId: string;
+  },
+) {
+  await prisma.syncEvent.create({
+    data: {
+      entityId: input.entityId,
+      entityType: input.entityType,
+      operation: input.operation,
+      payload: input.payload,
+      userId: input.userId,
+    },
+  });
 }
