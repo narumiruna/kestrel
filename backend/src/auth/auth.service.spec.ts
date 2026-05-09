@@ -327,7 +327,7 @@ describe('AuthService', () => {
     expect(recoveryCodeRows).toHaveLength(10);
     for (const recoveryCodeRow of recoveryCodeRows) {
       expect(recoveryCodeRow.userId).toBe('user-1');
-      expect(recoveryCodeRow.codeHash).not.toMatch(/^[A-Z0-9-]+$/);
+      expect(recoveryCodeRow.codeHash).toMatch(/^\$argon2id\$/);
     }
     expect(result.user).toEqual({
       id: 'user-1',
