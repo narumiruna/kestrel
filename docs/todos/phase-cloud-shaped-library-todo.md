@@ -97,38 +97,38 @@
 
 ## 4. Repository
 
-- [ ] 新增 `LibraryRepository` interface。
-- [ ] 新增 Room-backed implementation。
-- [ ] `items: Flow<List<LibraryItemWithContent>>`。
-- [ ] `sortMode: Flow<FavoritesSortMode>` 可暫時沿用 DataStore sort mode。
-- [ ] `addPlace(...)`。
-- [ ] `addRoute(...)`。
-- [ ] `renameItem(itemId, newName)`。
-- [ ] `updatePlace(placeId, lat, lng)`。
-- [ ] `updateRouteParams(routeId, speedKmh, mode)`。
-- [ ] `removeItem(itemId)`。
-- [ ] `reorderItem(itemId, toIndex)`。
-- [ ] `touchItem(itemId)`。
-- [ ] `setSortMode(mode)`。
-- [ ] Repository tests（至少 mapper/reorder/touch 可純測）。
+- [x] 新增 `LibraryRepository` interface。
+- [x] 新增 Room-backed implementation。
+- [x] `items: Flow<List<LibraryItemWithContent>>`。
+- [x] `sortMode: Flow<FavoritesSortMode>` 可暫時沿用 DataStore sort mode。
+- [x] `addPlace(...)`。
+- [x] `addRoute(...)`。
+- [x] `renameItem(itemId, newName)`。
+- [x] `updatePlace(placeId, lat, lng)`。
+- [x] `updateRouteParams(routeId, speedKmh, mode)`。
+- [x] `removeItem(itemId)`。
+- [x] `reorderItem(itemId, toIndex)`。
+- [x] `touchItem(itemId)`。
+- [x] `setSortMode(mode)`。
+- [x] Repository tests（至少 mapper/reorder/touch 可純測）。
 
 ---
 
 ## 5. DataStore migration
 
-- [ ] DataStore 新增 `library_room_migrated` marker。
-- [ ] `StartupPreference` 新增 `libraryItemId: String?`，保留 `favoriteName` 向前相容。
-- [ ] 新增 `FavoriteToLibraryMigrator`。
-- [ ] 單點 favorite → `Place + LibraryItem`。
-- [ ] Route favorite → `Route + RouteRevision + Waypoints + LibraryItem`。
-- [ ] 保留原本 favorite 順序為 `sortOrder`。
-- [ ] 保留 `lastUsedAt`。
-- [ ] 保留 route `speedKmh` / `mode`。
-- [ ] 以第一個 waypoint 作 route display 起點。
-- [ ] Migration 後 resolve `StartupPreference.favoriteName` → `libraryItemId`。
-- [ ] Migration 成功後寫 marker。
-- [ ] Migration 失敗時不可清除原 DataStore favorites。
-- [ ] Migration 測試：point、route、startup favorite、空 favorites。
+- [x] DataStore 新增 `library_room_migrated` marker。
+- [x] `StartupPreference` 新增 `libraryItemId: String?`，保留 `favoriteName` 向前相容。
+- [x] 新增 `FavoriteToLibraryMigrator`。
+- [x] 單點 favorite → `Place + LibraryItem`。
+- [x] Route favorite → `Route + RouteRevision + Waypoints + LibraryItem`。
+- [x] 保留原本 favorite 順序為 `sortOrder`。
+- [x] 保留 `lastUsedAt`。
+- [x] 保留 route `speedKmh` / `mode`。
+- [x] 以第一個 waypoint 作 route display 起點。
+- [x] Migration 後 resolve `StartupPreference.favoriteName` → `libraryItemId`。
+- [x] Migration 成功後寫 marker。
+- [x] Migration 失敗時不可清除原 DataStore favorites。
+- [x] Migration 測試：point、route、startup favorite、空 favorites。
 
 ---
 
@@ -195,12 +195,12 @@
 
 ## 11. 測試
 
-- [ ] Mapper tests。
-- [ ] Migration tests：空資料。
-- [ ] Migration tests：單點 favorite。
-- [ ] Migration tests：route favorite。
-- [ ] Migration tests：lastUsedAt / sort order。
-- [ ] Migration tests：startup favoriteName → libraryItemId。
+- [x] Mapper tests。
+- [x] Migration tests：空資料。
+- [x] Migration tests：單點 favorite。
+- [x] Migration tests：route favorite。
+- [x] Migration tests：lastUsedAt / sort order。
+- [x] Migration tests：startup favoriteName → libraryItemId。
 - [ ] Repository tests：add place。
 - [ ] Repository tests：add route / waypoints order。
 - [ ] Repository tests：rename 不改 id。
