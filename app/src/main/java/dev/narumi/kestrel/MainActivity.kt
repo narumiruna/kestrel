@@ -23,7 +23,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.PreviewScreenSizes
-import dev.narumi.kestrel.core.data.Favorite
+import dev.narumi.kestrel.core.library.LibraryItemWithContent
 import dev.narumi.kestrel.feature.favorites.FavoritesScreen
 import dev.narumi.kestrel.feature.map.MapScreen
 import dev.narumi.kestrel.feature.options.OptionsScreen
@@ -45,7 +45,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun KestrelApp() {
     var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.HOME) }
-    var pendingFavoriteApply by remember { mutableStateOf<Favorite?>(null) }
+    var pendingFavoriteApply by remember { mutableStateOf<LibraryItemWithContent?>(null) }
 
     NavigationSuiteScaffold(
         navigationSuiteItems = {
