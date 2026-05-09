@@ -208,7 +208,7 @@
 - [x] Repository tests：reorder。
 - [x] 手動測試：既有本機 favorites migration。
 - [ ] 手動測試：Go to apply point / route。
-- [ ] 手動測試：Favorites edit / delete / apply now。
+- [x] 手動測試：Favorites edit / delete / apply now。
 - [x] 手動測試：app restart 後資料仍存在。
 
 ---
