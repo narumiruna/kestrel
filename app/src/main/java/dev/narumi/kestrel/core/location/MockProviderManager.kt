@@ -68,6 +68,34 @@ class MockProviderManager(context: Context) {
         }
         enabled = false
     }
+
+    fun isMockAllowed(): Boolean {
+        if (enabled) return true
+        return try {
+            locationManager.addTestProvider(
+                PROBE_PROVIDER,
+                false,
+                false,
+                false,
+                false,
+                true,
+                true,
+                true,
+                ProviderProperties.POWER_USAGE_LOW,
+                ProviderProperties.ACCURACY_FINE,
+            )
+            locationManager.removeTestProvider(PROBE_PROVIDER)
+            true
+        } catch (_: SecurityException) {
+            false
+        } catch (_: IllegalArgumentException) {
+            false
+        }
+    }
+
+    private companion object {
+        const val PROBE_PROVIDER = "kestrel_probe"
+    }
 }
 
 class MockNotAllowedException(message: String, cause: Throwable? = null) :
