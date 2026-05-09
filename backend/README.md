@@ -7,7 +7,7 @@ NestJS + Prisma backend workspace for the location/route sync platform described
 - NestJS API workspace under `backend/`
 - PostgreSQL local development setup with Docker Compose
 - Prisma schema and initial migration for the `users` table
-- Basic health endpoint at `GET /`
+- Basic service metadata endpoint at `GET /`
 
 ## Environment
 
