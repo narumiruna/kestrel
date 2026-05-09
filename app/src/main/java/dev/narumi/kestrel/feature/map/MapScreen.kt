@@ -74,6 +74,7 @@ import dev.narumi.kestrel.core.data.Favorite
 import dev.narumi.kestrel.core.data.FavoriteRoute
 import dev.narumi.kestrel.core.data.FavoritesSortMode
 import dev.narumi.kestrel.core.data.KestrelPrefs
+import dev.narumi.kestrel.core.data.RandomRoutePreference
 import dev.narumi.kestrel.core.data.StartupPreference
 import dev.narumi.kestrel.core.location.LatLng
 import dev.narumi.kestrel.core.location.LocationService
@@ -101,6 +102,29 @@ private sealed interface PendingFavorite {
 }
 
 private val SPEED_PRESETS = listOf(5.0, 10.0, 15.0, 20.0)
+
+private fun isValidPointCount(value: Int?): Boolean =
+    value != null &&
+        value in RandomRoutePreference.MIN_POINT_COUNT..RandomRoutePreference.MAX_POINT_COUNT
+
+private fun isValidSpacing(value: Double?): Boolean =
+    value != null &&
+        value >= RandomRoutePreference.MIN_SPACING_METERS &&
+        value <= RandomRoutePreference.MAX_SPACING_METERS
+
+private fun isValidRandomRoute(
+    pointCount: Int?,
+    spacingMeters: Double?,
+): Boolean = isValidPointCount(pointCount) && isValidSpacing(spacingMeters)
+
+private fun formatMeters(value: Double): String = if (value % 1.0 == 0.0) value.toInt().toString() else value.toString()
+
+private fun formatDistance(meters: Double): String =
+    if (meters >= 1000.0) {
+        "%.1f km".format(meters / 1000.0)
+    } else {
+        "${formatMeters(meters)} m"
+    }
 
 private fun MovementEngine.Mode.label(): String =
     when (this) {
@@ -133,6 +157,8 @@ fun MapScreen(
 
     val favorites by prefs.favorites.collectAsStateWithLifecycle(emptyList())
     val sortMode by prefs.favoritesSortMode.collectAsStateWithLifecycle(FavoritesSortMode())
+    val randomRoutePref by
+        prefs.randomRoutePreference.collectAsStateWithLifecycle(RandomRoutePreference())
 
     var mockAllowed by remember { mutableStateOf(false) }
     var waypoints by remember { mutableStateOf<List<LatLng>>(emptyList()) }
@@ -244,6 +270,9 @@ fun MapScreen(
 
     if (showGenerateDialog) {
         GenerateRouteDialog(
+            initialPointCount = randomRoutePref.effectivePointCount,
+            initialSpacingMeters = randomRoutePref.effectiveSpacingMeters,
+            usingLastSettings = randomRoutePref.usesLastSettings,
             onConfirm = { count, meters ->
                 val origin =
                     lastCameraCenter
@@ -251,6 +280,7 @@ fun MapScreen(
                         ?: cameraTarget?.let { LatLng(it.lat, it.lng) }
                         ?: LatLng(25.0330, 121.5654)
                 waypoints = RouteGenerator.generate(origin, count, meters)
+                scope.launch { prefs.setLastRandomRouteSettings(count, meters) }
                 if (runState == RunState.Single) {
                     LocationService.stop(context)
                     runState = RunState.Idle
@@ -928,38 +958,30 @@ private fun StatusBanner(
 
 @Composable
 private fun GenerateRouteDialog(
-    initialPointCount: Int = 10,
-    initialSpacingMeters: Int = 50,
+    initialPointCount: Int,
+    initialSpacingMeters: Double,
+    usingLastSettings: Boolean,
     onConfirm: (count: Int, meters: Double) -> Unit,
     onDismiss: () -> Unit,
 ) {
     var count by remember { mutableStateOf(initialPointCount.toString()) }
-    var meters by remember { mutableStateOf(initialSpacingMeters.toString()) }
+    var meters by remember { mutableStateOf(formatMeters(initialSpacingMeters)) }
     val parsedCount = count.toIntOrNull()
     val parsedMeters = meters.toDoubleOrNull()
-    val valid = parsedCount != null && parsedCount >= 2 && parsedMeters != null && parsedMeters > 0
+    val valid = isValidRandomRoute(parsedCount, parsedMeters)
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Generate random route") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    text = "Smooth random walk from the current map center.",
-                    style = MaterialTheme.typography.bodySmall,
-                )
-                OutlinedTextField(
-                    value = count,
-                    onValueChange = { v -> count = v.filter(Char::isDigit).take(4) },
-                    label = { Text("Point count (≥ 2)") },
-                    singleLine = true,
-                )
-                OutlinedTextField(
-                    value = meters,
-                    onValueChange = { v -> meters = v.filter { it.isDigit() || it == '.' }.take(7) },
-                    label = { Text("Spacing (meters)") },
-                    singleLine = true,
-                )
-            }
+            GenerateRouteDialogContent(
+                count = count,
+                meters = meters,
+                parsedCount = parsedCount,
+                parsedMeters = parsedMeters,
+                usingLastSettings = usingLastSettings,
+                onCountChange = { count = it },
+                onMetersChange = { meters = it },
+            )
         },
         confirmButton = {
             TextButton(
@@ -972,6 +994,81 @@ private fun GenerateRouteDialog(
         },
     )
 }
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun GenerateRouteDialogContent(
+    count: String,
+    meters: String,
+    parsedCount: Int?,
+    parsedMeters: Double?,
+    usingLastSettings: Boolean,
+    onCountChange: (String) -> Unit,
+    onMetersChange: (String) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            text = "Smooth random walk from the current map center.",
+            style = MaterialTheme.typography.bodySmall,
+        )
+        Text(
+            text = if (usingLastSettings) "Using last used settings" else "Using default settings",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        SectionLabel("Point count")
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf(20, 50, 100, 200).forEach { preset ->
+                ChipChoice(
+                    label = preset.toString(),
+                    selected = parsedCount == preset,
+                    enabled = true,
+                    onClick = { onCountChange(preset.toString()) },
+                )
+            }
+        }
+        OutlinedTextField(
+            value = count,
+            onValueChange = { onCountChange(it.filter(Char::isDigit).take(4)) },
+            label = { Text("Point count (2–1000)") },
+            isError = count.isNotBlank() && !isValidPointCount(parsedCount),
+            singleLine = true,
+        )
+        SectionLabel("Spacing")
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf(50.0, 100.0, 500.0, 1000.0).forEach { preset ->
+                ChipChoice(
+                    label = formatDistance(preset),
+                    selected = parsedMeters == preset,
+                    enabled = true,
+                    onClick = { onMetersChange(formatMeters(preset)) },
+                )
+            }
+        }
+        OutlinedTextField(
+            value = meters,
+            onValueChange = { onMetersChange(it.filter { ch -> ch.isDigit() || ch == '.' }.take(7)) },
+            label = { Text("Spacing meters (1–10000)") },
+            isError = meters.isNotBlank() && !isValidSpacing(parsedMeters),
+            singleLine = true,
+        )
+        Text(
+            text = "Estimated distance: ${estimatedRouteDistance(parsedCount, parsedMeters)}",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+private fun estimatedRouteDistance(
+    pointCount: Int?,
+    spacingMeters: Double?,
+): String =
+    if (pointCount != null && spacingMeters != null) {
+        formatDistance((pointCount - 1).coerceAtLeast(0) * spacingMeters)
+    } else {
+        "—"
+    }
 
 @Composable
 private fun SaveFavoriteDialog(
