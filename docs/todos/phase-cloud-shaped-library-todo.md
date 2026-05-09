@@ -134,61 +134,61 @@
 
 ## 6. Save flows 改寫
 
-- [ ] MapScreen save point 改呼叫 `LibraryRepository.addPlace`。
-- [ ] MapScreen save route 改呼叫 `LibraryRepository.addRoute`。
-- [ ] Save route 建立 revisionNumber = 1。
-- [ ] Save route waypoints 依序寫入 `WaypointEntity.sequence`。
-- [ ] 移除新增時依賴 favorite name 覆蓋的行為。
-- [ ] 同名時允許或提示；不得用 name 當 identity。
+- [x] MapScreen save point 改呼叫 `LibraryRepository.addPlace`。
+- [x] MapScreen save route 改呼叫 `LibraryRepository.addRoute`。
+- [x] Save route 建立 revisionNumber = 1。
+- [x] Save route waypoints 依序寫入 `WaypointEntity.sequence`。
+- [x] 移除新增時依賴 favorite name 覆蓋的行為。
+- [x] 同名時允許或提示；不得用 name 當 identity。
 
 ---
 
 ## 7. Go to 面板改接 LibraryRepository
 
-- [ ] Go to sheet items 改讀 `LibraryItemWithContent`。
-- [ ] Points tab 使用 `LibraryItemKind.Place`。
-- [ ] Routes tab 使用 `LibraryItemKind.Route`。
-- [ ] Apply point 使用 `Place.lat/lng`。
-- [ ] Apply route 使用 current revision waypoints。
-- [ ] Apply route 使用 `Route.defaultSpeedKmh` / `Route.mode`。
-- [ ] Apply 後呼叫 `touchItem(itemId)`。
-- [ ] Recent sort 改用 `LibraryItem.lastUsedAt`。
-- [ ] Manual sort 改用 `LibraryItem.sortOrder`。
-- [ ] 空狀態文案維持。
+- [x] Go to sheet items 改讀 `LibraryItemWithContent`。
+- [x] Points tab 使用 `LibraryItemKind.Place`。
+- [x] Routes tab 使用 `LibraryItemKind.Route`。
+- [x] Apply point 使用 `Place.lat/lng`。
+- [x] Apply route 使用 current revision waypoints。
+- [x] Apply route 使用 `Route.defaultSpeedKmh` / `Route.mode`。
+- [x] Apply 後呼叫 `touchItem(itemId)`。
+- [x] Recent sort 改用 `LibraryItem.lastUsedAt`。
+- [x] Manual sort 改用 `LibraryItem.sortOrder`。
+- [x] 空狀態文案維持。
 
 ---
 
 ## 8. FavoritesScreen 改接 LibraryRepository
 
-- [ ] 列表改讀 `LibraryItemWithContent`。
-- [ ] Rename 改用 `itemId`。
-- [ ] Edit coordinates 改用 `placeId`。
-- [ ] Edit speed/mode 改用 `routeId`。
-- [ ] Delete 改用 `itemId`。
-- [ ] Apply now 改用 `itemId` 並 touch。
-- [ ] Move up / Move down 改用 `itemId`。
-- [ ] UI 顯示同名 item 時有輔助資訊（座標 / waypoint count）。
-- [ ] 確認 Points / Routes tabs 切換正常。
+- [x] 列表改讀 `LibraryItemWithContent`。
+- [x] Rename 改用 `itemId`。
+- [x] Edit coordinates 改用 `placeId`。
+- [x] Edit speed/mode 改用 `routeId`。
+- [x] Delete 改用 `itemId`。
+- [x] Apply now 改用 `itemId` 並 touch。
+- [x] Move up / Move down 改用 `itemId`。
+- [x] UI 顯示同名 item 時有輔助資訊（座標 / waypoint count）。
+- [x] 確認 Points / Routes tabs 切換正常。
 
 ---
 
 ## 9. StartupPreference 改接 libraryItemId
 
-- [ ] Options UI 選 favorite 時保存 `libraryItemId`。
-- [ ] 啟動套用 favorite 時改用 `libraryItemId` 查 LibraryRepository。
-- [ ] 若 `libraryItemId` 找不到，fallback 到 `favoriteName` migration / 顯示失效。
-- [ ] 套用 startup item 時 touch `LibraryItem.lastUsedAt`。
-- [ ] StartupPreference serialization 向前相容。
+- [x] Options UI 選 favorite 時保存 `libraryItemId`。
+- [x] 啟動套用 favorite 時改用 `libraryItemId` 查 LibraryRepository。
+- [x] 若 `libraryItemId` 找不到，fallback 到 `favoriteName` migration / 顯示失效。
+- [x] 套用 startup item 時 touch `LibraryItem.lastUsedAt`。
+- [x] StartupPreference serialization 向前相容。
 
 ---
 
 ## 10. Legacy cleanup
 
-- [ ] UI 不再直接讀 `KestrelPrefs.favorites`。
-- [ ] UI 操作不再呼叫 `addFavorite/removeFavorite/renameFavorite` 等 legacy methods。
-- [ ] `Favorite` / `FavoriteRoute` 暫時保留給 migration。
-- [ ] `KestrelPrefs.favorites` 標註 deprecated 或限制為 migration-only。
-- [ ] TODO 加上未來移除 DataStore favorites JSON 的項目。
+- [x] UI 不再直接讀 `KestrelPrefs.favorites`。
+- [x] UI 操作不再呼叫 `addFavorite/removeFavorite/renameFavorite` 等 legacy methods。
+- [x] `Favorite` / `FavoriteRoute` 暫時保留給 migration。
+- [x] `KestrelPrefs.favorites` 標註 deprecated 或限制為 migration-only。
+- [x] TODO 加上未來移除 DataStore favorites JSON 的項目。
 - [ ] 確認 detekt baseline 是否可減少或需更新。
 
 ---
