@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -19,27 +20,37 @@ import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.MultiplePermissionsState
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
-import androidx.compose.ui.res.painterResource
 import dev.narumi.kestrel.R
+import dev.narumi.kestrel.core.data.CameraSnapshot
+import dev.narumi.kestrel.core.data.Favorite
+import dev.narumi.kestrel.core.data.KestrelPrefs
 import dev.narumi.kestrel.core.location.LatLng
 import dev.narumi.kestrel.core.location.LocationService
 import dev.narumi.kestrel.core.location.MockProviderManager
 import dev.narumi.kestrel.core.location.rememberCurrentLocation
 import dev.narumi.kestrel.core.map.KestrelMap
+import dev.narumi.kestrel.feature.startup.StartupChoice
+import dev.narumi.kestrel.feature.startup.StartupSheet
+import kotlinx.coroutines.launch
 
 private enum class RunState { Idle, Single, RoutePlaying, RoutePaused }
 
@@ -59,10 +70,20 @@ fun MapScreen(modifier: Modifier = Modifier) {
     }
     val permissionState = rememberMultiplePermissionsState(permissions)
     val mockProvider = remember { MockProviderManager(context.applicationContext) }
+    val prefs = remember { KestrelPrefs(context) }
+    val scope = rememberCoroutineScope()
+
+    val favorites by prefs.favorites.collectAsStateWithLifecycle(emptyList())
+    val lastCamera by prefs.lastCamera.collectAsStateWithLifecycle(null)
+
     var mockAllowed by remember { mutableStateOf(false) }
     var waypoints by remember { mutableStateOf<List<LatLng>>(emptyList()) }
     var speedKmh by remember { mutableStateOf(20.0) }
     var runState by remember { mutableStateOf(RunState.Idle) }
+    var showStartupSheet by remember { mutableStateOf(true) }
+    var pendingFavorite by remember { mutableStateOf<LatLng?>(null) }
+    var favoriteName by remember { mutableStateOf("") }
+    var cameraTarget by remember { mutableStateOf<CameraSnapshot?>(null) }
 
     LaunchedEffect(permissionState.allPermissionsGranted) {
         mockAllowed = mockProvider.isMockAllowed()
@@ -71,7 +92,58 @@ fun MapScreen(modifier: Modifier = Modifier) {
     val ready = permissionState.allPermissionsGranted && mockAllowed
     val mockTarget: LatLng? = if (runState == RunState.Single) waypoints.lastOrNull() else null
     val myLocation by rememberCurrentLocation(permissionState.allPermissionsGranted)
-    var cameraTarget by remember { mutableStateOf<LatLng?>(null) }
+
+    if (showStartupSheet) {
+        StartupSheet(
+            lastCamera = lastCamera,
+            favorites = favorites,
+            myLocationAvailable = myLocation != null,
+            onPick = { choice ->
+                when (choice) {
+                    is StartupChoice.Last -> cameraTarget = choice.snap
+                    is StartupChoice.Current -> myLocation?.let {
+                        cameraTarget = CameraSnapshot(it.lat, it.lng, 15.0)
+                    }
+                    is StartupChoice.Favorite ->
+                        cameraTarget = CameraSnapshot(choice.target.lat, choice.target.lng, 13.0)
+                }
+                showStartupSheet = false
+            },
+            onDismiss = { showStartupSheet = false },
+        )
+    }
+
+    pendingFavorite?.let { target ->
+        AlertDialog(
+            onDismissRequest = { pendingFavorite = null; favoriteName = "" },
+            title = { Text("Save favorite") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("%.5f, %.5f".format(target.lat, target.lng))
+                    OutlinedTextField(
+                        value = favoriteName,
+                        onValueChange = { favoriteName = it },
+                        label = { Text("Name") },
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val name = favoriteName.trim().ifEmpty { "Favorite ${favorites.size + 1}" }
+                        scope.launch {
+                            prefs.addFavorite(Favorite(name, target.lat, target.lng))
+                        }
+                        pendingFavorite = null
+                        favoriteName = ""
+                    },
+                ) { Text("Save") }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingFavorite = null; favoriteName = "" }) { Text("Cancel") }
+            },
+        )
+    }
 
     Column(modifier = modifier.fillMaxSize()) {
         StatusBanner(
@@ -103,6 +175,10 @@ fun MapScreen(modifier: Modifier = Modifier) {
                         waypoints = waypoints + it
                     }
                 },
+                onMapLongClick = { pendingFavorite = it },
+                onCameraIdle = { snap ->
+                    scope.launch { prefs.setLastCamera(snap) }
+                },
             )
             InfoStrip(
                 modifier = Modifier
@@ -113,7 +189,9 @@ fun MapScreen(modifier: Modifier = Modifier) {
             )
             FilledTonalIconButton(
                 onClick = {
-                    myLocation?.let { cameraTarget = LatLng(it.lat, it.lng) }
+                    myLocation?.let {
+                        cameraTarget = CameraSnapshot(it.lat, it.lng, 15.0)
+                    }
                 },
                 enabled = myLocation != null,
                 modifier = Modifier
