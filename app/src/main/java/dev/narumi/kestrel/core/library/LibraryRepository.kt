@@ -207,15 +207,11 @@ private class RoomLibraryRepository(
                     createdAt = now,
                 ),
             waypoints =
-                waypoints.mapIndexed { index, waypoint ->
-                    WaypointEntity(
-                        id = UUID.randomUUID().toString(),
-                        routeRevisionId = revisionId,
-                        sequence = index,
-                        lat = waypoint.lat,
-                        lng = waypoint.lng,
-                    )
-                },
+                buildWaypointEntities(
+                    routeRevisionId = revisionId,
+                    waypoints = waypoints,
+                    uuidFactory = { UUID.randomUUID().toString() },
+                ),
             item =
                 LibraryItemEntity(
                     id = itemId,
@@ -336,6 +332,21 @@ private class RoomLibraryRepository(
         )
     }
 }
+
+internal fun buildWaypointEntities(
+    routeRevisionId: String,
+    waypoints: List<LatLng>,
+    uuidFactory: () -> String,
+): List<WaypointEntity> =
+    waypoints.mapIndexed { index, waypoint ->
+        WaypointEntity(
+            id = uuidFactory(),
+            routeRevisionId = routeRevisionId,
+            sequence = index,
+            lat = waypoint.lat,
+            lng = waypoint.lng,
+        )
+    }
 
 internal fun reorderLibraryItems(
     items: List<LibraryItemEntity>,

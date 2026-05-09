@@ -202,10 +202,10 @@
 - [x] Migration tests：lastUsedAt / sort order。
 - [x] Migration tests：startup favoriteName → libraryItemId。
 - [ ] Repository tests：add place。
-- [ ] Repository tests：add route / waypoints order。
+- [x] Repository tests：add route / waypoints order。
 - [ ] Repository tests：rename 不改 id。
 - [ ] Repository tests：touch。
-- [ ] Repository tests：reorder。
+- [x] Repository tests：reorder。
 - [ ] 手動測試：既有本機 favorites migration。
 - [ ] 手動測試：Go to apply point / route。
 - [ ] 手動測試：Favorites edit / delete / apply now。
