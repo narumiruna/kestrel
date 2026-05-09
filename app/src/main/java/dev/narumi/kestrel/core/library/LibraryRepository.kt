@@ -227,10 +227,10 @@ private class RoomLibraryRepository(
         if (trimmedName.isEmpty()) return
         val record = dao.getLibraryItem(itemId) ?: return
         val updatedAt = System.currentTimeMillis()
+        val startupPreference = prefs.startupPreferenceValue()
         val shouldUpdateStartupPreference =
-            prefs.startupPreferenceValue().let { startup ->
-                startup.mode == StartupPreference.Mode.Favorite && startup.libraryItemId == itemId
-            }
+            startupPreference.mode == StartupPreference.Mode.Favorite &&
+                startupPreference.libraryItemId == itemId
         database.withTransaction {
             when (record.item.kind) {
                 LibraryItemKind.Place -> record.item.placeId?.let { dao.renamePlace(it, trimmedName, updatedAt) }
@@ -239,7 +239,7 @@ private class RoomLibraryRepository(
         }
         if (shouldUpdateStartupPreference) {
             prefs.setStartupPreference(
-                prefs.startupPreferenceValue().copy(favoriteName = trimmedName),
+                startupPreference.copy(favoriteName = trimmedName),
             )
         }
     }
@@ -257,10 +257,10 @@ private class RoomLibraryRepository(
     override suspend fun removeItem(itemId: String) {
         ensureMigrated()
         val record = dao.getLibraryItem(itemId) ?: return
+        val startupPreference = prefs.startupPreferenceValue()
         val shouldResetStartupPreference =
-            prefs.startupPreferenceValue().let { startup ->
-                startup.mode == StartupPreference.Mode.Favorite && startup.libraryItemId == itemId
-            }
+            startupPreference.mode == StartupPreference.Mode.Favorite &&
+                startupPreference.libraryItemId == itemId
         database.withTransaction {
             when (record.item.kind) {
                 LibraryItemKind.Place -> record.item.placeId?.let(dao::deletePlace)
