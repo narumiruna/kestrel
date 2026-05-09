@@ -15,6 +15,8 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -31,9 +33,12 @@ import androidx.compose.ui.unit.dp
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.MultiplePermissionsState
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
+import androidx.compose.ui.res.painterResource
+import dev.narumi.kestrel.R
 import dev.narumi.kestrel.core.location.LatLng
 import dev.narumi.kestrel.core.location.LocationService
 import dev.narumi.kestrel.core.location.MockProviderManager
+import dev.narumi.kestrel.core.location.rememberCurrentLocation
 import dev.narumi.kestrel.core.map.KestrelMap
 
 private enum class RunState { Idle, Single, RoutePlaying, RoutePaused }
@@ -65,6 +70,8 @@ fun MapScreen(modifier: Modifier = Modifier) {
 
     val ready = permissionState.allPermissionsGranted && mockAllowed
     val mockTarget: LatLng? = if (runState == RunState.Single) waypoints.lastOrNull() else null
+    val myLocation by rememberCurrentLocation(permissionState.allPermissionsGranted)
+    var cameraTarget by remember { mutableStateOf<LatLng?>(null) }
 
     Column(modifier = modifier.fillMaxSize()) {
         StatusBanner(
@@ -89,6 +96,8 @@ fun MapScreen(modifier: Modifier = Modifier) {
                 modifier = Modifier.fillMaxSize(),
                 marker = mockTarget,
                 polyline = waypoints,
+                myLocation = myLocation,
+                cameraTarget = cameraTarget,
                 onMapClick = {
                     if (runState == RunState.Idle || runState == RunState.Single) {
                         waypoints = waypoints + it
@@ -102,6 +111,20 @@ fun MapScreen(modifier: Modifier = Modifier) {
                 waypointCount = waypoints.size,
                 runState = runState,
             )
+            FilledTonalIconButton(
+                onClick = {
+                    myLocation?.let { cameraTarget = LatLng(it.lat, it.lng) }
+                },
+                enabled = myLocation != null,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(12.dp),
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_my_location),
+                    contentDescription = "Center on me",
+                )
+            }
         }
 
         ControlPanel(
