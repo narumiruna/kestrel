@@ -8,17 +8,24 @@ import kotlin.math.sqrt
 
 private const val EARTH_RADIUS_M = 6_371_000.0
 
-fun haversineMeters(a: LatLng, b: LatLng): Double {
+fun haversineMeters(
+    a: LatLng,
+    b: LatLng,
+): Double {
     val lat1 = Math.toRadians(a.lat)
     val lat2 = Math.toRadians(b.lat)
     val dLat = lat2 - lat1
     val dLng = Math.toRadians(b.lng - a.lng)
-    val h = sin(dLat / 2) * sin(dLat / 2) +
-        cos(lat1) * cos(lat2) * sin(dLng / 2) * sin(dLng / 2)
+    val h =
+        sin(dLat / 2) * sin(dLat / 2) +
+            cos(lat1) * cos(lat2) * sin(dLng / 2) * sin(dLng / 2)
     return 2 * EARTH_RADIUS_M * asin(sqrt(h))
 }
 
-fun bearingDegrees(a: LatLng, b: LatLng): Double {
+fun bearingDegrees(
+    a: LatLng,
+    b: LatLng,
+): Double {
     val lat1 = Math.toRadians(a.lat)
     val lat2 = Math.toRadians(b.lat)
     val dLng = Math.toRadians(b.lng - a.lng)
@@ -27,7 +34,12 @@ fun bearingDegrees(a: LatLng, b: LatLng): Double {
     return (Math.toDegrees(atan2(y, x)) + 360.0) % 360.0
 }
 
-fun lerpLatLng(a: LatLng, b: LatLng, t: Double): LatLng = LatLng(
-    lat = a.lat + (b.lat - a.lat) * t,
-    lng = a.lng + (b.lng - a.lng) * t,
-)
+fun lerpLatLng(
+    a: LatLng,
+    b: LatLng,
+    t: Double,
+): LatLng =
+    LatLng(
+        lat = a.lat + (b.lat - a.lat) * t,
+        lng = a.lng + (b.lng - a.lng) * t,
+    )

@@ -38,9 +38,10 @@ fun OptionsScreen(modifier: Modifier = Modifier) {
     }
 
     Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(16.dp),
+        modifier =
+            modifier
+                .fillMaxSize()
+                .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Text(
@@ -61,15 +62,19 @@ fun OptionsScreen(modifier: Modifier = Modifier) {
             )
             HorizontalDivider()
             StartupRadioRow(
-                label = if (favorites.isEmpty()) {
-                    "A favorite (none yet — long-press the map)"
-                } else "A favorite",
+                label =
+                    if (favorites.isEmpty()) {
+                        "A favorite (none yet — long-press the map)"
+                    } else {
+                        "A favorite"
+                    },
                 selected = startup.mode == StartupPreference.Mode.Favorite,
                 enabled = favorites.isNotEmpty(),
                 onSelect = {
-                    val target = favorites.firstOrNull { it.name == startup.favoriteName }
-                        ?: favorites.firstOrNull()
-                        ?: return@StartupRadioRow
+                    val target =
+                        favorites.firstOrNull { it.name == startup.favoriteName }
+                            ?: favorites.firstOrNull()
+                            ?: return@StartupRadioRow
                     update(StartupPreference(StartupPreference.Mode.Favorite, target.name))
                 },
             )
@@ -83,9 +88,10 @@ fun OptionsScreen(modifier: Modifier = Modifier) {
             Card(modifier = Modifier.fillMaxWidth()) {
                 favorites.forEachIndexed { index, fav ->
                     if (index > 0) HorizontalDivider()
-                    val supporting = fav.route?.let {
-                        "Route · ${it.lats.size} waypoints · ${it.speedKmh.toInt()} km/h"
-                    } ?: "%.5f, %.5f".format(fav.lat, fav.lng)
+                    val supporting =
+                        fav.route?.let {
+                            "Route · ${it.lats.size} waypoints · ${it.speedKmh.toInt()} km/h"
+                        } ?: "%.5f, %.5f".format(fav.lat, fav.lng)
                     StartupRadioRow(
                         label = fav.name,
                         supporting = supporting,
@@ -119,8 +125,9 @@ private fun StartupRadioRow(
         leadingContent = {
             RadioButton(selected = selected, onClick = onSelect, enabled = enabled)
         },
-        modifier = Modifier
-            .fillMaxWidth()
-            .selectable(selected = selected, enabled = enabled, onClick = onSelect),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .selectable(selected = selected, enabled = enabled, onClick = onSelect),
     )
 }

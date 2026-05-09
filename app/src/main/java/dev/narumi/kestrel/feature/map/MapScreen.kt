@@ -58,8 +58,14 @@ import kotlinx.coroutines.launch
 private enum class RunState { Idle, Single, RoutePlaying, RoutePaused }
 
 private sealed interface PendingFavorite {
-    data class Point(val target: LatLng) : PendingFavorite
-    data class Route(val waypoints: List<LatLng>, val speedKmh: Double) : PendingFavorite
+    data class Point(
+        val target: LatLng,
+    ) : PendingFavorite
+
+    data class Route(
+        val waypoints: List<LatLng>,
+        val speedKmh: Double,
+    ) : PendingFavorite
 }
 
 private val SPEED_PRESETS = listOf(5.0, 10.0, 15.0, 20.0, 60.0)
@@ -68,14 +74,15 @@ private val SPEED_PRESETS = listOf(5.0, 10.0, 15.0, 20.0, 60.0)
 @Composable
 fun MapScreen(modifier: Modifier = Modifier) {
     val context = LocalContext.current
-    val permissions = remember {
-        buildList {
-            add(Manifest.permission.ACCESS_FINE_LOCATION)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                add(Manifest.permission.POST_NOTIFICATIONS)
+    val permissions =
+        remember {
+            buildList {
+                add(Manifest.permission.ACCESS_FINE_LOCATION)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    add(Manifest.permission.POST_NOTIFICATIONS)
+                }
             }
         }
-    }
     val permissionState = rememberMultiplePermissionsState(permissions)
     val mockProvider = remember { MockProviderManager(context.applicationContext) }
     val prefs = remember { KestrelPrefs(context) }
@@ -136,14 +143,18 @@ fun MapScreen(modifier: Modifier = Modifier) {
     val mockNow by LocationService.currentMock.collectAsStateWithLifecycle()
 
     pendingFavorite?.let { pending ->
-        val (title, supporting) = when (pending) {
-            is PendingFavorite.Point ->
-                "Save favorite" to "%.5f, %.5f".format(pending.target.lat, pending.target.lng)
-            is PendingFavorite.Route ->
-                "Save route" to "${pending.waypoints.size} waypoints · ${pending.speedKmh.toInt()} km/h"
-        }
+        val (title, supporting) =
+            when (pending) {
+                is PendingFavorite.Point ->
+                    "Save favorite" to "%.5f, %.5f".format(pending.target.lat, pending.target.lng)
+                is PendingFavorite.Route ->
+                    "Save route" to "${pending.waypoints.size} waypoints · ${pending.speedKmh.toInt()} km/h"
+            }
         AlertDialog(
-            onDismissRequest = { pendingFavorite = null; favoriteName = "" },
+            onDismissRequest = {
+                pendingFavorite = null
+                favoriteName = ""
+            },
             title = { Text(title) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -159,30 +170,35 @@ fun MapScreen(modifier: Modifier = Modifier) {
                 TextButton(
                     onClick = {
                         val name = favoriteName.trim().ifEmpty { "Favorite ${favorites.size + 1}" }
-                        val fav = when (pending) {
-                            is PendingFavorite.Point -> Favorite(
-                                name = name,
-                                lat = pending.target.lat,
-                                lng = pending.target.lng,
-                            )
-                            is PendingFavorite.Route -> {
-                                val first = pending.waypoints.first()
-                                Favorite(
-                                    name = name,
-                                    lat = first.lat,
-                                    lng = first.lng,
-                                    route = FavoriteRoute(
-                                        lats = DoubleArray(pending.waypoints.size) { i ->
-                                            pending.waypoints[i].lat
-                                        },
-                                        lngs = DoubleArray(pending.waypoints.size) { i ->
-                                            pending.waypoints[i].lng
-                                        },
-                                        speedKmh = pending.speedKmh,
-                                    ),
-                                )
+                        val fav =
+                            when (pending) {
+                                is PendingFavorite.Point ->
+                                    Favorite(
+                                        name = name,
+                                        lat = pending.target.lat,
+                                        lng = pending.target.lng,
+                                    )
+                                is PendingFavorite.Route -> {
+                                    val first = pending.waypoints.first()
+                                    Favorite(
+                                        name = name,
+                                        lat = first.lat,
+                                        lng = first.lng,
+                                        route =
+                                            FavoriteRoute(
+                                                lats =
+                                                    DoubleArray(pending.waypoints.size) { i ->
+                                                        pending.waypoints[i].lat
+                                                    },
+                                                lngs =
+                                                    DoubleArray(pending.waypoints.size) { i ->
+                                                        pending.waypoints[i].lng
+                                                    },
+                                                speedKmh = pending.speedKmh,
+                                            ),
+                                    )
+                                }
                             }
-                        }
                         scope.launch { prefs.addFavorite(fav) }
                         pendingFavorite = null
                         favoriteName = ""
@@ -190,7 +206,10 @@ fun MapScreen(modifier: Modifier = Modifier) {
                 ) { Text("Save") }
             },
             dismissButton = {
-                TextButton(onClick = { pendingFavorite = null; favoriteName = "" }) { Text("Cancel") }
+                TextButton(onClick = {
+                    pendingFavorite = null
+                    favoriteName = ""
+                }) { Text("Cancel") }
             },
         )
     }
@@ -198,9 +217,10 @@ fun MapScreen(modifier: Modifier = Modifier) {
     Column(modifier = modifier.fillMaxSize()) {
         if (!permissionState.allPermissionsGranted || !mockAllowed) {
             StatusBanner(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
                 permissionState = permissionState,
                 mockAllowed = mockAllowed,
                 onOpenDeveloperOptions = {
@@ -213,9 +233,12 @@ fun MapScreen(modifier: Modifier = Modifier) {
             )
         }
 
-        Box(modifier = Modifier
-            .fillMaxWidth()
-            .weight(1f)) {
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+        ) {
             KestrelMap(
                 modifier = Modifier.fillMaxSize(),
                 mockLocation = mockNow,
@@ -241,9 +264,10 @@ fun MapScreen(modifier: Modifier = Modifier) {
                 },
             )
             InfoStrip(
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .padding(8.dp),
+                modifier =
+                    Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(8.dp),
                 waypointCount = waypoints.size,
                 runState = runState,
             )
@@ -254,9 +278,10 @@ fun MapScreen(modifier: Modifier = Modifier) {
                     }
                 },
                 enabled = myLocation != null,
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(12.dp),
+                modifier =
+                    Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(12.dp),
             ) {
                 Icon(
                     imageVector = Icons.Filled.MyLocation,
@@ -266,9 +291,10 @@ fun MapScreen(modifier: Modifier = Modifier) {
         }
 
         ControlPanel(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp),
             ready = ready,
             waypoints = waypoints,
             speedKmh = speedKmh,
@@ -321,23 +347,32 @@ private fun StatusBanner(
     val permissionsOk = permissionState.allPermissionsGranted
     Card(
         modifier = modifier,
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.errorContainer,
-            contentColor = MaterialTheme.colorScheme.onErrorContainer,
-        ),
+        colors =
+            CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.errorContainer,
+                contentColor = MaterialTheme.colorScheme.onErrorContainer,
+            ),
     ) {
         Column(
             modifier = Modifier.padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             Text(
-                text = if (!permissionsOk) "Location / notification permission needed"
-                else "Kestrel isn't selected as the mock location app",
+                text =
+                    if (!permissionsOk) {
+                        "Location / notification permission needed"
+                    } else {
+                        "Kestrel isn't selected as the mock location app"
+                    },
                 style = MaterialTheme.typography.titleSmall,
             )
             Text(
-                text = if (!permissionsOk) "Grant the permissions below to use mock GPS."
-                else "Open developer options and pick Kestrel as the mock location app.",
+                text =
+                    if (!permissionsOk) {
+                        "Grant the permissions below to use mock GPS."
+                    } else {
+                        "Open developer options and pick Kestrel as the mock location app."
+                    },
                 style = MaterialTheme.typography.bodySmall,
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -361,12 +396,13 @@ private fun InfoStrip(
     waypointCount: Int,
     runState: RunState,
 ) {
-    val label = when (runState) {
-        RunState.Idle -> "$waypointCount waypoints"
-        RunState.Single -> "single point mock"
-        RunState.RoutePlaying -> "playing • $waypointCount waypoints"
-        RunState.RoutePaused -> "paused • $waypointCount waypoints"
-    }
+    val label =
+        when (runState) {
+            RunState.Idle -> "$waypointCount waypoints"
+            RunState.Single -> "single point mock"
+            RunState.RoutePlaying -> "playing • $waypointCount waypoints"
+            RunState.RoutePaused -> "paused • $waypointCount waypoints"
+        }
     Card(
         modifier = modifier,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -417,9 +453,12 @@ private fun ControlPanel(
                         onClick = { onSpeedChange(preset) },
                         label = { Text("${preset.toInt()} km/h") },
                         enabled = !isRouteRunning,
-                        leadingIcon = if (selected) {
-                            { Text("•") }
-                        } else null,
+                        leadingIcon =
+                            if (selected) {
+                                { Text("•") }
+                            } else {
+                                null
+                            },
                     )
                 }
             }
@@ -450,19 +489,22 @@ private fun ControlPanel(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 when (runState) {
-                    RunState.RoutePlaying -> Button(
-                        onClick = onPause,
-                        modifier = Modifier.weight(1f),
-                    ) { Text("Pause") }
-                    RunState.RoutePaused -> Button(
-                        onClick = onResume,
-                        modifier = Modifier.weight(1f),
-                    ) { Text("Resume") }
-                    else -> Button(
-                        onClick = onPlay,
-                        enabled = ready && waypoints.size >= 2,
-                        modifier = Modifier.weight(1f),
-                    ) { Text("Play route") }
+                    RunState.RoutePlaying ->
+                        Button(
+                            onClick = onPause,
+                            modifier = Modifier.weight(1f),
+                        ) { Text("Pause") }
+                    RunState.RoutePaused ->
+                        Button(
+                            onClick = onResume,
+                            modifier = Modifier.weight(1f),
+                        ) { Text("Resume") }
+                    else ->
+                        Button(
+                            onClick = onPlay,
+                            enabled = ready && waypoints.size >= 2,
+                            modifier = Modifier.weight(1f),
+                        ) { Text("Play route") }
                 }
                 OutlinedButton(
                     onClick = onStop,

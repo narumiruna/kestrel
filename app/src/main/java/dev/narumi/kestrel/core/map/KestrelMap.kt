@@ -21,7 +21,6 @@ import org.maplibre.android.MapLibre
 import org.maplibre.android.WellKnownTileServer
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.camera.CameraUpdateFactory
-import org.maplibre.android.geometry.LatLng as MlLatLng
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.Style
@@ -33,6 +32,7 @@ import org.maplibre.geojson.Feature
 import org.maplibre.geojson.FeatureCollection
 import org.maplibre.geojson.LineString
 import org.maplibre.geojson.Point
+import org.maplibre.android.geometry.LatLng as MlLatLng
 
 private val EMPTY_FEATURES = FeatureCollection.fromFeatures(emptyList<Feature>())
 
@@ -67,24 +67,27 @@ fun KestrelMap(
     val mockArgb = MaterialTheme.colorScheme.error.toArgb()
     val onPrimaryArgb = MaterialTheme.colorScheme.onPrimary.toArgb()
 
-    val mapView = remember {
-        MapLibre.getInstance(context, null, WellKnownTileServer.MapLibre)
-        MapView(context)
-    }
+    val mapView =
+        remember {
+            MapLibre.getInstance(context, null, WellKnownTileServer.MapLibre)
+            MapView(context)
+        }
     var mapRef by remember { mutableStateOf<MapLibreMap?>(null) }
     var styleRef by remember { mutableStateOf<Style?>(null) }
-    val clickHandler = remember(onMapClick) {
-        MapLibreMap.OnMapClickListener { point ->
-            onMapClick(LatLng(point.latitude, point.longitude))
-            true
+    val clickHandler =
+        remember(onMapClick) {
+            MapLibreMap.OnMapClickListener { point ->
+                onMapClick(LatLng(point.latitude, point.longitude))
+                true
+            }
         }
-    }
-    val longClickHandler = remember(onMapLongClick) {
-        MapLibreMap.OnMapLongClickListener { point ->
-            onMapLongClick(LatLng(point.latitude, point.longitude))
-            true
+    val longClickHandler =
+        remember(onMapLongClick) {
+            MapLibreMap.OnMapLongClickListener { point ->
+                onMapLongClick(LatLng(point.latitude, point.longitude))
+                true
+            }
         }
-    }
 
     DisposableEffect(lifecycleOwner) {
         mapView.onCreate(null)
@@ -92,10 +95,12 @@ fun KestrelMap(
         mapView.onResume()
         mapView.getMapAsync { map ->
             mapRef = map
-            map.cameraPosition = CameraPosition.Builder()
-                .target(MlLatLng(initialCenter.lat, initialCenter.lng))
-                .zoom(initialZoom)
-                .build()
+            map.cameraPosition =
+                CameraPosition
+                    .Builder()
+                    .target(MlLatLng(initialCenter.lat, initialCenter.lng))
+                    .zoom(initialZoom)
+                    .build()
             map.setStyle(Style.Builder().fromJson(OSM_RASTER_STYLE_JSON)) { style ->
                 style.addSource(GeoJsonSource(SOURCE_LINE))
                 style.addLayer(
@@ -157,15 +162,16 @@ fun KestrelMap(
                 )
             }
         }
-        val observer = LifecycleEventObserver { _, event ->
-            when (event) {
-                Lifecycle.Event.ON_PAUSE -> mapView.onPause()
-                Lifecycle.Event.ON_STOP -> mapView.onStop()
-                Lifecycle.Event.ON_RESUME -> mapView.onResume()
-                Lifecycle.Event.ON_START -> mapView.onStart()
-                else -> Unit
+        val observer =
+            LifecycleEventObserver { _, event ->
+                when (event) {
+                    Lifecycle.Event.ON_PAUSE -> mapView.onPause()
+                    Lifecycle.Event.ON_STOP -> mapView.onStop()
+                    Lifecycle.Event.ON_RESUME -> mapView.onResume()
+                    Lifecycle.Event.ON_START -> mapView.onStart()
+                    else -> Unit
+                }
             }
-        }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
             mapRef?.removeOnMapClickListener(clickHandler)
@@ -221,9 +227,10 @@ fun KestrelMap(
         if (polyline.isEmpty()) {
             pointsSource?.setGeoJson(EMPTY_FEATURES)
         } else {
-            val features = polyline.map {
-                Feature.fromGeometry(Point.fromLngLat(it.lng, it.lat))
-            }
+            val features =
+                polyline.map {
+                    Feature.fromGeometry(Point.fromLngLat(it.lng, it.lat))
+                }
             pointsSource?.setGeoJson(FeatureCollection.fromFeatures(features))
         }
     }
