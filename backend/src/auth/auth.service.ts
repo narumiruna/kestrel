@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { argon2id, hash, verify } from 'argon2';
+import { randomBytes } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { TotpService } from './totp.service';
 
@@ -117,8 +118,17 @@ export class AuthService {
     }
 
     const totpEnabledAt = new Date();
+    const recoveryCodes = await createRecoveryCodes();
     const updatedUser = await this.prismaService.user.update({
       data: {
+        recoveryCodes: {
+          createMany: {
+            data: recoveryCodes.codeHashes.map((codeHash) => ({
+              codeHash,
+            })),
+          },
+          deleteMany: {},
+        },
         totpEnabledAt,
       },
       select: {
@@ -133,6 +143,7 @@ export class AuthService {
 
     return {
       nextStep: 'login' as const,
+      recoveryCodes: recoveryCodes.codes,
       user: updatedUser,
     };
   }
@@ -167,6 +178,9 @@ const MIN_PASSWORD_LENGTH = 12;
 const MAX_PASSWORD_LENGTH = 256;
 const MIN_USERNAME_LENGTH = 3;
 const MAX_USERNAME_LENGTH = 64;
+const RECOVERY_CODE_COUNT = 10;
+const RECOVERY_CODE_GROUP_LENGTH = 4;
+const RECOVERY_CODE_ALPHABET = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
 const USERNAME_PATTERN = /^[A-Za-z0-9._-]+$/;
 
 function parseRegisterRequest(input: unknown): {
@@ -259,4 +273,46 @@ function validatePassword(password: unknown): string {
   }
 
   return password;
+}
+
+async function createRecoveryCodes(): Promise<{
+  codeHashes: string[];
+  codes: string[];
+}> {
+  const normalizedCodes = new Set<string>();
+
+  while (normalizedCodes.size < RECOVERY_CODE_COUNT) {
+    normalizedCodes.add(createRecoveryCodeValue());
+  }
+
+  const codes = Array.from(normalizedCodes, formatRecoveryCode);
+  const codeHashes = await Promise.all(
+    Array.from(normalizedCodes, (code) =>
+      hash(code, {
+        type: argon2id,
+      }),
+    ),
+  );
+
+  return {
+    codeHashes,
+    codes,
+  };
+}
+
+function createRecoveryCodeValue(): string {
+  let value = '';
+
+  for (const byte of randomBytes(RECOVERY_CODE_GROUP_LENGTH * 2)) {
+    value += RECOVERY_CODE_ALPHABET[byte & 31];
+  }
+
+  return value;
+}
+
+function formatRecoveryCode(code: string): string {
+  return [
+    code.slice(0, RECOVERY_CODE_GROUP_LENGTH),
+    code.slice(RECOVERY_CODE_GROUP_LENGTH),
+  ].join('-');
 }
