@@ -56,12 +56,14 @@ type TotpVerifyResponse = {
 describe('AppController (e2e)', () => {
   let app: INestApplication<App>;
   let prismaService: MockPrismaService;
+  let storedUsersById: Map<string, AuthUserRecord>;
   let storedUsers: Map<string, AuthUserRecord>;
 
   beforeEach(async () => {
     process.env.AUTH_TOTP_ENCRYPTION_KEY =
       'MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=';
     process.env.AUTH_TOTP_ISSUER = 'Kestrel Test';
+    storedUsersById = new Map();
     storedUsers = new Map();
     prismaService = {
       user: {
@@ -74,6 +76,7 @@ describe('AppController (e2e)', () => {
             totpSecretEncrypted: null,
             username: String(args.data.username),
           };
+          storedUsersById.set(createdUser.id, createdUser);
           storedUsers.set(createdUser.username, createdUser);
 
           return Promise.resolve(applySelect(createdUser, args.select));
@@ -92,9 +95,7 @@ describe('AppController (e2e)', () => {
           );
         }),
         update: jest.fn((args: Prisma.UserUpdateArgs) => {
-          const user = Array.from(storedUsers.values()).find(
-            (candidate) => candidate.id === args.where.id,
-          );
+          const user = storedUsersById.get(String(args.where.id));
 
           if (user == null) {
             throw new Error('user not found');
@@ -104,6 +105,7 @@ describe('AppController (e2e)', () => {
             ...user,
             ...args.data,
           };
+          storedUsersById.set(updatedUser.id, updatedUser);
           storedUsers.set(updatedUser.username, updatedUser);
 
           return Promise.resolve(applySelect(updatedUser, args.select));
@@ -162,6 +164,7 @@ describe('AppController (e2e)', () => {
       totpSecretEncrypted: null,
       username: 'alice',
     });
+    storedUsersById.set('user-1', storedUsers.get('alice') as AuthUserRecord);
 
     const setupResponse = await request(app.getHttpServer())
       .post('/auth/totp/setup')
