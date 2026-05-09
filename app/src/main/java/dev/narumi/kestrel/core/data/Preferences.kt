@@ -47,8 +47,10 @@ data class FavoriteRoute(
 ) {
     override fun equals(other: Any?): Boolean =
         other is FavoriteRoute &&
-            lats.contentEquals(other.lats) && lngs.contentEquals(other.lngs) &&
-            speedKmh == other.speedKmh && mode == other.mode
+            lats.contentEquals(other.lats) &&
+            lngs.contentEquals(other.lngs) &&
+            speedKmh == other.speedKmh &&
+            mode == other.mode
 
     override fun hashCode(): Int {
         var result = lats.contentHashCode()
@@ -90,6 +92,27 @@ data class StartupPreference(
     enum class Mode { Last, Current, Favorite }
 }
 
+@Serializable
+data class RandomRoutePreference(
+    val defaultPointCount: Int = RECOMMENDED_POINT_COUNT,
+    val defaultSpacingMeters: Double = RECOMMENDED_SPACING_METERS,
+    val lastPointCount: Int? = null,
+    val lastSpacingMeters: Double? = null,
+) {
+    companion object {
+        const val MIN_POINT_COUNT = 2
+        const val MAX_POINT_COUNT = 1000
+        const val MIN_SPACING_METERS = 1.0
+        const val MAX_SPACING_METERS = 10000.0
+        const val RECOMMENDED_POINT_COUNT = 100
+        const val RECOMMENDED_SPACING_METERS = 500.0
+    }
+
+    val effectivePointCount: Int get() = lastPointCount ?: defaultPointCount
+    val effectiveSpacingMeters: Double get() = lastSpacingMeters ?: defaultSpacingMeters
+    val usesLastSettings: Boolean get() = lastPointCount != null && lastSpacingMeters != null
+}
+
 private val Context.prefStore by preferencesDataStore("kestrel_prefs")
 
 private object Keys {
@@ -100,8 +123,10 @@ private object Keys {
     val FAVORITES_SORT_MODE = stringPreferencesKey("favorites_sort_mode_json")
     val MOCK_STATE = stringPreferencesKey("mock_state_json")
     val STARTUP_PREF = stringPreferencesKey("startup_pref_json")
+    val RANDOM_ROUTE_PREF = stringPreferencesKey("random_route_pref_json")
 }
 
+@Suppress("TooManyFunctions")
 class KestrelPrefs(
     context: Context,
 ) {
@@ -113,6 +138,8 @@ class KestrelPrefs(
     val favoritesSortMode: Flow<FavoritesSortMode> = store.data.map { it.toFavoritesSortMode(json) }
     val mockState: Flow<MockState?> = store.data.map { it.toMockState(json) }
     val startupPreference: Flow<StartupPreference> = store.data.map { it.toStartupPref(json) }
+    val randomRoutePreference: Flow<RandomRoutePreference> =
+        store.data.map { it.toRandomRoutePref(json) }
 
     suspend fun setLastCamera(snap: CameraSnapshot) {
         store.edit {
@@ -218,6 +245,44 @@ class KestrelPrefs(
         }
     }
 
+    suspend fun setRandomRouteDefaults(
+        pointCount: Int,
+        spacingMeters: Double,
+    ) {
+        store.edit { prefs ->
+            val current = prefs.toRandomRoutePref(json)
+            prefs[Keys.RANDOM_ROUTE_PREF] =
+                json.encodeToString(
+                    RandomRoutePreference.serializer(),
+                    current.copy(
+                        defaultPointCount = pointCount,
+                        defaultSpacingMeters = spacingMeters,
+                    ),
+                )
+        }
+    }
+
+    suspend fun setLastRandomRouteSettings(
+        pointCount: Int,
+        spacingMeters: Double,
+    ) {
+        store.edit { prefs ->
+            val current = prefs.toRandomRoutePref(json)
+            prefs[Keys.RANDOM_ROUTE_PREF] =
+                json.encodeToString(
+                    RandomRoutePreference.serializer(),
+                    current.copy(
+                        lastPointCount = pointCount,
+                        lastSpacingMeters = spacingMeters,
+                    ),
+                )
+        }
+    }
+
+    suspend fun resetRandomRoutePreference() {
+        store.edit { it.remove(Keys.RANDOM_ROUTE_PREF) }
+    }
+
     suspend fun setMockState(state: MockState?) {
         store.edit {
             if (state == null) {
@@ -277,5 +342,12 @@ class KestrelPrefs(
         return runCatching {
             json.decodeFromString(StartupPreference.serializer(), raw)
         }.getOrDefault(StartupPreference())
+    }
+
+    private fun Preferences.toRandomRoutePref(json: Json): RandomRoutePreference {
+        val raw = this[Keys.RANDOM_ROUTE_PREF] ?: return RandomRoutePreference()
+        return runCatching {
+            json.decodeFromString(RandomRoutePreference.serializer(), raw)
+        }.getOrDefault(RandomRoutePreference())
     }
 }
