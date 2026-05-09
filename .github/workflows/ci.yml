@@ -26,7 +26,7 @@ jobs:
       - name: Validate and build
         run: ./gradlew spotlessCheck detekt :app:assembleDebug
 
-      - name: Run unit tests
+      - name: Run unit tests (non-blocking)
         continue-on-error: true
         run: ./gradlew :app:testDebugUnitTest
 
