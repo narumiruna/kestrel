@@ -18,10 +18,11 @@ object FavoriteToLibraryMigrator {
         nowProvider: () -> Long = { System.currentTimeMillis() },
     ): FavoriteMigrationResult {
         var startupLibraryItemId = startupPreference.libraryItemId
+        val startupFavoriteName = startupPreference.favoriteName
         val rows =
             favorites.mapIndexed { index, favorite ->
                 val migrated = migrateFavorite(favorite, index, uuidFactory, nowProvider)
-                if (startupLibraryItemId == null && favorite.name == startupPreference.favoriteName) {
+                if (startupLibraryItemId == null && startupFavoriteName != null && favorite.name == startupFavoriteName) {
                     startupLibraryItemId = migrated.libraryItem.id
                 }
                 migrated
