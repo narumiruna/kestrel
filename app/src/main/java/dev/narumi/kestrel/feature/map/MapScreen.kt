@@ -102,7 +102,10 @@ fun MapScreen(modifier: Modifier = Modifier) {
             StartupPreference.Mode.Current -> awaitCurrentForStartup = true
             StartupPreference.Mode.Favorite -> {
                 prefs.favorites.first().find { it.name == pref.favoriteName }?.let { fav ->
+                    val target = LatLng(fav.lat, fav.lng)
                     cameraTarget = CameraSnapshot(fav.lat, fav.lng, 13.0)
+                    LocationService.setLocation(context, target)
+                    runState = RunState.Single
                 }
             }
         }
