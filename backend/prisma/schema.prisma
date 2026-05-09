@@ -23,6 +23,7 @@ model User {
   routeRevisions      RouteRevision[] @relation("RouteRevisionCreator")
   routes              Route[]
   sessions            Session[]
+  syncEvents          SyncEvent[]
 
   @@map("users")
 }
@@ -202,6 +203,22 @@ model DeviceState {
   @@map("device_states")
 }
 
+model SyncEvent {
+  id         BigInt         @id @default(autoincrement())
+  userId     String         @map("user_id") @db.Uuid
+  entityType SyncEntityType @map("entity_type")
+  entityId   String         @map("entity_id") @db.Uuid
+  operation  SyncOperation
+  payload    Json?
+  createdAt  DateTime       @default(now()) @map("created_at")
+  user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, id])
+  @@index([userId, createdAt])
+  @@index([userId, entityType, entityId, id])
+  @@map("sync_events")
+}
+
 enum DevicePlatform {
   ANDROID
   WEB
@@ -224,4 +241,17 @@ enum RouteMode {
   ONCE
   LOOP
   PING_PONG
+}
+
+enum SyncEntityType {
+  PLACE
+  ROUTE
+  ROUTE_REVISION
+  LIBRARY_ITEM
+  DEVICE_STATE
+}
+
+enum SyncOperation {
+  UPSERT
+  DELETE
 }
