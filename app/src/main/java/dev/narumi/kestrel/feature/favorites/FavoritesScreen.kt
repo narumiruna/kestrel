@@ -99,8 +99,8 @@ fun FavoritesScreen(
         onPointTextChange = { pointText = it },
         onRouteSpeedTextChange = { routeSpeedText = it },
         onRouteModeChange = { routeMode = it },
-        onRenameConfirm = { item ->
-            scope.launch { libraryRepository.renameItem(item.item.id, renameText.trim()) }
+        onRenameConfirm = { item, newName ->
+            scope.launch { libraryRepository.renameItem(item.item.id, newName.trim()) }
             editingName = null
             renameText = ""
         },
@@ -193,7 +193,7 @@ private fun FavoriteEditDialogs(
     onPointTextChange: (String) -> Unit,
     onRouteSpeedTextChange: (String) -> Unit,
     onRouteModeChange: (MovementEngine.Mode) -> Unit,
-    onRenameConfirm: (LibraryItemWithContent) -> Unit,
+    onRenameConfirm: (LibraryItemWithContent, String) -> Unit,
     onPointConfirm: (LibraryItemWithContent, LatLng) -> Unit,
     onRouteConfirm: (LibraryItemWithContent, Double, MovementEngine.Mode) -> Unit,
     onRenameDismiss: () -> Unit,
@@ -204,7 +204,7 @@ private fun FavoriteEditDialogs(
         RenameFavoriteDialog(
             name = renameText,
             onNameChange = onRenameTextChange,
-            onConfirm = { onRenameConfirm(item) },
+            onConfirm = { onRenameConfirm(item, renameText) },
             onDismiss = onRenameDismiss,
         )
     }
