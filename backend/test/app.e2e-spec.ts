@@ -206,8 +206,6 @@ describe('AppController (e2e)', () => {
           '2026-05-09T15:33:00.000Z',
         );
       });
-
-    jest.useRealTimers();
   });
 
   afterEach(async () => {
