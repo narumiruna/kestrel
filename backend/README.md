@@ -78,3 +78,13 @@ The current migrations establish the core Phase 1 auth tables:
 - `code_hash`
 - `used_at`
 - `created_at`
+
+### `sessions`
+
+- `id`
+- `user_id`
+- `refresh_token_hash`
+- `expires_at`
+- `revoked_at`
+- `last_used_at`
+- `created_at`
