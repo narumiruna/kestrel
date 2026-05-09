@@ -147,7 +147,9 @@ private fun StartupPreferenceCard(
             onSelect = {
                 val target =
                     items.firstOrNull { it.item.id == startup.libraryItemId }
-                        ?: items.firstOrNull { startup.libraryItemId == null && it.name == startup.favoriteName }
+                        ?: startup.favoriteName?.let { favoriteName ->
+                            items.firstOrNull { it.name == favoriteName }
+                        }
                         ?: items.firstOrNull()
                         ?: return@StartupRadioRow
                 onUpdate(

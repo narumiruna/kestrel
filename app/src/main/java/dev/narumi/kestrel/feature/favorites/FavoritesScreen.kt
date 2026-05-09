@@ -475,7 +475,7 @@ private fun RenameFavoriteDialog(
                 onValueChange = onNameChange,
                 label = { Text("Name") },
                 supportingText = {
-                    Text("Duplicate names are okay because library items keep a stable internal ID.")
+                    Text("Library items use unique identifiers, so duplicate names are allowed.")
                 },
                 singleLine = true,
             )
