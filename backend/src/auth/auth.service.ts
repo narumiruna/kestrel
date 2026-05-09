@@ -193,6 +193,8 @@ const MIN_USERNAME_LENGTH = 3;
 const MAX_USERNAME_LENGTH = 64;
 const RECOVERY_CODE_COUNT = 10;
 const RECOVERY_CODE_GROUP_LENGTH = 4;
+const RECOVERY_CODE_GROUP_COUNT = 2;
+const RECOVERY_CODE_ALPHABET_MASK = 31;
 const RECOVERY_CODE_ALPHABET = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
 const RECOVERY_CODE_MAX_ATTEMPTS = 100;
 const USERNAME_PATTERN = /^[A-Za-z0-9._-]+$/;
@@ -326,9 +328,11 @@ async function createRecoveryCodes(): Promise<{
 function createRecoveryCodeValue(): string {
   let value = '';
 
-  for (const byte of randomBytes(RECOVERY_CODE_GROUP_LENGTH * 2)) {
+  for (const byte of randomBytes(
+    RECOVERY_CODE_GROUP_LENGTH * RECOVERY_CODE_GROUP_COUNT,
+  )) {
     // The alphabet has 32 symbols, so taking the low 5 bits is uniform.
-    value += RECOVERY_CODE_ALPHABET[byte & 31];
+    value += RECOVERY_CODE_ALPHABET[byte & RECOVERY_CODE_ALPHABET_MASK];
   }
 
   return value;
