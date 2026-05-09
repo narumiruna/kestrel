@@ -1,5 +1,6 @@
 package dev.narumi.kestrel.core.map
 
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -8,6 +9,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
@@ -61,6 +63,10 @@ fun KestrelMap(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
+    val primaryArgb = MaterialTheme.colorScheme.primary.toArgb()
+    val mockArgb = MaterialTheme.colorScheme.error.toArgb()
+    val onPrimaryArgb = MaterialTheme.colorScheme.onPrimary.toArgb()
+
     val mapView = remember {
         MapLibre.getInstance(context, null, WellKnownTileServer.MapLibre)
         MapView(context)
@@ -94,33 +100,33 @@ fun KestrelMap(
                 style.addSource(GeoJsonSource(SOURCE_LINE))
                 style.addLayer(
                     LineLayer(LAYER_LINE, SOURCE_LINE).withProperties(
-                        PropertyFactory.lineColor("#1976d2"),
+                        PropertyFactory.lineColor(primaryArgb),
                         PropertyFactory.lineWidth(4f),
-                        PropertyFactory.lineOpacity(0.8f),
+                        PropertyFactory.lineOpacity(0.85f),
                     ),
                 )
                 style.addSource(GeoJsonSource(SOURCE_WAYPOINTS))
                 style.addLayer(
                     CircleLayer(LAYER_WAYPOINTS, SOURCE_WAYPOINTS).withProperties(
                         PropertyFactory.circleRadius(5f),
-                        PropertyFactory.circleColor("#1976d2"),
-                        PropertyFactory.circleStrokeColor("#ffffff"),
+                        PropertyFactory.circleColor(primaryArgb),
+                        PropertyFactory.circleStrokeColor(onPrimaryArgb),
                         PropertyFactory.circleStrokeWidth(1.5f),
                     ),
                 )
                 style.addSource(GeoJsonSource(SOURCE_MOCK))
                 style.addLayer(
                     CircleLayer(LAYER_MOCK_HALO, SOURCE_MOCK).withProperties(
-                        PropertyFactory.circleRadius(20f),
-                        PropertyFactory.circleColor("#d32f2f"),
+                        PropertyFactory.circleRadius(22f),
+                        PropertyFactory.circleColor(mockArgb),
                         PropertyFactory.circleOpacity(0.18f),
                     ),
                 )
                 style.addLayer(
                     CircleLayer(LAYER_MOCK, SOURCE_MOCK).withProperties(
                         PropertyFactory.circleRadius(9f),
-                        PropertyFactory.circleColor("#d32f2f"),
-                        PropertyFactory.circleStrokeColor("#ffffff"),
+                        PropertyFactory.circleColor(mockArgb),
+                        PropertyFactory.circleStrokeColor(onPrimaryArgb),
                         PropertyFactory.circleStrokeWidth(2f),
                     ),
                 )
@@ -128,15 +134,15 @@ fun KestrelMap(
                 style.addLayer(
                     CircleLayer(LAYER_ME_HALO, SOURCE_ME).withProperties(
                         PropertyFactory.circleRadius(18f),
-                        PropertyFactory.circleColor("#1976d2"),
+                        PropertyFactory.circleColor(primaryArgb),
                         PropertyFactory.circleOpacity(0.18f),
                     ),
                 )
                 style.addLayer(
                     CircleLayer(LAYER_ME, SOURCE_ME).withProperties(
                         PropertyFactory.circleRadius(7f),
-                        PropertyFactory.circleColor("#1976d2"),
-                        PropertyFactory.circleStrokeColor("#ffffff"),
+                        PropertyFactory.circleColor(primaryArgb),
+                        PropertyFactory.circleStrokeColor(onPrimaryArgb),
                         PropertyFactory.circleStrokeWidth(2f),
                     ),
                 )
