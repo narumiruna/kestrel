@@ -87,7 +87,7 @@ Pure-Kotlin tests (no Android context needed) live in `app/src/test/`. Tests tha
 
 ### Cloud platform backend
 
-The cloud platform backend lives in `/home/runner/work/kestrel/kestrel/backend`.
+The cloud platform backend lives in `backend/`.
 
 ```bash
 cd backend
