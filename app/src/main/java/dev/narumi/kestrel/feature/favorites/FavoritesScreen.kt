@@ -47,7 +47,10 @@ import dev.narumi.kestrel.core.data.StartupPreference
 import kotlinx.coroutines.launch
 
 @Composable
-fun FavoritesScreen(modifier: Modifier = Modifier) {
+fun FavoritesScreen(
+    modifier: Modifier = Modifier,
+    onApplyToMap: (Favorite) -> Unit = {},
+) {
     val context = LocalContext.current
     val prefs = remember { KestrelPrefs(context) }
     val scope = rememberCoroutineScope()
@@ -89,6 +92,7 @@ fun FavoritesScreen(modifier: Modifier = Modifier) {
         sortMode = sortMode.mode,
         onTabChange = { selectedTab = it },
         onSortModeChange = { mode -> scope.launch { prefs.setFavoritesSortMode(mode) } },
+        onApply = onApplyToMap,
         onRename = { fav ->
             editingFavorite = fav
             renameText = fav.name
@@ -114,6 +118,7 @@ private fun FavoritesContent(
     sortMode: FavoritesSortMode.Mode,
     onTabChange: (Int) -> Unit,
     onSortModeChange: (FavoritesSortMode.Mode) -> Unit,
+    onApply: (Favorite) -> Unit,
     onRename: (Favorite) -> Unit,
     onDelete: (Favorite) -> Unit,
 ) {
@@ -138,6 +143,7 @@ private fun FavoritesContent(
                     sortMode = sortMode,
                     onTabChange = onTabChange,
                     onSortModeChange = onSortModeChange,
+                    onApply = onApply,
                     onRename = onRename,
                     onDelete = onDelete,
                 )
@@ -153,6 +159,7 @@ private fun FavoritesListContent(
     sortMode: FavoritesSortMode.Mode,
     onTabChange: (Int) -> Unit,
     onSortModeChange: (FavoritesSortMode.Mode) -> Unit,
+    onApply: (Favorite) -> Unit,
     onRename: (Favorite) -> Unit,
     onDelete: (Favorite) -> Unit,
 ) {
@@ -177,6 +184,7 @@ private fun FavoritesListContent(
                 items(visibleFavorites, key = { it.name }) { fav ->
                     FavoriteRow(
                         favorite = fav,
+                        onApply = { onApply(fav) },
                         onRename = { onRename(fav) },
                         onDelete = { onDelete(fav) },
                     )
@@ -248,6 +256,7 @@ private fun SortModeMenu(
 @Composable
 private fun FavoriteRow(
     favorite: Favorite,
+    onApply: () -> Unit,
     onRename: () -> Unit,
     onDelete: () -> Unit,
 ) {
@@ -256,6 +265,9 @@ private fun FavoriteRow(
         supportingContent = { Text(favorite.description()) },
         trailingContent = {
             Row {
+                TextButton(onClick = onApply) {
+                    Text("Apply")
+                }
                 IconButton(onClick = onRename) {
                     Icon(
                         imageVector = Icons.Filled.Edit,
