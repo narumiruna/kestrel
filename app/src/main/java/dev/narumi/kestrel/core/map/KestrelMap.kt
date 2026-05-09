@@ -1,5 +1,6 @@
 package dev.narumi.kestrel.core.map
 
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -8,6 +9,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
@@ -19,7 +21,6 @@ import org.maplibre.android.MapLibre
 import org.maplibre.android.WellKnownTileServer
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.camera.CameraUpdateFactory
-import org.maplibre.android.geometry.LatLng as MlLatLng
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.Style
@@ -31,11 +32,13 @@ import org.maplibre.geojson.Feature
 import org.maplibre.geojson.FeatureCollection
 import org.maplibre.geojson.LineString
 import org.maplibre.geojson.Point
+import org.maplibre.android.geometry.LatLng as MlLatLng
 
 private val EMPTY_FEATURES = FeatureCollection.fromFeatures(emptyList<Feature>())
 
-private const val SOURCE_MARKER = "kestrel-marker"
-private const val LAYER_MARKER = "kestrel-marker-layer"
+private const val SOURCE_MOCK = "kestrel-mock"
+private const val LAYER_MOCK = "kestrel-mock-layer"
+private const val LAYER_MOCK_HALO = "kestrel-mock-halo-layer"
 private const val SOURCE_LINE = "kestrel-line"
 private const val LAYER_LINE = "kestrel-line-layer"
 private const val SOURCE_WAYPOINTS = "kestrel-waypoints"
@@ -49,7 +52,7 @@ fun KestrelMap(
     modifier: Modifier = Modifier,
     initialCenter: LatLng = LatLng(25.0330, 121.5654),
     initialZoom: Double = 11.0,
-    marker: LatLng? = null,
+    mockLocation: LatLng? = null,
     polyline: List<LatLng> = emptyList(),
     myLocation: LatLng? = null,
     cameraTarget: CameraSnapshot? = null,
@@ -60,24 +63,31 @@ fun KestrelMap(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    val mapView = remember {
-        MapLibre.getInstance(context, null, WellKnownTileServer.MapLibre)
-        MapView(context)
-    }
+    val primaryArgb = MaterialTheme.colorScheme.primary.toArgb()
+    val mockArgb = MaterialTheme.colorScheme.error.toArgb()
+    val onPrimaryArgb = MaterialTheme.colorScheme.onPrimary.toArgb()
+
+    val mapView =
+        remember {
+            MapLibre.getInstance(context, null, WellKnownTileServer.MapLibre)
+            MapView(context)
+        }
     var mapRef by remember { mutableStateOf<MapLibreMap?>(null) }
     var styleRef by remember { mutableStateOf<Style?>(null) }
-    val clickHandler = remember(onMapClick) {
-        MapLibreMap.OnMapClickListener { point ->
-            onMapClick(LatLng(point.latitude, point.longitude))
-            true
+    val clickHandler =
+        remember(onMapClick) {
+            MapLibreMap.OnMapClickListener { point ->
+                onMapClick(LatLng(point.latitude, point.longitude))
+                true
+            }
         }
-    }
-    val longClickHandler = remember(onMapLongClick) {
-        MapLibreMap.OnMapLongClickListener { point ->
-            onMapLongClick(LatLng(point.latitude, point.longitude))
-            true
+    val longClickHandler =
+        remember(onMapLongClick) {
+            MapLibreMap.OnMapLongClickListener { point ->
+                onMapLongClick(LatLng(point.latitude, point.longitude))
+                true
+            }
         }
-    }
 
     DisposableEffect(lifecycleOwner) {
         mapView.onCreate(null)
@@ -85,34 +95,43 @@ fun KestrelMap(
         mapView.onResume()
         mapView.getMapAsync { map ->
             mapRef = map
-            map.cameraPosition = CameraPosition.Builder()
-                .target(MlLatLng(initialCenter.lat, initialCenter.lng))
-                .zoom(initialZoom)
-                .build()
+            map.cameraPosition =
+                CameraPosition
+                    .Builder()
+                    .target(MlLatLng(initialCenter.lat, initialCenter.lng))
+                    .zoom(initialZoom)
+                    .build()
             map.setStyle(Style.Builder().fromJson(OSM_RASTER_STYLE_JSON)) { style ->
                 style.addSource(GeoJsonSource(SOURCE_LINE))
                 style.addLayer(
                     LineLayer(LAYER_LINE, SOURCE_LINE).withProperties(
-                        PropertyFactory.lineColor("#1976d2"),
+                        PropertyFactory.lineColor(primaryArgb),
                         PropertyFactory.lineWidth(4f),
-                        PropertyFactory.lineOpacity(0.8f),
+                        PropertyFactory.lineOpacity(0.85f),
                     ),
                 )
                 style.addSource(GeoJsonSource(SOURCE_WAYPOINTS))
                 style.addLayer(
                     CircleLayer(LAYER_WAYPOINTS, SOURCE_WAYPOINTS).withProperties(
                         PropertyFactory.circleRadius(5f),
-                        PropertyFactory.circleColor("#1976d2"),
-                        PropertyFactory.circleStrokeColor("#ffffff"),
+                        PropertyFactory.circleColor(primaryArgb),
+                        PropertyFactory.circleStrokeColor(onPrimaryArgb),
                         PropertyFactory.circleStrokeWidth(1.5f),
                     ),
                 )
-                style.addSource(GeoJsonSource(SOURCE_MARKER))
+                style.addSource(GeoJsonSource(SOURCE_MOCK))
                 style.addLayer(
-                    CircleLayer(LAYER_MARKER, SOURCE_MARKER).withProperties(
+                    CircleLayer(LAYER_MOCK_HALO, SOURCE_MOCK).withProperties(
+                        PropertyFactory.circleRadius(22f),
+                        PropertyFactory.circleColor(mockArgb),
+                        PropertyFactory.circleOpacity(0.18f),
+                    ),
+                )
+                style.addLayer(
+                    CircleLayer(LAYER_MOCK, SOURCE_MOCK).withProperties(
                         PropertyFactory.circleRadius(9f),
-                        PropertyFactory.circleColor("#d32f2f"),
-                        PropertyFactory.circleStrokeColor("#ffffff"),
+                        PropertyFactory.circleColor(mockArgb),
+                        PropertyFactory.circleStrokeColor(onPrimaryArgb),
                         PropertyFactory.circleStrokeWidth(2f),
                     ),
                 )
@@ -120,15 +139,15 @@ fun KestrelMap(
                 style.addLayer(
                     CircleLayer(LAYER_ME_HALO, SOURCE_ME).withProperties(
                         PropertyFactory.circleRadius(18f),
-                        PropertyFactory.circleColor("#1976d2"),
+                        PropertyFactory.circleColor(primaryArgb),
                         PropertyFactory.circleOpacity(0.18f),
                     ),
                 )
                 style.addLayer(
                     CircleLayer(LAYER_ME, SOURCE_ME).withProperties(
                         PropertyFactory.circleRadius(7f),
-                        PropertyFactory.circleColor("#1976d2"),
-                        PropertyFactory.circleStrokeColor("#ffffff"),
+                        PropertyFactory.circleColor(primaryArgb),
+                        PropertyFactory.circleStrokeColor(onPrimaryArgb),
                         PropertyFactory.circleStrokeWidth(2f),
                     ),
                 )
@@ -143,15 +162,16 @@ fun KestrelMap(
                 )
             }
         }
-        val observer = LifecycleEventObserver { _, event ->
-            when (event) {
-                Lifecycle.Event.ON_PAUSE -> mapView.onPause()
-                Lifecycle.Event.ON_STOP -> mapView.onStop()
-                Lifecycle.Event.ON_RESUME -> mapView.onResume()
-                Lifecycle.Event.ON_START -> mapView.onStart()
-                else -> Unit
+        val observer =
+            LifecycleEventObserver { _, event ->
+                when (event) {
+                    Lifecycle.Event.ON_PAUSE -> mapView.onPause()
+                    Lifecycle.Event.ON_STOP -> mapView.onStop()
+                    Lifecycle.Event.ON_RESUME -> mapView.onResume()
+                    Lifecycle.Event.ON_START -> mapView.onStart()
+                    else -> Unit
+                }
             }
-        }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
             mapRef?.removeOnMapClickListener(clickHandler)
@@ -165,13 +185,13 @@ fun KestrelMap(
         }
     }
 
-    LaunchedEffect(marker, styleRef) {
+    LaunchedEffect(mockLocation, styleRef) {
         val style = styleRef ?: return@LaunchedEffect
-        val source = style.getSourceAs<GeoJsonSource>(SOURCE_MARKER) ?: return@LaunchedEffect
-        if (marker == null) {
+        val source = style.getSourceAs<GeoJsonSource>(SOURCE_MOCK) ?: return@LaunchedEffect
+        if (mockLocation == null) {
             source.setGeoJson(EMPTY_FEATURES)
         } else {
-            source.setGeoJson(Point.fromLngLat(marker.lng, marker.lat))
+            source.setGeoJson(Point.fromLngLat(mockLocation.lng, mockLocation.lat))
         }
     }
 
@@ -207,9 +227,10 @@ fun KestrelMap(
         if (polyline.isEmpty()) {
             pointsSource?.setGeoJson(EMPTY_FEATURES)
         } else {
-            val features = polyline.map {
-                Feature.fromGeometry(Point.fromLngLat(it.lng, it.lat))
-            }
+            val features =
+                polyline.map {
+                    Feature.fromGeometry(Point.fromLngLat(it.lng, it.lat))
+                }
             pointsSource?.setGeoJson(FeatureCollection.fromFeatures(features))
         }
     }

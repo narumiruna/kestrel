@@ -1,0 +1,23 @@
+exclude: ^(gradle/wrapper/|gradlew(\.bat)?$|.*\.bat$)
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: check-yaml
+      - id: check-json
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: mixed-line-ending
+        args: ['--fix=lf']
+
+  - repo: local
+    hooks:
+      - id: spotless
+        name: spotless apply (ktlint + format)
+        entry: bash -c 'export JAVA_HOME="${JAVA_HOME:-/Applications/Android Studio.app/Contents/jbr/Contents/Home}"; export PATH="$JAVA_HOME/bin:$PATH"; ./gradlew --quiet spotlessApply'
+        language: system
+        pass_filenames: false
+        files: \.(kt|kts|xml|md|toml|yaml)$|^justfile$
