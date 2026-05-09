@@ -173,7 +173,8 @@ User → 停止 / 路徑結束（單次） → Service stop
 1. 介紹頁（說明用途）。
 2. 權限引導：精確位置（前景＋背景視需要）、通知。
 3. 「選為模擬位置 App」引導：用 `Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS)` 帶到開發人員選項；附圖文步驟。
-4. 健康檢查：偵測是否已被選為 mock app，未通過則顯示提醒。
+4. **關閉 Google 位置精確度**引導：「設定 → 位置 → 位置服務 → Google 位置精確度（位置情報の精度）」關閉。Google Play Services 的 FusedLocationProvider 會用 Wi-Fi / 基地台融合補位，即使 GPS+NETWORK 已被 mock，仍會把位置拉回真實。關閉後 FLP 才會純信 mock 過的 GPS_PROVIDER 與 NETWORK_PROVIDER。
+5. 健康檢查：偵測是否已被選為 mock app，未通過則顯示提醒。
 
 ### 主畫面（地圖）
 - 中央地圖（MapLibre）。
@@ -232,6 +233,7 @@ User → 停止 / 路徑結束（單次） → Service stop
 | 風險 | 說明 | 因應 |
 |---|---|---|
 | Play Integrity 偵測 | 銀行、部分遊戲會拒絕 mock | 文件清楚標示限制，不主打規避 |
+| GMS Wi-Fi / Cell 融合 | 即使 GPS+NETWORK 都 mock 了，Google 位置精確度開啟時 FLP 仍以 Wi-Fi / 基地台覆寫 | 引導使用者到「設定 → 位置 → 位置服務 → Google 位置精確度」關閉 |
 | OEM 客製差異 | 小米 / 華為等可能影響 test provider | 多裝置實機驗證；issue tracker 收集 |
 | 前景通知不可隱藏 | 系統限制 | 設計簡潔通知，提供快速停止按鈕 |
 | `minSdk` 過高 | 35 限縮可用裝置 | P0 降至 29 |

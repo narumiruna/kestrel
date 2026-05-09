@@ -83,11 +83,12 @@ private fun FavoriteRow(
     favorite: Favorite,
     onDelete: () -> Unit,
 ) {
+    val supporting = favorite.route?.let {
+        "Route · ${it.lats.size} waypoints · ${it.speedKmh.toInt()} km/h"
+    } ?: "%.5f, %.5f".format(favorite.lat, favorite.lng)
     ListItem(
         headlineContent = { Text(favorite.name) },
-        supportingContent = {
-            Text("%.5f, %.5f".format(favorite.lat, favorite.lng))
-        },
+        supportingContent = { Text(supporting) },
         trailingContent = {
             IconButton(onClick = onDelete) {
                 androidx.compose.material3.Icon(
