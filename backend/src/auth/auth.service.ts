@@ -119,27 +119,32 @@ export class AuthService {
 
     const totpEnabledAt = new Date();
     const recoveryCodes = await createRecoveryCodes();
-    const updatedUser = await this.prismaService.user.update({
-      data: {
-        recoveryCodes: {
-          createMany: {
-            data: recoveryCodes.codeHashes.map((codeHash) => ({
-              codeHash,
-            })),
-          },
-          deleteMany: {},
+    const [, , updatedUser] = await this.prismaService.$transaction([
+      this.prismaService.recoveryCode.deleteMany({
+        where: {
+          userId: user.id,
         },
-        totpEnabledAt,
-      },
-      select: {
-        id: true,
-        totpEnabledAt: true,
-        username: true,
-      },
-      where: {
-        id: user.id,
-      },
-    });
+      }),
+      this.prismaService.recoveryCode.createMany({
+        data: recoveryCodes.codeHashes.map((codeHash) => ({
+          codeHash,
+          userId: user.id,
+        })),
+      }),
+      this.prismaService.user.update({
+        data: {
+          totpEnabledAt,
+        },
+        select: {
+          id: true,
+          totpEnabledAt: true,
+          username: true,
+        },
+        where: {
+          id: user.id,
+        },
+      }),
+    ]);
 
     return {
       nextStep: 'login' as const,
