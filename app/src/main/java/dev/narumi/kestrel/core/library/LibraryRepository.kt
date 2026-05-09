@@ -199,14 +199,11 @@ private class RoomLibraryRepository(
         newName: String,
     ) {
         ensureMigrated()
-        val trimmedName = newName.trim()
-        if (trimmedName.isEmpty()) return
+        val trimmedName = normalizedLibraryItemName(newName) ?: return
         val record = dao.getLibraryItem(itemId) ?: return
         val updatedAt = System.currentTimeMillis()
         val startupPreference = prefs.startupPreferenceValue()
-        val shouldUpdateStartupPreference =
-            startupPreference.mode == StartupPreference.Mode.Favorite &&
-                startupPreference.libraryItemId == itemId
+        val shouldUpdateStartupPreference = shouldRenameStartupFavorite(startupPreference, itemId)
         database.withTransaction {
             when (record.item.kind) {
                 LibraryItemKind.Place -> record.item.placeId?.let { dao.renamePlace(it, trimmedName, updatedAt) }
@@ -242,9 +239,7 @@ private class RoomLibraryRepository(
         ensureMigrated()
         val record = dao.getLibraryItem(itemId) ?: return
         val startupPreference = prefs.startupPreferenceValue()
-        val shouldResetStartupPreference =
-            startupPreference.mode == StartupPreference.Mode.Favorite &&
-                startupPreference.libraryItemId == itemId
+        val shouldResetStartupPreference = shouldResetStartupFavorite(startupPreference, itemId)
         database.withTransaction {
             when (record.item.kind) {
                 LibraryItemKind.Place -> record.item.placeId?.let { dao.deletePlace(it) }
@@ -271,8 +266,8 @@ private class RoomLibraryRepository(
 
     override suspend fun touchItem(itemId: String) {
         ensureMigrated()
-        val now = System.currentTimeMillis()
-        dao.touchLibraryItem(itemId, now, now)
+        val touch = touchLibraryItemValues(System.currentTimeMillis())
+        dao.touchLibraryItem(itemId, touch.lastUsedAt, touch.updatedAt)
     }
 
     override suspend fun setSortMode(mode: FavoritesSortMode.Mode) {
@@ -296,6 +291,31 @@ private class RoomLibraryRepository(
         )
     }
 }
+
+internal data class LibraryItemTouchValues(
+    val lastUsedAt: Long,
+    val updatedAt: Long,
+)
+
+internal fun normalizedLibraryItemName(newName: String): String? = newName.trim().takeIf { it.isNotEmpty() }
+
+internal fun shouldRenameStartupFavorite(
+    startupPreference: StartupPreference,
+    itemId: String,
+): Boolean =
+    startupPreference.mode == StartupPreference.Mode.Favorite &&
+        startupPreference.libraryItemId == itemId
+
+internal fun shouldResetStartupFavorite(
+    startupPreference: StartupPreference,
+    itemId: String,
+): Boolean = shouldRenameStartupFavorite(startupPreference, itemId)
+
+internal fun touchLibraryItemValues(now: Long): LibraryItemTouchValues =
+    LibraryItemTouchValues(
+        lastUsedAt = now,
+        updatedAt = now,
+    )
 
 internal data class PlaceLibraryRows(
     val place: PlaceEntity,
