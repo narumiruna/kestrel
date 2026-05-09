@@ -18,6 +18,7 @@ const TOTP_WINDOW = 1;
 const SECRET_BYTES = 20;
 const TOTP_ALGORITHM = 'SHA1';
 const ENCRYPTED_SECRET_VERSION = 'v1';
+const UINT32_MODULUS = 4294967296;
 
 @Injectable()
 export class TotpService {
@@ -244,7 +245,7 @@ function decodeBase32(input: string): Buffer {
 
 function generateHotp(secret: string, counter: number): string {
   const counterBuffer = Buffer.alloc(8);
-  const highCounter = Math.floor(counter / 2 ** 32);
+  const highCounter = Math.floor(counter / UINT32_MODULUS);
   const lowCounter = counter >>> 0;
 
   counterBuffer.writeUInt32BE(highCounter, 0);
