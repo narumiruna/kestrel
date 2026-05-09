@@ -167,8 +167,10 @@ fun FavoritesScreen(
                 libraryRepository.removeItem(item.item.id)
                 if (
                     startup.mode == StartupPreference.Mode.Favorite &&
-                    (startup.libraryItemId == item.item.id ||
-                        (startup.libraryItemId == null && startup.favoriteName == item.name))
+                    (
+                        startup.libraryItemId == item.item.id ||
+                            (startup.libraryItemId == null && startup.favoriteName == item.name)
+                    )
                 ) {
                     prefs.setStartupPreference(StartupPreference(StartupPreference.Mode.Last))
                 }

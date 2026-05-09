@@ -27,11 +27,13 @@ abstract class KestrelDatabase : RoomDatabase() {
 
         fun getInstance(context: Context): KestrelDatabase =
             instance ?: synchronized(this) {
-                instance ?: Room.databaseBuilder(
-                    context.applicationContext,
-                    KestrelDatabase::class.java,
-                    "kestrel.db",
-                ).build().also { instance = it }
+                instance ?: Room
+                    .databaseBuilder(
+                        context.applicationContext,
+                        KestrelDatabase::class.java,
+                        "kestrel.db",
+                    ).build()
+                    .also { instance = it }
             }
     }
 }
