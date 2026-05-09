@@ -1,18 +1,19 @@
 # Kestrel 規劃書
 
-Android 模擬定位（mock GPS）、自動移動、軌跡記錄工具。
+Android 模擬定位（mock GPS）、自動移動、隨機路線生成工具。
 
 ## 1. 目標與非目標
 
 ### 目標
 - F1：在地圖上指定一個座標，將系統位置鎖定於該點。
-- F2：定義路徑（多航點）、速度、模式（單次／循環／來回），啟動後自動沿路徑移動。
-- F3：記錄座標序列為軌跡（含時間、速度、方位），可匯出與重播。
+- F2：定義路徑（多航點）、速度，啟動後自動沿路徑移動。
+- F3：以指定的點數與間距，從目前位置（或地圖中心）隨機生成一條路線，再交給 F2 播放。
 
 ### 非目標
 - 繞過 Play Integrity / SafetyNet 偵測：技術上不可行，且不在合法用途內。
 - 不需 root；僅靠 Android 官方 `LocationManager` test provider。
 - 不做地圖供應商抽象層的多後端支援；MapLibre 專一。
+- **不錄製真實 GPS 軌跡 / 不做 GPX / KML 匯入匯出**：保持單一焦點在 mock + 自動移動。
 
 ### 使用情境
 - App 開發測試地點相關功能、難以實地驗證的路徑情境、地圖／POI 觀察。
@@ -40,19 +41,18 @@ Android 模擬定位（mock GPS）、自動移動、軌跡記錄工具。
 - 開始 / 停止 控制。
 
 ### F2 路徑、速度、自動移動
-- **路徑來源**：手動點選航點、匯入 GPX/KML、複製自歷史軌跡。
-- **速度設定**：步行 5、騎車 20、開車 60 km·h⁻¹ 預設；自訂值。
-- **抖動（jitter）**：可選，加入小幅度隨機偏移與速度波動，降低機械感。
-- **移動引擎**：固定 tick（建議 1 Hz）沿線段做線性插值，計算 bearing、distance、ETA。
-- **模式**：單次、循環、來回（A→B→A）。
-- **控制**：開始 / 暫停 / 繼續 / 停止 / 跳到下一航點。
+- **路徑來源**：手動點選航點、F3 隨機生成、收藏的 route favorite。
+- **速度設定**：5 / 10 / 15 / 20 km·h⁻¹ 預設；可自訂。
+- **移動引擎**：固定 tick（1 Hz）沿線段做線性插值，計算 bearing、distance、ETA。
+- **模式**：MVP 只做單次。
+- **控制**：開始 / 暫停 / 繼續 / 停止。
 - **路徑型態**：MVP 為直線插值；未來可接 OSRM 或 GraphHopper 做沿道路。
 
-### F3 記錄與軌跡
-- 錄製真實 GPS 或目前 mock 輸出。
-- 軌跡列表：名稱、時間、距離、平均速度、來源（REAL / MOCK）。
-- 重播：將任一軌跡作為 F2 的路徑來源。
-- 匯出 / 匯入：GPX、KML、JSON。
+### F3 隨機路線生成
+- **輸入**：起點（地圖中心或目前位置）、點數量、相鄰點間距（公尺）。
+- **走法**：smooth random walk — 起始 bearing 隨機，後續每點在前一 bearing 的 ±N° 內擾動，避免回頭路也避免完全直線。
+- **輸出**：航點清單，直接寫進 F2 的 `waypoints` 狀態，使用者可立即按 Play。
+- **儲存**：透過既有的 Save route 流程加入收藏。
 
 ---
 
@@ -63,14 +63,15 @@ Android 模擬定位（mock GPS）、自動移動、軌跡記錄工具。
 ```
 app/
 ├─ core/
-│  ├─ location/   MockProviderManager, MovementEngine, LocationService
-│  ├─ data/       Room (routes, tracks), GpxKmlIo, repositories
+│  ├─ location/   MockProviderManager, MovementEngine, LocationService,
+│  │              RouteGenerator, Geo (haversine / bearing / destination)
+│  ├─ data/       DataStore prefs (favorites, lastCamera, mockState,
+│  │              startupPreference)
 │  └─ map/        MapLibre 元件封裝（MapView in AndroidView）
 └─ feature/
-   ├─ map/        主畫面：地圖、控制列、即時狀態
-   ├─ routes/     路徑列表 / 編輯 / 匯入
-   ├─ tracks/     錄製 / 重播 / 匯出
-   └─ settings/   權限與「選為模擬位置 App」引導
+   ├─ map/        主畫面：地圖、控制列、隨機路線 dialog
+   ├─ favorites/  收藏列表（單點 + 路線）
+   └─ options/    啟動行為設定
 ```
 
 > 一律使用單一 Gradle module（`:app`）下的 package 切分；待規模成長到值得拆 module 再拆。
@@ -80,28 +81,21 @@ app/
 | 元件 | 職責 |
 |---|---|
 | `MockProviderManager` | 包 `LocationManager` 的 test provider 生命週期；提供 `setLocation(LatLng, speed, bearing, accuracy)` |
-| `MovementEngine` | 純 Kotlin、不依 Android Framework；輸入路徑+速度+模式，輸出 `Flow<MockSample>` |
-| `LocationService` | Foreground Service；橋接 `MovementEngine` 與 `MockProviderManager`，處理通知與生命週期 |
-| `TrackRecorder` | 訂閱真實或 mock 位置流，寫入 Room；批次 flush 降 IO |
-| `GpxKmlIo` | 純函式式匯入匯出（Streaming，避免大檔案 OOM） |
+| `MovementEngine` | 純 Kotlin、不依 Android Framework；輸入路徑+速度，advance(deltaSeconds) 推進，輸出當前 `MockSample` |
+| `RouteGenerator` | 純 Kotlin；輸入起點 + 點數量 + 間距，輸出 smooth random walk 航點清單 |
+| `LocationService` | Foreground Service；驅動 `MovementEngine` 與 `MockProviderManager`，處理通知、Single keepalive、狀態持久化與系統重啟復原 |
+| `KestrelPrefs` | DataStore Preferences 包裝，序列化 favorites / mockState / startupPreference / lastCamera |
 
-### 資料模型（Room）
+### 資料模型（DataStore Preferences）
 
 ```kotlin
-@Entity Route(
-  id: Long, name: String, createdAt: Instant
-)
-@Entity Waypoint(
-  id: Long, routeId: Long, order: Int, lat: Double, lng: Double
-)
-@Entity TrackSession(
-  id: Long, name: String, startedAt: Instant, endedAt: Instant?,
-  source: Source  // REAL or MOCK
-)
-@Entity TrackPoint(
-  id: Long, sessionId: Long, time: Instant,
-  lat: Double, lng: Double, speed: Float, bearing: Float, accuracy: Float
-)
+data class CameraSnapshot(lat: Double, lng: Double, zoom: Double)
+
+data class Favorite(name: String, lat: Double, lng: Double, route: FavoriteRoute? = null)
+data class FavoriteRoute(lats: DoubleArray, lngs: DoubleArray, speedKmh: Double)
+
+data class MockState(mode: Idle | Single | Route, single: SinglePointState?, route: RouteState?)
+data class StartupPreference(mode: Last | Current | Favorite, favoriteName: String? = null)
 ```
 
 ### 服務生命週期
@@ -114,8 +108,6 @@ User → 開啟移動 → LocationService.start(intent: route+speed+mode)
    MovementEngine emits MockSample @ 1Hz
         ↓
    MockProviderManager.setLocation(...)
-        ↓
-   （可選）TrackRecorder.write(sample)
         ↓
 User → 停止 / 路徑結束（單次） → Service stop
 ```
@@ -182,13 +174,12 @@ User → 停止 / 路徑結束（單次） → Service stop
 - 浮動狀態：當前 mock 座標、執行中徽章。
 
 ### 路徑編輯
-- 點選地圖加航點、長按拖曳、刪除、排序。
-- 顯示總距離、預估耗時。
-- 儲存為 `Route`。
+- 點選地圖加航點，長按存收藏，Save route 把整條路徑存收藏。
+- 「Generate route」按鈕：dialog 輸入點數量與間距 → 從相機中心生成隨機走線 → 取代當前 waypoints。
 
-### 軌跡
-- 列表卡片含縮圖（用 MapLibre static snapshot 或自繪 path）。
-- 詳細頁：地圖預覽、統計、匯出按鈕、「以此為路徑播放」。
+### 收藏管理
+- 收藏列表（Favorites tab）顯示單點與路線（含 N waypoints · X km/h）。
+- 啟動行為（Options tab）：Last / Current / 任一收藏。
 
 ---
 
@@ -200,11 +191,12 @@ User → 停止 / 路徑結束（單次） → Service stop
 | **P1** | `MockProviderManager` + `LocationService` + 通知 + 單點 mock；不含 UI | 由測試 / 假頁面觸發後，系統地圖看到位置移動 |
 | **P2** | 地圖 UI、權限引導、健康檢查、點選設位置 | 端到端 happy path 可用 |
 | **P3** | `MovementEngine`（直線插值）+ 多航點 + 速度 + 暫停/繼續 | 可沿路徑自動移動 |
-| **P4** | Room schema + `TrackRecorder` + GPX 匯出 / 匯入 | 軌跡可錄、可存、可讀回 |
-| **P5** | 軌跡重播 + 模式（循環 / 來回）+ 抖動 | 重播任一軌跡作為 mock 來源 |
-| **P6** | 設定、UX 打磨、ProGuard 規則、release build | 可裝可用之 release apk |
+| **P4** | DataStore prefs（favorites + lastCamera + mockState + startupPreference）、StartupSheet → Options tab、收藏管理、通知 actions、被殺後復原 | 重開 App / Service 殺重啟皆能恢復 mock |
+| **P5** | UI 美化（dynamic color、FlowRow、empty states、Material icons）、tooling（Spotless + ktlint + detekt + prek hooks） | `just check` / `just lint` 全綠 |
+| **P6** | `RouteGenerator` 與 Generate route dialog | 指定點數 / 間距能立刻生成可播放的路徑 |
+| **P7** | 設定、UX 打磨、ProGuard 規則、release build | 可裝可用之 release apk |
 
-> 每個 Phase 結束時補充對應的單元測試（特別是 `MovementEngine`，純 Kotlin 易測）與 instrumentation test（service 生命週期）。
+> 每個 Phase 結束時補充對應的單元測試（特別是 `MovementEngine` 與 `RouteGenerator`，純 Kotlin 易測）與 instrumentation test（service 生命週期）。
 
 ---
 
@@ -225,6 +217,7 @@ User → 停止 / 路徑結束（單次） → Service stop
 - Tile 提供商正式選擇（MapTiler vs Stadia vs 自架）。
 - 是否提供 quick tile 離線快取（影響儲存空間策略）。
 - App icon / 品牌設計。
+- 是否要加入循環 / 來回 / 抖動模式（先前規劃為 P5，已暫時移出範圍）。
 
 ---
 
