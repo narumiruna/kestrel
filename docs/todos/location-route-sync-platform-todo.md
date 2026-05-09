@@ -17,10 +17,10 @@
 
 ## Phase 1：API / Auth 基礎
 
-- [ ] 建立 backend workspace（NestJS）。
-- [ ] 建立 PostgreSQL local dev setup。
-- [ ] 建立 Prisma schema / migration workflow。
-- [ ] 建立 `User` table。
+- [x] 建立 backend workspace（NestJS）。
+- [x] 建立 PostgreSQL local dev setup。
+- [x] 建立 Prisma schema / migration workflow。
+- [x] 建立 `User` table。
 - [ ] 實作 username/password 註冊。
 - [ ] 密碼 hash 使用 Argon2id 或 bcrypt。
 - [ ] 實作 TOTP setup：產生 secret / QR / verify。
