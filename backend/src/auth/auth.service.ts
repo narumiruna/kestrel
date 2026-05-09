@@ -64,7 +64,7 @@ export class AuthService {
   }
 
   async setupTotp(input: unknown) {
-    const { password, username } = parseCredentialsRequest(input);
+    const { password, username } = parseUsernamePasswordRequest(input);
     const user = await this.authenticateUser(username, password);
 
     if (user.totpEnabledAt != null) {
@@ -173,11 +173,7 @@ function parseRegisterRequest(input: unknown): {
   password: unknown;
   username: unknown;
 } {
-  if (input == null || typeof input !== 'object') {
-    throw new BadRequestException('request body must be an object');
-  }
-
-  const inputRecord = input as Record<string, unknown>;
+  const inputRecord = parseUnknownRecord(input);
 
   return {
     password: inputRecord.password,
@@ -185,7 +181,7 @@ function parseRegisterRequest(input: unknown): {
   };
 }
 
-function parseCredentialsRequest(input: unknown): {
+function parseUsernamePasswordRequest(input: unknown): {
   password: string;
   username: string;
 } {
