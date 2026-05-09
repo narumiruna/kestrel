@@ -39,6 +39,7 @@ class LocationService : Service() {
     private var providerStarted = false
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var routeJob: Job? = null
+    private var singleKeepAliveJob: Job? = null
     @Volatile private var paused = false
     private var currentMode: MockState.Mode = MockState.Mode.Idle
 
@@ -59,6 +60,7 @@ class LocationService : Service() {
         when (intent.action) {
             ACTION_STOP -> {
                 stopRoute()
+                stopSingleKeepAlive()
                 stopMock()
                 currentMode = MockState.Mode.Idle
                 _currentMock.value = null
@@ -74,7 +76,7 @@ class LocationService : Service() {
                 val lng = intent.getDoubleExtra(EXTRA_LNG, Double.NaN)
                 if (lat.isFinite() && lng.isFinite()) {
                     ensureMockStarted()
-                    pushLocation(LatLng(lat, lng))
+                    startSingleKeepAlive(LatLng(lat, lng))
                     currentMode = MockState.Mode.Single
                     refreshNotification()
                     scope.launch {
@@ -89,6 +91,7 @@ class LocationService : Service() {
             }
             ACTION_START_ROUTE -> {
                 ensureForeground()
+                stopSingleKeepAlive()
                 val lats = intent.getDoubleArrayExtra(EXTRA_LATS)
                 val lngs = intent.getDoubleArrayExtra(EXTRA_LNGS)
                 val speedKmh = intent.getDoubleExtra(EXTRA_SPEED_KMH, Double.NaN)
@@ -123,6 +126,7 @@ class LocationService : Service() {
 
     override fun onDestroy() {
         stopRoute()
+        stopSingleKeepAlive()
         stopMock()
         scope.cancel()
         super.onDestroy()
@@ -135,7 +139,7 @@ class LocationService : Service() {
         when (state.mode) {
             MockState.Mode.Single -> state.single?.let {
                 ensureMockStarted()
-                pushLocation(LatLng(it.lat, it.lng))
+                startSingleKeepAlive(LatLng(it.lat, it.lng))
                 currentMode = MockState.Mode.Single
                 refreshNotification()
             }
@@ -170,6 +174,21 @@ class LocationService : Service() {
         routeJob?.cancel()
         routeJob = null
         paused = false
+    }
+
+    private fun startSingleKeepAlive(point: LatLng) {
+        stopSingleKeepAlive()
+        singleKeepAliveJob = scope.launch {
+            while (isActive) {
+                pushLocation(point)
+                delay(TICK_MILLIS)
+            }
+        }
+    }
+
+    private fun stopSingleKeepAlive() {
+        singleKeepAliveJob?.cancel()
+        singleKeepAliveJob = null
     }
 
     private fun pushLocation(point: LatLng) {
