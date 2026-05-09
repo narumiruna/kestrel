@@ -201,7 +201,7 @@ fun MapScreen(
             StartupPreference.Mode.Favorite -> {
                 val currentItems = libraryRepository.items.first()
                 val startupItem =
-                    pref.libraryItemId?.let(libraryRepository::getItem)
+                    pref.libraryItemId?.let { itemId -> currentItems.firstOrNull { it.item.id == itemId } }
                         ?: currentItems.firstOrNull { it.name == pref.favoriteName }
                 startupItem?.let { item ->
                     if (pref.libraryItemId == null) {
