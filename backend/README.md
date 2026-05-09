@@ -1,10 +1,10 @@
 # Kestrel Cloud Backend
 
-NestJS + Prisma backend workspace for the location/route sync platform described in `/home/runner/work/kestrel/kestrel/docs/plan/location-route-sync-platform.md`.
+NestJS + Prisma backend workspace for the location/route sync platform described in `docs/plan/location-route-sync-platform.md`.
 
 ## Included foundation
 
-- NestJS API workspace under `/home/runner/work/kestrel/kestrel/backend`
+- NestJS API workspace under `backend/`
 - PostgreSQL local development setup with Docker Compose
 - Prisma schema and initial migration for the `users` table
 - Basic health endpoint at `GET /`
