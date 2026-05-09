@@ -29,23 +29,30 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import dev.narumi.kestrel.core.data.Favorite
 import dev.narumi.kestrel.core.data.KestrelPrefs
 import dev.narumi.kestrel.core.data.RandomRoutePreference
 import dev.narumi.kestrel.core.data.StartupPreference
+import dev.narumi.kestrel.core.library.LibraryItemWithContent
+import dev.narumi.kestrel.core.library.LibraryRepository
+import dev.narumi.kestrel.core.library.description
 import kotlinx.coroutines.launch
 
 @Composable
 fun OptionsScreen(modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val prefs = remember { KestrelPrefs(context) }
+    val libraryRepository = remember { LibraryRepository.getInstance(context) }
     val scope = rememberCoroutineScope()
 
-    val favorites by prefs.favorites.collectAsStateWithLifecycle(emptyList())
+    val items by libraryRepository.items.collectAsStateWithLifecycle(emptyList())
     val startup by prefs.startupPreference.collectAsStateWithLifecycle(StartupPreference())
     val randomRoute by prefs.randomRoutePreference.collectAsStateWithLifecycle(RandomRoutePreference())
     var defaultPointCount by remember { mutableStateOf("") }
     var defaultSpacingMeters by remember { mutableStateOf("") }
+
+    LaunchedEffect(Unit) {
+        libraryRepository.ensureMigrated()
+    }
 
     LaunchedEffect(randomRoute.defaultPointCount, randomRoute.defaultSpacingMeters) {
         defaultPointCount = randomRoute.defaultPointCount.toString()
@@ -65,7 +72,7 @@ fun OptionsScreen(modifier: Modifier = Modifier) {
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         StartupPreferenceCard(
-            favorites = favorites,
+            items = items,
             startup = startup,
             onUpdate = ::update,
         )
@@ -90,16 +97,24 @@ fun OptionsScreen(modifier: Modifier = Modifier) {
         )
 
         FavoriteStartupPicker(
-            favorites = favorites,
+            items = items,
             startup = startup,
-            onSelect = { update(StartupPreference(StartupPreference.Mode.Favorite, it.name)) },
+            onSelect = { item ->
+                update(
+                    StartupPreference(
+                        mode = StartupPreference.Mode.Favorite,
+                        libraryItemId = item.item.id,
+                        favoriteName = item.name,
+                    ),
+                )
+            },
         )
     }
 }
 
 @Composable
 private fun StartupPreferenceCard(
-    favorites: List<Favorite>,
+    items: List<LibraryItemWithContent>,
     startup: StartupPreference,
     onUpdate: (StartupPreference) -> Unit,
 ) {
@@ -122,19 +137,26 @@ private fun StartupPreferenceCard(
         HorizontalDivider()
         StartupRadioRow(
             label =
-                if (favorites.isEmpty()) {
+                if (items.isEmpty()) {
                     "A favorite (none yet — long-press the map)"
                 } else {
                     "A favorite"
                 },
             selected = startup.mode == StartupPreference.Mode.Favorite,
-            enabled = favorites.isNotEmpty(),
+            enabled = items.isNotEmpty(),
             onSelect = {
                 val target =
-                    favorites.firstOrNull { it.name == startup.favoriteName }
-                        ?: favorites.firstOrNull()
+                    items.firstOrNull { it.item.id == startup.libraryItemId }
+                        ?: items.firstOrNull { startup.libraryItemId == null && it.name == startup.favoriteName }
+                        ?: items.firstOrNull()
                         ?: return@StartupRadioRow
-                onUpdate(StartupPreference(StartupPreference.Mode.Favorite, target.name))
+                onUpdate(
+                    StartupPreference(
+                        mode = StartupPreference.Mode.Favorite,
+                        libraryItemId = target.item.id,
+                        favoriteName = target.name,
+                    ),
+                )
             },
         )
     }
@@ -142,27 +164,25 @@ private fun StartupPreferenceCard(
 
 @Composable
 private fun FavoriteStartupPicker(
-    favorites: List<Favorite>,
+    items: List<LibraryItemWithContent>,
     startup: StartupPreference,
-    onSelect: (Favorite) -> Unit,
+    onSelect: (LibraryItemWithContent) -> Unit,
 ) {
-    if (startup.mode != StartupPreference.Mode.Favorite || favorites.isEmpty()) return
+    if (startup.mode != StartupPreference.Mode.Favorite || items.isEmpty()) return
     Text(
         text = "Pick a favorite",
         style = MaterialTheme.typography.titleSmall,
     )
     Card(modifier = Modifier.fillMaxWidth()) {
-        favorites.forEachIndexed { index, fav ->
+        items.forEachIndexed { index, item ->
             if (index > 0) HorizontalDivider()
-            val supporting =
-                fav.route?.let {
-                    "Route · ${it.lats.size} waypoints · ${it.speedKmh.toInt()} km/h"
-                } ?: "%.5f, %.5f".format(fav.lat, fav.lng)
             StartupRadioRow(
-                label = fav.name,
-                supporting = supporting,
-                selected = startup.favoriteName == fav.name,
-                onSelect = { onSelect(fav) },
+                label = item.name,
+                supporting = item.description(),
+                selected =
+                    startup.libraryItemId == item.item.id ||
+                        (startup.libraryItemId == null && startup.favoriteName == item.name),
+                onSelect = { onSelect(item) },
             )
         }
     }

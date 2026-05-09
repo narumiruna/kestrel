@@ -29,6 +29,7 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -39,10 +40,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import dev.narumi.kestrel.core.data.Favorite
 import dev.narumi.kestrel.core.data.FavoritesSortMode
 import dev.narumi.kestrel.core.data.KestrelPrefs
 import dev.narumi.kestrel.core.data.StartupPreference
+import dev.narumi.kestrel.core.library.LibraryItemKind
+import dev.narumi.kestrel.core.library.LibraryItemWithContent
+import dev.narumi.kestrel.core.library.LibraryRepository
+import dev.narumi.kestrel.core.library.description
+import dev.narumi.kestrel.core.library.globalIndexIn
+import dev.narumi.kestrel.core.library.label
+import dev.narumi.kestrel.core.library.sortedFor
 import dev.narumi.kestrel.core.location.LatLng
 import dev.narumi.kestrel.core.location.MovementEngine
 import dev.narumi.kestrel.core.location.parseCoordInput
@@ -52,30 +59,35 @@ import kotlinx.coroutines.launch
 @Composable
 fun FavoritesScreen(
     modifier: Modifier = Modifier,
-    onApplyToMap: (Favorite) -> Unit = {},
+    onApplyToMap: (LibraryItemWithContent) -> Unit = {},
 ) {
     val context = LocalContext.current
     val prefs = remember { KestrelPrefs(context) }
+    val libraryRepository = remember { LibraryRepository.getInstance(context) }
     val scope = rememberCoroutineScope()
 
-    val favorites by prefs.favorites.collectAsStateWithLifecycle(emptyList())
-    val sortMode by prefs.favoritesSortMode.collectAsStateWithLifecycle(FavoritesSortMode())
+    val items by libraryRepository.items.collectAsStateWithLifecycle(emptyList())
+    val sortMode by libraryRepository.sortMode.collectAsStateWithLifecycle(FavoritesSortMode())
     val startup by prefs.startupPreference.collectAsStateWithLifecycle(StartupPreference())
     var selectedTab by remember { mutableStateOf(0) }
-    var editingName by remember { mutableStateOf<Favorite?>(null) }
-    var editingPoint by remember { mutableStateOf<Favorite?>(null) }
-    var editingRoute by remember { mutableStateOf<Favorite?>(null) }
+    var editingName by remember { mutableStateOf<LibraryItemWithContent?>(null) }
+    var editingPoint by remember { mutableStateOf<LibraryItemWithContent?>(null) }
+    var editingRoute by remember { mutableStateOf<LibraryItemWithContent?>(null) }
     var renameText by remember { mutableStateOf("") }
     var pointText by remember { mutableStateOf("") }
     var routeSpeedText by remember { mutableStateOf("") }
     var routeMode by remember { mutableStateOf(MovementEngine.Mode.Once) }
-    val visibleFavorites =
-        favorites
-            .filter { if (selectedTab == 0) !it.isRoute else it.isRoute }
+
+    LaunchedEffect(Unit) {
+        libraryRepository.ensureMigrated()
+    }
+
+    val visibleItems =
+        items
+            .filter { if (selectedTab == 0) it.kind == LibraryItemKind.Place else it.kind == LibraryItemKind.Route }
             .sortedFor(sortMode.mode)
 
     FavoriteEditDialogs(
-        favorites = favorites,
         editingName = editingName,
         renameText = renameText,
         editingPoint = editingPoint,
@@ -87,18 +99,22 @@ fun FavoritesScreen(
         onPointTextChange = { pointText = it },
         onRouteSpeedTextChange = { routeSpeedText = it },
         onRouteModeChange = { routeMode = it },
-        onRenameConfirm = { favorite ->
-            scope.launch { prefs.renameFavorite(favorite.name, renameText.trim()) }
+        onRenameConfirm = { item ->
+            scope.launch { libraryRepository.renameItem(item.item.id, renameText.trim()) }
             editingName = null
             renameText = ""
         },
-        onPointConfirm = { favorite, point ->
-            scope.launch { prefs.updateFavoritePoint(favorite.name, point.lat, point.lng) }
+        onPointConfirm = { item, point ->
+            item.item.placeId?.let { placeId ->
+                scope.launch { libraryRepository.updatePlace(placeId, point.lat, point.lng) }
+            }
             editingPoint = null
             pointText = ""
         },
-        onRouteConfirm = { favorite, speed, mode ->
-            scope.launch { prefs.updateFavoriteRouteParams(favorite.name, speed, mode.name) }
+        onRouteConfirm = { item, speed, mode ->
+            item.item.routeId?.let { routeId ->
+                scope.launch { libraryRepository.updateRouteParams(routeId, speed, mode.name) }
+            }
             editingRoute = null
             routeSpeedText = ""
         },
@@ -118,34 +134,42 @@ fun FavoritesScreen(
 
     FavoritesContent(
         modifier = modifier,
-        favorites = favorites,
-        visibleFavorites = visibleFavorites,
+        items = items,
+        visibleItems = visibleItems,
         selectedTab = selectedTab,
         sortMode = sortMode.mode,
         onTabChange = { selectedTab = it },
-        onSortModeChange = { mode -> scope.launch { prefs.setFavoritesSortMode(mode) } },
+        onSortModeChange = { mode -> scope.launch { libraryRepository.setSortMode(mode) } },
         onApply = onApplyToMap,
-        onRename = { fav ->
-            editingName = fav
-            renameText = fav.name
+        onRename = { item ->
+            editingName = item
+            renameText = item.name
         },
-        onEdit = { fav ->
-            if (fav.route == null) {
-                editingPoint = fav
-                pointText = "%.5f, %.5f".format(fav.lat, fav.lng)
+        onEdit = { item ->
+            if (item.kind == LibraryItemKind.Place) {
+                item.place?.let { place ->
+                    editingPoint = item
+                    pointText = "%.5f, %.5f".format(place.lat, place.lng)
+                }
             } else {
-                editingRoute = fav
-                routeSpeedText = fav.route.speedKmh.toString()
-                routeMode =
-                    runCatching { MovementEngine.Mode.valueOf(fav.route.mode) }
-                        .getOrDefault(MovementEngine.Mode.Once)
+                item.route?.let { route ->
+                    editingRoute = item
+                    routeSpeedText = route.defaultSpeedKmh.toString()
+                    routeMode =
+                        runCatching { MovementEngine.Mode.valueOf(route.mode) }
+                            .getOrDefault(MovementEngine.Mode.Once)
+                }
             }
         },
-        onMove = { fav, toIndex -> scope.launch { prefs.reorderFavorite(fav.name, toIndex) } },
-        onDelete = { fav ->
+        onMove = { item, toIndex -> scope.launch { libraryRepository.reorderItem(item.item.id, toIndex) } },
+        onDelete = { item ->
             scope.launch {
-                prefs.removeFavorite(fav.name)
-                if (startup.mode == StartupPreference.Mode.Favorite && startup.favoriteName == fav.name) {
+                libraryRepository.removeItem(item.item.id)
+                if (
+                    startup.mode == StartupPreference.Mode.Favorite &&
+                    (startup.libraryItemId == item.item.id ||
+                        (startup.libraryItemId == null && startup.favoriteName == item.name))
+                ) {
                     prefs.setStartupPreference(StartupPreference(StartupPreference.Mode.Last))
                 }
             }
@@ -156,49 +180,47 @@ fun FavoritesScreen(
 @Suppress("LongParameterList")
 @Composable
 private fun FavoriteEditDialogs(
-    favorites: List<Favorite>,
-    editingName: Favorite?,
+    editingName: LibraryItemWithContent?,
     renameText: String,
-    editingPoint: Favorite?,
+    editingPoint: LibraryItemWithContent?,
     pointText: String,
-    editingRoute: Favorite?,
+    editingRoute: LibraryItemWithContent?,
     routeSpeedText: String,
     routeMode: MovementEngine.Mode,
     onRenameTextChange: (String) -> Unit,
     onPointTextChange: (String) -> Unit,
     onRouteSpeedTextChange: (String) -> Unit,
     onRouteModeChange: (MovementEngine.Mode) -> Unit,
-    onRenameConfirm: (Favorite) -> Unit,
-    onPointConfirm: (Favorite, LatLng) -> Unit,
-    onRouteConfirm: (Favorite, Double, MovementEngine.Mode) -> Unit,
+    onRenameConfirm: (LibraryItemWithContent) -> Unit,
+    onPointConfirm: (LibraryItemWithContent, LatLng) -> Unit,
+    onRouteConfirm: (LibraryItemWithContent, Double, MovementEngine.Mode) -> Unit,
     onRenameDismiss: () -> Unit,
     onPointDismiss: () -> Unit,
     onRouteDismiss: () -> Unit,
 ) {
-    editingName?.let { favorite ->
+    editingName?.let { item ->
         RenameFavoriteDialog(
             name = renameText,
-            nameExists = favorites.any { it.name == renameText.trim() && it.name != favorite.name },
             onNameChange = onRenameTextChange,
-            onConfirm = { onRenameConfirm(favorite) },
+            onConfirm = { onRenameConfirm(item) },
             onDismiss = onRenameDismiss,
         )
     }
-    editingPoint?.let { favorite ->
+    editingPoint?.let { item ->
         EditPointDialog(
             input = pointText,
             onInputChange = onPointTextChange,
-            onConfirm = { onPointConfirm(favorite, it) },
+            onConfirm = { onPointConfirm(item, it) },
             onDismiss = onPointDismiss,
         )
     }
-    editingRoute?.let { favorite ->
+    editingRoute?.let { item ->
         EditRouteDialog(
             speedText = routeSpeedText,
             routeMode = routeMode,
             onSpeedTextChange = onRouteSpeedTextChange,
             onRouteModeChange = onRouteModeChange,
-            onConfirm = { speed, mode -> onRouteConfirm(favorite, speed, mode) },
+            onConfirm = { speed, mode -> onRouteConfirm(item, speed, mode) },
             onDismiss = onRouteDismiss,
         )
     }
@@ -208,17 +230,17 @@ private fun FavoriteEditDialogs(
 @Composable
 private fun FavoritesContent(
     modifier: Modifier,
-    favorites: List<Favorite>,
-    visibleFavorites: List<Favorite>,
+    items: List<LibraryItemWithContent>,
+    visibleItems: List<LibraryItemWithContent>,
     selectedTab: Int,
     sortMode: FavoritesSortMode.Mode,
     onTabChange: (Int) -> Unit,
     onSortModeChange: (FavoritesSortMode.Mode) -> Unit,
-    onApply: (Favorite) -> Unit,
-    onRename: (Favorite) -> Unit,
-    onEdit: (Favorite) -> Unit,
-    onMove: (Favorite, Int) -> Unit,
-    onDelete: (Favorite) -> Unit,
+    onApply: (LibraryItemWithContent) -> Unit,
+    onRename: (LibraryItemWithContent) -> Unit,
+    onEdit: (LibraryItemWithContent) -> Unit,
+    onMove: (LibraryItemWithContent, Int) -> Unit,
+    onDelete: (LibraryItemWithContent) -> Unit,
 ) {
     Column(
         modifier =
@@ -229,15 +251,15 @@ private fun FavoritesContent(
     ) {
         Text("Favorites", style = MaterialTheme.typography.titleMedium)
         when {
-            favorites.isEmpty() ->
+            items.isEmpty() ->
                 EmptyFavorites(
                     title = "No favorites yet",
                     message = "Long-press a spot on the map, or save a route from the map controls.",
                 )
             else ->
                 FavoritesListContent(
-                    favorites = favorites,
-                    visibleFavorites = visibleFavorites,
+                    items = items,
+                    visibleItems = visibleItems,
                     selectedTab = selectedTab,
                     sortMode = sortMode,
                     onTabChange = onTabChange,
@@ -255,24 +277,24 @@ private fun FavoritesContent(
 @Suppress("LongParameterList")
 @Composable
 private fun FavoritesListContent(
-    favorites: List<Favorite>,
-    visibleFavorites: List<Favorite>,
+    items: List<LibraryItemWithContent>,
+    visibleItems: List<LibraryItemWithContent>,
     selectedTab: Int,
     sortMode: FavoritesSortMode.Mode,
     onTabChange: (Int) -> Unit,
     onSortModeChange: (FavoritesSortMode.Mode) -> Unit,
-    onApply: (Favorite) -> Unit,
-    onRename: (Favorite) -> Unit,
-    onEdit: (Favorite) -> Unit,
-    onMove: (Favorite, Int) -> Unit,
-    onDelete: (Favorite) -> Unit,
+    onApply: (LibraryItemWithContent) -> Unit,
+    onRename: (LibraryItemWithContent) -> Unit,
+    onEdit: (LibraryItemWithContent) -> Unit,
+    onMove: (LibraryItemWithContent, Int) -> Unit,
+    onDelete: (LibraryItemWithContent) -> Unit,
 ) {
     PrimaryTabRow(selectedTabIndex = selectedTab) {
         Tab(selected = selectedTab == 0, onClick = { onTabChange(0) }, text = { Text("Points") })
         Tab(selected = selectedTab == 1, onClick = { onTabChange(1) }, text = { Text("Routes") })
     }
     SortModeMenu(sortMode = sortMode, onSortModeChange = onSortModeChange)
-    if (visibleFavorites.isEmpty()) {
+    if (visibleItems.isEmpty()) {
         EmptyFavorites(
             title = if (selectedTab == 0) "No point favorites" else "No route favorites",
             message =
@@ -285,20 +307,20 @@ private fun FavoritesListContent(
     } else {
         Card(modifier = Modifier.fillMaxWidth()) {
             LazyColumn {
-                itemsIndexed(visibleFavorites, key = { _, item -> item.name }) { index, fav ->
-                    val previousIndex = visibleFavorites.getOrNull(index - 1)?.globalIndexIn(favorites)
-                    val nextIndex = visibleFavorites.getOrNull(index + 1)?.globalIndexIn(favorites)
+                itemsIndexed(visibleItems, key = { _, item -> item.item.id }) { index, item ->
+                    val previousIndex = visibleItems.getOrNull(index - 1)?.globalIndexIn(items)
+                    val nextIndex = visibleItems.getOrNull(index + 1)?.globalIndexIn(items)
                     FavoriteRow(
-                        favorite = fav,
+                        item = item,
                         canReorder = sortMode == FavoritesSortMode.Mode.Manual,
                         canMoveUp = previousIndex != null,
                         canMoveDown = nextIndex != null,
-                        onApply = { onApply(fav) },
-                        onRename = { onRename(fav) },
-                        onEdit = { onEdit(fav) },
-                        onMoveUp = { previousIndex?.let { onMove(fav, it) } },
-                        onMoveDown = { nextIndex?.let { onMove(fav, it) } },
-                        onDelete = { onDelete(fav) },
+                        onApply = { onApply(item) },
+                        onRename = { onRename(item) },
+                        onEdit = { onEdit(item) },
+                        onMoveUp = { previousIndex?.let { onMove(item, it) } },
+                        onMoveDown = { nextIndex?.let { onMove(item, it) } },
+                        onDelete = { onDelete(item) },
                     )
                     HorizontalDivider()
                 }
@@ -364,7 +386,7 @@ private fun SortModeMenu(
 
 @Composable
 private fun FavoriteRow(
-    favorite: Favorite,
+    item: LibraryItemWithContent,
     canReorder: Boolean,
     canMoveUp: Boolean,
     canMoveDown: Boolean,
@@ -377,14 +399,14 @@ private fun FavoriteRow(
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
     ListItem(
-        headlineContent = { Text(favorite.name) },
-        supportingContent = { Text(favorite.description()) },
+        headlineContent = { Text(item.name) },
+        supportingContent = { Text(item.description()) },
         trailingContent = {
             Row {
                 TextButton(onClick = onApply) { Text("Apply") }
                 Box {
                     IconButton(onClick = { menuExpanded = true }) {
-                        Icon(Icons.Filled.MoreVert, contentDescription = "More actions for ${favorite.name}")
+                        Icon(Icons.Filled.MoreVert, contentDescription = "More actions for ${item.name}")
                     }
                     DropdownMenu(
                         expanded = menuExpanded,
@@ -398,7 +420,7 @@ private fun FavoriteRow(
                             },
                         )
                         DropdownMenuItem(
-                            text = { Text(if (favorite.route == null) "Edit coordinates" else "Edit route") },
+                            text = { Text(if (item.kind == LibraryItemKind.Place) "Edit coordinates" else "Edit route") },
                             onClick = {
                                 menuExpanded = false
                                 onEdit()
@@ -439,13 +461,11 @@ private fun FavoriteRow(
 @Composable
 private fun RenameFavoriteDialog(
     name: String,
-    nameExists: Boolean,
     onNameChange: (String) -> Unit,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val trimmed = name.trim()
-    val invalid = trimmed.isEmpty() || nameExists
+    val invalid = name.trim().isEmpty()
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Rename favorite") },
@@ -454,10 +474,7 @@ private fun RenameFavoriteDialog(
                 value = name,
                 onValueChange = onNameChange,
                 label = { Text("Name") },
-                supportingText = {
-                    if (nameExists) Text("A favorite with this name already exists.")
-                },
-                isError = nameExists,
+                supportingText = { Text("Duplicate names are allowed; identity stays stable.") },
                 singleLine = true,
             )
         },
@@ -535,31 +552,6 @@ private fun EditRouteDialog(
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
 }
-
-private fun Favorite.globalIndexIn(favorites: List<Favorite>): Int? = favorites.indexOfFirst { it.name == name }.takeIf { it >= 0 }
-
-private fun Favorite.description(): String {
-    val route = route
-    return if (route == null) {
-        "%.5f, %.5f".format(lat, lng)
-    } else {
-        "Route · ${route.lats.size} waypoints · ${route.speedKmh.toInt()} km/h · ${route.mode}"
-    }
-}
-
-private fun List<Favorite>.sortedFor(sortMode: FavoritesSortMode.Mode): List<Favorite> =
-    when (sortMode) {
-        FavoritesSortMode.Mode.Manual -> this
-        FavoritesSortMode.Mode.Recent -> sortedByDescending { it.lastUsedAt ?: Long.MIN_VALUE }
-        FavoritesSortMode.Mode.Alphabetical -> sortedBy { it.name.lowercase() }
-    }
-
-private fun FavoritesSortMode.Mode.label(): String =
-    when (this) {
-        FavoritesSortMode.Mode.Manual -> "Manual"
-        FavoritesSortMode.Mode.Recent -> "Recent"
-        FavoritesSortMode.Mode.Alphabetical -> "Alphabetical"
-    }
 
 private fun MovementEngine.Mode.label(): String =
     when (this) {
