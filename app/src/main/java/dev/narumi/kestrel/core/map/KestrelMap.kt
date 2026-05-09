@@ -13,6 +13,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import dev.narumi.kestrel.core.data.CameraSnapshot
 import dev.narumi.kestrel.core.location.LatLng
 import org.maplibre.android.MapLibre
 import org.maplibre.android.WellKnownTileServer
@@ -51,8 +52,10 @@ fun KestrelMap(
     marker: LatLng? = null,
     polyline: List<LatLng> = emptyList(),
     myLocation: LatLng? = null,
-    cameraTarget: LatLng? = null,
+    cameraTarget: CameraSnapshot? = null,
     onMapClick: (LatLng) -> Unit = {},
+    onMapLongClick: (LatLng) -> Unit = {},
+    onCameraIdle: (CameraSnapshot) -> Unit = {},
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -66,6 +69,12 @@ fun KestrelMap(
     val clickHandler = remember(onMapClick) {
         MapLibreMap.OnMapClickListener { point ->
             onMapClick(LatLng(point.latitude, point.longitude))
+            true
+        }
+    }
+    val longClickHandler = remember(onMapLongClick) {
+        MapLibreMap.OnMapLongClickListener { point ->
+            onMapLongClick(LatLng(point.latitude, point.longitude))
             true
         }
     }
@@ -126,6 +135,13 @@ fun KestrelMap(
                 styleRef = style
             }
             map.addOnMapClickListener(clickHandler)
+            map.addOnMapLongClickListener(longClickHandler)
+            map.addOnCameraIdleListener {
+                val pos = map.cameraPosition
+                onCameraIdle(
+                    CameraSnapshot(pos.target?.latitude ?: 0.0, pos.target?.longitude ?: 0.0, pos.zoom),
+                )
+            }
         }
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
@@ -139,6 +155,7 @@ fun KestrelMap(
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
             mapRef?.removeOnMapClickListener(clickHandler)
+            mapRef?.removeOnMapLongClickListener(longClickHandler)
             lifecycleOwner.lifecycle.removeObserver(observer)
             mapView.onPause()
             mapView.onStop()
@@ -172,7 +189,7 @@ fun KestrelMap(
         val map = mapRef ?: return@LaunchedEffect
         val target = cameraTarget ?: return@LaunchedEffect
         map.animateCamera(
-            CameraUpdateFactory.newLatLngZoom(MlLatLng(target.lat, target.lng), 15.0),
+            CameraUpdateFactory.newLatLngZoom(MlLatLng(target.lat, target.lng), target.zoom),
         )
     }
 
