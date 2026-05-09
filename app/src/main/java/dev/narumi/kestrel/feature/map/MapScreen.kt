@@ -49,8 +49,6 @@ import dev.narumi.kestrel.core.location.LocationService
 import dev.narumi.kestrel.core.location.MockProviderManager
 import dev.narumi.kestrel.core.location.rememberCurrentLocation
 import dev.narumi.kestrel.core.map.KestrelMap
-import dev.narumi.kestrel.feature.startup.StartupChoice
-import dev.narumi.kestrel.feature.startup.StartupSheet
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
@@ -76,18 +74,17 @@ fun MapScreen(modifier: Modifier = Modifier) {
     val scope = rememberCoroutineScope()
 
     val favorites by prefs.favorites.collectAsStateWithLifecycle(emptyList())
-    val lastCamera by prefs.lastCamera.collectAsStateWithLifecycle(null)
 
     var mockAllowed by remember { mutableStateOf(false) }
     var waypoints by remember { mutableStateOf<List<LatLng>>(emptyList()) }
     var speedKmh by remember { mutableStateOf(20.0) }
     var runState by remember { mutableStateOf(RunState.Idle) }
-    var showStartupSheet by remember { mutableStateOf(false) }
     var pendingFavorite by remember { mutableStateOf<LatLng?>(null) }
     var favoriteName by remember { mutableStateOf("") }
     var cameraTarget by remember { mutableStateOf<CameraSnapshot?>(null) }
     var awaitCurrentForStartup by remember { mutableStateOf(false) }
     var startupResolved by remember { mutableStateOf(false) }
+    var firstCameraIdleSeen by remember { mutableStateOf(false) }
 
     val myLocation by rememberCurrentLocation(permissionState.allPermissionsGranted)
 
@@ -99,18 +96,13 @@ fun MapScreen(modifier: Modifier = Modifier) {
         if (startupResolved) return@LaunchedEffect
         val pref = prefs.startupPreference.first()
         when (pref.mode) {
-            StartupPreference.Mode.Ask -> showStartupSheet = true
             StartupPreference.Mode.Last -> {
-                val cam = prefs.lastCamera.first()
-                if (cam != null) cameraTarget = cam else showStartupSheet = true
+                prefs.lastCamera.first()?.let { cameraTarget = it }
             }
             StartupPreference.Mode.Current -> awaitCurrentForStartup = true
             StartupPreference.Mode.Favorite -> {
-                val fav = prefs.favorites.first().find { it.name == pref.favoriteName }
-                if (fav != null) {
+                prefs.favorites.first().find { it.name == pref.favoriteName }?.let { fav ->
                     cameraTarget = CameraSnapshot(fav.lat, fav.lng, 13.0)
-                } else {
-                    showStartupSheet = true
                 }
             }
         }
@@ -126,26 +118,6 @@ fun MapScreen(modifier: Modifier = Modifier) {
 
     val ready = permissionState.allPermissionsGranted && mockAllowed
     val mockTarget: LatLng? = if (runState == RunState.Single) waypoints.lastOrNull() else null
-
-    if (showStartupSheet) {
-        StartupSheet(
-            lastCamera = lastCamera,
-            favorites = favorites,
-            myLocationAvailable = myLocation != null,
-            onPick = { choice ->
-                when (choice) {
-                    is StartupChoice.Last -> cameraTarget = choice.snap
-                    is StartupChoice.Current -> myLocation?.let {
-                        cameraTarget = CameraSnapshot(it.lat, it.lng, 15.0)
-                    }
-                    is StartupChoice.Favorite ->
-                        cameraTarget = CameraSnapshot(choice.target.lat, choice.target.lng, 13.0)
-                }
-                showStartupSheet = false
-            },
-            onDismiss = { showStartupSheet = false },
-        )
-    }
 
     pendingFavorite?.let { target ->
         AlertDialog(
@@ -211,6 +183,10 @@ fun MapScreen(modifier: Modifier = Modifier) {
                 },
                 onMapLongClick = { pendingFavorite = it },
                 onCameraIdle = { snap ->
+                    if (!firstCameraIdleSeen) {
+                        firstCameraIdleSeen = true
+                        return@KestrelMap
+                    }
                     scope.launch { prefs.setLastCamera(snap) }
                 },
             )

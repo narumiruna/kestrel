@@ -39,10 +39,10 @@ data class MockState(
 
 @Serializable
 data class StartupPreference(
-    val mode: Mode = Mode.Ask,
+    val mode: Mode = Mode.Last,
     val favoriteName: String? = null,
 ) {
-    enum class Mode { Ask, Last, Current, Favorite }
+    enum class Mode { Last, Current, Favorite }
 }
 
 private val Context.prefStore by preferencesDataStore("kestrel_prefs")

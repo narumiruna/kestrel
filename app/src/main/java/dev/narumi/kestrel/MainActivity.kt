@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.tooling.preview.PreviewScreenSizes
 import dev.narumi.kestrel.feature.favorites.FavoritesScreen
 import dev.narumi.kestrel.feature.map.MapScreen
+import dev.narumi.kestrel.feature.options.OptionsScreen
 import dev.narumi.kestrel.ui.theme.KestrelTheme
 
 class MainActivity : ComponentActivity() {
@@ -62,10 +63,7 @@ fun KestrelApp() {
             when (currentDestination) {
                 AppDestinations.HOME -> MapScreen(modifier = contentModifier)
                 AppDestinations.FAVORITES -> FavoritesScreen(modifier = contentModifier)
-                AppDestinations.PROFILE -> Text(
-                    text = "Coming soon",
-                    modifier = contentModifier.padding(16.dp),
-                )
+                AppDestinations.OPTIONS -> OptionsScreen(modifier = contentModifier)
             }
         }
     }
@@ -77,6 +75,6 @@ enum class AppDestinations(
 ) {
     HOME("Home", R.drawable.ic_home),
     FAVORITES("Favorites", R.drawable.ic_favorite),
-    PROFILE("Profile", R.drawable.ic_account_box),
+    OPTIONS("Options", R.drawable.ic_settings),
 }
 
