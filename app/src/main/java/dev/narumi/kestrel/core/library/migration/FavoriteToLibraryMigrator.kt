@@ -64,9 +64,11 @@ object FavoriteToLibraryMigrator {
         } else {
             val routeId = uuidFactory()
             val revisionId = uuidFactory()
+            require(route.lats.size == route.lngs.size) {
+                "Favorite route waypoint arrays must have the same length for ${favorite.name}"
+            }
             val waypoints =
                 route.lats.indices
-                    .filter { it < route.lngs.size }
                     .map { index ->
                         WaypointEntity(
                             id = uuidFactory(),

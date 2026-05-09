@@ -97,8 +97,16 @@ fun LibraryItemWithContent.description(): String {
 fun List<LibraryItemWithContent>.sortedFor(sortMode: FavoritesSortMode.Mode): List<LibraryItemWithContent> =
     when (sortMode) {
         FavoritesSortMode.Mode.Manual -> sortedBy(LibraryItemWithContent::manualOrder)
-        FavoritesSortMode.Mode.Recent -> sortedWith(compareByDescending<LibraryItemWithContent> { it.item.lastUsedAt ?: Long.MIN_VALUE }.thenBy { it.name.lowercase() })
-        FavoritesSortMode.Mode.Alphabetical -> sortedWith(compareBy<LibraryItemWithContent> { it.name.lowercase() }.thenBy(LibraryItemWithContent::manualOrder))
+        FavoritesSortMode.Mode.Recent ->
+            sortedWith(
+                compareByDescending<LibraryItemWithContent> { it.item.lastUsedAt ?: Long.MIN_VALUE }
+                    .thenBy { it.name.lowercase() },
+            )
+        FavoritesSortMode.Mode.Alphabetical ->
+            sortedWith(
+                compareBy<LibraryItemWithContent> { it.name.lowercase() }
+                    .thenBy(LibraryItemWithContent::manualOrder),
+            )
     }
 
 fun FavoritesSortMode.Mode.label(): String =
