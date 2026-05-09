@@ -12,23 +12,49 @@ type AuthUserRecord = {
   username: string;
 };
 
-type MockPrismaService = {
-  user: {
-    create: jest.Mock<Promise<AuthUserRecord>, [Prisma.UserCreateArgs]>;
-    findUnique: jest.Mock<
-      Promise<{
-        id: string;
-        passwordHash?: string;
-        totpEnabledAt?: Date | null;
-        totpSecretEncrypted?: string | null;
-      } | null>,
-      [Prisma.UserFindUniqueArgs]
-    >;
-    update: jest.Mock<
-      Promise<Record<string, unknown>>,
-      [Prisma.UserUpdateArgs]
-    >;
+type AuthRecoveryCodeRow = Prisma.RecoveryCodeCreateManyInput;
+type AuthTransactionResult = {
+  recoveryCodes: {
+    codeHashes: string[];
+    codes: string[];
   };
+  updatedUser: Record<string, unknown>;
+};
+type MockRecoveryCodeClient = {
+  createMany: jest.Mock<
+    Promise<{ count: number }>,
+    [Prisma.RecoveryCodeCreateManyArgs]
+  >;
+  deleteMany: jest.Mock<
+    Promise<{ count: number }>,
+    [Prisma.RecoveryCodeDeleteManyArgs]
+  >;
+};
+type MockUserClient = {
+  create: jest.Mock<Promise<AuthUserRecord>, [Prisma.UserCreateArgs]>;
+  findUnique: jest.Mock<
+    Promise<{
+      id: string;
+      passwordHash?: string;
+      totpEnabledAt?: Date | null;
+      totpSecretEncrypted?: string | null;
+    } | null>,
+    [Prisma.UserFindUniqueArgs]
+  >;
+  update: jest.Mock<Promise<Record<string, unknown>>, [Prisma.UserUpdateArgs]>;
+};
+type MockTransactionClient = {
+  recoveryCode: MockRecoveryCodeClient;
+  user: MockUserClient;
+};
+
+type MockPrismaService = {
+  $transaction: jest.Mock<
+    Promise<AuthTransactionResult>,
+    [(transaction: MockTransactionClient) => Promise<AuthTransactionResult>]
+  >;
+  recoveryCode: MockRecoveryCodeClient;
+  user: MockUserClient;
 };
 
 type MockTotpService = {
@@ -45,6 +71,36 @@ type MockTotpService = {
   verifyCode: jest.Mock<boolean, [string, string]>;
 };
 
+function getCreateManyRows(
+  args: Prisma.RecoveryCodeCreateManyArgs | undefined,
+): AuthRecoveryCodeRow[] {
+  if (args?.data == null) {
+    return [];
+  }
+
+  if (Array.isArray(args.data)) {
+    return args.data;
+  }
+
+  return [args.data];
+}
+
+async function expectRecoveryCodeHashesToMatch(
+  recoveryCodeRows: AuthRecoveryCodeRow[],
+  recoveryCodes: string[],
+) {
+  await Promise.all(
+    recoveryCodes.map((recoveryCode, index) =>
+      expect(
+        verify(
+          recoveryCodeRows[index]?.codeHash ?? '',
+          recoveryCode.replaceAll('-', ''),
+        ),
+      ).resolves.toBe(true),
+    ),
+  );
+}
+
 describe('AuthService', () => {
   let authService: AuthService;
   let prismaService: MockPrismaService;
@@ -56,6 +112,20 @@ describe('AuthService', () => {
 
   beforeEach(async () => {
     prismaService = {
+      $transaction: jest.fn<
+        Promise<AuthTransactionResult>,
+        [(transaction: MockTransactionClient) => Promise<AuthTransactionResult>]
+      >(),
+      recoveryCode: {
+        createMany: jest.fn<
+          Promise<{ count: number }>,
+          [Prisma.RecoveryCodeCreateManyArgs]
+        >(),
+        deleteMany: jest.fn<
+          Promise<{ count: number }>,
+          [Prisma.RecoveryCodeDeleteManyArgs]
+        >(),
+      },
       user: {
         create: jest.fn<Promise<AuthUserRecord>, [Prisma.UserCreateArgs]>(),
         findUnique: jest.fn<
@@ -86,6 +156,12 @@ describe('AuthService', () => {
       decryptSecret: jest.fn<string, [string]>(),
       verifyCode: jest.fn<boolean, [string, string]>(),
     };
+    prismaService.$transaction.mockImplementation(async (transaction) =>
+      transaction({
+        recoveryCode: prismaService.recoveryCode,
+        user: prismaService.user,
+      }),
+    );
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -230,6 +306,8 @@ describe('AuthService', () => {
       type: argon2id,
     });
     const enabledAt = new Date('2026-05-09T15:40:00.000Z');
+    let capturedUpdateArgs: Prisma.UserUpdateArgs | undefined;
+    let capturedCreateManyArgs: Prisma.RecoveryCodeCreateManyArgs | undefined;
 
     prismaService.user.findUnique.mockResolvedValue({
       id: 'user-1',
@@ -240,10 +318,23 @@ describe('AuthService', () => {
     });
     totpService.decryptSecret.mockReturnValue('SECRET123');
     totpService.verifyCode.mockReturnValue(true);
-    prismaService.user.update.mockResolvedValue({
-      id: 'user-1',
-      totpEnabledAt: enabledAt,
-      username: 'alice',
+    prismaService.recoveryCode.deleteMany.mockResolvedValue({ count: 0 });
+    prismaService.recoveryCode.createMany.mockImplementation((args) => {
+      capturedCreateManyArgs = args;
+      const rows = Array.isArray(args.data) ? args.data : [args.data];
+
+      return Promise.resolve({
+        count: rows.length,
+      });
+    });
+    prismaService.user.update.mockImplementation((args) => {
+      capturedUpdateArgs = args;
+
+      return Promise.resolve({
+        id: 'user-1',
+        totpEnabledAt: enabledAt,
+        username: 'alice',
+      });
     });
     jest.useFakeTimers().setSystemTime(enabledAt);
 
@@ -255,7 +346,15 @@ describe('AuthService', () => {
 
     expect(totpService.decryptSecret).toHaveBeenCalledWith('encrypted-secret');
     expect(totpService.verifyCode).toHaveBeenCalledWith('SECRET123', '123456');
-    expect(prismaService.user.update).toHaveBeenCalledWith({
+    expect(prismaService.recoveryCode.deleteMany).toHaveBeenCalledWith({
+      where: {
+        userId: 'user-1',
+      },
+    });
+    expect(prismaService.recoveryCode.createMany).toHaveBeenCalledTimes(1);
+    expect(prismaService.user.update).toHaveBeenCalledTimes(1);
+    expect(capturedUpdateArgs).toBeDefined();
+    expect(capturedUpdateArgs).toMatchObject({
       data: {
         totpEnabledAt: enabledAt,
       },
@@ -268,7 +367,22 @@ describe('AuthService', () => {
         id: 'user-1',
       },
     });
-    expect(result).toEqual({
+
+    expect(capturedCreateManyArgs).toBeDefined();
+    const recoveryCodeRows = getCreateManyRows(capturedCreateManyArgs);
+
+    expect(recoveryCodeRows).toHaveLength(10);
+    for (const recoveryCodeRow of recoveryCodeRows) {
+      expect(recoveryCodeRow.userId).toBe('user-1');
+      expect(recoveryCodeRow.codeHash).toMatch(/^\$argon2id\$/);
+    }
+    expect(result.user).toEqual({
+      id: 'user-1',
+      totpEnabledAt: enabledAt,
+      username: 'alice',
+    });
+    expect(result.nextStep).toBe('login');
+    expect(result).toMatchObject({
       nextStep: 'login',
       user: {
         id: 'user-1',
@@ -276,5 +390,14 @@ describe('AuthService', () => {
         username: 'alice',
       },
     });
+    expect(result.recoveryCodes).toHaveLength(10);
+    expect(new Set(result.recoveryCodes).size).toBe(10);
+    for (const recoveryCode of result.recoveryCodes) {
+      expect(recoveryCode).toMatch(/^[A-Z0-9]{4}-[A-Z0-9]{4}$/);
+    }
+    await expectRecoveryCodeHashesToMatch(
+      recoveryCodeRows,
+      result.recoveryCodes,
+    );
   });
 });
