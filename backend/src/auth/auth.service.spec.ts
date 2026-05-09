@@ -12,34 +12,49 @@ type AuthUserRecord = {
   username: string;
 };
 
+type AuthRecoveryCodeRow = Prisma.RecoveryCodeCreateManyInput;
+type AuthTransactionResult = {
+  recoveryCodes: {
+    codeHashes: string[];
+    codes: string[];
+  };
+  updatedUser: Record<string, unknown>;
+};
+type MockRecoveryCodeClient = {
+  createMany: jest.Mock<
+    Promise<{ count: number }>,
+    [Prisma.RecoveryCodeCreateManyArgs]
+  >;
+  deleteMany: jest.Mock<
+    Promise<{ count: number }>,
+    [Prisma.RecoveryCodeDeleteManyArgs]
+  >;
+};
+type MockUserClient = {
+  create: jest.Mock<Promise<AuthUserRecord>, [Prisma.UserCreateArgs]>;
+  findUnique: jest.Mock<
+    Promise<{
+      id: string;
+      passwordHash?: string;
+      totpEnabledAt?: Date | null;
+      totpSecretEncrypted?: string | null;
+    } | null>,
+    [Prisma.UserFindUniqueArgs]
+  >;
+  update: jest.Mock<Promise<Record<string, unknown>>, [Prisma.UserUpdateArgs]>;
+};
+type MockTransactionClient = {
+  recoveryCode: MockRecoveryCodeClient;
+  user: MockUserClient;
+};
+
 type MockPrismaService = {
-  $transaction: jest.Mock<Promise<unknown[]>, [Promise<unknown>[]]>;
-  recoveryCode: {
-    createMany: jest.Mock<
-      Promise<{ count: number }>,
-      [Prisma.RecoveryCodeCreateManyArgs]
-    >;
-    deleteMany: jest.Mock<
-      Promise<{ count: number }>,
-      [Prisma.RecoveryCodeDeleteManyArgs]
-    >;
-  };
-  user: {
-    create: jest.Mock<Promise<AuthUserRecord>, [Prisma.UserCreateArgs]>;
-    findUnique: jest.Mock<
-      Promise<{
-        id: string;
-        passwordHash?: string;
-        totpEnabledAt?: Date | null;
-        totpSecretEncrypted?: string | null;
-      } | null>,
-      [Prisma.UserFindUniqueArgs]
-    >;
-    update: jest.Mock<
-      Promise<Record<string, unknown>>,
-      [Prisma.UserUpdateArgs]
-    >;
-  };
+  $transaction: jest.Mock<
+    Promise<AuthTransactionResult>,
+    [(transaction: MockTransactionClient) => Promise<AuthTransactionResult>]
+  >;
+  recoveryCode: MockRecoveryCodeClient;
+  user: MockUserClient;
 };
 
 type MockTotpService = {
@@ -58,7 +73,7 @@ type MockTotpService = {
 
 function getCreateManyRows(
   args: Prisma.RecoveryCodeCreateManyArgs | undefined,
-): Prisma.RecoveryCodeCreateManyInput[] {
+): AuthRecoveryCodeRow[] {
   if (args?.data == null) {
     return [];
   }
@@ -68,6 +83,22 @@ function getCreateManyRows(
   }
 
   return [args.data];
+}
+
+async function expectRecoveryCodeHashesToMatch(
+  recoveryCodeRows: AuthRecoveryCodeRow[],
+  recoveryCodes: string[],
+) {
+  await Promise.all(
+    recoveryCodes.map((recoveryCode, index) =>
+      expect(
+        verify(
+          recoveryCodeRows[index]?.codeHash ?? '',
+          recoveryCode.replace('-', ''),
+        ),
+      ).resolves.toBe(true),
+    ),
+  );
 }
 
 describe('AuthService', () => {
@@ -81,7 +112,10 @@ describe('AuthService', () => {
 
   beforeEach(async () => {
     prismaService = {
-      $transaction: jest.fn<Promise<unknown[]>, [Promise<unknown>[]]>(),
+      $transaction: jest.fn<
+        Promise<AuthTransactionResult>,
+        [(transaction: MockTransactionClient) => Promise<AuthTransactionResult>]
+      >(),
       recoveryCode: {
         createMany: jest.fn<
           Promise<{ count: number }>,
@@ -122,8 +156,11 @@ describe('AuthService', () => {
       decryptSecret: jest.fn<string, [string]>(),
       verifyCode: jest.fn<boolean, [string, string]>(),
     };
-    prismaService.$transaction.mockImplementation(async (operations) =>
-      Promise.all(operations),
+    prismaService.$transaction.mockImplementation(async (transaction) =>
+      transaction({
+        recoveryCode: prismaService.recoveryCode,
+        user: prismaService.user,
+      }),
     );
 
     const module: TestingModule = await Test.createTestingModule({
@@ -358,13 +395,9 @@ describe('AuthService', () => {
     for (const recoveryCode of result.recoveryCodes) {
       expect(recoveryCode).toMatch(/^[A-Z0-9]{4}-[A-Z0-9]{4}$/);
     }
-    for (const [index, recoveryCode] of result.recoveryCodes.entries()) {
-      await expect(
-        verify(
-          recoveryCodeRows[index]?.codeHash ?? '',
-          recoveryCode.replace('-', ''),
-        ),
-      ).resolves.toBe(true);
-    }
+    await expectRecoveryCodeHashesToMatch(
+      recoveryCodeRows,
+      result.recoveryCodes,
+    );
   });
 });
