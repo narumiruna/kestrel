@@ -207,7 +207,7 @@
 - [x] Repository tests：touch。
 - [x] Repository tests：reorder。
 - [x] 手動測試：既有本機 favorites migration。
-- [ ] 手動測試：Go to apply point / route。
+- [x] 手動測試：Go to apply point / route。
 - [x] 手動測試：Favorites edit / delete / apply now。
 - [x] 手動測試：app restart 後資料仍存在。
 
@@ -217,8 +217,8 @@
 
 - [x] 首次啟動會把既有 DataStore favorites migrate 到 Room。
 - [x] Migration 後 Points / Routes 數量與原本一致。
-- [ ] Go to 面板可套用 migrated point。
-- [ ] Go to 面板可套用 migrated route，speed / mode 正確。
+- [x] Go to 面板可套用 migrated point。
+- [x] Go to 面板可套用 migrated route，speed / mode 正確。
 - [x] Save point 會建立 `Place + LibraryItem`，重啟後仍存在。
 - [x] Save route 會建立 `Route + RouteRevision + Waypoints + LibraryItem`，重啟後仍存在。
 - [x] Rename 不改變 item identity；startup reference 不會斷。
