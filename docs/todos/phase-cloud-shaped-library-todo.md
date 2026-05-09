@@ -222,11 +222,11 @@
 - [ ] Save point 會建立 `Place + LibraryItem`，重啟後仍存在。
 - [ ] Save route 會建立 `Route + RouteRevision + Waypoints + LibraryItem`，重啟後仍存在。
 - [ ] Rename 不改變 item identity；startup reference 不會斷。
-- [ ] Recent sorting 使用 `LibraryItem.lastUsedAt`。
-- [ ] Manual sorting 使用 `LibraryItem.sortOrder`，重啟後保留。
+- [x] Recent sorting 使用 `LibraryItem.lastUsedAt`。
+- [x] Manual sorting 使用 `LibraryItem.sortOrder`，重啟後保留。
 - [ ] Startup favorite 改用 `libraryItemId`，舊 `favoriteName` 可 migration。
 - [ ] UI 不再直接依賴 `Favorite.name` 作操作 key。
-- [ ] `just check` 通過。
+- [x] `just check` 通過。
 - [ ] `just lint` 通過。
 
 ---
