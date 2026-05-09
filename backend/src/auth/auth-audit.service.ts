@@ -1,6 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
+/**
+ * Client metadata captured from the current HTTP request and attached to auth
+ * audit log entries when available.
+ */
 export type AuthAuditMetadata = {
   ipAddress?: string;
   userAgent?: string;
