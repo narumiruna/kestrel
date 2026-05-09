@@ -141,6 +141,7 @@ private fun MovementEngine.Mode.label(): String =
     }
 
 @OptIn(ExperimentalPermissionsApi::class, ExperimentalMaterial3Api::class)
+@Suppress("CyclomaticComplexMethod", "LongMethod")
 @Composable
 fun MapScreen(
     modifier: Modifier = Modifier,

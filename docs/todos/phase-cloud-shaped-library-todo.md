@@ -189,7 +189,7 @@
 - [x] `Favorite` / `FavoriteRoute` 暫時保留給 migration。
 - [x] `KestrelPrefs.favorites` 標註 deprecated 或限制為 migration-only。
 - [x] TODO 加上未來移除 DataStore favorites JSON 的項目。
-- [ ] 確認 detekt baseline 是否可減少或需更新。
+- [x] 確認 detekt baseline 是否可減少或需更新。
 
 ---
 
@@ -227,7 +227,7 @@
 - [ ] Startup favorite 改用 `libraryItemId`，舊 `favoriteName` 可 migration。
 - [ ] UI 不再直接依賴 `Favorite.name` 作操作 key。
 - [x] `just check` 通過。
-- [ ] `just lint` 通過。
+- [x] `just lint` 通過。
 
 ---
 
