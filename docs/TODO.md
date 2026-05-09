@@ -13,10 +13,10 @@
 - [x] **座標解析器**：`parseCoordInput(String): LatLng?` + 單元測試（純座標、Google Maps URL、範圍邊界）。
 - [x] **Go to 面板 UI**：`ModalBottomSheet` + 座標欄 + Points / Routes tabs + favorites 列表（sort 套用）。
 - [x] **MapScreen 接線**：新 FAB、開啟面板、apply 動作、套用前先停 route / mock。
-- [ ] **Favorites 頁完整改版**：已完成 tabs / sort / rename / delete；尚缺 overflow menu、Edit coords、Edit route speed-mode、Apply now。
-- [ ] **Apply now / lastUsedAt 串起來**：Go to 面板已 touch；尚缺 Favorites 頁 Apply now 與 Startup 套用時 touch。
+- [ ] **Favorites 頁完整改版**：已完成 tabs / sort / rename / delete / Apply now；尚缺 overflow menu、Edit coords、Edit route speed-mode。
+- [x] **Apply now / lastUsedAt 串起來**：Go to 面板、Favorites 頁 Apply now、Startup 套用都會 `touchFavorite`。
 - [ ] **Manual 拖曳重排 UI**：接 `reorderFavorite(name, toIndex)`，順序持久化。
-- [ ] **手動測試 + detekt baseline 更新**：實機驗證後更新。
+- [ ] **手動測試 + detekt baseline 更新**：detekt baseline 已更新；尚缺實機驗證。
 
 ### 驗收條件
 
@@ -27,8 +27,8 @@
 - [x] Favorites 頁 Points / Routes tabs 切換正常、空狀態文案合理。
 - [x] 三種排序模式皆可運作，設定持久化。
 - [ ] Manual 模式下能拖曳重排、順序持久化。
-- [ ] Rename / Edit coords / Edit speed-mode / Delete / Apply now 都可運作（Rename / Delete 已完成）。
-- [ ] 套用 favorite 會更新 `lastUsedAt`，Recent 排序順序如預期變化（Go to 面板已完成；Favorites / Startup 尚缺）。
+- [ ] Rename / Edit coords / Edit speed-mode / Delete / Apply now 都可運作（Rename / Delete / Apply now 已完成）。
+- [x] 套用 favorite 會更新 `lastUsedAt`，Recent 排序順序如預期變化。
 - [x] `just check` / `just lint` 通過。
 
 ## Quick wins（30 分 – 1 小時）

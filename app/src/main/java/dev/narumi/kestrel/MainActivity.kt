@@ -17,11 +17,13 @@ import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffo
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.PreviewScreenSizes
+import dev.narumi.kestrel.core.data.Favorite
 import dev.narumi.kestrel.feature.favorites.FavoritesScreen
 import dev.narumi.kestrel.feature.map.MapScreen
 import dev.narumi.kestrel.feature.options.OptionsScreen
@@ -43,6 +45,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun KestrelApp() {
     var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.HOME) }
+    var pendingFavoriteApply by remember { mutableStateOf<Favorite?>(null) }
 
     NavigationSuiteScaffold(
         navigationSuiteItems = {
@@ -61,8 +64,20 @@ fun KestrelApp() {
         Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
             val contentModifier = Modifier.padding(innerPadding)
             when (currentDestination) {
-                AppDestinations.HOME -> MapScreen(modifier = contentModifier)
-                AppDestinations.FAVORITES -> FavoritesScreen(modifier = contentModifier)
+                AppDestinations.HOME ->
+                    MapScreen(
+                        modifier = contentModifier,
+                        pendingFavoriteApply = pendingFavoriteApply,
+                        onFavoriteApplyConsumed = { pendingFavoriteApply = null },
+                    )
+                AppDestinations.FAVORITES ->
+                    FavoritesScreen(
+                        modifier = contentModifier,
+                        onApplyToMap = { favorite ->
+                            pendingFavoriteApply = favorite
+                            currentDestination = AppDestinations.HOME
+                        },
+                    )
                 AppDestinations.OPTIONS -> OptionsScreen(modifier = contentModifier)
             }
         }
