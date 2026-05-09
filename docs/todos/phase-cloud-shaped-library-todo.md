@@ -35,6 +35,11 @@
 - UUID 初始決策：
   - 使用 `UUID.randomUUID().toString()`
 
+### 目前進度註記（2026-05-09）
+
+- 目前僅完成第 0 節盤點與決策，尚未開始 Room schema / DAO / Repository 實作。
+- repository 內尚未有 `core/library/` 與 Room library 相關 Kotlin 檔案。
+
 ---
 
 ## 1. Room schema 基礎
