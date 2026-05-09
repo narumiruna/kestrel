@@ -17,6 +17,7 @@ import dev.narumi.kestrel.core.location.LatLng
 import org.maplibre.android.MapLibre
 import org.maplibre.android.WellKnownTileServer
 import org.maplibre.android.camera.CameraPosition
+import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng as MlLatLng
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapView
@@ -26,8 +27,11 @@ import org.maplibre.android.style.layers.LineLayer
 import org.maplibre.android.style.layers.PropertyFactory
 import org.maplibre.android.style.sources.GeoJsonSource
 import org.maplibre.geojson.Feature
+import org.maplibre.geojson.FeatureCollection
 import org.maplibre.geojson.LineString
 import org.maplibre.geojson.Point
+
+private val EMPTY_FEATURES = FeatureCollection.fromFeatures(emptyList<Feature>())
 
 private const val SOURCE_MARKER = "kestrel-marker"
 private const val LAYER_MARKER = "kestrel-marker-layer"
@@ -35,6 +39,9 @@ private const val SOURCE_LINE = "kestrel-line"
 private const val LAYER_LINE = "kestrel-line-layer"
 private const val SOURCE_WAYPOINTS = "kestrel-waypoints"
 private const val LAYER_WAYPOINTS = "kestrel-waypoints-layer"
+private const val SOURCE_ME = "kestrel-me"
+private const val LAYER_ME_HALO = "kestrel-me-halo-layer"
+private const val LAYER_ME = "kestrel-me-layer"
 
 @Composable
 fun KestrelMap(
@@ -43,16 +50,17 @@ fun KestrelMap(
     initialZoom: Double = 11.0,
     marker: LatLng? = null,
     polyline: List<LatLng> = emptyList(),
+    myLocation: LatLng? = null,
+    cameraTarget: LatLng? = null,
     onMapClick: (LatLng) -> Unit = {},
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    LaunchedEffect(Unit) {
+    val mapView = remember {
         MapLibre.getInstance(context, null, WellKnownTileServer.MapLibre)
+        MapView(context)
     }
-
-    val mapView = remember { MapView(context) }
     var mapRef by remember { mutableStateOf<MapLibreMap?>(null) }
     var styleRef by remember { mutableStateOf<Style?>(null) }
     val clickHandler = remember(onMapClick) {
@@ -99,6 +107,22 @@ fun KestrelMap(
                         PropertyFactory.circleStrokeWidth(2f),
                     ),
                 )
+                style.addSource(GeoJsonSource(SOURCE_ME))
+                style.addLayer(
+                    CircleLayer(LAYER_ME_HALO, SOURCE_ME).withProperties(
+                        PropertyFactory.circleRadius(18f),
+                        PropertyFactory.circleColor("#1976d2"),
+                        PropertyFactory.circleOpacity(0.18f),
+                    ),
+                )
+                style.addLayer(
+                    CircleLayer(LAYER_ME, SOURCE_ME).withProperties(
+                        PropertyFactory.circleRadius(7f),
+                        PropertyFactory.circleColor("#1976d2"),
+                        PropertyFactory.circleStrokeColor("#ffffff"),
+                        PropertyFactory.circleStrokeWidth(2f),
+                    ),
+                )
                 styleRef = style
             }
             map.addOnMapClickListener(clickHandler)
@@ -128,10 +152,28 @@ fun KestrelMap(
         val style = styleRef ?: return@LaunchedEffect
         val source = style.getSourceAs<GeoJsonSource>(SOURCE_MARKER) ?: return@LaunchedEffect
         if (marker == null) {
-            source.setGeoJson(null as Feature?)
+            source.setGeoJson(EMPTY_FEATURES)
         } else {
             source.setGeoJson(Point.fromLngLat(marker.lng, marker.lat))
         }
+    }
+
+    LaunchedEffect(myLocation, styleRef) {
+        val style = styleRef ?: return@LaunchedEffect
+        val source = style.getSourceAs<GeoJsonSource>(SOURCE_ME) ?: return@LaunchedEffect
+        if (myLocation == null) {
+            source.setGeoJson(EMPTY_FEATURES)
+        } else {
+            source.setGeoJson(Point.fromLngLat(myLocation.lng, myLocation.lat))
+        }
+    }
+
+    LaunchedEffect(cameraTarget, mapRef) {
+        val map = mapRef ?: return@LaunchedEffect
+        val target = cameraTarget ?: return@LaunchedEffect
+        map.animateCamera(
+            CameraUpdateFactory.newLatLngZoom(MlLatLng(target.lat, target.lng), 15.0),
+        )
     }
 
     LaunchedEffect(polyline, styleRef) {
@@ -139,21 +181,19 @@ fun KestrelMap(
         val lineSource = style.getSourceAs<GeoJsonSource>(SOURCE_LINE)
         val pointsSource = style.getSourceAs<GeoJsonSource>(SOURCE_WAYPOINTS)
         if (polyline.size < 2) {
-            lineSource?.setGeoJson(null as Feature?)
+            lineSource?.setGeoJson(EMPTY_FEATURES)
         } else {
             lineSource?.setGeoJson(
                 LineString.fromLngLats(polyline.map { Point.fromLngLat(it.lng, it.lat) }),
             )
         }
         if (polyline.isEmpty()) {
-            pointsSource?.setGeoJson(null as Feature?)
+            pointsSource?.setGeoJson(EMPTY_FEATURES)
         } else {
             val features = polyline.map {
                 Feature.fromGeometry(Point.fromLngLat(it.lng, it.lat))
             }
-            pointsSource?.setGeoJson(
-                org.maplibre.geojson.FeatureCollection.fromFeatures(features),
-            )
+            pointsSource?.setGeoJson(FeatureCollection.fromFeatures(features))
         }
     }
 
