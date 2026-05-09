@@ -60,7 +60,7 @@ app/src/main/java/dev/narumi/kestrel/
 
 ## Development
 
-> Prerequisites: Android Studio, JDK (bundled with Android Studio), `adb` on `PATH`.  
+> Prerequisites: Android Studio, JDK (bundled with Android Studio), `adb` on `PATH`.
 > All common tasks are in the [`justfile`](justfile) — install [just](https://github.com/casey/just) to use them.
 
 | Task | Command |

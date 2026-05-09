@@ -1,9 +1,9 @@
 package dev.narumi.kestrel.core.location
 
-import kotlin.math.abs
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import kotlin.math.abs
 
 class GeoTest {
     @Test
