@@ -57,9 +57,11 @@ npm run prisma:studio
 npm run prisma:migrate:deploy
 ```
 
-## Initial schema scope
+## Current auth schema scope
 
-The first migration only establishes the `users` table required for Phase 1 auth work:
+The current migrations establish the core Phase 1 auth tables:
+
+### `users`
 
 - `id`
 - `username`
@@ -68,3 +70,11 @@ The first migration only establishes the `users` table required for Phase 1 auth
 - `totp_enabled_at`
 - `created_at`
 - `updated_at`
+
+### `recovery_codes`
+
+- `id`
+- `user_id`
+- `code_hash`
+- `used_at`
+- `created_at`
