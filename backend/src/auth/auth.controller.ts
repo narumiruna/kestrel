@@ -9,4 +9,14 @@ export class AuthController {
   register(@Body() body: unknown) {
     return this.authService.register(body);
   }
+
+  @Post('totp/setup')
+  setupTotp(@Body() body: unknown) {
+    return this.authService.setupTotp(body);
+  }
+
+  @Post('totp/verify')
+  verifyTotp(@Body() body: unknown) {
+    return this.authService.verifyTotp(body);
+  }
 }
