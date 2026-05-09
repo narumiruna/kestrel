@@ -6,9 +6,44 @@ import dev.narumi.kestrel.core.data.StartupPreference
 import dev.narumi.kestrel.core.library.migration.FavoriteToLibraryMigrator
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class FavoriteToLibraryMigratorTest {
+    @Test
+    fun `migrate empty favorites returns no rows`() {
+        val result =
+            FavoriteToLibraryMigrator.migrate(
+                favorites = emptyList(),
+                startupPreference = StartupPreference(),
+                uuidFactory = sequentialUuidFactory(),
+                nowProvider = { 999L },
+            )
+
+        assertTrue(result.rows.isEmpty())
+        assertNull(result.startupLibraryItemId)
+    }
+
+    @Test
+    fun `migrate keeps existing startup library item id`() {
+        val favorite = Favorite(name = "Home", lat = 25.0, lng = 121.5)
+
+        val result =
+            FavoriteToLibraryMigrator.migrate(
+                favorites = listOf(favorite),
+                startupPreference =
+                    StartupPreference(
+                        mode = StartupPreference.Mode.Favorite,
+                        libraryItemId = "existing-item",
+                        favoriteName = "Home",
+                    ),
+                uuidFactory = sequentialUuidFactory(),
+                nowProvider = { 999L },
+            )
+
+        assertEquals("existing-item", result.startupLibraryItemId)
+    }
+
     @Test
     fun `migrate point favorite keeps order and startup mapping`() {
         val favorite = Favorite(name = "Home", lat = 25.0, lng = 121.5, lastUsedAt = 123L)
