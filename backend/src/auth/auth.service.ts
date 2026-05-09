@@ -2,14 +2,19 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { argon2id, hash } from 'argon2';
+import { argon2id, hash, verify } from 'argon2';
 import { PrismaService } from '../prisma/prisma.service';
+import { TotpService } from './totp.service';
 
 @Injectable()
 export class AuthService {
-  constructor(private readonly prismaService: PrismaService) {}
+  constructor(
+    private readonly prismaService: PrismaService,
+    private readonly totpService: TotpService,
+  ) {}
 
   async register(input: unknown) {
     const { password, username } = parseRegisterRequest(input);
@@ -57,6 +62,105 @@ export class AuthService {
       throw error;
     }
   }
+
+  async setupTotp(input: unknown) {
+    const { password, username } = parseCredentialsRequest(input);
+    const user = await this.authenticateUser(username, password);
+
+    if (user.totpEnabledAt != null) {
+      throw new ConflictException('totp already enabled');
+    }
+
+    const setup = await this.totpService.createSetup(user.username);
+
+    await this.prismaService.user.update({
+      data: {
+        totpEnabledAt: null,
+        totpSecretEncrypted: setup.encryptedSecret,
+      },
+      select: {
+        id: true,
+        username: true,
+      },
+      where: {
+        id: user.id,
+      },
+    });
+
+    return {
+      otpauthUrl: setup.otpauthUrl,
+      qrCodeDataUrl: setup.qrCodeDataUrl,
+      secret: setup.secret,
+      user: {
+        id: user.id,
+        username: user.username,
+      },
+    };
+  }
+
+  async verifyTotp(input: unknown) {
+    const { code, password, username } = parseTotpVerifyRequest(input);
+    const user = await this.authenticateUser(username, password);
+
+    if (user.totpEnabledAt != null) {
+      throw new ConflictException('totp already enabled');
+    }
+
+    if (user.totpSecretEncrypted == null) {
+      throw new BadRequestException('totp setup has not been started');
+    }
+
+    const secret = this.totpService.decryptSecret(user.totpSecretEncrypted);
+
+    if (!this.totpService.verifyCode(secret, code)) {
+      throw new BadRequestException('invalid totp code');
+    }
+
+    const totpEnabledAt = new Date();
+    const updatedUser = await this.prismaService.user.update({
+      data: {
+        totpEnabledAt,
+      },
+      select: {
+        id: true,
+        totpEnabledAt: true,
+        username: true,
+      },
+      where: {
+        id: user.id,
+      },
+    });
+
+    return {
+      nextStep: 'login' as const,
+      user: updatedUser,
+    };
+  }
+
+  private async authenticateUser(username: string, password: string) {
+    const user = await this.prismaService.user.findUnique({
+      select: {
+        id: true,
+        passwordHash: true,
+        totpEnabledAt: true,
+        totpSecretEncrypted: true,
+        username: true,
+      },
+      where: { username },
+    });
+
+    if (user == null) {
+      throw new UnauthorizedException('invalid username or password');
+    }
+
+    const passwordMatches = await verify(user.passwordHash, password);
+
+    if (!passwordMatches) {
+      throw new UnauthorizedException('invalid username or password');
+    }
+
+    return user;
+  }
 }
 
 const MIN_PASSWORD_LENGTH = 12;
@@ -79,6 +183,44 @@ function parseRegisterRequest(input: unknown): {
     password: inputRecord.password,
     username: inputRecord.username,
   };
+}
+
+function parseCredentialsRequest(input: unknown): {
+  password: string;
+  username: string;
+} {
+  const { password, username } = parseRegisterRequest(input);
+
+  return {
+    password: validatePassword(password),
+    username: normalizeUsername(username),
+  };
+}
+
+function parseTotpVerifyRequest(input: unknown): {
+  code: string;
+  password: string;
+  username: string;
+} {
+  const inputRecord = parseUnknownRecord(input);
+
+  if (typeof inputRecord.code !== 'string') {
+    throw new BadRequestException('code must be a string');
+  }
+
+  return {
+    code: inputRecord.code,
+    password: validatePassword(inputRecord.password),
+    username: normalizeUsername(inputRecord.username),
+  };
+}
+
+function parseUnknownRecord(input: unknown): Record<string, unknown> {
+  if (input == null || typeof input !== 'object') {
+    throw new BadRequestException('request body must be an object');
+  }
+
+  return input as Record<string, unknown>;
 }
 
 function normalizeUsername(username: unknown): string {
