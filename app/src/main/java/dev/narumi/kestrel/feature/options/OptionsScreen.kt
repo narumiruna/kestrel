@@ -83,9 +83,12 @@ fun OptionsScreen(modifier: Modifier = Modifier) {
             Card(modifier = Modifier.fillMaxWidth()) {
                 favorites.forEachIndexed { index, fav ->
                     if (index > 0) HorizontalDivider()
+                    val supporting = fav.route?.let {
+                        "Route · ${it.lats.size} waypoints · ${it.speedKmh.toInt()} km/h"
+                    } ?: "%.5f, %.5f".format(fav.lat, fav.lng)
                     StartupRadioRow(
                         label = fav.name,
-                        supporting = "%.5f, %.5f".format(fav.lat, fav.lng),
+                        supporting = supporting,
                         selected = startup.favoriteName == fav.name,
                         onSelect = {
                             update(
