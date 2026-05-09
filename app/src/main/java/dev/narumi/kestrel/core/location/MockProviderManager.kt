@@ -19,19 +19,21 @@ class MockProviderManager(context: Context) {
     fun start() {
         if (enabled) return
         try {
-            locationManager.addTestProvider(
-                LocationManager.GPS_PROVIDER,
-                false,
-                false,
-                false,
-                false,
-                true,
-                true,
-                true,
-                ProviderProperties.POWER_USAGE_LOW,
-                ProviderProperties.ACCURACY_FINE,
-            )
-            locationManager.setTestProviderEnabled(LocationManager.GPS_PROVIDER, true)
+            for (provider in MOCK_PROVIDERS) {
+                locationManager.addTestProvider(
+                    provider,
+                    false,
+                    false,
+                    false,
+                    false,
+                    true,
+                    true,
+                    true,
+                    ProviderProperties.POWER_USAGE_LOW,
+                    ProviderProperties.ACCURACY_FINE,
+                )
+                locationManager.setTestProviderEnabled(provider, true)
+            }
             enabled = true
         } catch (e: SecurityException) {
             throw MockNotAllowedException(
@@ -43,28 +45,32 @@ class MockProviderManager(context: Context) {
 
     fun setLocation(point: LatLng, speed: Float = 0f, bearing: Float = 0f, accuracy: Float = 1f) {
         if (!enabled) return
-        val location = Location(LocationManager.GPS_PROVIDER).apply {
-            latitude = point.lat
-            longitude = point.lng
-            this.accuracy = accuracy
-            this.speed = speed
-            this.bearing = bearing
-            time = System.currentTimeMillis()
-            elapsedRealtimeNanos = SystemClock.elapsedRealtimeNanos()
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                speedAccuracyMetersPerSecond = 0.1f
-                bearingAccuracyDegrees = 0.1f
-                verticalAccuracyMeters = 1f
+        for (provider in MOCK_PROVIDERS) {
+            val location = Location(provider).apply {
+                latitude = point.lat
+                longitude = point.lng
+                this.accuracy = accuracy
+                this.speed = speed
+                this.bearing = bearing
+                time = System.currentTimeMillis()
+                elapsedRealtimeNanos = SystemClock.elapsedRealtimeNanos()
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    speedAccuracyMetersPerSecond = 0.1f
+                    bearingAccuracyDegrees = 0.1f
+                    verticalAccuracyMeters = 1f
+                }
             }
+            runCatching { locationManager.setTestProviderLocation(provider, location) }
         }
-        locationManager.setTestProviderLocation(LocationManager.GPS_PROVIDER, location)
     }
 
     fun stop() {
         if (!enabled) return
-        runCatching {
-            locationManager.setTestProviderEnabled(LocationManager.GPS_PROVIDER, false)
-            locationManager.removeTestProvider(LocationManager.GPS_PROVIDER)
+        for (provider in MOCK_PROVIDERS) {
+            runCatching {
+                locationManager.setTestProviderEnabled(provider, false)
+                locationManager.removeTestProvider(provider)
+            }
         }
         enabled = false
     }
@@ -95,6 +101,10 @@ class MockProviderManager(context: Context) {
 
     private companion object {
         const val PROBE_PROVIDER = "kestrel_probe"
+        val MOCK_PROVIDERS = listOf(
+            LocationManager.GPS_PROVIDER,
+            LocationManager.NETWORK_PROVIDER,
+        )
     }
 }
 
