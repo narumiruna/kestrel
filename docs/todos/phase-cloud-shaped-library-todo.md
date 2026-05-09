@@ -201,7 +201,7 @@
 - [x] Migration tests：route favorite。
 - [x] Migration tests：lastUsedAt / sort order。
 - [x] Migration tests：startup favoriteName → libraryItemId。
-- [ ] Repository tests：add place。
+- [x] Repository tests：add place。
 - [x] Repository tests：add route / waypoints order。
 - [ ] Repository tests：rename 不改 id。
 - [ ] Repository tests：touch。
