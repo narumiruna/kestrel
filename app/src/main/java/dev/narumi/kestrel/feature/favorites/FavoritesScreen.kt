@@ -12,8 +12,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -44,8 +43,12 @@ import dev.narumi.kestrel.core.data.Favorite
 import dev.narumi.kestrel.core.data.FavoritesSortMode
 import dev.narumi.kestrel.core.data.KestrelPrefs
 import dev.narumi.kestrel.core.data.StartupPreference
+import dev.narumi.kestrel.core.location.LatLng
+import dev.narumi.kestrel.core.location.MovementEngine
+import dev.narumi.kestrel.core.location.parseCoordInput
 import kotlinx.coroutines.launch
 
+@Suppress("LongMethod")
 @Composable
 fun FavoritesScreen(
     modifier: Modifier = Modifier,
@@ -59,30 +62,59 @@ fun FavoritesScreen(
     val sortMode by prefs.favoritesSortMode.collectAsStateWithLifecycle(FavoritesSortMode())
     val startup by prefs.startupPreference.collectAsStateWithLifecycle(StartupPreference())
     var selectedTab by remember { mutableStateOf(0) }
-    var editingFavorite by remember { mutableStateOf<Favorite?>(null) }
+    var editingName by remember { mutableStateOf<Favorite?>(null) }
+    var editingPoint by remember { mutableStateOf<Favorite?>(null) }
+    var editingRoute by remember { mutableStateOf<Favorite?>(null) }
     var renameText by remember { mutableStateOf("") }
+    var pointText by remember { mutableStateOf("") }
+    var routeSpeedText by remember { mutableStateOf("") }
+    var routeMode by remember { mutableStateOf(MovementEngine.Mode.Once) }
     val visibleFavorites =
         favorites
             .filter { if (selectedTab == 0) !it.isRoute else it.isRoute }
             .sortedFor(sortMode.mode)
 
-    editingFavorite?.let { favorite ->
-        RenameFavoriteDialog(
-            name = renameText,
-            nameExists = favorites.any { it.name == renameText.trim() && it.name != favorite.name },
-            onNameChange = { renameText = it },
-            onConfirm = {
-                val newName = renameText.trim()
-                scope.launch { prefs.renameFavorite(favorite.name, newName) }
-                editingFavorite = null
-                renameText = ""
-            },
-            onDismiss = {
-                editingFavorite = null
-                renameText = ""
-            },
-        )
-    }
+    FavoriteEditDialogs(
+        favorites = favorites,
+        editingName = editingName,
+        renameText = renameText,
+        editingPoint = editingPoint,
+        pointText = pointText,
+        editingRoute = editingRoute,
+        routeSpeedText = routeSpeedText,
+        routeMode = routeMode,
+        onRenameTextChange = { renameText = it },
+        onPointTextChange = { pointText = it },
+        onRouteSpeedTextChange = { routeSpeedText = it },
+        onRouteModeChange = { routeMode = it },
+        onRenameConfirm = { favorite ->
+            scope.launch { prefs.renameFavorite(favorite.name, renameText.trim()) }
+            editingName = null
+            renameText = ""
+        },
+        onPointConfirm = { favorite, point ->
+            scope.launch { prefs.updateFavoritePoint(favorite.name, point.lat, point.lng) }
+            editingPoint = null
+            pointText = ""
+        },
+        onRouteConfirm = { favorite, speed, mode ->
+            scope.launch { prefs.updateFavoriteRouteParams(favorite.name, speed, mode.name) }
+            editingRoute = null
+            routeSpeedText = ""
+        },
+        onRenameDismiss = {
+            editingName = null
+            renameText = ""
+        },
+        onPointDismiss = {
+            editingPoint = null
+            pointText = ""
+        },
+        onRouteDismiss = {
+            editingRoute = null
+            routeSpeedText = ""
+        },
+    )
 
     FavoritesContent(
         modifier = modifier,
@@ -94,8 +126,20 @@ fun FavoritesScreen(
         onSortModeChange = { mode -> scope.launch { prefs.setFavoritesSortMode(mode) } },
         onApply = onApplyToMap,
         onRename = { fav ->
-            editingFavorite = fav
+            editingName = fav
             renameText = fav.name
+        },
+        onEdit = { fav ->
+            if (fav.route == null) {
+                editingPoint = fav
+                pointText = "%.5f, %.5f".format(fav.lat, fav.lng)
+            } else {
+                editingRoute = fav
+                routeSpeedText = fav.route.speedKmh.toString()
+                routeMode =
+                    runCatching { MovementEngine.Mode.valueOf(fav.route.mode) }
+                        .getOrDefault(MovementEngine.Mode.Once)
+            }
         },
         onDelete = { fav ->
             scope.launch {
@@ -110,6 +154,57 @@ fun FavoritesScreen(
 
 @Suppress("LongParameterList")
 @Composable
+private fun FavoriteEditDialogs(
+    favorites: List<Favorite>,
+    editingName: Favorite?,
+    renameText: String,
+    editingPoint: Favorite?,
+    pointText: String,
+    editingRoute: Favorite?,
+    routeSpeedText: String,
+    routeMode: MovementEngine.Mode,
+    onRenameTextChange: (String) -> Unit,
+    onPointTextChange: (String) -> Unit,
+    onRouteSpeedTextChange: (String) -> Unit,
+    onRouteModeChange: (MovementEngine.Mode) -> Unit,
+    onRenameConfirm: (Favorite) -> Unit,
+    onPointConfirm: (Favorite, LatLng) -> Unit,
+    onRouteConfirm: (Favorite, Double, MovementEngine.Mode) -> Unit,
+    onRenameDismiss: () -> Unit,
+    onPointDismiss: () -> Unit,
+    onRouteDismiss: () -> Unit,
+) {
+    editingName?.let { favorite ->
+        RenameFavoriteDialog(
+            name = renameText,
+            nameExists = favorites.any { it.name == renameText.trim() && it.name != favorite.name },
+            onNameChange = onRenameTextChange,
+            onConfirm = { onRenameConfirm(favorite) },
+            onDismiss = onRenameDismiss,
+        )
+    }
+    editingPoint?.let { favorite ->
+        EditPointDialog(
+            input = pointText,
+            onInputChange = onPointTextChange,
+            onConfirm = { onPointConfirm(favorite, it) },
+            onDismiss = onPointDismiss,
+        )
+    }
+    editingRoute?.let { favorite ->
+        EditRouteDialog(
+            speedText = routeSpeedText,
+            routeMode = routeMode,
+            onSpeedTextChange = onRouteSpeedTextChange,
+            onRouteModeChange = onRouteModeChange,
+            onConfirm = { speed, mode -> onRouteConfirm(favorite, speed, mode) },
+            onDismiss = onRouteDismiss,
+        )
+    }
+}
+
+@Suppress("LongParameterList")
+@Composable
 private fun FavoritesContent(
     modifier: Modifier,
     favorites: List<Favorite>,
@@ -120,6 +215,7 @@ private fun FavoritesContent(
     onSortModeChange: (FavoritesSortMode.Mode) -> Unit,
     onApply: (Favorite) -> Unit,
     onRename: (Favorite) -> Unit,
+    onEdit: (Favorite) -> Unit,
     onDelete: (Favorite) -> Unit,
 ) {
     Column(
@@ -145,6 +241,7 @@ private fun FavoritesContent(
                     onSortModeChange = onSortModeChange,
                     onApply = onApply,
                     onRename = onRename,
+                    onEdit = onEdit,
                     onDelete = onDelete,
                 )
         }
@@ -161,6 +258,7 @@ private fun FavoritesListContent(
     onSortModeChange: (FavoritesSortMode.Mode) -> Unit,
     onApply: (Favorite) -> Unit,
     onRename: (Favorite) -> Unit,
+    onEdit: (Favorite) -> Unit,
     onDelete: (Favorite) -> Unit,
 ) {
     PrimaryTabRow(selectedTabIndex = selectedTab) {
@@ -186,6 +284,7 @@ private fun FavoritesListContent(
                         favorite = fav,
                         onApply = { onApply(fav) },
                         onRename = { onRename(fav) },
+                        onEdit = { onEdit(fav) },
                         onDelete = { onDelete(fav) },
                     )
                     HorizontalDivider()
@@ -212,10 +311,7 @@ private fun EmptyFavorites(
                 tint = MaterialTheme.colorScheme.outline,
                 modifier = Modifier.size(48.dp),
             )
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-            )
+            Text(text = title, style = MaterialTheme.typography.titleMedium)
             Text(
                 text = message,
                 style = MaterialTheme.typography.bodySmall,
@@ -258,27 +354,46 @@ private fun FavoriteRow(
     favorite: Favorite,
     onApply: () -> Unit,
     onRename: () -> Unit,
+    onEdit: () -> Unit,
     onDelete: () -> Unit,
 ) {
+    var menuExpanded by remember { mutableStateOf(false) }
     ListItem(
         headlineContent = { Text(favorite.name) },
         supportingContent = { Text(favorite.description()) },
         trailingContent = {
             Row {
-                TextButton(onClick = onApply) {
-                    Text("Apply")
-                }
-                IconButton(onClick = onRename) {
-                    Icon(
-                        imageVector = Icons.Filled.Edit,
-                        contentDescription = "Rename ${favorite.name}",
-                    )
-                }
-                IconButton(onClick = onDelete) {
-                    Icon(
-                        imageVector = Icons.Filled.Delete,
-                        contentDescription = "Delete ${favorite.name}",
-                    )
+                TextButton(onClick = onApply) { Text("Apply") }
+                Box {
+                    IconButton(onClick = { menuExpanded = true }) {
+                        Icon(Icons.Filled.MoreVert, contentDescription = "More actions for ${favorite.name}")
+                    }
+                    DropdownMenu(
+                        expanded = menuExpanded,
+                        onDismissRequest = { menuExpanded = false },
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Rename") },
+                            onClick = {
+                                menuExpanded = false
+                                onRename()
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text(if (favorite.route == null) "Edit coordinates" else "Edit route") },
+                            onClick = {
+                                menuExpanded = false
+                                onEdit()
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Delete") },
+                            onClick = {
+                                menuExpanded = false
+                                onDelete()
+                            },
+                        )
+                    }
                 }
             }
         },
@@ -311,10 +426,75 @@ private fun RenameFavoriteDialog(
             )
         },
         confirmButton = {
-            TextButton(
-                enabled = !invalid,
-                onClick = onConfirm,
-            ) { Text("Rename") }
+            TextButton(enabled = !invalid, onClick = onConfirm) { Text("Rename") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}
+
+@Composable
+private fun EditPointDialog(
+    input: String,
+    onInputChange: (String) -> Unit,
+    onConfirm: (LatLng) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val parsed = parseCoordInput(input)
+    val showInvalid = input.isNotBlank() && parsed == null
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Edit coordinates") },
+        text = {
+            OutlinedTextField(
+                value = input,
+                onValueChange = onInputChange,
+                label = { Text("Coordinates") },
+                supportingText = {
+                    if (showInvalid) Text("Enter a valid lat/lng in range.")
+                },
+                isError = showInvalid,
+                singleLine = true,
+            )
+        },
+        confirmButton = {
+            TextButton(enabled = parsed != null, onClick = { parsed?.let(onConfirm) }) { Text("Save") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}
+
+@Composable
+private fun EditRouteDialog(
+    speedText: String,
+    routeMode: MovementEngine.Mode,
+    onSpeedTextChange: (String) -> Unit,
+    onRouteModeChange: (MovementEngine.Mode) -> Unit,
+    onConfirm: (Double, MovementEngine.Mode) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val speed = speedText.toDoubleOrNull()
+    val valid = speed != null && speed > 0
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Edit route") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = speedText,
+                    onValueChange = { v -> onSpeedTextChange(v.filter { it.isDigit() || it == '.' }) },
+                    label = { Text("Speed (km/h)") },
+                    isError = speedText.isNotBlank() && !valid,
+                    singleLine = true,
+                )
+                MovementEngine.Mode.entries.forEach { mode ->
+                    TextButton(onClick = { onRouteModeChange(mode) }) {
+                        Text(if (mode == routeMode) "✓ ${mode.label()}" else mode.label())
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(enabled = valid, onClick = { speed?.let { onConfirm(it, routeMode) } }) { Text("Save") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
@@ -341,4 +521,11 @@ private fun FavoritesSortMode.Mode.label(): String =
         FavoritesSortMode.Mode.Manual -> "Manual"
         FavoritesSortMode.Mode.Recent -> "Recent"
         FavoritesSortMode.Mode.Alphabetical -> "Alphabetical"
+    }
+
+private fun MovementEngine.Mode.label(): String =
+    when (this) {
+        MovementEngine.Mode.Once -> "Once"
+        MovementEngine.Mode.Loop -> "Loop"
+        MovementEngine.Mode.PingPong -> "Ping-pong"
     }
