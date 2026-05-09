@@ -6,11 +6,34 @@
 
 ## 0. 準備 / 盤點
 
-- [ ] 盤點所有 `KestrelPrefs.favorites` 使用點。
-- [ ] 盤點所有以 favorite `name` 作操作 key 的 UI / 方法。
-- [ ] 盤點 `StartupPreference.favoriteName` 使用點。
-- [ ] 決定 Room database name / version 起點。
-- [ ] 決定 UUID 產生方式。
+- [x] 盤點所有 `KestrelPrefs.favorites` 使用點。
+- [x] 盤點所有以 favorite `name` 作操作 key 的 UI / 方法。
+- [x] 盤點 `StartupPreference.favoriteName` 使用點。
+- [x] 決定 Room database name / version 起點。
+- [x] 決定 UUID 產生方式。
+
+### Phase 0 盤點結果（2026-05-09）
+
+- `KestrelPrefs.favorites` 主要使用點：
+  - `feature/map/MapScreen.kt`
+  - `feature/favorites/FavoritesScreen.kt`
+  - `feature/options/OptionsScreen.kt`
+  - `core/data/Preferences.kt`（legacy favorites methods）
+- 目前以 favorite `name` 作 key 的操作：
+  - `Preferences.addFavorite/removeFavorite/renameFavorite/reorderFavorite/touchFavorite`
+  - `MapScreen` 套用/儲存與 startup fallback lookup
+  - `FavoritesScreen` rename/delete/reorder/apply
+  - `OptionsScreen` startup favorite 選取
+- `StartupPreference.favoriteName` 使用點：
+  - `core/data/Preferences.kt`
+  - `feature/map/MapScreen.kt`
+  - `feature/options/OptionsScreen.kt`
+  - `feature/favorites/FavoritesScreen.kt`
+- Room 初始決策：
+  - database name：`kestrel.db`
+  - schema version 起點：`1`
+- UUID 初始決策：
+  - 使用 `UUID.randomUUID().toString()`
 
 ---
 
