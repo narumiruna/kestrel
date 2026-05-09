@@ -15,6 +15,7 @@ model User {
   totpEnabledAt       DateTime? @map("totp_enabled_at")
   createdAt           DateTime  @default(now()) @map("created_at")
   updatedAt           DateTime  @updatedAt @map("updated_at")
+  authAuditLogs       AuthAuditLog[]
   recoveryCodes       RecoveryCode[]
   sessions            Session[]
 
@@ -36,7 +37,7 @@ model RecoveryCode {
 model Session {
   id               String    @id @default(uuid()) @db.Uuid
   userId           String    @map("user_id") @db.Uuid
-  refreshTokenHash String    @map("refresh_token_hash")
+  refreshTokenHash String    @unique @map("refresh_token_hash")
   expiresAt        DateTime  @map("expires_at")
   revokedAt        DateTime? @map("revoked_at")
   lastUsedAt       DateTime  @map("last_used_at")
@@ -45,4 +46,37 @@ model Session {
 
   @@index([userId])
   @@map("sessions")
+}
+
+model AuthRateLimit {
+  id              String    @id @default(uuid()) @db.Uuid
+  type            String    @db.VarChar(32)
+  subject         String    @db.VarChar(128)
+  attempts        Int
+  windowStartedAt DateTime  @map("window_started_at")
+  blockedUntil    DateTime? @map("blocked_until")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  @@unique([type, subject])
+  @@map("auth_rate_limits")
+}
+
+model AuthAuditLog {
+  id            String   @id @default(uuid()) @db.Uuid
+  event         String   @db.VarChar(32)
+  outcome       String   @db.VarChar(16)
+  authMethod    String?  @map("auth_method") @db.VarChar(32)
+  failureReason String?  @map("failure_reason") @db.VarChar(128)
+  username      String?  @db.VarChar(64)
+  userId        String?  @map("user_id") @db.Uuid
+  sessionId     String?  @map("session_id") @db.Uuid
+  ipAddress     String?  @map("ip_address") @db.VarChar(64)
+  userAgent     String?  @map("user_agent") @db.VarChar(512)
+  createdAt     DateTime @default(now()) @map("created_at")
+  user          User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([sessionId])
+  @@map("auth_audit_logs")
 }
