@@ -1,6 +1,7 @@
 package dev.narumi.kestrel.core.data
 
 import android.content.Context
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.doublePreferencesKey
@@ -8,6 +9,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
@@ -87,6 +89,7 @@ data class MockState(
 @Serializable
 data class StartupPreference(
     val mode: Mode = Mode.Last,
+    val libraryItemId: String? = null,
     val favoriteName: String? = null,
 ) {
     enum class Mode { Last, Current, Favorite }
@@ -120,6 +123,7 @@ private object Keys {
     val LAST_CAM_LNG = doublePreferencesKey("last_cam_lng")
     val LAST_CAM_ZOOM = doublePreferencesKey("last_cam_zoom")
     val FAVORITES = stringPreferencesKey("favorites_json")
+    val LIBRARY_ROOM_MIGRATED = booleanPreferencesKey("library_room_migrated")
     val FAVORITES_SORT_MODE = stringPreferencesKey("favorites_sort_mode_json")
     val MOCK_STATE = stringPreferencesKey("mock_state_json")
     val STARTUP_PREF = stringPreferencesKey("startup_pref_json")
@@ -134,7 +138,9 @@ class KestrelPrefs(
     private val store = context.applicationContext.prefStore
 
     val lastCamera: Flow<CameraSnapshot?> = store.data.map { it.toCamera() }
+    @Deprecated("Library data now lives in Room; use LibraryRepository instead.")
     val favorites: Flow<List<Favorite>> = store.data.map { it.toFavorites(json) }
+    val libraryRoomMigrated: Flow<Boolean> = store.data.map { it[Keys.LIBRARY_ROOM_MIGRATED] == true }
     val favoritesSortMode: Flow<FavoritesSortMode> = store.data.map { it.toFavoritesSortMode(json) }
     val mockState: Flow<MockState?> = store.data.map { it.toMockState(json) }
     val startupPreference: Flow<StartupPreference> = store.data.map { it.toStartupPref(json) }
@@ -149,16 +155,19 @@ class KestrelPrefs(
         }
     }
 
+    @Deprecated("Library data now lives in Room; migration-only.")
     suspend fun addFavorite(fav: Favorite) {
         mutateFavorites { current ->
             current.filter { it.name != fav.name } + fav
         }
     }
 
+    @Deprecated("Library data now lives in Room; migration-only.")
     suspend fun removeFavorite(name: String) {
         mutateFavorites { current -> current.filter { it.name != name } }
     }
 
+    @Deprecated("Library data now lives in Room; migration-only.")
     suspend fun renameFavorite(
         oldName: String,
         newName: String,
@@ -183,6 +192,7 @@ class KestrelPrefs(
         }
     }
 
+    @Deprecated("Library data now lives in Room; migration-only.")
     suspend fun updateFavoritePoint(
         name: String,
         lat: Double,
@@ -193,6 +203,7 @@ class KestrelPrefs(
         }
     }
 
+    @Deprecated("Library data now lives in Room; migration-only.")
     suspend fun updateFavoriteRouteParams(
         name: String,
         speedKmh: Double,
@@ -209,6 +220,7 @@ class KestrelPrefs(
         }
     }
 
+    @Deprecated("Library data now lives in Room; migration-only.")
     suspend fun reorderFavorite(
         name: String,
         toIndex: Int,
@@ -225,11 +237,16 @@ class KestrelPrefs(
         }
     }
 
+    @Deprecated("Library data now lives in Room; migration-only.")
     suspend fun touchFavorite(name: String) {
         val now = System.currentTimeMillis()
         mutateFavorites { current ->
             current.map { if (it.name == name) it.copy(lastUsedAt = now) else it }
         }
+    }
+
+    suspend fun setLibraryRoomMigrated(migrated: Boolean) {
+        store.edit { it[Keys.LIBRARY_ROOM_MIGRATED] = migrated }
     }
 
     suspend fun setFavoritesSortMode(mode: FavoritesSortMode.Mode) {
@@ -294,6 +311,13 @@ class KestrelPrefs(
     }
 
     private val favoritesSerializer = ListSerializer(Favorite.serializer())
+
+    suspend fun libraryRoomMigratedValue(): Boolean = libraryRoomMigrated.first()
+
+    @Suppress("DEPRECATION")
+    suspend fun legacyFavoritesValue(): List<Favorite> = favorites.first()
+
+    suspend fun startupPreferenceValue(): StartupPreference = startupPreference.first()
 
     private suspend fun mutateFavorites(transform: (List<Favorite>) -> List<Favorite>) {
         store.edit {

@@ -70,12 +70,18 @@ import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.MultiplePermissionsState
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import dev.narumi.kestrel.core.data.CameraSnapshot
-import dev.narumi.kestrel.core.data.Favorite
-import dev.narumi.kestrel.core.data.FavoriteRoute
 import dev.narumi.kestrel.core.data.FavoritesSortMode
 import dev.narumi.kestrel.core.data.KestrelPrefs
 import dev.narumi.kestrel.core.data.RandomRoutePreference
 import dev.narumi.kestrel.core.data.StartupPreference
+import dev.narumi.kestrel.core.library.LibraryItemKind
+import dev.narumi.kestrel.core.library.LibraryItemWithContent
+import dev.narumi.kestrel.core.library.LibraryRepository
+import dev.narumi.kestrel.core.library.description
+import dev.narumi.kestrel.core.library.label
+import dev.narumi.kestrel.core.library.primaryPoint
+import dev.narumi.kestrel.core.library.routeWaypoints
+import dev.narumi.kestrel.core.library.sortedFor
 import dev.narumi.kestrel.core.location.LatLng
 import dev.narumi.kestrel.core.location.LocationService
 import dev.narumi.kestrel.core.location.MockProviderManager
@@ -137,7 +143,7 @@ private fun MovementEngine.Mode.label(): String =
 @Composable
 fun MapScreen(
     modifier: Modifier = Modifier,
-    pendingFavoriteApply: Favorite? = null,
+    pendingFavoriteApply: LibraryItemWithContent? = null,
     onFavoriteApplyConsumed: () -> Unit = {},
 ) {
     val context = LocalContext.current
@@ -153,10 +159,11 @@ fun MapScreen(
     val permissionState = rememberMultiplePermissionsState(permissions)
     val mockProvider = remember { MockProviderManager(context.applicationContext) }
     val prefs = remember { KestrelPrefs(context) }
+    val libraryRepository = remember { LibraryRepository.getInstance(context) }
     val scope = rememberCoroutineScope()
 
-    val favorites by prefs.favorites.collectAsStateWithLifecycle(emptyList())
-    val sortMode by prefs.favoritesSortMode.collectAsStateWithLifecycle(FavoritesSortMode())
+    val libraryItems by libraryRepository.items.collectAsStateWithLifecycle(emptyList())
+    val sortMode by libraryRepository.sortMode.collectAsStateWithLifecycle(FavoritesSortMode())
     val randomRoutePref by
         prefs.randomRoutePreference.collectAsStateWithLifecycle(RandomRoutePreference())
 
@@ -182,6 +189,7 @@ fun MapScreen(
     }
 
     LaunchedEffect(Unit) {
+        libraryRepository.ensureMigrated()
         if (startupResolved) return@LaunchedEffect
         val pref = prefs.startupPreference.first()
         when (pref.mode) {
@@ -190,20 +198,26 @@ fun MapScreen(
             }
             StartupPreference.Mode.Current -> awaitCurrentForStartup = true
             StartupPreference.Mode.Favorite -> {
-                prefs.favorites.first().find { it.name == pref.favoriteName }?.let { fav ->
-                    cameraTarget = CameraSnapshot(fav.lat, fav.lng, 13.0)
-                    val r = fav.route
-                    if (r != null) {
-                        waypoints = r.lats.indices.map { LatLng(r.lats[it], r.lngs[it]) }
-                        speedKmh = r.speedKmh
-                        routeMode =
-                            runCatching { MovementEngine.Mode.valueOf(r.mode) }
-                                .getOrDefault(MovementEngine.Mode.Once)
-                    } else {
-                        LocationService.setLocation(context, LatLng(fav.lat, fav.lng))
-                        runState = RunState.Single
+                val currentItems = libraryRepository.items.first()
+                val startupItem =
+                    pref.libraryItemId?.let(libraryRepository::getItem)
+                        ?: currentItems.firstOrNull { it.name == pref.favoriteName }
+                startupItem?.let { item ->
+                    if (pref.libraryItemId == null) {
+                        prefs.setStartupPreference(
+                            pref.copy(libraryItemId = item.item.id, favoriteName = item.name),
+                        )
                     }
-                    prefs.touchFavorite(fav.name)
+                    applyStartupItem(
+                        item = item,
+                        context = context,
+                        setWaypoints = { waypoints = it },
+                        setCameraTarget = { cameraTarget = it },
+                        setSpeedKmh = { speedKmh = it },
+                        setRouteMode = { routeMode = it },
+                        setRunState = { runState = it },
+                    )
+                    libraryRepository.touchItem(item.item.id)
                 }
             }
         }
@@ -238,19 +252,19 @@ fun MapScreen(
         showGoToSheet = false
     }
 
-    fun applyFavorite(favorite: Favorite) {
+    fun applyItem(item: LibraryItemWithContent) {
         if (runState != RunState.Idle) {
             LocationService.stop(context)
         }
-        val route = favorite.route
-        if (route == null) {
-            val point = LatLng(favorite.lat, favorite.lng)
+        if (item.kind == LibraryItemKind.Place) {
+            val point = item.primaryPoint() ?: return
             waypoints = listOf(point)
             cameraTarget = CameraSnapshot(point.lat, point.lng, 15.0)
         } else {
-            val routeWaypoints = route.toWaypoints()
+            val route = item.route ?: return
+            val routeWaypoints = item.routeWaypoints()
             waypoints = routeWaypoints
-            speedKmh = route.speedKmh
+            speedKmh = route.defaultSpeedKmh
             routeMode =
                 runCatching { MovementEngine.Mode.valueOf(route.mode) }
                     .getOrDefault(MovementEngine.Mode.Once)
@@ -258,12 +272,12 @@ fun MapScreen(
         }
         runState = RunState.Idle
         showGoToSheet = false
-        scope.launch { prefs.touchFavorite(favorite.name) }
+        scope.launch { libraryRepository.touchItem(item.item.id) }
     }
 
     LaunchedEffect(pendingFavoriteApply) {
         pendingFavoriteApply?.let {
-            applyFavorite(it)
+            applyItem(it)
             onFavoriteApplyConsumed()
         }
     }
@@ -294,11 +308,11 @@ fun MapScreen(
     if (showGoToSheet) {
         GoToSheet(
             sheetState = goToSheetState,
-            favorites = favorites,
+            items = libraryItems,
             sortMode = sortMode.mode,
-            onSortModeChange = { mode -> scope.launch { prefs.setFavoritesSortMode(mode) } },
+            onSortModeChange = { mode -> scope.launch { libraryRepository.setSortMode(mode) } },
             onApplyPoint = ::applyPoint,
-            onApplyFavorite = ::applyFavorite,
+            onApplyItem = ::applyItem,
             onDismiss = { showGoToSheet = false },
         )
     }
@@ -309,8 +323,24 @@ fun MapScreen(
             name = favoriteName,
             onNameChange = { favoriteName = it },
             onConfirm = {
-                val name = favoriteName.trim().ifEmpty { "Favorite ${favorites.size + 1}" }
-                scope.launch { prefs.addFavorite(pending.toFavorite(name)) }
+                val name = favoriteName.trim().ifEmpty { "Favorite ${libraryItems.size + 1}" }
+                scope.launch {
+                    when (pending) {
+                        is PendingFavorite.Point ->
+                            libraryRepository.addPlace(
+                                name = name,
+                                lat = pending.target.lat,
+                                lng = pending.target.lng,
+                            )
+                        is PendingFavorite.Route ->
+                            libraryRepository.addRoute(
+                                name = name,
+                                waypoints = pending.waypoints,
+                                defaultSpeedKmh = pending.speedKmh,
+                                mode = pending.mode.name,
+                            )
+                    }
+                }
                 pendingFavorite = null
                 favoriteName = ""
             },
@@ -435,45 +465,24 @@ fun MapScreen(
     }
 }
 
-private fun PendingFavorite.toFavorite(name: String): Favorite =
-    when (this) {
-        is PendingFavorite.Point ->
-            Favorite(name = name, lat = target.lat, lng = target.lng)
-        is PendingFavorite.Route -> {
-            val first = waypoints.first()
-            Favorite(
-                name = name,
-                lat = first.lat,
-                lng = first.lng,
-                route =
-                    FavoriteRoute(
-                        lats = DoubleArray(waypoints.size) { i -> waypoints[i].lat },
-                        lngs = DoubleArray(waypoints.size) { i -> waypoints[i].lng },
-                        speedKmh = speedKmh,
-                        mode = mode.name,
-                    ),
-            )
-        }
-    }
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun GoToSheet(
     sheetState: SheetState,
-    favorites: List<Favorite>,
+    items: List<LibraryItemWithContent>,
     sortMode: FavoritesSortMode.Mode,
     onSortModeChange: (FavoritesSortMode.Mode) -> Unit,
     onApplyPoint: (LatLng) -> Unit,
-    onApplyFavorite: (Favorite) -> Unit,
+    onApplyItem: (LibraryItemWithContent) -> Unit,
     onDismiss: () -> Unit,
 ) {
     var input by remember { mutableStateOf("") }
     var selectedTab by remember { mutableStateOf(0) }
     val parsed = parseCoordInput(input)
     val showInvalid = input.isNotBlank() && parsed == null
-    val filteredFavorites =
-        favorites
-            .filter { if (selectedTab == 0) !it.isRoute else it.isRoute }
+    val filteredItems =
+        items
+            .filter { if (selectedTab == 0) it.kind == LibraryItemKind.Place else it.kind == LibraryItemKind.Route }
             .sortedFor(sortMode)
 
     ModalBottomSheet(
@@ -523,7 +532,7 @@ private fun GoToSheet(
                 sortMode = sortMode,
                 onSortModeChange = onSortModeChange,
             )
-            if (filteredFavorites.isEmpty()) {
+            if (filteredItems.isEmpty()) {
                 Text(
                     text = if (selectedTab == 0) "No point favorites yet." else "No route favorites yet.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -531,10 +540,10 @@ private fun GoToSheet(
                 )
             } else {
                 LazyColumn(modifier = Modifier.heightIn(max = 420.dp)) {
-                    items(filteredFavorites, key = { it.name }) { favorite ->
+                    items(filteredItems, key = { it.item.id }) { item ->
                         GoToFavoriteRow(
-                            favorite = favorite,
-                            onClick = { onApplyFavorite(favorite) },
+                            item = item,
+                            onClick = { onApplyItem(item) },
                         )
                     }
                 }
@@ -573,7 +582,7 @@ private fun SortModeMenu(
 
 @Composable
 private fun GoToFavoriteRow(
-    favorite: Favorite,
+    item: LibraryItemWithContent,
     onClick: () -> Unit,
 ) {
     Row(
@@ -591,9 +600,9 @@ private fun GoToFavoriteRow(
             tint = MaterialTheme.colorScheme.primary,
         )
         Column(modifier = Modifier.weight(1f)) {
-            Text(favorite.name, style = MaterialTheme.typography.titleMedium)
+            Text(item.name, style = MaterialTheme.typography.titleMedium)
             Text(
-                text = favorite.description(),
+                text = item.description(),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -601,33 +610,33 @@ private fun GoToFavoriteRow(
     }
 }
 
-private fun Favorite.description(): String {
-    val route = route
-    return if (route == null) {
-        "%.5f, %.5f".format(lat, lng)
-    } else {
-        "Route · ${route.lats.size} waypoints · ${route.speedKmh.toInt()} km/h · ${route.mode}"
+@Suppress("LongParameterList")
+private fun applyStartupItem(
+    item: LibraryItemWithContent,
+    context: android.content.Context,
+    setWaypoints: (List<LatLng>) -> Unit,
+    setCameraTarget: (CameraSnapshot?) -> Unit,
+    setSpeedKmh: (Double) -> Unit,
+    setRouteMode: (MovementEngine.Mode) -> Unit,
+    setRunState: (RunState) -> Unit,
+) {
+    val point = item.primaryPoint() ?: return
+    setCameraTarget(CameraSnapshot(point.lat, point.lng, 13.0))
+    if (item.kind == LibraryItemKind.Place) {
+        setWaypoints(listOf(point))
+        LocationService.setLocation(context, point)
+        setRunState(RunState.Single)
+        return
     }
+    val route = item.route ?: return
+    setWaypoints(item.routeWaypoints())
+    setSpeedKmh(route.defaultSpeedKmh)
+    setRouteMode(
+        runCatching { MovementEngine.Mode.valueOf(route.mode) }
+            .getOrDefault(MovementEngine.Mode.Once),
+    )
+    setRunState(RunState.Idle)
 }
-
-private fun FavoriteRoute.toWaypoints(): List<LatLng> {
-    val count = minOf(lats.size, lngs.size)
-    return List(count) { LatLng(lats[it], lngs[it]) }
-}
-
-private fun List<Favorite>.sortedFor(sortMode: FavoritesSortMode.Mode): List<Favorite> =
-    when (sortMode) {
-        FavoritesSortMode.Mode.Manual -> this
-        FavoritesSortMode.Mode.Recent -> sortedByDescending { it.lastUsedAt ?: Long.MIN_VALUE }
-        FavoritesSortMode.Mode.Alphabetical -> sortedBy { it.name.lowercase() }
-    }
-
-private fun FavoritesSortMode.Mode.label(): String =
-    when (this) {
-        FavoritesSortMode.Mode.Manual -> "Manual"
-        FavoritesSortMode.Mode.Recent -> "Recent"
-        FavoritesSortMode.Mode.Alphabetical -> "Alphabetical"
-    }
 
 @Suppress("LongParameterList")
 private fun handlePrimary(
