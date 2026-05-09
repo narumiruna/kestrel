@@ -16,7 +16,12 @@ model User {
   createdAt           DateTime  @default(now()) @map("created_at")
   updatedAt           DateTime  @updatedAt @map("updated_at")
   authAuditLogs       AuthAuditLog[]
+  devices             Device[]
+  libraryItems        LibraryItem[]
+  places              Place[]
   recoveryCodes       RecoveryCode[]
+  routeRevisions      RouteRevision[] @relation("RouteRevisionCreator")
+  routes              Route[]
   sessions            Session[]
 
   @@map("users")
@@ -79,4 +84,144 @@ model AuthAuditLog {
   @@index([userId])
   @@index([sessionId])
   @@map("auth_audit_logs")
+}
+
+model Place {
+  id           String         @id @default(uuid()) @db.Uuid
+  userId       String         @map("user_id") @db.Uuid
+  name         String         @db.VarChar(128)
+  latitude     Float
+  longitude    Float
+  description  String?        @db.VarChar(1024)
+  tags         Json           @default("[]")
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
+  deletedAt    DateTime?      @map("deleted_at")
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  libraryItem  LibraryItem?
+  deviceStates DeviceState[]  @relation("DeviceSelectedPlace")
+
+  @@index([userId])
+  @@index([userId, deletedAt])
+  @@map("places")
+}
+
+model Route {
+  id                String         @id @default(uuid()) @db.Uuid
+  userId            String         @map("user_id") @db.Uuid
+  name              String         @db.VarChar(128)
+  description       String?        @db.VarChar(1024)
+  defaultSpeedKmh   Float          @map("default_speed_kmh")
+  mode              RouteMode
+  currentRevisionId String?        @unique @map("current_revision_id") @db.Uuid
+  isPublic          Boolean        @default(false) @map("is_public")
+  createdAt         DateTime       @default(now()) @map("created_at")
+  updatedAt         DateTime       @updatedAt @map("updated_at")
+  deletedAt         DateTime?      @map("deleted_at")
+  user              User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  currentRevision   RouteRevision? @relation("RouteCurrentRevision", fields: [currentRevisionId], references: [id], onDelete: SetNull)
+  revisions         RouteRevision[] @relation("RouteRevisions")
+  libraryItem       LibraryItem?
+  deviceStates      DeviceState[]  @relation("DeviceSelectedRoute")
+
+  @@index([userId])
+  @@index([userId, deletedAt])
+  @@map("routes")
+}
+
+model RouteRevision {
+  id                String         @id @default(uuid()) @db.Uuid
+  routeId           String         @map("route_id") @db.Uuid
+  revisionNumber    Int            @map("revision_number")
+  payload           Json
+  createdBy         String         @map("created_by") @db.Uuid
+  createdAt         DateTime       @default(now()) @map("created_at")
+  route             Route          @relation("RouteRevisions", fields: [routeId], references: [id], onDelete: Cascade)
+  creator           User           @relation("RouteRevisionCreator", fields: [createdBy], references: [id], onDelete: Cascade)
+  currentForRoute   Route?         @relation("RouteCurrentRevision")
+  deviceStates      DeviceState[]  @relation("DeviceSelectedRouteRevision")
+
+  @@unique([routeId, revisionNumber])
+  @@index([routeId])
+  @@index([createdBy])
+  @@map("route_revisions")
+}
+
+model LibraryItem {
+  id         String          @id @default(uuid()) @db.Uuid
+  userId     String          @map("user_id") @db.Uuid
+  kind       LibraryItemKind
+  placeId    String?         @unique @map("place_id") @db.Uuid
+  routeId    String?         @unique @map("route_id") @db.Uuid
+  sortOrder  Int             @map("sort_order")
+  pinned     Boolean         @default(false)
+  lastUsedAt DateTime?       @map("last_used_at")
+  createdAt  DateTime        @default(now()) @map("created_at")
+  updatedAt  DateTime        @updatedAt @map("updated_at")
+  deletedAt  DateTime?       @map("deleted_at")
+  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  place      Place?          @relation(fields: [placeId], references: [id], onDelete: Cascade)
+  route      Route?          @relation(fields: [routeId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, deletedAt])
+  @@map("library_items")
+}
+
+model Device {
+  id         String       @id @default(uuid()) @db.Uuid
+  userId     String       @map("user_id") @db.Uuid
+  name       String       @db.VarChar(128)
+  platform   DevicePlatform
+  appVersion String?      @map("app_version") @db.VarChar(64)
+  lastSeenAt DateTime     @map("last_seen_at")
+  createdAt  DateTime     @default(now()) @map("created_at")
+  user       User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  state      DeviceState?
+
+  @@index([userId])
+  @@map("devices")
+}
+
+model DeviceState {
+  id                      String         @id @default(uuid()) @db.Uuid
+  deviceId                String         @unique @map("device_id") @db.Uuid
+  selectedPlaceId         String?        @map("selected_place_id") @db.Uuid
+  selectedRouteId         String?        @map("selected_route_id") @db.Uuid
+  selectedRouteRevisionId String?        @map("selected_route_revision_id") @db.Uuid
+  playbackState           PlaybackState  @default(IDLE) @map("playback_state")
+  lastReportedAt          DateTime       @map("last_reported_at")
+  device                  Device         @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  selectedPlace           Place?         @relation("DeviceSelectedPlace", fields: [selectedPlaceId], references: [id], onDelete: SetNull)
+  selectedRoute           Route?         @relation("DeviceSelectedRoute", fields: [selectedRouteId], references: [id], onDelete: SetNull)
+  selectedRouteRevision   RouteRevision? @relation("DeviceSelectedRouteRevision", fields: [selectedRouteRevisionId], references: [id], onDelete: SetNull)
+
+  @@index([selectedPlaceId])
+  @@index([selectedRouteId])
+  @@index([selectedRouteRevisionId])
+  @@map("device_states")
+}
+
+enum DevicePlatform {
+  ANDROID
+  WEB
+  OTHER
+}
+
+enum LibraryItemKind {
+  PLACE
+  ROUTE
+}
+
+enum PlaybackState {
+  IDLE
+  SINGLE
+  ROUTE
+  PAUSED
+}
+
+enum RouteMode {
+  ONCE
+  LOOP
+  PING_PONG
 }
