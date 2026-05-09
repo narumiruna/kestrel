@@ -25,17 +25,21 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 class LocationService : Service() {
-
     private lateinit var mockProvider: MockProviderManager
     private lateinit var prefs: KestrelPrefs
     private var providerStarted = false
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var routeJob: Job? = null
+    private var singleKeepAliveJob: Job? = null
+
     @Volatile private var paused = false
     private var currentMode: MockState.Mode = MockState.Mode.Idle
 
@@ -46,7 +50,11 @@ class LocationService : Service() {
         ensureChannel()
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+    override fun onStartCommand(
+        intent: Intent?,
+        flags: Int,
+        startId: Int,
+    ): Int {
         if (intent == null || intent.action == null) {
             // Restarted by the system after being killed (START_STICKY): try to restore.
             ensureForeground()
@@ -56,8 +64,10 @@ class LocationService : Service() {
         when (intent.action) {
             ACTION_STOP -> {
                 stopRoute()
+                stopSingleKeepAlive()
                 stopMock()
                 currentMode = MockState.Mode.Idle
+                _currentMock.value = null
                 scope.launch { prefs.setMockState(null) }
                 stopForegroundCompat()
                 stopSelf()
@@ -70,7 +80,7 @@ class LocationService : Service() {
                 val lng = intent.getDoubleExtra(EXTRA_LNG, Double.NaN)
                 if (lat.isFinite() && lng.isFinite()) {
                     ensureMockStarted()
-                    pushLocation(LatLng(lat, lng))
+                    startSingleKeepAlive(LatLng(lat, lng))
                     currentMode = MockState.Mode.Single
                     refreshNotification()
                     scope.launch {
@@ -85,20 +95,30 @@ class LocationService : Service() {
             }
             ACTION_START_ROUTE -> {
                 ensureForeground()
+                stopSingleKeepAlive()
                 val lats = intent.getDoubleArrayExtra(EXTRA_LATS)
                 val lngs = intent.getDoubleArrayExtra(EXTRA_LNGS)
                 val speedKmh = intent.getDoubleExtra(EXTRA_SPEED_KMH, Double.NaN)
-                if (lats != null && lngs != null && lats.size == lngs.size &&
-                    lats.size >= 2 && speedKmh.isFinite() && speedKmh > 0) {
+                val modeName = intent.getStringExtra(EXTRA_MODE) ?: MovementEngine.Mode.Once.name
+                val mode =
+                    runCatching { MovementEngine.Mode.valueOf(modeName) }
+                        .getOrDefault(MovementEngine.Mode.Once)
+                if (lats != null &&
+                    lngs != null &&
+                    lats.size == lngs.size &&
+                    lats.size >= 2 &&
+                    speedKmh.isFinite() &&
+                    speedKmh > 0
+                ) {
                     val waypoints = lats.indices.map { LatLng(lats[it], lngs[it]) }
-                    startRoute(waypoints, speedKmh)
+                    startRoute(waypoints, speedKmh, mode)
                     currentMode = MockState.Mode.Route
                     refreshNotification()
                     scope.launch {
                         prefs.setMockState(
                             MockState(
                                 mode = MockState.Mode.Route,
-                                route = RouteState(lats, lngs, speedKmh),
+                                route = RouteState(lats, lngs, speedKmh, mode.name),
                             ),
                         )
                     }
@@ -119,6 +139,7 @@ class LocationService : Service() {
 
     override fun onDestroy() {
         stopRoute()
+        stopSingleKeepAlive()
         stopMock()
         scope.cancel()
         super.onDestroy()
@@ -129,37 +150,59 @@ class LocationService : Service() {
     private suspend fun restoreState() {
         val state = prefs.mockState.first() ?: return
         when (state.mode) {
-            MockState.Mode.Single -> state.single?.let {
-                ensureMockStarted()
-                pushLocation(LatLng(it.lat, it.lng))
-                currentMode = MockState.Mode.Single
-                refreshNotification()
-            }
-            MockState.Mode.Route -> state.route?.let { r ->
-                if (r.lats.size >= 2 && r.lats.size == r.lngs.size) {
-                    val wps = r.lats.indices.map { LatLng(r.lats[it], r.lngs[it]) }
-                    startRoute(wps, r.speedKmh)
-                    currentMode = MockState.Mode.Route
+            MockState.Mode.Single ->
+                state.single?.let {
+                    ensureMockStarted()
+                    startSingleKeepAlive(LatLng(it.lat, it.lng))
+                    currentMode = MockState.Mode.Single
                     refreshNotification()
                 }
-            }
+            MockState.Mode.Route ->
+                state.route?.let { r ->
+                    if (r.lats.size >= 2 && r.lats.size == r.lngs.size) {
+                        val wps = r.lats.indices.map { LatLng(r.lats[it], r.lngs[it]) }
+                        val mode =
+                            runCatching { MovementEngine.Mode.valueOf(r.mode) }
+                                .getOrDefault(MovementEngine.Mode.Once)
+                        startRoute(wps, r.speedKmh, mode)
+                        currentMode = MockState.Mode.Route
+                        refreshNotification()
+                    }
+                }
             MockState.Mode.Idle -> Unit
         }
     }
 
-    private fun startRoute(waypoints: List<LatLng>, speedKmh: Double) {
+    private fun startRoute(
+        waypoints: List<LatLng>,
+        speedKmh: Double,
+        mode: MovementEngine.Mode,
+    ) {
         stopRoute()
         ensureMockStarted()
         paused = false
-        val engine = MovementEngine(waypoints, speedKmh / 3.6)
-        routeJob = scope.launch {
-            while (isActive && !engine.isFinished()) {
-                delay(TICK_MILLIS)
-                if (paused) continue
-                val sample = engine.advance(TICK_MILLIS / 1000.0)
-                pushSample(sample)
+        val engine = MovementEngine(waypoints, speedKmh / 3.6, mode)
+        routeJob =
+            scope.launch {
+                while (isActive && !engine.isFinished()) {
+                    delay(TICK_MILLIS)
+                    if (paused) continue
+                    val sample = engine.advance(TICK_MILLIS / 1000.0)
+                    pushSample(sample)
+                }
+                if (mode == MovementEngine.Mode.Once && engine.isFinished()) {
+                    val last = waypoints.last()
+                    currentMode = MockState.Mode.Single
+                    startSingleKeepAlive(last)
+                    refreshNotification()
+                    prefs.setMockState(
+                        MockState(
+                            mode = MockState.Mode.Single,
+                            single = SinglePointState(last.lat, last.lng),
+                        ),
+                    )
+                }
             }
-        }
     }
 
     private fun stopRoute() {
@@ -168,8 +211,25 @@ class LocationService : Service() {
         paused = false
     }
 
+    private fun startSingleKeepAlive(point: LatLng) {
+        stopSingleKeepAlive()
+        singleKeepAliveJob =
+            scope.launch {
+                while (isActive) {
+                    pushLocation(point)
+                    delay(TICK_MILLIS)
+                }
+            }
+    }
+
+    private fun stopSingleKeepAlive() {
+        singleKeepAliveJob?.cancel()
+        singleKeepAliveJob = null
+    }
+
     private fun pushLocation(point: LatLng) {
         runCatching { mockProvider.setLocation(point) }
+            .onSuccess { _currentMock.value = point }
             .onFailure { Log.w(TAG, "setLocation failed", it) }
     }
 
@@ -180,7 +240,8 @@ class LocationService : Service() {
                 speed = sample.speedMps.toFloat(),
                 bearing = sample.bearingDeg.toFloat(),
             )
-        }.onFailure { Log.w(TAG, "setLocation failed", it) }
+        }.onSuccess { _currentMock.value = sample.point }
+            .onFailure { Log.w(TAG, "setLocation failed", it) }
     }
 
     private fun ensureForeground() {
@@ -237,24 +298,28 @@ class LocationService : Service() {
 
     private fun buildNotification(): Notification {
         val launchIntent = Intent(this, MainActivity::class.java)
-        val contentPI = PendingIntent.getActivity(
-            this,
-            REQ_CONTENT,
-            launchIntent,
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-        )
-        val text = when {
-            currentMode == MockState.Mode.Idle -> getString(R.string.location_service_text)
-            currentMode == MockState.Mode.Single -> "Single point mock active"
-            paused -> "Route paused"
-            else -> "Route playing"
-        }
-        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle(getString(R.string.location_service_title))
-            .setContentText(text)
-            .setSmallIcon(R.drawable.ic_home)
-            .setContentIntent(contentPI)
-            .setOngoing(true)
+        val contentPI =
+            PendingIntent.getActivity(
+                this,
+                REQ_CONTENT,
+                launchIntent,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+            )
+        val text =
+            when {
+                currentMode == MockState.Mode.Idle -> getString(R.string.location_service_text)
+                currentMode == MockState.Mode.Single -> "Single point mock active"
+                paused -> "Route paused"
+                else -> "Route playing"
+            }
+        val builder =
+            NotificationCompat
+                .Builder(this, CHANNEL_ID)
+                .setContentTitle(getString(R.string.location_service_title))
+                .setContentText(text)
+                .setSmallIcon(R.drawable.ic_home)
+                .setContentIntent(contentPI)
+                .setOngoing(true)
 
         if (currentMode == MockState.Mode.Route) {
             if (paused) {
@@ -269,7 +334,10 @@ class LocationService : Service() {
         return builder.build()
     }
 
-    private fun servicePI(requestCode: Int, action: String): PendingIntent {
+    private fun servicePI(
+        requestCode: Int,
+        action: String,
+    ): PendingIntent {
         val intent = Intent(this, LocationService::class.java).apply { this.action = action }
         return PendingIntent.getService(
             this,
@@ -291,6 +359,7 @@ class LocationService : Service() {
         const val EXTRA_LATS = "lats"
         const val EXTRA_LNGS = "lngs"
         const val EXTRA_SPEED_KMH = "speed_kmh"
+        const val EXTRA_MODE = "route_mode"
         private const val CHANNEL_ID = "kestrel_location"
         private const val NOTIFICATION_ID = 1001
         private const val TICK_MILLIS = 1000L
@@ -300,29 +369,43 @@ class LocationService : Service() {
         private const val REQ_RESUME = 2
         private const val REQ_STOP = 3
 
+        private val _currentMock = MutableStateFlow<LatLng?>(null)
+        val currentMock: StateFlow<LatLng?> = _currentMock.asStateFlow()
+
         fun start(context: Context) {
             sendIntent(context, ACTION_START, foreground = true)
         }
 
-        fun setLocation(context: Context, point: LatLng) {
-            val intent = Intent(context, LocationService::class.java).apply {
-                action = ACTION_SET_LOCATION
-                putExtra(EXTRA_LAT, point.lat)
-                putExtra(EXTRA_LNG, point.lng)
-            }
+        fun setLocation(
+            context: Context,
+            point: LatLng,
+        ) {
+            val intent =
+                Intent(context, LocationService::class.java).apply {
+                    action = ACTION_SET_LOCATION
+                    putExtra(EXTRA_LAT, point.lat)
+                    putExtra(EXTRA_LNG, point.lng)
+                }
             startCompat(context, intent, foreground = true)
         }
 
-        fun startRoute(context: Context, waypoints: List<LatLng>, speedKmh: Double) {
+        fun startRoute(
+            context: Context,
+            waypoints: List<LatLng>,
+            speedKmh: Double,
+            mode: MovementEngine.Mode = MovementEngine.Mode.Once,
+        ) {
             if (waypoints.size < 2) return
             val lats = DoubleArray(waypoints.size) { waypoints[it].lat }
             val lngs = DoubleArray(waypoints.size) { waypoints[it].lng }
-            val intent = Intent(context, LocationService::class.java).apply {
-                action = ACTION_START_ROUTE
-                putExtra(EXTRA_LATS, lats)
-                putExtra(EXTRA_LNGS, lngs)
-                putExtra(EXTRA_SPEED_KMH, speedKmh)
-            }
+            val intent =
+                Intent(context, LocationService::class.java).apply {
+                    action = ACTION_START_ROUTE
+                    putExtra(EXTRA_LATS, lats)
+                    putExtra(EXTRA_LNGS, lngs)
+                    putExtra(EXTRA_SPEED_KMH, speedKmh)
+                    putExtra(EXTRA_MODE, mode.name)
+                }
             startCompat(context, intent, foreground = true)
         }
 
@@ -338,14 +421,23 @@ class LocationService : Service() {
             sendIntent(context, ACTION_STOP, foreground = false)
         }
 
-        private fun sendIntent(context: Context, action: String, foreground: Boolean) {
-            val intent = Intent(context, LocationService::class.java).apply {
-                this.action = action
-            }
+        private fun sendIntent(
+            context: Context,
+            action: String,
+            foreground: Boolean,
+        ) {
+            val intent =
+                Intent(context, LocationService::class.java).apply {
+                    this.action = action
+                }
             startCompat(context, intent, foreground)
         }
 
-        private fun startCompat(context: Context, intent: Intent, foreground: Boolean) {
+        private fun startCompat(
+            context: Context,
+            intent: Intent,
+            foreground: Boolean,
+        ) {
             if (foreground && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(intent)
             } else {
