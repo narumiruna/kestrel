@@ -4,7 +4,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 
 const ACCESS_TOKEN_VERSION = 'v1';
 const DEFAULT_ACCESS_TOKEN_TTL_SECONDS = 15 * 60;
@@ -154,12 +154,8 @@ function parseAccessTokenPayload(encodedPayload: string): AccessTokenPayload {
 }
 
 function safeEqual(left: string, right: string): boolean {
-  const leftBuffer = Buffer.from(left);
-  const rightBuffer = Buffer.from(right);
-
-  if (leftBuffer.length !== rightBuffer.length) {
-    return false;
-  }
+  const leftBuffer = createHash('sha256').update(left).digest();
+  const rightBuffer = createHash('sha256').update(right).digest();
 
   return timingSafeEqual(leftBuffer, rightBuffer);
 }
