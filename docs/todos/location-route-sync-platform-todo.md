@@ -26,12 +26,12 @@
 - [x] 實作 TOTP setup：產生 secret / QR / verify。
 - [x] TOTP secret 加密保存。
 - [x] 實作 recovery codes；DB 只存 hash。
-- [ ] 實作 login：password → TOTP → session。
-- [ ] 實作短效 access token。
-- [ ] 實作 refresh token rotation。
-- [ ] 實作 session revoke。
-- [ ] 加 password / TOTP / recovery code rate limit。
-- [ ] 加 auth audit log（至少 login success/failure）。
+- [x] 實作 login：password → TOTP → session。
+- [x] 實作短效 access token。
+- [x] 實作 refresh token rotation。
+- [x] 實作 session revoke。
+- [x] 加 password / TOTP / recovery code rate limit。
+- [x] 加 auth audit log（至少 login success/failure）。
 
 ---
 
