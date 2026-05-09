@@ -119,33 +119,40 @@ export class AuthService {
     }
 
     const totpEnabledAt = new Date();
-    const recoveryCodes = await createRecoveryCodes();
-    const [, , updatedUser] = await this.prismaService.$transaction([
-      this.prismaService.recoveryCode.deleteMany({
-        where: {
-          userId: user.id,
-        },
-      }),
-      this.prismaService.recoveryCode.createMany({
-        data: recoveryCodes.codeHashes.map((codeHash) => ({
-          codeHash,
-          userId: user.id,
-        })),
-      }),
-      this.prismaService.user.update({
-        data: {
-          totpEnabledAt,
-        },
-        select: {
-          id: true,
-          totpEnabledAt: true,
-          username: true,
-        },
-        where: {
-          id: user.id,
-        },
-      }),
-    ]);
+    const { recoveryCodes, updatedUser } =
+      await this.prismaService.$transaction(async (transaction) => {
+        const recoveryCodes = await createRecoveryCodes();
+
+        await transaction.recoveryCode.deleteMany({
+          where: {
+            userId: user.id,
+          },
+        });
+        await transaction.recoveryCode.createMany({
+          data: recoveryCodes.codeHashes.map((codeHash) => ({
+            codeHash,
+            userId: user.id,
+          })),
+        });
+        const updatedUser = await transaction.user.update({
+          data: {
+            totpEnabledAt,
+          },
+          select: {
+            id: true,
+            totpEnabledAt: true,
+            username: true,
+          },
+          where: {
+            id: user.id,
+          },
+        });
+
+        return {
+          recoveryCodes,
+          updatedUser,
+        };
+      });
 
     return {
       nextStep: 'login' as const,
@@ -320,7 +327,8 @@ function createRecoveryCodeValue(): string {
   let value = '';
 
   for (const byte of randomBytes(RECOVERY_CODE_GROUP_LENGTH * 2)) {
-    value += RECOVERY_CODE_ALPHABET[byte % RECOVERY_CODE_ALPHABET.length];
+    // The alphabet has 32 symbols, so taking the low 5 bits is uniform.
+    value += RECOVERY_CODE_ALPHABET[byte & 31];
   }
 
   return value;
