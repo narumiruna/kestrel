@@ -25,6 +25,14 @@ format:
 check:
     JAVA_HOME="{{java_home}}" PATH="{{java_home}}/bin:$PATH" ./gradlew spotlessCheck
 
+# run detekt static analysis
+lint:
+    JAVA_HOME="{{java_home}}" PATH="{{java_home}}/bin:$PATH" ./gradlew detekt
+
+# regenerate detekt baseline (accept current warnings as-is)
+lint-baseline:
+    JAVA_HOME="{{java_home}}" PATH="{{java_home}}/bin:$PATH" ./gradlew detektBaseline
+
 # install git hooks via prek (drop-in pre-commit replacement)
 hooks:
     prek install
