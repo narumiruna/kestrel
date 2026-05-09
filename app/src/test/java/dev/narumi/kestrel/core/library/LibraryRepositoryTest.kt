@@ -14,6 +14,58 @@ import org.junit.Test
 
 class LibraryRepositoryTest {
     @Test
+    fun `buildPlaceLibraryRows creates place and linked library item`() {
+        val rows =
+            buildPlaceLibraryRows(
+                name = "Home",
+                lat = 25.0,
+                lng = 121.5,
+                description = "Base",
+                tags = listOf("home"),
+                sortOrder = 3,
+                now = 99L,
+                uuidFactory = sequentialUuidFactory(),
+            )
+
+        assertEquals("wp-1", rows.place.id)
+        assertEquals("Home", rows.place.name)
+        assertEquals(25.0, rows.place.lat, 0.0)
+        assertEquals(121.5, rows.place.lng, 0.0)
+        assertEquals(listOf("home"), rows.place.tags)
+        assertEquals("wp-2", rows.item.id)
+        assertEquals(LibraryItemKind.Place, rows.item.kind)
+        assertEquals("wp-1", rows.item.placeId)
+        assertEquals(3, rows.item.sortOrder)
+        assertEquals(99L, rows.item.createdAt)
+    }
+
+    @Test
+    fun `buildRouteLibraryRows creates revision one and ordered waypoints`() {
+        val rows =
+            buildRouteLibraryRows(
+                name = "Morning route",
+                waypoints = listOf(LatLng(25.0, 121.5), LatLng(25.1, 121.6)),
+                defaultSpeedKmh = 18.0,
+                mode = "Loop",
+                description = null,
+                sortOrder = 4,
+                now = 100L,
+                uuidFactory = sequentialUuidFactory(),
+            )
+
+        assertEquals("wp-1", rows.route.id)
+        assertEquals("wp-2", rows.revision.id)
+        assertEquals("wp-2", rows.route.currentRevisionId)
+        assertEquals(1, rows.revision.revisionNumber)
+        assertEquals("wp-3", rows.item.id)
+        assertEquals(LibraryItemKind.Route, rows.item.kind)
+        assertEquals("wp-1", rows.item.routeId)
+        assertEquals(listOf("wp-4", "wp-5"), rows.waypoints.map { it.id })
+        assertEquals(listOf(0, 1), rows.waypoints.map { it.sequence })
+        assertEquals(listOf(25.0, 25.1), rows.waypoints.map { it.lat })
+    }
+
+    @Test
     fun `buildWaypointEntities preserves waypoint order`() {
         val waypoints =
             listOf(

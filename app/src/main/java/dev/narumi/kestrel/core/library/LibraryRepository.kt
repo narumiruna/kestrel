@@ -145,33 +145,19 @@ private class RoomLibraryRepository(
         tags: List<String>,
     ): String {
         ensureMigrated()
-        val now = System.currentTimeMillis()
-        val placeId = UUID.randomUUID().toString()
-        val itemId = UUID.randomUUID().toString()
-        val sortOrder = (dao.getMaxSortOrder() ?: -1) + 1
-        dao.insertPlaceWithLibraryItem(
-            place =
-                PlaceEntity(
-                    id = placeId,
-                    name = name,
-                    lat = lat,
-                    lng = lng,
-                    description = description,
-                    tags = tags,
-                    createdAt = now,
-                    updatedAt = now,
-                ),
-            item =
-                LibraryItemEntity(
-                    id = itemId,
-                    kind = LibraryItemKind.Place,
-                    placeId = placeId,
-                    sortOrder = sortOrder,
-                    createdAt = now,
-                    updatedAt = now,
-                ),
-        )
-        return itemId
+        val rows =
+            buildPlaceLibraryRows(
+                name = name,
+                lat = lat,
+                lng = lng,
+                description = description,
+                tags = tags,
+                sortOrder = (dao.getMaxSortOrder() ?: -1) + 1,
+                now = System.currentTimeMillis(),
+                uuidFactory = { UUID.randomUUID().toString() },
+            )
+        dao.insertPlaceWithLibraryItem(place = rows.place, item = rows.item)
+        return rows.item.id
     }
 
     override suspend fun addRoute(
@@ -182,47 +168,24 @@ private class RoomLibraryRepository(
         description: String?,
     ): String {
         ensureMigrated()
-        val now = System.currentTimeMillis()
-        val routeId = UUID.randomUUID().toString()
-        val revisionId = UUID.randomUUID().toString()
-        val itemId = UUID.randomUUID().toString()
-        val sortOrder = (dao.getMaxSortOrder() ?: -1) + 1
+        val rows =
+            buildRouteLibraryRows(
+                name = name,
+                waypoints = waypoints,
+                defaultSpeedKmh = defaultSpeedKmh,
+                mode = mode,
+                description = description,
+                sortOrder = (dao.getMaxSortOrder() ?: -1) + 1,
+                now = System.currentTimeMillis(),
+                uuidFactory = { UUID.randomUUID().toString() },
+            )
         dao.insertRouteWithLibraryItem(
-            route =
-                RouteEntity(
-                    id = routeId,
-                    name = name,
-                    description = description,
-                    defaultSpeedKmh = defaultSpeedKmh,
-                    mode = mode,
-                    currentRevisionId = revisionId,
-                    createdAt = now,
-                    updatedAt = now,
-                ),
-            revision =
-                RouteRevisionEntity(
-                    id = revisionId,
-                    routeId = routeId,
-                    revisionNumber = 1,
-                    createdAt = now,
-                ),
-            waypoints =
-                buildWaypointEntities(
-                    routeRevisionId = revisionId,
-                    waypoints = waypoints,
-                    uuidFactory = { UUID.randomUUID().toString() },
-                ),
-            item =
-                LibraryItemEntity(
-                    id = itemId,
-                    kind = LibraryItemKind.Route,
-                    routeId = routeId,
-                    sortOrder = sortOrder,
-                    createdAt = now,
-                    updatedAt = now,
-                ),
+            route = rows.route,
+            revision = rows.revision,
+            waypoints = rows.waypoints,
+            item = rows.item,
         )
-        return itemId
+        return rows.item.id
     }
 
     override suspend fun getItem(itemId: String): LibraryItemWithContent? {
@@ -331,6 +294,99 @@ private class RoomLibraryRepository(
             ),
         )
     }
+}
+
+internal data class PlaceLibraryRows(
+    val place: PlaceEntity,
+    val item: LibraryItemEntity,
+)
+
+internal data class RouteLibraryRows(
+    val route: RouteEntity,
+    val revision: RouteRevisionEntity,
+    val waypoints: List<WaypointEntity>,
+    val item: LibraryItemEntity,
+)
+
+internal fun buildPlaceLibraryRows(
+    name: String,
+    lat: Double,
+    lng: Double,
+    description: String?,
+    tags: List<String>,
+    sortOrder: Int,
+    now: Long,
+    uuidFactory: () -> String,
+): PlaceLibraryRows {
+    val placeId = uuidFactory()
+    val itemId = uuidFactory()
+    return PlaceLibraryRows(
+        place =
+            PlaceEntity(
+                id = placeId,
+                name = name,
+                lat = lat,
+                lng = lng,
+                description = description,
+                tags = tags,
+                createdAt = now,
+                updatedAt = now,
+            ),
+        item =
+            LibraryItemEntity(
+                id = itemId,
+                kind = LibraryItemKind.Place,
+                placeId = placeId,
+                sortOrder = sortOrder,
+                createdAt = now,
+                updatedAt = now,
+            ),
+    )
+}
+
+internal fun buildRouteLibraryRows(
+    name: String,
+    waypoints: List<LatLng>,
+    defaultSpeedKmh: Double,
+    mode: String,
+    description: String?,
+    sortOrder: Int,
+    now: Long,
+    uuidFactory: () -> String,
+): RouteLibraryRows {
+    val routeId = uuidFactory()
+    val revisionId = uuidFactory()
+    val itemId = uuidFactory()
+    return RouteLibraryRows(
+        route =
+            RouteEntity(
+                id = routeId,
+                name = name,
+                description = description,
+                defaultSpeedKmh = defaultSpeedKmh,
+                mode = mode,
+                currentRevisionId = revisionId,
+                createdAt = now,
+                updatedAt = now,
+            ),
+        revision =
+            RouteRevisionEntity(
+                id = revisionId,
+                routeId = routeId,
+                revisionNumber = 1,
+                createdAt = now,
+            ),
+        waypoints = buildWaypointEntities(revisionId, waypoints, uuidFactory),
+        item =
+            LibraryItemEntity(
+                id = itemId,
+                kind = LibraryItemKind.Route,
+                routeId = routeId,
+                sortOrder = sortOrder,
+                createdAt = now,
+                updatedAt = now,
+            ),
+    )
 }
 
 internal fun buildWaypointEntities(
