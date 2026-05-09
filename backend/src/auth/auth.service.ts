@@ -6,15 +6,15 @@ import {
 import { Prisma } from '@prisma/client';
 import { argon2id, hash } from 'argon2';
 import { PrismaService } from '../prisma/prisma.service';
-import { RegisterRequestDto } from './dto/register-request.dto';
 
 @Injectable()
 export class AuthService {
   constructor(private readonly prismaService: PrismaService) {}
 
-  async register({ password, username }: RegisterRequestDto) {
+  async register(input: unknown) {
+    const { password, username } = parseRegisterRequest(input);
     const normalizedUsername = normalizeUsername(username);
-    validatePassword(password);
+    const normalizedPassword = validatePassword(password);
 
     const existingUser = await this.prismaService.user.findUnique({
       where: { username: normalizedUsername },
@@ -25,7 +25,7 @@ export class AuthService {
       throw new ConflictException('username already exists');
     }
 
-    const passwordHash = await hash(password, {
+    const passwordHash = await hash(normalizedPassword, {
       type: argon2id,
     });
 
@@ -65,7 +65,23 @@ const MIN_USERNAME_LENGTH = 3;
 const MAX_USERNAME_LENGTH = 64;
 const USERNAME_PATTERN = /^[A-Za-z0-9._-]+$/;
 
-function normalizeUsername(username: string): string {
+function parseRegisterRequest(input: unknown): {
+  password: unknown;
+  username: unknown;
+} {
+  if (input == null || typeof input !== 'object') {
+    throw new BadRequestException('request body must be an object');
+  }
+
+  const inputRecord = input as Record<string, unknown>;
+
+  return {
+    password: inputRecord.password,
+    username: inputRecord.username,
+  };
+}
+
+function normalizeUsername(username: unknown): string {
   if (typeof username !== 'string') {
     throw new BadRequestException('username must be a string');
   }
@@ -90,7 +106,7 @@ function normalizeUsername(username: string): string {
   return normalizedUsername;
 }
 
-function validatePassword(password: string): void {
+function validatePassword(password: unknown): string {
   if (typeof password !== 'string') {
     throw new BadRequestException('password must be a string');
   }
@@ -103,4 +119,6 @@ function validatePassword(password: string): void {
       'password must be between 12 and 256 characters',
     );
   }
+
+  return password;
 }
