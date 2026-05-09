@@ -82,16 +82,16 @@
 
 ## 3. Domain models / mappers
 
-- [ ] 新增 `core/library/LibraryModels.kt`。
-- [ ] 新增 `Place` domain model。
-- [ ] 新增 `Route` domain model。
-- [ ] 新增 `RouteRevision` domain model。
-- [ ] 新增 `Waypoint` domain model。
-- [ ] 新增 `LibraryItem` domain model。
-- [ ] 新增 `LibraryItemWithContent`。
-- [ ] 新增 entity → domain mapper。
-- [ ] 新增 domain → entity helper。
-- [ ] Mapper 單元測試。
+- [x] 新增 `core/library/LibraryModels.kt`。
+- [x] 新增 `Place` domain model。
+- [x] 新增 `Route` domain model。
+- [x] 新增 `RouteRevision` domain model。
+- [x] 新增 `Waypoint` domain model。
+- [x] 新增 `LibraryItem` domain model。
+- [x] 新增 `LibraryItemWithContent`。
+- [x] 新增 entity → domain mapper。
+- [x] 新增 domain → entity helper。
+- [x] Mapper 單元測試。
 
 ---
 
