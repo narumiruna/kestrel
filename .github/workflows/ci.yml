@@ -26,6 +26,10 @@ jobs:
       - name: Validate and build
         run: ./gradlew spotlessCheck detekt :app:assembleDebug
 
+      - name: Run unit tests
+        continue-on-error: true
+        run: ./gradlew :app:testDebugUnitTest
+
       - uses: actions/upload-artifact@v4
         with:
           name: app-debug
