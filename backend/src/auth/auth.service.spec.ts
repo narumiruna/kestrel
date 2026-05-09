@@ -230,6 +230,7 @@ describe('AuthService', () => {
       type: argon2id,
     });
     const enabledAt = new Date('2026-05-09T15:40:00.000Z');
+    let capturedUpdateArgs: Prisma.UserUpdateArgs | undefined;
 
     prismaService.user.findUnique.mockResolvedValue({
       id: 'user-1',
@@ -240,10 +241,14 @@ describe('AuthService', () => {
     });
     totpService.decryptSecret.mockReturnValue('SECRET123');
     totpService.verifyCode.mockReturnValue(true);
-    prismaService.user.update.mockResolvedValue({
-      id: 'user-1',
-      totpEnabledAt: enabledAt,
-      username: 'alice',
+    prismaService.user.update.mockImplementation((args) => {
+      capturedUpdateArgs = args;
+
+      return Promise.resolve({
+        id: 'user-1',
+        totpEnabledAt: enabledAt,
+        username: 'alice',
+      });
     });
     jest.useFakeTimers().setSystemTime(enabledAt);
 
@@ -255,8 +260,16 @@ describe('AuthService', () => {
 
     expect(totpService.decryptSecret).toHaveBeenCalledWith('encrypted-secret');
     expect(totpService.verifyCode).toHaveBeenCalledWith('SECRET123', '123456');
-    expect(prismaService.user.update).toHaveBeenCalledWith({
+    expect(prismaService.user.update).toHaveBeenCalledTimes(1);
+    expect(capturedUpdateArgs).toBeDefined();
+    expect(capturedUpdateArgs).toMatchObject({
       data: {
+        recoveryCodes: {
+          createMany: {
+            data: expect.any(Array),
+          },
+          deleteMany: {},
+        },
         totpEnabledAt: enabledAt,
       },
       select: {
@@ -268,13 +281,36 @@ describe('AuthService', () => {
         id: 'user-1',
       },
     });
+
+    const recoveryCodeRows =
+      capturedUpdateArgs?.data.recoveryCodes?.createMany?.data ?? [];
+
+    expect(recoveryCodeRows).toHaveLength(10);
+    for (const recoveryCodeRow of recoveryCodeRows) {
+      expect(recoveryCodeRow.codeHash).not.toMatch(/^[A-Z0-9-]+$/);
+    }
     expect(result).toEqual({
       nextStep: 'login',
+      recoveryCodes: expect.arrayContaining([
+        expect.stringMatching(/^[A-Z0-9]{4}-[A-Z0-9]{4}$/),
+      ]),
       user: {
         id: 'user-1',
         totpEnabledAt: enabledAt,
         username: 'alice',
       },
     });
+    expect(result.recoveryCodes).toHaveLength(10);
+    expect(new Set(result.recoveryCodes)).toHaveSize(10);
+    await Promise.all(
+      result.recoveryCodes.map((recoveryCode, index) =>
+        expect(
+          verify(
+            recoveryCodeRows[index]?.codeHash ?? '',
+            recoveryCode.replace('-', ''),
+          ),
+        ).resolves.toBe(true),
+      ),
+    );
   });
 });
