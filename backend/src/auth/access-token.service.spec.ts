@@ -42,9 +42,7 @@ describe('AccessTokenService', () => {
     );
 
     expect(token.expiresAt).toEqual(new Date('2026-05-09T16:15:00.000Z'));
-    expect(
-      accessTokenService.verifyToken(token.token, issuedAt),
-    ).toEqual({
+    expect(accessTokenService.verifyToken(token.token, issuedAt)).toEqual({
       expiresAt: new Date('2026-05-09T16:15:00.000Z'),
       sessionId: 'session-1',
       userId: 'user-1',

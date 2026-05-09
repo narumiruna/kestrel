@@ -1,9 +1,9 @@
 import {
   BadRequestException,
   ConflictException,
+  HttpException,
   Injectable,
   InternalServerErrorException,
-  TooManyRequestsException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
@@ -205,12 +205,13 @@ export class AuthService {
       const authenticatedAt = new Date();
       const refreshToken = createRefreshToken();
       const refreshTokenHash = hashRefreshToken(refreshToken);
+      const totpSecretEncrypted = user.totpSecretEncrypted;
       const session = await this.prismaService.$transaction(
         async (transaction) => {
           if (loginRequest.totpCode != null) {
             await this.validateTotpCode(
               user.username,
-              user.totpSecretEncrypted,
+              totpSecretEncrypted,
               loginRequest.totpCode,
             );
           } else {
@@ -383,10 +384,7 @@ export class AuthService {
     };
   }
 
-  async revokeSession(
-    accessToken: string,
-    metadata: AuthAuditMetadata = {},
-  ) {
+  async revokeSession(accessToken: string, metadata: AuthAuditMetadata = {}) {
     const tokenClaims = this.accessTokenService.verifyToken(accessToken);
     const session = await this.prismaService.session.findUnique({
       select: {
@@ -484,7 +482,10 @@ export class AuthService {
       );
       throw new UnauthorizedException('invalid username or password');
     }
-    await this.authRateLimitService.reset(AUTH_RATE_LIMIT_TYPE.PASSWORD, username);
+    await this.authRateLimitService.reset(
+      AUTH_RATE_LIMIT_TYPE.PASSWORD,
+      username,
+    );
 
     return user;
   }
@@ -848,7 +849,7 @@ function getAuditFailureReason(error: unknown): string {
     return 'conflict';
   }
 
-  if (error instanceof TooManyRequestsException) {
+  if (error instanceof HttpException && error.getStatus() === 429) {
     return 'rate_limited';
   }
 

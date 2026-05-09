@@ -1,4 +1,4 @@
-import { Injectable, TooManyRequestsException } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
@@ -36,7 +36,10 @@ export class AuthRateLimitService {
       rateLimit?.blockedUntil != null &&
       rateLimit.blockedUntil.getTime() > now.getTime()
     ) {
-      throw new TooManyRequestsException(getRateLimitMessage(type));
+      throw new HttpException(
+        getRateLimitMessage(type),
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
     }
   }
 

@@ -66,7 +66,10 @@ type MockPrismaService = {
     [(transaction: TransactionClient) => Promise<unknown>]
   >;
   authAuditLog: {
-    create: jest.Mock<Promise<AuthAuditLogRecord>, [Prisma.AuthAuditLogCreateArgs]>;
+    create: jest.Mock<
+      Promise<AuthAuditLogRecord>,
+      [Prisma.AuthAuditLogCreateArgs]
+    >;
   };
   authRateLimit: {
     deleteMany: jest.Mock<
@@ -225,10 +228,14 @@ describe('AppController (e2e)', () => {
       },
       authRateLimit: {
         deleteMany: jest.fn((args: Prisma.AuthRateLimitDeleteManyArgs) => {
-          const key = getRateLimitKey(
-            String(args.where?.type),
-            String(args.where?.subject),
-          );
+          const type = args.where?.type;
+          const subject = args.where?.subject;
+
+          if (typeof type !== 'string' || typeof subject !== 'string') {
+            return Promise.resolve({ count: 0 });
+          }
+
+          const key = getRateLimitKey(type, subject);
           const deleted = storedRateLimits.delete(key);
 
           return Promise.resolve({ count: deleted ? 1 : 0 });
@@ -403,8 +410,8 @@ describe('AppController (e2e)', () => {
           if (args.data.lastUsedAt != null) {
             session.lastUsedAt = new Date(args.data.lastUsedAt as Date);
           }
-          if (args.data.refreshTokenHash != null) {
-            session.refreshTokenHash = String(args.data.refreshTokenHash);
+          if (typeof args.data.refreshTokenHash === 'string') {
+            session.refreshTokenHash = args.data.refreshTokenHash;
           }
           if (args.data.revokedAt != null) {
             session.revokedAt = new Date(args.data.revokedAt as Date);
@@ -679,7 +686,9 @@ describe('AppController (e2e)', () => {
       })
       .expect(429);
 
-    expect(storedRateLimits.get(getRateLimitKey('password', 'alice'))).toMatchObject({
+    expect(
+      storedRateLimits.get(getRateLimitKey('password', 'alice')),
+    ).toMatchObject({
       attempts: 5,
     });
     expect(
@@ -733,10 +742,7 @@ function applySelect(
         return [
           [
             key,
-            applySelect(
-              record[key] as Record<string, unknown>,
-              value.select as Record<string, boolean>,
-            ),
+            applySelect(record[key] as Record<string, unknown>, value.select),
           ],
         ];
       }

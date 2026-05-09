@@ -1,10 +1,18 @@
-import { BadRequestException, ConflictException, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Prisma } from '@prisma/client';
 import { argon2id, hash, verify } from 'argon2';
+import { createHash } from 'node:crypto';
 import { AccessTokenService } from './access-token.service';
 import { AuthAuditService } from './auth-audit.service';
-import { AuthRateLimitService, AUTH_RATE_LIMIT_TYPE } from './auth-rate-limit.service';
+import {
+  AuthRateLimitService,
+  AUTH_RATE_LIMIT_TYPE,
+} from './auth-rate-limit.service';
 import { AuthService } from './auth.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { TotpService } from './totp.service';
@@ -115,7 +123,7 @@ type MockAccessTokenService = {
         sessionId: string;
         userId: string;
       },
-      Date | undefined?,
+      Date?,
     ]
   >;
   verifyToken: jest.Mock<
@@ -237,17 +245,40 @@ describe('AuthService', () => {
       },
     };
     accessTokenService = {
-      issueToken: jest.fn(),
-      verifyToken: jest.fn(),
+      issueToken: jest.fn<
+        {
+          expiresAt: Date;
+          token: string;
+        },
+        [
+          {
+            sessionId: string;
+            userId: string;
+          },
+          Date?,
+        ]
+      >(),
+      verifyToken: jest.fn<
+        {
+          expiresAt: Date;
+          sessionId: string;
+          userId: string;
+        },
+        [string]
+      >(),
     };
     authRateLimitService = {
-      assertAllowed: jest.fn().mockResolvedValue(undefined),
-      recordFailure: jest.fn().mockResolvedValue(undefined),
-      reset: jest.fn().mockResolvedValue(undefined),
+      assertAllowed: jest.fn<Promise<void>, [string, string]>(),
+      recordFailure: jest.fn<Promise<void>, [string, string]>(),
+      reset: jest.fn<Promise<void>, [string, string]>(),
     };
     authAuditService = {
-      log: jest.fn().mockResolvedValue(undefined),
+      log: jest.fn<Promise<void>, [Record<string, unknown>]>(),
     };
+    authRateLimitService.assertAllowed.mockResolvedValue(undefined);
+    authRateLimitService.recordFailure.mockResolvedValue(undefined);
+    authRateLimitService.reset.mockResolvedValue(undefined);
+    authAuditService.log.mockResolvedValue(undefined);
     totpService = {
       createSetup: jest.fn<
         Promise<{
@@ -753,9 +784,8 @@ describe('AuthService', () => {
     const refreshedAt = new Date('2026-05-09T16:30:00.000Z');
     const accessTokenExpiresAt = new Date('2026-05-09T16:45:00.000Z');
     const originalRefreshToken = 'refresh-token';
-    const originalRefreshTokenHash = await createRefreshTokenHash(
-      originalRefreshToken,
-    );
+    const originalRefreshTokenHash =
+      createRefreshTokenHash(originalRefreshToken);
     let capturedUpdateArgs: Prisma.SessionUpdateArgs | undefined;
 
     prismaService.session.findUnique.mockResolvedValue({
@@ -883,17 +913,11 @@ describe('AuthService', () => {
       userId: 'user-1',
       username: 'alice',
     });
-    expect(result).toEqual({
-      session: {
-        id: 'session-1',
-        revokedAt,
-      },
-    });
+    expect(result.session.id).toBe('session-1');
+    expect(result.session.revokedAt).toEqual(revokedAt);
   });
 });
 
-async function createRefreshTokenHash(refreshToken: string): Promise<string> {
-  const { createHash } = await import('node:crypto');
-
+function createRefreshTokenHash(refreshToken: string): string {
   return createHash('sha256').update(refreshToken).digest('hex');
 }

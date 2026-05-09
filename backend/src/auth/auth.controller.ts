@@ -1,5 +1,11 @@
-import { Body, Controller, Post, Req, UnauthorizedException } from '@nestjs/common';
-import { Request } from 'express';
+import {
+  Body,
+  Controller,
+  Post,
+  Req,
+  UnauthorizedException,
+} from '@nestjs/common';
+import type { Request } from 'express';
 import { AuthAuditMetadata } from './auth-audit.service';
 import { AuthService } from './auth.service';
 

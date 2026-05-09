@@ -1,4 +1,8 @@
-import { Injectable, InternalServerErrorException, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 
@@ -49,10 +53,7 @@ export class AccessTokenService {
     };
   }
 
-  verifyToken(
-    token: string,
-    now: Date = new Date(),
-  ): AccessTokenClaims {
+  verifyToken(token: string, now: Date = new Date()): AccessTokenClaims {
     const [version, encodedPayload, signature, ...rest] = token.split('.');
 
     if (
