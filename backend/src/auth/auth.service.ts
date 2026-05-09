@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { argon2id, hash, verify } from 'argon2';
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { TotpService } from './totp.service';
 
@@ -161,6 +161,73 @@ export class AuthService {
     };
   }
 
+  async login(input: unknown) {
+    const loginRequest = parseLoginRequest(input);
+    const user = await this.authenticateUser(
+      loginRequest.username,
+      loginRequest.password,
+    );
+
+    if (user.totpEnabledAt == null || user.totpSecretEncrypted == null) {
+      throw new UnauthorizedException('totp must be enabled before login');
+    }
+
+    const authenticatedAt = new Date();
+    const refreshToken = createRefreshToken();
+    const refreshTokenHash = hashRefreshToken(refreshToken);
+    const totpSecretEncrypted = user.totpSecretEncrypted;
+
+    const session = await this.prismaService.$transaction(
+      async (transaction) => {
+        if (loginRequest.totpCode != null) {
+          const secret = this.totpService.decryptSecret(totpSecretEncrypted);
+
+          if (!this.totpService.verifyCode(secret, loginRequest.totpCode)) {
+            throw new UnauthorizedException('invalid one-time code');
+          }
+        } else {
+          const consumedRecoveryCode = await useRecoveryCode(
+            transaction,
+            user.id,
+            loginRequest.recoveryCode,
+            authenticatedAt,
+          );
+
+          if (!consumedRecoveryCode) {
+            throw new UnauthorizedException('invalid one-time code');
+          }
+        }
+
+        return transaction.session.create({
+          data: {
+            expiresAt: createSessionExpiry(authenticatedAt),
+            lastUsedAt: authenticatedAt,
+            refreshTokenHash,
+            userId: user.id,
+          },
+          select: {
+            createdAt: true,
+            expiresAt: true,
+            id: true,
+          },
+        });
+      },
+    );
+
+    return {
+      authMethod:
+        loginRequest.totpCode != null
+          ? ('totp' as const)
+          : ('recovery_code' as const),
+      refreshToken,
+      session,
+      user: {
+        id: user.id,
+        username: user.username,
+      },
+    };
+  }
+
   private async authenticateUser(username: string, password: string) {
     const user = await this.prismaService.user.findUnique({
       select: {
@@ -197,6 +264,8 @@ const RECOVERY_CODE_GROUP_COUNT = 2;
 const RECOVERY_CODE_ALPHABET_MASK = 31;
 const RECOVERY_CODE_ALPHABET = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
 const RECOVERY_CODE_MAX_ATTEMPTS = 100;
+const SESSION_DURATION_DAYS = 30;
+const REFRESH_TOKEN_BYTES = 32;
 const USERNAME_PATTERN = /^[A-Za-z0-9._-]+$/;
 
 function parseRegisterRequest(input: unknown): {
@@ -239,6 +308,44 @@ function parseTotpVerifyRequest(input: unknown): {
     password: validatePassword(inputRecord.password),
     username: normalizeUsername(inputRecord.username),
   };
+}
+
+function parseLoginRequest(input: unknown):
+  | {
+      password: string;
+      recoveryCode: string;
+      totpCode?: never;
+      username: string;
+    }
+  | {
+      password: string;
+      recoveryCode?: never;
+      totpCode: string;
+      username: string;
+    } {
+  const inputRecord = parseUnknownRecord(input);
+  const totpCode = inputRecord.totpCode;
+  const recoveryCode = inputRecord.recoveryCode;
+
+  if (typeof totpCode === 'string' && recoveryCode == null) {
+    return {
+      password: validatePassword(inputRecord.password),
+      totpCode,
+      username: normalizeUsername(inputRecord.username),
+    };
+  }
+
+  if (typeof recoveryCode === 'string' && totpCode == null) {
+    return {
+      password: validatePassword(inputRecord.password),
+      recoveryCode: normalizeRecoveryCode(recoveryCode),
+      username: normalizeUsername(inputRecord.username),
+    };
+  }
+
+  throw new BadRequestException(
+    'exactly one of totpCode or recoveryCode must be provided',
+  );
 }
 
 function parseUnknownRecord(input: unknown): Record<string, unknown> {
@@ -343,4 +450,70 @@ function formatRecoveryCode(code: string): string {
     code.slice(0, RECOVERY_CODE_GROUP_LENGTH),
     code.slice(RECOVERY_CODE_GROUP_LENGTH),
   ].join('-');
+}
+
+function normalizeRecoveryCode(code: string): string {
+  const normalizedCode = code.toUpperCase().replaceAll(/\s|-/g, '');
+
+  if (
+    normalizedCode.length !==
+      RECOVERY_CODE_GROUP_LENGTH * RECOVERY_CODE_GROUP_COUNT ||
+    !/^[A-Z0-9]+$/.test(normalizedCode)
+  ) {
+    throw new BadRequestException('recoveryCode must be 8 letters or digits');
+  }
+
+  return normalizedCode;
+}
+
+function createRefreshToken(): string {
+  return randomBytes(REFRESH_TOKEN_BYTES).toString('base64url');
+}
+
+function hashRefreshToken(refreshToken: string): string {
+  return createHash('sha256').update(refreshToken).digest('hex');
+}
+
+function createSessionExpiry(authenticatedAt: Date): Date {
+  return new Date(
+    authenticatedAt.getTime() + SESSION_DURATION_DAYS * 24 * 60 * 60 * 1000,
+  );
+}
+
+async function useRecoveryCode(
+  transaction: Prisma.TransactionClient,
+  userId: string,
+  recoveryCode: string,
+  usedAt: Date,
+): Promise<boolean> {
+  const recoveryCodes = await transaction.recoveryCode.findMany({
+    orderBy: {
+      createdAt: 'asc',
+    },
+    select: {
+      codeHash: true,
+      id: true,
+    },
+    where: {
+      usedAt: null,
+      userId,
+    },
+  });
+
+  for (const storedRecoveryCode of recoveryCodes) {
+    if (await verify(storedRecoveryCode.codeHash, recoveryCode)) {
+      await transaction.recoveryCode.update({
+        data: {
+          usedAt,
+        },
+        where: {
+          id: storedRecoveryCode.id,
+        },
+      });
+
+      return true;
+    }
+  }
+
+  return false;
 }

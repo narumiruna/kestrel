@@ -19,4 +19,9 @@ export class AuthController {
   verifyTotp(@Body() body: unknown) {
     return this.authService.verifyTotp(body);
   }
+
+  @Post('login')
+  login(@Body() body: unknown) {
+    return this.authService.login(body);
+  }
 }
