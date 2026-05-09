@@ -16,7 +16,28 @@ import kotlinx.serialization.json.Json
 data class CameraSnapshot(val lat: Double, val lng: Double, val zoom: Double)
 
 @Serializable
-data class Favorite(val name: String, val lat: Double, val lng: Double)
+data class Favorite(
+    val name: String,
+    val lat: Double,
+    val lng: Double,
+    val route: FavoriteRoute? = null,
+) {
+    val isRoute: Boolean get() = route != null
+}
+
+@Serializable
+data class FavoriteRoute(
+    val lats: DoubleArray,
+    val lngs: DoubleArray,
+    val speedKmh: Double,
+) {
+    override fun equals(other: Any?): Boolean = other is FavoriteRoute &&
+        lats.contentEquals(other.lats) && lngs.contentEquals(other.lngs) &&
+        speedKmh == other.speedKmh
+
+    override fun hashCode(): Int = (lats.contentHashCode() * 31 +
+        lngs.contentHashCode()) * 31 + speedKmh.hashCode()
+}
 
 @Serializable
 data class RouteState(

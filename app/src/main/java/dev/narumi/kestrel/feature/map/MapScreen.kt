@@ -42,6 +42,7 @@ import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import dev.narumi.kestrel.R
 import dev.narumi.kestrel.core.data.CameraSnapshot
 import dev.narumi.kestrel.core.data.Favorite
+import dev.narumi.kestrel.core.data.FavoriteRoute
 import dev.narumi.kestrel.core.data.KestrelPrefs
 import dev.narumi.kestrel.core.data.StartupPreference
 import dev.narumi.kestrel.core.location.LatLng
@@ -53,6 +54,11 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 private enum class RunState { Idle, Single, RoutePlaying, RoutePaused }
+
+private sealed interface PendingFavorite {
+    data class Point(val target: LatLng) : PendingFavorite
+    data class Route(val waypoints: List<LatLng>, val speedKmh: Double) : PendingFavorite
+}
 
 private val SPEED_PRESETS = listOf(5.0, 20.0, 60.0)
 
@@ -79,7 +85,7 @@ fun MapScreen(modifier: Modifier = Modifier) {
     var waypoints by remember { mutableStateOf<List<LatLng>>(emptyList()) }
     var speedKmh by remember { mutableStateOf(20.0) }
     var runState by remember { mutableStateOf(RunState.Idle) }
-    var pendingFavorite by remember { mutableStateOf<LatLng?>(null) }
+    var pendingFavorite by remember { mutableStateOf<PendingFavorite?>(null) }
     var favoriteName by remember { mutableStateOf("") }
     var cameraTarget by remember { mutableStateOf<CameraSnapshot?>(null) }
     var awaitCurrentForStartup by remember { mutableStateOf(false) }
@@ -102,10 +108,15 @@ fun MapScreen(modifier: Modifier = Modifier) {
             StartupPreference.Mode.Current -> awaitCurrentForStartup = true
             StartupPreference.Mode.Favorite -> {
                 prefs.favorites.first().find { it.name == pref.favoriteName }?.let { fav ->
-                    val target = LatLng(fav.lat, fav.lng)
                     cameraTarget = CameraSnapshot(fav.lat, fav.lng, 13.0)
-                    LocationService.setLocation(context, target)
-                    runState = RunState.Single
+                    val r = fav.route
+                    if (r != null) {
+                        waypoints = r.lats.indices.map { LatLng(r.lats[it], r.lngs[it]) }
+                        speedKmh = r.speedKmh
+                    } else {
+                        LocationService.setLocation(context, LatLng(fav.lat, fav.lng))
+                        runState = RunState.Single
+                    }
                 }
             }
         }
@@ -122,13 +133,19 @@ fun MapScreen(modifier: Modifier = Modifier) {
     val ready = permissionState.allPermissionsGranted && mockAllowed
     val mockNow by LocationService.currentMock.collectAsStateWithLifecycle()
 
-    pendingFavorite?.let { target ->
+    pendingFavorite?.let { pending ->
+        val (title, supporting) = when (pending) {
+            is PendingFavorite.Point ->
+                "Save favorite" to "%.5f, %.5f".format(pending.target.lat, pending.target.lng)
+            is PendingFavorite.Route ->
+                "Save route" to "${pending.waypoints.size} waypoints · ${pending.speedKmh.toInt()} km/h"
+        }
         AlertDialog(
             onDismissRequest = { pendingFavorite = null; favoriteName = "" },
-            title = { Text("Save favorite") },
+            title = { Text(title) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("%.5f, %.5f".format(target.lat, target.lng))
+                    Text(supporting)
                     OutlinedTextField(
                         value = favoriteName,
                         onValueChange = { favoriteName = it },
@@ -140,9 +157,31 @@ fun MapScreen(modifier: Modifier = Modifier) {
                 TextButton(
                     onClick = {
                         val name = favoriteName.trim().ifEmpty { "Favorite ${favorites.size + 1}" }
-                        scope.launch {
-                            prefs.addFavorite(Favorite(name, target.lat, target.lng))
+                        val fav = when (pending) {
+                            is PendingFavorite.Point -> Favorite(
+                                name = name,
+                                lat = pending.target.lat,
+                                lng = pending.target.lng,
+                            )
+                            is PendingFavorite.Route -> {
+                                val first = pending.waypoints.first()
+                                Favorite(
+                                    name = name,
+                                    lat = first.lat,
+                                    lng = first.lng,
+                                    route = FavoriteRoute(
+                                        lats = DoubleArray(pending.waypoints.size) { i ->
+                                            pending.waypoints[i].lat
+                                        },
+                                        lngs = DoubleArray(pending.waypoints.size) { i ->
+                                            pending.waypoints[i].lng
+                                        },
+                                        speedKmh = pending.speedKmh,
+                                    ),
+                                )
+                            }
                         }
+                        scope.launch { prefs.addFavorite(fav) }
                         pendingFavorite = null
                         favoriteName = ""
                     },
@@ -188,7 +227,7 @@ fun MapScreen(modifier: Modifier = Modifier) {
                         }
                     }
                 },
-                onMapLongClick = { pendingFavorite = it },
+                onMapLongClick = { pendingFavorite = PendingFavorite.Point(it) },
                 onCameraIdle = { snap ->
                     if (!firstCameraIdleSeen) {
                         firstCameraIdleSeen = true
@@ -231,6 +270,9 @@ fun MapScreen(modifier: Modifier = Modifier) {
             speedKmh = speedKmh,
             runState = runState,
             onSpeedChange = { speedKmh = it },
+            onSaveRoute = {
+                pendingFavorite = PendingFavorite.Route(waypoints, speedKmh)
+            },
             onClear = {
                 waypoints = emptyList()
                 if (runState != RunState.Idle) {
@@ -335,6 +377,7 @@ private fun ControlPanel(
     speedKmh: Double,
     runState: RunState,
     onSpeedChange: (Double) -> Unit,
+    onSaveRoute: () -> Unit,
     onClear: () -> Unit,
     onSetSingle: () -> Unit,
     onPlay: () -> Unit,
@@ -372,6 +415,11 @@ private fun ControlPanel(
                     enabled = waypoints.isNotEmpty(),
                     modifier = Modifier.weight(1f),
                 ) { Text("Clear") }
+                OutlinedButton(
+                    onClick = onSaveRoute,
+                    enabled = waypoints.size >= 2,
+                    modifier = Modifier.weight(1f),
+                ) { Text("Save route") }
                 Button(
                     onClick = onSetSingle,
                     enabled = ready && waypoints.isNotEmpty() &&
