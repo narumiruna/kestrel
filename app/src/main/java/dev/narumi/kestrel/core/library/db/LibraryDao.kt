@@ -30,24 +30,8 @@ abstract class LibraryDao {
     @Query("SELECT * FROM library_items WHERE id = :itemId")
     abstract suspend fun getStartupLibraryItem(itemId: String): LibraryItemRecord?
 
-    @Query("SELECT COUNT(*) FROM library_items")
-    abstract suspend fun countLibraryItems(): Int
-
     @Query("SELECT * FROM library_items ORDER BY sort_order ASC, created_at ASC")
     abstract suspend fun getLibraryItemsSnapshot(): List<LibraryItemEntity>
-
-    @Query(
-        """
-        SELECT library_items.id
-        FROM library_items
-        LEFT JOIN places ON places.id = library_items.place_id
-        LEFT JOIN routes ON routes.id = library_items.route_id
-        WHERE places.name = :name OR routes.name = :name
-        ORDER BY library_items.sort_order ASC, library_items.created_at ASC
-        LIMIT 1
-        """,
-    )
-    abstract suspend fun findLibraryItemIdByName(name: String): String?
 
     @Query("SELECT MAX(sort_order) FROM library_items")
     abstract suspend fun getMaxSortOrder(): Int?
