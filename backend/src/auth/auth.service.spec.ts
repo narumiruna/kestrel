@@ -13,12 +13,17 @@ type AuthUserRecord = {
 };
 
 type AuthRecoveryCodeRow = Prisma.RecoveryCodeCreateManyInput;
-type AuthTransactionResult = {
-  recoveryCodes: {
-    codeHashes: string[];
-    codes: string[];
-  };
-  updatedUser: Record<string, unknown>;
+type AuthRecoveryCodeRecord = {
+  codeHash: string;
+  createdAt: Date;
+  id: string;
+  usedAt: Date | null;
+  userId: string;
+};
+type AuthSessionRecord = {
+  createdAt: Date;
+  expiresAt: Date;
+  id: string;
 };
 type MockRecoveryCodeClient = {
   createMany: jest.Mock<
@@ -29,6 +34,17 @@ type MockRecoveryCodeClient = {
     Promise<{ count: number }>,
     [Prisma.RecoveryCodeDeleteManyArgs]
   >;
+  findMany: jest.Mock<
+    Promise<Array<Pick<AuthRecoveryCodeRecord, 'codeHash' | 'id'>>>,
+    [Prisma.RecoveryCodeFindManyArgs]
+  >;
+  update: jest.Mock<
+    Promise<AuthRecoveryCodeRecord>,
+    [Prisma.RecoveryCodeUpdateArgs]
+  >;
+};
+type MockSessionClient = {
+  create: jest.Mock<Promise<AuthSessionRecord>, [Prisma.SessionCreateArgs]>;
 };
 type MockUserClient = {
   create: jest.Mock<Promise<AuthUserRecord>, [Prisma.UserCreateArgs]>;
@@ -45,15 +61,17 @@ type MockUserClient = {
 };
 type MockTransactionClient = {
   recoveryCode: MockRecoveryCodeClient;
+  session: MockSessionClient;
   user: MockUserClient;
 };
 
 type MockPrismaService = {
   $transaction: jest.Mock<
-    Promise<AuthTransactionResult>,
-    [(transaction: MockTransactionClient) => Promise<AuthTransactionResult>]
+    Promise<unknown>,
+    [(transaction: MockTransactionClient) => Promise<unknown>]
   >;
   recoveryCode: MockRecoveryCodeClient;
+  session: MockSessionClient;
   user: MockUserClient;
 };
 
@@ -113,8 +131,8 @@ describe('AuthService', () => {
   beforeEach(async () => {
     prismaService = {
       $transaction: jest.fn<
-        Promise<AuthTransactionResult>,
-        [(transaction: MockTransactionClient) => Promise<AuthTransactionResult>]
+        Promise<unknown>,
+        [(transaction: MockTransactionClient) => Promise<unknown>]
       >(),
       recoveryCode: {
         createMany: jest.fn<
@@ -125,6 +143,17 @@ describe('AuthService', () => {
           Promise<{ count: number }>,
           [Prisma.RecoveryCodeDeleteManyArgs]
         >(),
+        findMany: jest.fn<
+          Promise<Array<Pick<AuthRecoveryCodeRecord, 'codeHash' | 'id'>>>,
+          [Prisma.RecoveryCodeFindManyArgs]
+        >(),
+        update: jest.fn<
+          Promise<AuthRecoveryCodeRecord>,
+          [Prisma.RecoveryCodeUpdateArgs]
+        >(),
+      },
+      session: {
+        create: jest.fn<Promise<AuthSessionRecord>, [Prisma.SessionCreateArgs]>(),
       },
       user: {
         create: jest.fn<Promise<AuthUserRecord>, [Prisma.UserCreateArgs]>(),
@@ -159,6 +188,7 @@ describe('AuthService', () => {
     prismaService.$transaction.mockImplementation(async (transaction) =>
       transaction({
         recoveryCode: prismaService.recoveryCode,
+        session: prismaService.session,
         user: prismaService.user,
       }),
     );
@@ -399,5 +429,135 @@ describe('AuthService', () => {
       recoveryCodeRows,
       result.recoveryCodes,
     );
+  });
+
+  it('creates a login session after a valid TOTP code', async () => {
+    const passwordHash = await hash('a-very-secure-password', {
+      type: argon2id,
+    });
+    const authenticatedAt = new Date('2026-05-09T16:00:00.000Z');
+    let capturedSessionArgs: Prisma.SessionCreateArgs | undefined;
+
+    prismaService.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      passwordHash,
+      totpEnabledAt: authenticatedAt,
+      totpSecretEncrypted: 'encrypted-secret',
+      username: 'alice',
+    });
+    totpService.decryptSecret.mockReturnValue('SECRET123');
+    totpService.verifyCode.mockReturnValue(true);
+    prismaService.session.create.mockImplementation((args) => {
+      capturedSessionArgs = args;
+
+      return Promise.resolve({
+        createdAt: authenticatedAt,
+        expiresAt: new Date('2026-06-08T16:00:00.000Z'),
+        id: 'session-1',
+      });
+    });
+    jest.useFakeTimers().setSystemTime(authenticatedAt);
+
+    const result = await authService.login({
+      password: 'a-very-secure-password',
+      totpCode: '123456',
+      username: 'alice',
+    });
+
+    expect(totpService.decryptSecret).toHaveBeenCalledWith('encrypted-secret');
+    expect(totpService.verifyCode).toHaveBeenCalledWith('SECRET123', '123456');
+    expect(prismaService.session.create).toHaveBeenCalledTimes(1);
+    expect(capturedSessionArgs).toMatchObject({
+      data: {
+        expiresAt: new Date('2026-06-08T16:00:00.000Z'),
+        lastUsedAt: authenticatedAt,
+        userId: 'user-1',
+      },
+      select: {
+        createdAt: true,
+        expiresAt: true,
+        id: true,
+      },
+    });
+    expect(capturedSessionArgs?.data.refreshTokenHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(result.authMethod).toBe('totp');
+    expect(result.refreshToken).toMatch(/^[A-Za-z0-9_-]+$/);
+    expect(result.session).toEqual({
+      createdAt: authenticatedAt,
+      expiresAt: new Date('2026-06-08T16:00:00.000Z'),
+      id: 'session-1',
+    });
+    expect(result.user).toEqual({
+      id: 'user-1',
+      username: 'alice',
+    });
+  });
+
+  it('consumes a recovery code when logging in without a TOTP code', async () => {
+    const passwordHash = await hash('a-very-secure-password', {
+      type: argon2id,
+    });
+    const recoveryCodeHash = await hash('ABCD1234', {
+      type: argon2id,
+    });
+    const authenticatedAt = new Date('2026-05-09T16:05:00.000Z');
+
+    prismaService.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      passwordHash,
+      totpEnabledAt: authenticatedAt,
+      totpSecretEncrypted: 'encrypted-secret',
+      username: 'alice',
+    });
+    prismaService.recoveryCode.findMany.mockResolvedValue([
+      {
+        codeHash: recoveryCodeHash,
+        id: 'recovery-1',
+      },
+    ]);
+    prismaService.recoveryCode.update.mockResolvedValue({
+      codeHash: recoveryCodeHash,
+      createdAt: new Date('2026-05-09T15:40:00.000Z'),
+      id: 'recovery-1',
+      usedAt: authenticatedAt,
+      userId: 'user-1',
+    });
+    prismaService.session.create.mockResolvedValue({
+      createdAt: authenticatedAt,
+      expiresAt: new Date('2026-06-08T16:05:00.000Z'),
+      id: 'session-2',
+    });
+    jest.useFakeTimers().setSystemTime(authenticatedAt);
+
+    const result = await authService.login({
+      password: 'a-very-secure-password',
+      recoveryCode: 'abcd-1234',
+      username: 'alice',
+    });
+
+    expect(prismaService.recoveryCode.findMany).toHaveBeenCalledWith({
+      orderBy: {
+        createdAt: 'asc',
+      },
+      select: {
+        codeHash: true,
+        id: true,
+      },
+      where: {
+        usedAt: null,
+        userId: 'user-1',
+      },
+    });
+    expect(prismaService.recoveryCode.update).toHaveBeenCalledWith({
+      data: {
+        usedAt: authenticatedAt,
+      },
+      where: {
+        id: 'recovery-1',
+      },
+    });
+    expect(prismaService.session.create).toHaveBeenCalledTimes(1);
+    expect(result.authMethod).toBe('recovery_code');
+    expect(result.session.id).toBe('session-2');
   });
 });
