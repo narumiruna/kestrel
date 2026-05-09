@@ -99,6 +99,10 @@ class LocationService : Service() {
                 val lats = intent.getDoubleArrayExtra(EXTRA_LATS)
                 val lngs = intent.getDoubleArrayExtra(EXTRA_LNGS)
                 val speedKmh = intent.getDoubleExtra(EXTRA_SPEED_KMH, Double.NaN)
+                val modeName = intent.getStringExtra(EXTRA_MODE) ?: MovementEngine.Mode.Once.name
+                val mode =
+                    runCatching { MovementEngine.Mode.valueOf(modeName) }
+                        .getOrDefault(MovementEngine.Mode.Once)
                 if (lats != null &&
                     lngs != null &&
                     lats.size == lngs.size &&
@@ -107,14 +111,14 @@ class LocationService : Service() {
                     speedKmh > 0
                 ) {
                     val waypoints = lats.indices.map { LatLng(lats[it], lngs[it]) }
-                    startRoute(waypoints, speedKmh)
+                    startRoute(waypoints, speedKmh, mode)
                     currentMode = MockState.Mode.Route
                     refreshNotification()
                     scope.launch {
                         prefs.setMockState(
                             MockState(
                                 mode = MockState.Mode.Route,
-                                route = RouteState(lats, lngs, speedKmh),
+                                route = RouteState(lats, lngs, speedKmh, mode.name),
                             ),
                         )
                     }
@@ -157,7 +161,10 @@ class LocationService : Service() {
                 state.route?.let { r ->
                     if (r.lats.size >= 2 && r.lats.size == r.lngs.size) {
                         val wps = r.lats.indices.map { LatLng(r.lats[it], r.lngs[it]) }
-                        startRoute(wps, r.speedKmh)
+                        val mode =
+                            runCatching { MovementEngine.Mode.valueOf(r.mode) }
+                                .getOrDefault(MovementEngine.Mode.Once)
+                        startRoute(wps, r.speedKmh, mode)
                         currentMode = MockState.Mode.Route
                         refreshNotification()
                     }
@@ -169,11 +176,12 @@ class LocationService : Service() {
     private fun startRoute(
         waypoints: List<LatLng>,
         speedKmh: Double,
+        mode: MovementEngine.Mode,
     ) {
         stopRoute()
         ensureMockStarted()
         paused = false
-        val engine = MovementEngine(waypoints, speedKmh / 3.6)
+        val engine = MovementEngine(waypoints, speedKmh / 3.6, mode)
         routeJob =
             scope.launch {
                 while (isActive && !engine.isFinished()) {
@@ -181,6 +189,18 @@ class LocationService : Service() {
                     if (paused) continue
                     val sample = engine.advance(TICK_MILLIS / 1000.0)
                     pushSample(sample)
+                }
+                if (mode == MovementEngine.Mode.Once && engine.isFinished()) {
+                    val last = waypoints.last()
+                    currentMode = MockState.Mode.Single
+                    startSingleKeepAlive(last)
+                    refreshNotification()
+                    prefs.setMockState(
+                        MockState(
+                            mode = MockState.Mode.Single,
+                            single = SinglePointState(last.lat, last.lng),
+                        ),
+                    )
                 }
             }
     }
@@ -339,6 +359,7 @@ class LocationService : Service() {
         const val EXTRA_LATS = "lats"
         const val EXTRA_LNGS = "lngs"
         const val EXTRA_SPEED_KMH = "speed_kmh"
+        const val EXTRA_MODE = "route_mode"
         private const val CHANNEL_ID = "kestrel_location"
         private const val NOTIFICATION_ID = 1001
         private const val TICK_MILLIS = 1000L
@@ -372,6 +393,7 @@ class LocationService : Service() {
             context: Context,
             waypoints: List<LatLng>,
             speedKmh: Double,
+            mode: MovementEngine.Mode = MovementEngine.Mode.Once,
         ) {
             if (waypoints.size < 2) return
             val lats = DoubleArray(waypoints.size) { waypoints[it].lat }
@@ -382,6 +404,7 @@ class LocationService : Service() {
                     putExtra(EXTRA_LATS, lats)
                     putExtra(EXTRA_LNGS, lngs)
                     putExtra(EXTRA_SPEED_KMH, speedKmh)
+                    putExtra(EXTRA_MODE, mode.name)
                 }
             startCompat(context, intent, foreground = true)
         }
