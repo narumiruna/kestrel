@@ -155,7 +155,7 @@ User → 停止 / 路徑結束（單次） → Service stop
   android:foregroundServiceType="location"/>
 ```
 
-`ACCESS_MOCK_LOCATION` 自 Android 6 起改為由「開發人員選項 → 選取模擬位置應用程式」管理，無需在 manifest 宣告。
+`ACCESS_MOCK_LOCATION` 自 Android 6 起對 runtime 無作用（mock 由「開發人員選項 → 選取模擬位置應用程式」管理），但**仍需在 manifest 宣告**，否則 App 不會出現在 Settings 的 mock 候選清單中。
 
 ---
 
