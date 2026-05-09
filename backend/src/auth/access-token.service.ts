@@ -118,7 +118,7 @@ export class AccessTokenService {
 
     const ttlSeconds = Number.parseInt(configuredTtl, 10);
 
-    if (!Number.isFinite(ttlSeconds) || ttlSeconds <= 0) {
+    if (!Number.isInteger(ttlSeconds) || ttlSeconds <= 0) {
       throw new InternalServerErrorException(
         'AUTH_ACCESS_TOKEN_TTL_SECONDS must be a positive integer',
       );
