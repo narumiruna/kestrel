@@ -5,6 +5,7 @@ import android.content.Intent
 import android.os.Build
 import android.provider.Settings
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,12 +15,18 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.MyLocation
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
@@ -27,17 +34,24 @@ import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.PrimaryTabRow
+import androidx.compose.material3.SheetState
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.SmallFloatingActionButton
+import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberBottomSheetScaffoldState
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.rememberStandardBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -58,6 +72,7 @@ import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import dev.narumi.kestrel.core.data.CameraSnapshot
 import dev.narumi.kestrel.core.data.Favorite
 import dev.narumi.kestrel.core.data.FavoriteRoute
+import dev.narumi.kestrel.core.data.FavoritesSortMode
 import dev.narumi.kestrel.core.data.KestrelPrefs
 import dev.narumi.kestrel.core.data.StartupPreference
 import dev.narumi.kestrel.core.location.LatLng
@@ -65,6 +80,7 @@ import dev.narumi.kestrel.core.location.LocationService
 import dev.narumi.kestrel.core.location.MockProviderManager
 import dev.narumi.kestrel.core.location.MovementEngine
 import dev.narumi.kestrel.core.location.RouteGenerator
+import dev.narumi.kestrel.core.location.parseCoordInput
 import dev.narumi.kestrel.core.location.rememberCurrentLocation
 import dev.narumi.kestrel.core.map.KestrelMap
 import kotlinx.coroutines.flow.first
@@ -112,6 +128,7 @@ fun MapScreen(modifier: Modifier = Modifier) {
     val scope = rememberCoroutineScope()
 
     val favorites by prefs.favorites.collectAsStateWithLifecycle(emptyList())
+    val sortMode by prefs.favoritesSortMode.collectAsStateWithLifecycle(FavoritesSortMode())
 
     var mockAllowed by remember { mutableStateOf(false) }
     var waypoints by remember { mutableStateOf<List<LatLng>>(emptyList()) }
@@ -124,6 +141,7 @@ fun MapScreen(modifier: Modifier = Modifier) {
     var awaitCurrentForStartup by remember { mutableStateOf(false) }
     var lastCameraCenter by remember { mutableStateOf<LatLng?>(null) }
     var showGenerateDialog by remember { mutableStateOf(false) }
+    var showGoToSheet by remember { mutableStateOf(false) }
     var startupResolved by remember { mutableStateOf(false) }
     var firstCameraIdleSeen by remember { mutableStateOf(false) }
 
@@ -177,6 +195,40 @@ fun MapScreen(modifier: Modifier = Modifier) {
             skipHiddenState = true,
         )
     val scaffoldState = rememberBottomSheetScaffoldState(bottomSheetState = sheetState)
+    val goToSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    fun applyPoint(point: LatLng) {
+        if (runState != RunState.Idle) {
+            LocationService.stop(context)
+        }
+        waypoints = listOf(point)
+        cameraTarget = CameraSnapshot(point.lat, point.lng, 15.0)
+        runState = RunState.Idle
+        showGoToSheet = false
+    }
+
+    fun applyFavorite(favorite: Favorite) {
+        if (runState != RunState.Idle) {
+            LocationService.stop(context)
+        }
+        val route = favorite.route
+        if (route == null) {
+            val point = LatLng(favorite.lat, favorite.lng)
+            waypoints = listOf(point)
+            cameraTarget = CameraSnapshot(point.lat, point.lng, 15.0)
+        } else {
+            val routeWaypoints = route.toWaypoints()
+            waypoints = routeWaypoints
+            speedKmh = route.speedKmh
+            routeMode =
+                runCatching { MovementEngine.Mode.valueOf(route.mode) }
+                    .getOrDefault(MovementEngine.Mode.Once)
+            routeWaypoints.firstOrNull()?.let { cameraTarget = CameraSnapshot(it.lat, it.lng, 15.0) }
+        }
+        runState = RunState.Idle
+        showGoToSheet = false
+        scope.launch { prefs.touchFavorite(favorite.name) }
+    }
 
     if (showGenerateDialog) {
         GenerateRouteDialog(
@@ -194,6 +246,18 @@ fun MapScreen(modifier: Modifier = Modifier) {
                 showGenerateDialog = false
             },
             onDismiss = { showGenerateDialog = false },
+        )
+    }
+
+    if (showGoToSheet) {
+        GoToSheet(
+            sheetState = goToSheetState,
+            favorites = favorites,
+            sortMode = sortMode.mode,
+            onSortModeChange = { mode -> scope.launch { prefs.setFavoritesSortMode(mode) } },
+            onApplyPoint = ::applyPoint,
+            onApplyFavorite = ::applyFavorite,
+            onDismiss = { showGoToSheet = false },
         )
     }
 
@@ -314,6 +378,9 @@ fun MapScreen(modifier: Modifier = Modifier) {
                 SmallFloatingActionButton(onClick = { showGenerateDialog = true }) {
                     Icon(Icons.Filled.AutoAwesome, contentDescription = "Generate route")
                 }
+                SmallFloatingActionButton(onClick = { showGoToSheet = true }) {
+                    Icon(Icons.Filled.Search, contentDescription = "Go to")
+                }
                 SmallFloatingActionButton(
                     onClick = {
                         myLocation?.let { cameraTarget = CameraSnapshot(it.lat, it.lng, 15.0) }
@@ -345,6 +412,179 @@ private fun PendingFavorite.toFavorite(name: String): Favorite =
                     ),
             )
         }
+    }
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun GoToSheet(
+    sheetState: SheetState,
+    favorites: List<Favorite>,
+    sortMode: FavoritesSortMode.Mode,
+    onSortModeChange: (FavoritesSortMode.Mode) -> Unit,
+    onApplyPoint: (LatLng) -> Unit,
+    onApplyFavorite: (Favorite) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var input by remember { mutableStateOf("") }
+    var selectedTab by remember { mutableStateOf(0) }
+    val parsed = parseCoordInput(input)
+    val showInvalid = input.isNotBlank() && parsed == null
+    val filteredFavorites =
+        favorites
+            .filter { if (selectedTab == 0) !it.isRoute else it.isRoute }
+            .sortedFor(sortMode)
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+    ) {
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp)
+                    .padding(bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text("Go to", style = MaterialTheme.typography.titleLarge)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = input,
+                    onValueChange = { input = it },
+                    label = { Text("Paste coordinates or Maps URL") },
+                    supportingText = {
+                        if (showInvalid) Text("Enter a valid lat/lng in range.")
+                    },
+                    isError = showInvalid,
+                    singleLine = true,
+                    modifier = Modifier.weight(1f),
+                )
+                Button(
+                    onClick = { parsed?.let(onApplyPoint) },
+                    enabled = parsed != null,
+                    modifier = Modifier.align(Alignment.CenterVertically),
+                ) { Text("Go") }
+            }
+            PrimaryTabRow(selectedTabIndex = selectedTab) {
+                Tab(
+                    selected = selectedTab == 0,
+                    onClick = { selectedTab = 0 },
+                    text = { Text("Points") },
+                )
+                Tab(
+                    selected = selectedTab == 1,
+                    onClick = { selectedTab = 1 },
+                    text = { Text("Routes") },
+                )
+            }
+            SortModeMenu(
+                sortMode = sortMode,
+                onSortModeChange = onSortModeChange,
+            )
+            if (filteredFavorites.isEmpty()) {
+                Text(
+                    text = if (selectedTab == 0) "No point favorites yet." else "No route favorites yet.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            } else {
+                LazyColumn(modifier = Modifier.heightIn(max = 420.dp)) {
+                    items(filteredFavorites, key = { it.name }) { favorite ->
+                        GoToFavoriteRow(
+                            favorite = favorite,
+                            onClick = { onApplyFavorite(favorite) },
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SortModeMenu(
+    sortMode: FavoritesSortMode.Mode,
+    onSortModeChange: (FavoritesSortMode.Mode) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Box {
+        TextButton(onClick = { expanded = true }) {
+            Text("Sort: ${sortMode.label()}")
+            Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
+        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+        ) {
+            FavoritesSortMode.Mode.entries.forEach { mode ->
+                DropdownMenuItem(
+                    text = { Text(mode.label()) },
+                    onClick = {
+                        onSortModeChange(mode)
+                        expanded = false
+                    },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun GoToFavoriteRow(
+    favorite: Favorite,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick)
+                .padding(vertical = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            Icons.Filled.Star,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(favorite.name, style = MaterialTheme.typography.titleMedium)
+            Text(
+                text = favorite.description(),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+private fun Favorite.description(): String {
+    val route = route
+    return if (route == null) {
+        "%.5f, %.5f".format(lat, lng)
+    } else {
+        "Route · ${route.lats.size} waypoints · ${route.speedKmh.toInt()} km/h · ${route.mode}"
+    }
+}
+
+private fun FavoriteRoute.toWaypoints(): List<LatLng> {
+    val count = minOf(lats.size, lngs.size)
+    return List(count) { LatLng(lats[it], lngs[it]) }
+}
+
+private fun List<Favorite>.sortedFor(sortMode: FavoritesSortMode.Mode): List<Favorite> =
+    when (sortMode) {
+        FavoritesSortMode.Mode.Manual -> this
+        FavoritesSortMode.Mode.Recent -> sortedByDescending { it.lastUsedAt ?: Long.MIN_VALUE }
+        FavoritesSortMode.Mode.Alphabetical -> sortedBy { it.name.lowercase() }
+    }
+
+private fun FavoritesSortMode.Mode.label(): String =
+    when (this) {
+        FavoritesSortMode.Mode.Manual -> "Manual"
+        FavoritesSortMode.Mode.Recent -> "Recent"
+        FavoritesSortMode.Mode.Alphabetical -> "Alphabetical"
     }
 
 @Suppress("LongParameterList")

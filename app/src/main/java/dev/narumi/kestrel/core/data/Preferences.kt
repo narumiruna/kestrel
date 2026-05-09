@@ -1,6 +1,7 @@
 package dev.narumi.kestrel.core.data
 
 import android.content.Context
+import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.doublePreferencesKey
 import androidx.datastore.preferences.core.edit
@@ -136,11 +137,21 @@ class KestrelPrefs(
         newName: String,
     ) {
         if (oldName == newName) return
-        mutateFavorites { current ->
-            if (current.any { it.name == newName }) {
-                current
-            } else {
-                current.map { if (it.name == oldName) it.copy(name = newName) else it }
+        store.edit { prefs ->
+            val current = prefs.decodeFavorites()
+            if (current.any { it.name == newName }) return@edit
+            prefs[Keys.FAVORITES] =
+                json.encodeToString(
+                    favoritesSerializer,
+                    current.map { if (it.name == oldName) it.copy(name = newName) else it },
+                )
+            val startup = prefs.toStartupPref(json)
+            if (startup.mode == StartupPreference.Mode.Favorite && startup.favoriteName == oldName) {
+                prefs[Keys.STARTUP_PREF] =
+                    json.encodeToString(
+                        StartupPreference.serializer(),
+                        startup.copy(favoriteName = newName),
+                    )
             }
         }
     }
@@ -221,14 +232,16 @@ class KestrelPrefs(
 
     private suspend fun mutateFavorites(transform: (List<Favorite>) -> List<Favorite>) {
         store.edit {
-            val current =
-                it[Keys.FAVORITES]?.let { raw ->
-                    runCatching {
-                        json.decodeFromString(favoritesSerializer, raw)
-                    }.getOrDefault(emptyList())
-                } ?: emptyList()
+            val current = it.decodeFavorites()
             it[Keys.FAVORITES] = json.encodeToString(favoritesSerializer, transform(current))
         }
+    }
+
+    private fun MutablePreferences.decodeFavorites(): List<Favorite> {
+        val raw = this[Keys.FAVORITES] ?: return emptyList()
+        return runCatching {
+            json.decodeFromString(favoritesSerializer, raw)
+        }.getOrDefault(emptyList())
     }
 
     private fun Preferences.toCamera(): CameraSnapshot? {
