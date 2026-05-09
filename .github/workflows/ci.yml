@@ -5,6 +5,10 @@ on:
     branches: [main]
   pull_request:
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   ci:
     runs-on: ubuntu-latest
@@ -19,17 +23,8 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
-      - name: Check formatting (spotless)
-        run: ./gradlew spotlessCheck
-
-      - name: Static analysis (detekt)
-        run: ./gradlew detekt
-
-      - name: Unit tests
-        run: ./gradlew :app:testDebugUnitTest
-
-      - name: Build debug APK
-        run: ./gradlew :app:assembleDebug
+      - name: Validate and build
+        run: ./gradlew spotlessCheck detekt :app:testDebugUnitTest :app:assembleDebug
 
       - uses: actions/upload-artifact@v4
         with:
