@@ -27,6 +27,9 @@ Additional auth settings:
 
 - `AUTH_ACCESS_TOKEN_SECRET`: secret used to sign short-lived access tokens
 - `AUTH_ACCESS_TOKEN_TTL_SECONDS`: optional access token lifetime in seconds (defaults to 900)
+- `AUTH_RATE_LIMIT_MAX_ATTEMPTS`: optional max failed password/TOTP/recovery-code attempts per window (defaults to 5)
+- `AUTH_RATE_LIMIT_WINDOW_SECONDS`: optional rate-limit counting window in seconds (defaults to 900)
+- `AUTH_RATE_LIMIT_BLOCK_SECONDS`: optional temporary block duration in seconds after hitting the limit (defaults to 900)
 - `AUTH_TOTP_ENCRYPTION_KEY`: 32-byte key encoded as base64 (or 64-char hex) for encrypting stored TOTP secrets
 - `AUTH_TOTP_ISSUER`: optional otpauth issuer label shown in authenticator apps
 
