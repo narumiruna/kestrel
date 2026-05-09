@@ -9,7 +9,10 @@ data class MockSample(
 class MovementEngine(
     waypoints: List<LatLng>,
     private val speedMps: Double,
+    private val mode: Mode = Mode.Once,
 ) {
+    enum class Mode { Once, Loop, PingPong }
+
     init {
         require(waypoints.size >= 2) { "MovementEngine requires at least 2 waypoints" }
         require(speedMps > 0) { "speed must be positive" }
@@ -17,28 +20,56 @@ class MovementEngine(
 
     private val segments: List<Segment> =
         buildList {
-            for (i in 0 until waypoints.lastIndex) {
-                val a = waypoints[i]
-                val b = waypoints[i + 1]
+            val expanded =
+                if (mode == Mode.Loop && waypoints.size >= 2) {
+                    waypoints + waypoints.first()
+                } else {
+                    waypoints
+                }
+            for (i in 0 until expanded.lastIndex) {
+                val a = expanded[i]
+                val b = expanded[i + 1]
                 val len = haversineMeters(a, b)
                 if (len > 0.0) add(Segment(a, b, len, bearingDegrees(a, b)))
             }
         }
     private val totalDistance: Double = segments.sumOf { it.length }
     private var progress: Double = 0.0
+    private var forward: Boolean = true
 
     fun advance(deltaSeconds: Double): MockSample {
-        progress = (progress + speedMps * deltaSeconds).coerceIn(0.0, totalDistance)
+        if (totalDistance == 0.0) return sampleAt(0.0)
+        val delta = speedMps * deltaSeconds
+        when (mode) {
+            Mode.Once -> {
+                progress = (progress + delta).coerceIn(0.0, totalDistance)
+            }
+            Mode.Loop -> {
+                var next = (progress + delta) % totalDistance
+                if (next < 0) next += totalDistance
+                progress = next
+            }
+            Mode.PingPong -> {
+                var next = if (forward) progress + delta else progress - delta
+                if (next > totalDistance) {
+                    next = 2 * totalDistance - next
+                    forward = false
+                } else if (next < 0) {
+                    next = -next
+                    forward = true
+                }
+                progress = next
+            }
+        }
         return sampleAt(progress)
     }
 
-    fun isFinished(): Boolean = progress >= totalDistance
+    fun isFinished(): Boolean = mode == Mode.Once && progress >= totalDistance
 
     fun progressMeters(): Double = progress
 
     private fun sampleAt(meters: Double): MockSample {
         if (segments.isEmpty()) {
-            // degenerate: only colocated waypoints
             return MockSample(point = LatLng(0.0, 0.0), speedMps = 0.0, bearingDeg = 0.0)
         }
         var remaining = meters
