@@ -8,6 +8,24 @@ import { AppModule } from './../src/app.module';
 import { TotpService } from './../src/auth/totp.service';
 import { PrismaService } from './../src/prisma/prisma.service';
 
+type AuthRecoveryCodeRecord = {
+  codeHash: string;
+  createdAt: Date;
+  id: string;
+  usedAt: Date | null;
+  userId: string;
+};
+
+type AuthSessionRecord = {
+  createdAt: Date;
+  expiresAt: Date;
+  id: string;
+  lastUsedAt: Date;
+  refreshTokenHash: string;
+  revokedAt: Date | null;
+  userId: string;
+};
+
 type AuthUserRecord = {
   createdAt: Date;
   id: string;
@@ -18,19 +36,37 @@ type AuthUserRecord = {
 };
 
 type MockPrismaService = {
+  $transaction: jest.Mock<Promise<unknown>, [(transaction: TransactionClient) => Promise<unknown>]>;
+  recoveryCode: {
+    createMany: jest.Mock<Promise<{ count: number }>, [Prisma.RecoveryCodeCreateManyArgs]>;
+    deleteMany: jest.Mock<Promise<{ count: number }>, [Prisma.RecoveryCodeDeleteManyArgs]>;
+    findMany: jest.Mock<
+      Promise<Array<Pick<AuthRecoveryCodeRecord, 'codeHash' | 'id'>>>,
+      [Prisma.RecoveryCodeFindManyArgs]
+    >;
+    update: jest.Mock<Promise<AuthRecoveryCodeRecord>, [Prisma.RecoveryCodeUpdateArgs]>;
+  };
+  session: {
+    create: jest.Mock<Promise<Record<string, unknown>>, [Prisma.SessionCreateArgs]>;
+  };
   user: {
-    create: jest.Mock<
-      Promise<Record<string, unknown>>,
-      [Prisma.UserCreateArgs]
-    >;
-    findUnique: jest.Mock<
-      Promise<Record<string, unknown> | null>,
-      [Prisma.UserFindUniqueArgs]
-    >;
-    update: jest.Mock<
-      Promise<Record<string, unknown>>,
-      [Prisma.UserUpdateArgs]
-    >;
+    create: jest.Mock<Promise<Record<string, unknown>>, [Prisma.UserCreateArgs]>;
+    findUnique: jest.Mock<Promise<Record<string, unknown> | null>, [Prisma.UserFindUniqueArgs]>;
+    update: jest.Mock<Promise<Record<string, unknown>>, [Prisma.UserUpdateArgs]>;
+  };
+};
+
+type TotpLoginResponse = {
+  authMethod: string;
+  refreshToken: string;
+  session: {
+    createdAt: string;
+    expiresAt: string;
+    id: string;
+  };
+  user: {
+    id: string;
+    username: string;
   };
 };
 
@@ -46,6 +82,7 @@ type TotpSetupResponse = {
 
 type TotpVerifyResponse = {
   nextStep: string;
+  recoveryCodes: string[];
   user: {
     id: string;
     totpEnabledAt: string;
@@ -53,9 +90,16 @@ type TotpVerifyResponse = {
   };
 };
 
+type TransactionClient = Pick<
+  MockPrismaService,
+  'recoveryCode' | 'session' | 'user'
+>;
+
 describe('AppController (e2e)', () => {
   let app: INestApplication<App>;
   let prismaService: MockPrismaService;
+  let storedRecoveryCodes: AuthRecoveryCodeRecord[];
+  let storedSessions: AuthSessionRecord[];
   let storedUsersById: Map<string, AuthUserRecord>;
   let storedUsers: Map<string, AuthUserRecord>;
 
@@ -63,9 +107,86 @@ describe('AppController (e2e)', () => {
     process.env.AUTH_TOTP_ENCRYPTION_KEY =
       'MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=';
     process.env.AUTH_TOTP_ISSUER = 'Kestrel Test';
+    storedRecoveryCodes = [];
+    storedSessions = [];
     storedUsersById = new Map();
     storedUsers = new Map();
     prismaService = {
+      $transaction: jest.fn<
+        Promise<unknown>,
+        [(transaction: TransactionClient) => Promise<unknown>]
+      >(),
+      recoveryCode: {
+        createMany: jest.fn((args: Prisma.RecoveryCodeCreateManyArgs) => {
+          const rows = Array.isArray(args.data) ? args.data : [args.data];
+
+          rows.forEach((row, index) => {
+            storedRecoveryCodes.push({
+              codeHash: row.codeHash,
+              createdAt: new Date(),
+              id: `recovery-${storedRecoveryCodes.length + index + 1}`,
+              usedAt: null,
+              userId: row.userId,
+            });
+          });
+
+          return Promise.resolve({ count: rows.length });
+        }),
+        deleteMany: jest.fn((args: Prisma.RecoveryCodeDeleteManyArgs) => {
+          const userId = args.where?.userId;
+          const beforeCount = storedRecoveryCodes.length;
+          storedRecoveryCodes = storedRecoveryCodes.filter(
+            (record) => record.userId !== userId,
+          );
+
+          return Promise.resolve({ count: beforeCount - storedRecoveryCodes.length });
+        }),
+        findMany: jest.fn((args: Prisma.RecoveryCodeFindManyArgs) => {
+          const userId = args.where?.userId;
+
+          return Promise.resolve(
+            storedRecoveryCodes
+              .filter((record) => record.userId === userId && record.usedAt == null)
+              .sort((left, right) => left.createdAt.getTime() - right.createdAt.getTime())
+              .map((record) => ({
+                codeHash: record.codeHash,
+                id: record.id,
+              })),
+          );
+        }),
+        update: jest.fn((args: Prisma.RecoveryCodeUpdateArgs) => {
+          const recoveryCode = storedRecoveryCodes.find(
+            (record) => record.id === args.where.id,
+          );
+
+          if (recoveryCode == null) {
+            throw new Error('recovery code not found');
+          }
+
+          recoveryCode.usedAt =
+            (args.data.usedAt as Date | string | null | undefined) == null
+              ? null
+              : new Date(args.data.usedAt as Date | string);
+
+          return Promise.resolve(recoveryCode);
+        }),
+      },
+      session: {
+        create: jest.fn((args: Prisma.SessionCreateArgs) => {
+          const sessionRecord: AuthSessionRecord = {
+            createdAt: new Date(),
+            expiresAt: new Date(args.data.expiresAt as Date | string),
+            id: `session-${storedSessions.length + 1}`,
+            lastUsedAt: new Date(args.data.lastUsedAt as Date | string),
+            refreshTokenHash: String(args.data.refreshTokenHash),
+            revokedAt: null,
+            userId: String(args.data.userId),
+          };
+          storedSessions.push(sessionRecord);
+
+          return Promise.resolve(applySelect(sessionRecord, args.select));
+        }),
+      },
       user: {
         create: jest.fn((args: Prisma.UserCreateArgs) => {
           const createdUser: AuthUserRecord = {
@@ -112,6 +233,13 @@ describe('AppController (e2e)', () => {
         }),
       },
     };
+    prismaService.$transaction.mockImplementation(async (transaction) =>
+      transaction({
+        recoveryCode: prismaService.recoveryCode,
+        session: prismaService.session,
+        user: prismaService.user,
+      }),
+    );
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
@@ -152,7 +280,7 @@ describe('AppController (e2e)', () => {
       });
   });
 
-  it('/auth/totp/setup + /auth/totp/verify (POST)', async () => {
+  it('/auth/totp/setup + /auth/totp/verify + /auth/login (POST)', async () => {
     const password = 'a-very-secure-password';
     const passwordHash = await hash(password, { type: argon2id });
 
@@ -185,30 +313,64 @@ describe('AppController (e2e)', () => {
 
     const persistedUser = storedUsers.get('alice');
     const totpService = app.get(TotpService);
+    const verificationTime = new Date('2026-05-09T15:33:00.000Z');
     const totpCode = totpService.generateCode(
       totpService.decryptSecret(persistedUser?.totpSecretEncrypted ?? ''),
-      new Date('2026-05-09T15:33:00.000Z'),
+      verificationTime,
     );
-    jest.useFakeTimers().setSystemTime(new Date('2026-05-09T15:33:00.000Z'));
+    jest.useFakeTimers().setSystemTime(verificationTime);
 
-    await request(app.getHttpServer())
+    const verifyResponse = await request(app.getHttpServer())
       .post('/auth/totp/verify')
       .send({
         code: totpCode,
         password,
         username: 'alice',
       })
-      .expect(201)
-      .expect((response) => {
-        const responseBody = response.body as TotpVerifyResponse;
+      .expect(201);
 
-        expect(responseBody.nextStep).toBe('login');
-        expect(responseBody.user.id).toBe('user-1');
-        expect(responseBody.user.username).toBe('alice');
-        expect(responseBody.user.totpEnabledAt).toBe(
-          '2026-05-09T15:33:00.000Z',
-        );
-      });
+    const verifyBody = verifyResponse.body as TotpVerifyResponse;
+
+    expect(verifyBody.nextStep).toBe('login');
+    expect(verifyBody.user.id).toBe('user-1');
+    expect(verifyBody.user.username).toBe('alice');
+    expect(verifyBody.user.totpEnabledAt).toBe('2026-05-09T15:33:00.000Z');
+    expect(verifyBody.recoveryCodes).toHaveLength(10);
+
+    const loginResponse = await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({
+        password,
+        totpCode,
+        username: 'alice',
+      })
+      .expect(201);
+    const loginBody = loginResponse.body as TotpLoginResponse;
+
+    expect(loginBody.authMethod).toBe('totp');
+    expect(loginBody.refreshToken).toMatch(/^[A-Za-z0-9_-]+$/);
+    expect(loginBody.session.id).toBe('session-1');
+    expect(loginBody.user).toEqual({
+      id: 'user-1',
+      username: 'alice',
+    });
+
+    const recoveryLoginResponse = await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({
+        password,
+        recoveryCode: verifyBody.recoveryCodes[0],
+        username: 'alice',
+      })
+      .expect(201);
+    const recoveryLoginBody = recoveryLoginResponse.body as TotpLoginResponse;
+
+    expect(recoveryLoginBody.authMethod).toBe('recovery_code');
+    expect(recoveryLoginBody.session.id).toBe('session-2');
+    expect(storedSessions).toHaveLength(2);
+    expect(storedRecoveryCodes[0]?.usedAt?.toISOString()).toBe(
+      '2026-05-09T15:33:00.000Z',
+    );
   });
 
   afterEach(async () => {
@@ -220,8 +382,8 @@ describe('AppController (e2e)', () => {
 });
 
 function applySelect(
-  record: AuthUserRecord,
-  select: Prisma.UserSelect | null | undefined,
+  record: Record<string, unknown>,
+  select: Record<string, boolean> | null | undefined,
 ): Record<string, unknown> {
   if (select == null) {
     return { ...record };
@@ -230,6 +392,6 @@ function applySelect(
   return Object.fromEntries(
     Object.entries(select)
       .filter(([, value]) => value === true)
-      .map(([key]) => [key, record[key as keyof AuthUserRecord] ?? null]),
+      .map(([key]) => [key, record[key] ?? null]),
   );
 }
