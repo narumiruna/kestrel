@@ -38,6 +38,7 @@
 ### 目前進度註記（2026-05-10）
 
 - Room schema 基礎已建立於 `core/library/db/`。
+- DAO 基礎 query / insert transaction / update / delete API 已補齊。
 - `just build` 已通過 Room KSP / debug APK build。
 
 ---
@@ -62,20 +63,20 @@
 
 ## 2. DAO
 
-- [ ] 新增 `LibraryDao`。
-- [ ] Query：observe all library items with content。
-- [ ] Query：observe points only。
-- [ ] Query：observe routes only。
-- [ ] Query：get item by id。
-- [ ] Insert：place + library item transaction。
-- [ ] Insert：route + revision + waypoints + library item transaction。
-- [ ] Update：rename place / route。
-- [ ] Update：place coordinates。
-- [ ] Update：route default speed / mode。
-- [ ] Update：touch item lastUsedAt。
-- [ ] Update：reorder item sortOrder。
-- [ ] Delete：remove library item + content policy。
-- [ ] Query：startup library item by id。
+- [x] 新增 `LibraryDao`。
+- [x] Query：observe all library items with content。
+- [x] Query：observe points only。
+- [x] Query：observe routes only。
+- [x] Query：get item by id。
+- [x] Insert：place + library item transaction。
+- [x] Insert：route + revision + waypoints + library item transaction。
+- [x] Update：rename place / route。
+- [x] Update：place coordinates。
+- [x] Update：route default speed / mode。
+- [x] Update：touch item lastUsedAt。
+- [x] Update：reorder item sortOrder。
+- [x] Delete：remove library item + content policy。
+- [x] Query：startup library item by id。
 
 ---
 

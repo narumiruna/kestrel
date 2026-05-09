@@ -149,8 +149,8 @@ private class RoomLibraryRepository(
         val placeId = UUID.randomUUID().toString()
         val itemId = UUID.randomUUID().toString()
         val sortOrder = (dao.getMaxSortOrder() ?: -1) + 1
-        database.withTransaction {
-            dao.insertPlace(
+        dao.insertPlaceWithLibraryItem(
+            place =
                 PlaceEntity(
                     id = placeId,
                     name = name,
@@ -161,8 +161,7 @@ private class RoomLibraryRepository(
                     createdAt = now,
                     updatedAt = now,
                 ),
-            )
-            dao.insertLibraryItem(
+            item =
                 LibraryItemEntity(
                     id = itemId,
                     kind = LibraryItemKind.Place,
@@ -171,8 +170,7 @@ private class RoomLibraryRepository(
                     createdAt = now,
                     updatedAt = now,
                 ),
-            )
-        }
+        )
         return itemId
     }
 
@@ -189,8 +187,8 @@ private class RoomLibraryRepository(
         val revisionId = UUID.randomUUID().toString()
         val itemId = UUID.randomUUID().toString()
         val sortOrder = (dao.getMaxSortOrder() ?: -1) + 1
-        database.withTransaction {
-            dao.insertRoute(
+        dao.insertRouteWithLibraryItem(
+            route =
                 RouteEntity(
                     id = routeId,
                     name = name,
@@ -201,16 +199,14 @@ private class RoomLibraryRepository(
                     createdAt = now,
                     updatedAt = now,
                 ),
-            )
-            dao.insertRouteRevision(
+            revision =
                 RouteRevisionEntity(
                     id = revisionId,
                     routeId = routeId,
                     revisionNumber = 1,
                     createdAt = now,
                 ),
-            )
-            dao.insertWaypoints(
+            waypoints =
                 waypoints.mapIndexed { index, waypoint ->
                     WaypointEntity(
                         id = UUID.randomUUID().toString(),
@@ -220,8 +216,7 @@ private class RoomLibraryRepository(
                         lng = waypoint.lng,
                     )
                 },
-            )
-            dao.insertLibraryItem(
+            item =
                 LibraryItemEntity(
                     id = itemId,
                     kind = LibraryItemKind.Route,
@@ -230,8 +225,7 @@ private class RoomLibraryRepository(
                     createdAt = now,
                     updatedAt = now,
                 ),
-            )
-        }
+        )
         return itemId
     }
 
