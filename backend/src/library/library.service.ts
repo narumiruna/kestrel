@@ -29,6 +29,15 @@ import {
   type RouteWaypointInput,
 } from './library.validation';
 
+type StoredRouteRevisionSnapshot = {
+  defaultSpeedKmh: number;
+  mode: RouteMode;
+  waypoints: Array<{
+    latitude: number;
+    longitude: number;
+  }>;
+};
+
 @Injectable()
 export class LibraryService {
   constructor(private readonly prismaService: PrismaService) {}
@@ -615,14 +624,7 @@ function createRouteRevisionPayload(input: {
 
 function parseStoredRouteRevisionPayload(revision: {
   payload: Prisma.JsonValue;
-}): {
-  defaultSpeedKmh: number;
-  mode: RouteMode;
-  waypoints: Array<{
-    latitude: number;
-    longitude: number;
-  }>;
-} {
+}): StoredRouteRevisionSnapshot {
   const payload = revision.payload;
 
   if (
