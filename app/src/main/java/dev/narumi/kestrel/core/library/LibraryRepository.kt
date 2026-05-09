@@ -227,15 +227,20 @@ private class RoomLibraryRepository(
         if (trimmedName.isEmpty()) return
         val record = dao.getLibraryItem(itemId) ?: return
         val updatedAt = System.currentTimeMillis()
+        val shouldUpdateStartupPreference =
+            prefs.startupPreferenceValue().let { startup ->
+                startup.mode == StartupPreference.Mode.Favorite && startup.libraryItemId == itemId
+            }
         database.withTransaction {
             when (record.item.kind) {
                 LibraryItemKind.Place -> record.item.placeId?.let { dao.renamePlace(it, trimmedName, updatedAt) }
                 LibraryItemKind.Route -> record.item.routeId?.let { dao.renameRoute(it, trimmedName, updatedAt) }
             }
-            val startup = prefs.startupPreferenceValue()
-            if (startup.mode == StartupPreference.Mode.Favorite && startup.libraryItemId == itemId) {
-                prefs.setStartupPreference(startup.copy(favoriteName = trimmedName))
-            }
+        }
+        if (shouldUpdateStartupPreference) {
+            prefs.setStartupPreference(
+                prefs.startupPreferenceValue().copy(favoriteName = trimmedName),
+            )
         }
     }
 
@@ -252,15 +257,18 @@ private class RoomLibraryRepository(
     override suspend fun removeItem(itemId: String) {
         ensureMigrated()
         val record = dao.getLibraryItem(itemId) ?: return
+        val shouldResetStartupPreference =
+            prefs.startupPreferenceValue().let { startup ->
+                startup.mode == StartupPreference.Mode.Favorite && startup.libraryItemId == itemId
+            }
         database.withTransaction {
             when (record.item.kind) {
                 LibraryItemKind.Place -> record.item.placeId?.let(dao::deletePlace)
                 LibraryItemKind.Route -> record.item.routeId?.let(dao::deleteRoute)
             }
-            val startup = prefs.startupPreferenceValue()
-            if (startup.mode == StartupPreference.Mode.Favorite && startup.libraryItemId == itemId) {
-                prefs.setStartupPreference(StartupPreference(StartupPreference.Mode.Last))
-            }
+        }
+        if (shouldResetStartupPreference) {
+            prefs.setStartupPreference(StartupPreference(StartupPreference.Mode.Last))
         }
     }
 
