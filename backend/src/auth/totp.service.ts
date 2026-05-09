@@ -227,7 +227,7 @@ function decodeBase32(input: string): Buffer {
     const alphabetIndex = BASE32_ALPHABET.indexOf(character);
 
     if (alphabetIndex < 0) {
-      throw new InternalServerErrorException('stored TOTP secret is invalid');
+      throw new InternalServerErrorException('invalid TOTP secret format');
     }
 
     value = (value << 5) | alphabetIndex;
