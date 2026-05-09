@@ -50,6 +50,7 @@ import dev.narumi.kestrel.core.data.StartupPreference
 import dev.narumi.kestrel.core.location.LatLng
 import dev.narumi.kestrel.core.location.LocationService
 import dev.narumi.kestrel.core.location.MockProviderManager
+import dev.narumi.kestrel.core.location.RouteGenerator
 import dev.narumi.kestrel.core.location.rememberCurrentLocation
 import dev.narumi.kestrel.core.map.KestrelMap
 import kotlinx.coroutines.flow.first
@@ -68,7 +69,7 @@ private sealed interface PendingFavorite {
     ) : PendingFavorite
 }
 
-private val SPEED_PRESETS = listOf(5.0, 10.0, 15.0, 20.0, 60.0)
+private val SPEED_PRESETS = listOf(5.0, 10.0, 15.0, 20.0)
 
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
@@ -98,6 +99,8 @@ fun MapScreen(modifier: Modifier = Modifier) {
     var favoriteName by remember { mutableStateOf("") }
     var cameraTarget by remember { mutableStateOf<CameraSnapshot?>(null) }
     var awaitCurrentForStartup by remember { mutableStateOf(false) }
+    var lastCameraCenter by remember { mutableStateOf<LatLng?>(null) }
+    var showGenerateDialog by remember { mutableStateOf(false) }
     var startupResolved by remember { mutableStateOf(false) }
     var firstCameraIdleSeen by remember { mutableStateOf(false) }
 
@@ -141,6 +144,25 @@ fun MapScreen(modifier: Modifier = Modifier) {
 
     val ready = permissionState.allPermissionsGranted && mockAllowed
     val mockNow by LocationService.currentMock.collectAsStateWithLifecycle()
+
+    if (showGenerateDialog) {
+        GenerateRouteDialog(
+            onConfirm = { count, meters ->
+                val origin =
+                    lastCameraCenter
+                        ?: myLocation
+                        ?: cameraTarget?.let { LatLng(it.lat, it.lng) }
+                        ?: LatLng(25.0330, 121.5654)
+                waypoints = RouteGenerator.generate(origin, count, meters)
+                if (runState == RunState.Single) {
+                    LocationService.stop(context)
+                    runState = RunState.Idle
+                }
+                showGenerateDialog = false
+            },
+            onDismiss = { showGenerateDialog = false },
+        )
+    }
 
     pendingFavorite?.let { pending ->
         val (title, supporting) =
@@ -256,6 +278,7 @@ fun MapScreen(modifier: Modifier = Modifier) {
                 },
                 onMapLongClick = { pendingFavorite = PendingFavorite.Point(it) },
                 onCameraIdle = { snap ->
+                    lastCameraCenter = LatLng(snap.lat, snap.lng)
                     if (!firstCameraIdleSeen) {
                         firstCameraIdleSeen = true
                         return@KestrelMap
@@ -300,6 +323,7 @@ fun MapScreen(modifier: Modifier = Modifier) {
             speedKmh = speedKmh,
             runState = runState,
             onSpeedChange = { speedKmh = it },
+            onGenerateRoute = { showGenerateDialog = true },
             onSaveRoute = {
                 pendingFavorite = PendingFavorite.Route(waypoints, speedKmh)
             },
@@ -415,6 +439,53 @@ private fun InfoStrip(
     }
 }
 
+@Composable
+private fun GenerateRouteDialog(
+    initialPointCount: Int = 10,
+    initialSpacingMeters: Int = 50,
+    onConfirm: (count: Int, meters: Double) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var count by remember { mutableStateOf(initialPointCount.toString()) }
+    var meters by remember { mutableStateOf(initialSpacingMeters.toString()) }
+    val parsedCount = count.toIntOrNull()
+    val parsedMeters = meters.toDoubleOrNull()
+    val valid = parsedCount != null && parsedCount >= 2 && parsedMeters != null && parsedMeters > 0
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Generate random route") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = "Smooth random walk from the current map center.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                OutlinedTextField(
+                    value = count,
+                    onValueChange = { v -> count = v.filter(Char::isDigit).take(4) },
+                    label = { Text("Point count (≥ 2)") },
+                    singleLine = true,
+                )
+                OutlinedTextField(
+                    value = meters,
+                    onValueChange = { v -> meters = v.filter { it.isDigit() || it == '.' }.take(7) },
+                    label = { Text("Spacing (meters)") },
+                    singleLine = true,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = valid,
+                onClick = { onConfirm(parsedCount!!, parsedMeters!!) },
+            ) { Text("Generate") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        },
+    )
+}
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ControlPanel(
@@ -424,6 +495,7 @@ private fun ControlPanel(
     speedKmh: Double,
     runState: RunState,
     onSpeedChange: (Double) -> Unit,
+    onGenerateRoute: () -> Unit,
     onSaveRoute: () -> Unit,
     onClear: () -> Unit,
     onSetSingle: () -> Unit,
@@ -463,6 +535,10 @@ private fun ControlPanel(
                 }
             }
             if (!isRouteRunning) {
+                Button(
+                    onClick = onGenerateRoute,
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text("Generate random route") }
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically,
