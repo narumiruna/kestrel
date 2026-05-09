@@ -56,6 +56,20 @@ type MockTotpService = {
   verifyCode: jest.Mock<boolean, [string, string]>;
 };
 
+function getCreateManyRows(
+  args: Prisma.RecoveryCodeCreateManyArgs | undefined,
+): Prisma.RecoveryCodeCreateManyInput[] {
+  if (args?.data == null) {
+    return [];
+  }
+
+  if (Array.isArray(args.data)) {
+    return args.data;
+  }
+
+  return [args.data];
+}
+
 describe('AuthService', () => {
   let authService: AuthService;
   let prismaService: MockPrismaService;
@@ -318,11 +332,7 @@ describe('AuthService', () => {
     });
 
     expect(capturedCreateManyArgs).toBeDefined();
-    const recoveryCodeRows = Array.isArray(capturedCreateManyArgs?.data)
-      ? capturedCreateManyArgs.data
-      : capturedCreateManyArgs?.data != null
-        ? [capturedCreateManyArgs.data]
-        : [];
+    const recoveryCodeRows = getCreateManyRows(capturedCreateManyArgs);
 
     expect(recoveryCodeRows).toHaveLength(10);
     for (const recoveryCodeRow of recoveryCodeRows) {
@@ -348,15 +358,13 @@ describe('AuthService', () => {
     for (const recoveryCode of result.recoveryCodes) {
       expect(recoveryCode).toMatch(/^[A-Z0-9]{4}-[A-Z0-9]{4}$/);
     }
-    await Promise.all(
-      result.recoveryCodes.map((recoveryCode, index) =>
-        expect(
-          verify(
-            recoveryCodeRows[index]?.codeHash ?? '',
-            recoveryCode.replace('-', ''),
-          ),
-        ).resolves.toBe(true),
-      ),
-    );
+    for (const [index, recoveryCode] of result.recoveryCodes.entries()) {
+      await expect(
+        verify(
+          recoveryCodeRows[index]?.codeHash ?? '',
+          recoveryCode.replace('-', ''),
+        ),
+      ).resolves.toBe(true);
+    }
   });
 });

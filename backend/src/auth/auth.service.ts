@@ -320,7 +320,7 @@ function createRecoveryCodeValue(): string {
   let value = '';
 
   for (const byte of randomBytes(RECOVERY_CODE_GROUP_LENGTH * 2)) {
-    value += RECOVERY_CODE_ALPHABET[byte & 31];
+    value += RECOVERY_CODE_ALPHABET[byte % RECOVERY_CODE_ALPHABET.length];
   }
 
   return value;
