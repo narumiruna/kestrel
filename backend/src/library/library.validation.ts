@@ -284,7 +284,7 @@ function parseRouteMode(value: unknown): RouteMode {
     throw new BadRequestException('mode must be a string');
   }
 
-  const normalizedMode = value.toUpperCase().trim();
+  const normalizedMode = value.trim().toUpperCase();
 
   if (!Object.values(RouteMode).includes(normalizedMode as RouteMode)) {
     throw new BadRequestException('mode must be ONCE, LOOP, or PING_PONG');
