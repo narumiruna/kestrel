@@ -1,9 +1,12 @@
-import { BadRequestException, ConflictException } from '@nestjs/common';
+import { BadRequestException, ConflictException, UnauthorizedException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Prisma } from '@prisma/client';
 import { argon2id, hash, verify } from 'argon2';
-import { PrismaService } from '../prisma/prisma.service';
+import { AccessTokenService } from './access-token.service';
+import { AuthAuditService } from './auth-audit.service';
+import { AuthRateLimitService, AUTH_RATE_LIMIT_TYPE } from './auth-rate-limit.service';
 import { AuthService } from './auth.service';
+import { PrismaService } from '../prisma/prisma.service';
 import { TotpService } from './totp.service';
 
 type AuthUserRecord = {
@@ -24,6 +27,12 @@ type AuthSessionRecord = {
   createdAt: Date;
   expiresAt: Date;
   id: string;
+  lastUsedAt?: Date;
+  revokedAt?: Date | null;
+  user?: {
+    username: string;
+  };
+  userId?: string;
 };
 type MockRecoveryCodeClient = {
   createMany: jest.Mock<
@@ -45,6 +54,11 @@ type MockRecoveryCodeClient = {
 };
 type MockSessionClient = {
   create: jest.Mock<Promise<AuthSessionRecord>, [Prisma.SessionCreateArgs]>;
+  findUnique: jest.Mock<
+    Promise<Record<string, unknown> | null>,
+    [Prisma.SessionFindUniqueArgs]
+  >;
+  update: jest.Mock<Promise<AuthSessionRecord>, [Prisma.SessionUpdateArgs]>;
 };
 type MockUserClient = {
   create: jest.Mock<Promise<AuthUserRecord>, [Prisma.UserCreateArgs]>;
@@ -54,6 +68,7 @@ type MockUserClient = {
       passwordHash?: string;
       totpEnabledAt?: Date | null;
       totpSecretEncrypted?: string | null;
+      username: string;
     } | null>,
     [Prisma.UserFindUniqueArgs]
   >;
@@ -89,6 +104,40 @@ type MockTotpService = {
   verifyCode: jest.Mock<boolean, [string, string]>;
 };
 
+type MockAccessTokenService = {
+  issueToken: jest.Mock<
+    {
+      expiresAt: Date;
+      token: string;
+    },
+    [
+      {
+        sessionId: string;
+        userId: string;
+      },
+      Date | undefined?,
+    ]
+  >;
+  verifyToken: jest.Mock<
+    {
+      expiresAt: Date;
+      sessionId: string;
+      userId: string;
+    },
+    [string]
+  >;
+};
+
+type MockAuthRateLimitService = {
+  assertAllowed: jest.Mock<Promise<void>, [string, string]>;
+  recordFailure: jest.Mock<Promise<void>, [string, string]>;
+  reset: jest.Mock<Promise<void>, [string, string]>;
+};
+
+type MockAuthAuditService = {
+  log: jest.Mock<Promise<void>, [Record<string, unknown>]>;
+};
+
 function getCreateManyRows(
   args: Prisma.RecoveryCodeCreateManyArgs | undefined,
 ): AuthRecoveryCodeRow[] {
@@ -120,6 +169,9 @@ async function expectRecoveryCodeHashesToMatch(
 }
 
 describe('AuthService', () => {
+  let accessTokenService: MockAccessTokenService;
+  let authAuditService: MockAuthAuditService;
+  let authRateLimitService: MockAuthRateLimitService;
   let authService: AuthService;
   let prismaService: MockPrismaService;
   let totpService: MockTotpService;
@@ -157,6 +209,14 @@ describe('AuthService', () => {
           Promise<AuthSessionRecord>,
           [Prisma.SessionCreateArgs]
         >(),
+        findUnique: jest.fn<
+          Promise<Record<string, unknown> | null>,
+          [Prisma.SessionFindUniqueArgs]
+        >(),
+        update: jest.fn<
+          Promise<AuthSessionRecord>,
+          [Prisma.SessionUpdateArgs]
+        >(),
       },
       user: {
         create: jest.fn<Promise<AuthUserRecord>, [Prisma.UserCreateArgs]>(),
@@ -166,6 +226,7 @@ describe('AuthService', () => {
             passwordHash?: string;
             totpEnabledAt?: Date | null;
             totpSecretEncrypted?: string | null;
+            username: string;
           } | null>,
           [Prisma.UserFindUniqueArgs]
         >(),
@@ -174,6 +235,18 @@ describe('AuthService', () => {
           [Prisma.UserUpdateArgs]
         >(),
       },
+    };
+    accessTokenService = {
+      issueToken: jest.fn(),
+      verifyToken: jest.fn(),
+    };
+    authRateLimitService = {
+      assertAllowed: jest.fn().mockResolvedValue(undefined),
+      recordFailure: jest.fn().mockResolvedValue(undefined),
+      reset: jest.fn().mockResolvedValue(undefined),
+    };
+    authAuditService = {
+      log: jest.fn().mockResolvedValue(undefined),
     };
     totpService = {
       createSetup: jest.fn<
@@ -199,6 +272,18 @@ describe('AuthService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
+        {
+          provide: AccessTokenService,
+          useValue: accessTokenService,
+        },
+        {
+          provide: AuthAuditService,
+          useValue: authAuditService,
+        },
+        {
+          provide: AuthRateLimitService,
+          useValue: authRateLimitService,
+        },
         {
           provide: PrismaService,
           useValue: prismaService,
@@ -309,6 +394,14 @@ describe('AuthService', () => {
       username: 'alice',
     });
 
+    expect(authRateLimitService.assertAllowed).toHaveBeenCalledWith(
+      AUTH_RATE_LIMIT_TYPE.PASSWORD,
+      'alice',
+    );
+    expect(authRateLimitService.reset).toHaveBeenCalledWith(
+      AUTH_RATE_LIMIT_TYPE.PASSWORD,
+      'alice',
+    );
     expect(totpService.createSetup).toHaveBeenCalledWith('alice');
     expect(prismaService.user.update).toHaveBeenCalledWith({
       data: {
@@ -377,8 +470,22 @@ describe('AuthService', () => {
       username: 'alice',
     });
 
+    expect(authRateLimitService.assertAllowed).toHaveBeenNthCalledWith(
+      1,
+      AUTH_RATE_LIMIT_TYPE.PASSWORD,
+      'alice',
+    );
+    expect(authRateLimitService.assertAllowed).toHaveBeenNthCalledWith(
+      2,
+      AUTH_RATE_LIMIT_TYPE.TOTP,
+      'alice',
+    );
     expect(totpService.decryptSecret).toHaveBeenCalledWith('encrypted-secret');
     expect(totpService.verifyCode).toHaveBeenCalledWith('SECRET123', '123456');
+    expect(authRateLimitService.reset).toHaveBeenCalledWith(
+      AUTH_RATE_LIMIT_TYPE.TOTP,
+      'alice',
+    );
     expect(prismaService.recoveryCode.deleteMany).toHaveBeenCalledWith({
       where: {
         userId: 'user-1',
@@ -434,11 +541,12 @@ describe('AuthService', () => {
     );
   });
 
-  it('creates a login session after a valid TOTP code', async () => {
+  it('creates a login session with access and refresh tokens after a valid TOTP code', async () => {
     const passwordHash = await hash('a-very-secure-password', {
       type: argon2id,
     });
     const authenticatedAt = new Date('2026-05-09T16:00:00.000Z');
+    const accessTokenExpiresAt = new Date('2026-05-09T16:15:00.000Z');
     let capturedSessionArgs: Prisma.SessionCreateArgs | undefined;
 
     prismaService.user.findUnique.mockResolvedValue({
@@ -457,15 +565,26 @@ describe('AuthService', () => {
         createdAt: authenticatedAt,
         expiresAt: new Date('2026-06-08T16:00:00.000Z'),
         id: 'session-1',
+        lastUsedAt: authenticatedAt,
       });
+    });
+    accessTokenService.issueToken.mockReturnValue({
+      expiresAt: accessTokenExpiresAt,
+      token: 'access-token',
     });
     jest.useFakeTimers().setSystemTime(authenticatedAt);
 
-    const result = await authService.login({
-      password: 'a-very-secure-password',
-      totpCode: '123456',
-      username: 'alice',
-    });
+    const result = await authService.login(
+      {
+        password: 'a-very-secure-password',
+        totpCode: '123456',
+        username: 'alice',
+      },
+      {
+        ipAddress: '127.0.0.1',
+        userAgent: 'jest',
+      },
+    );
 
     expect(totpService.decryptSecret).toHaveBeenCalledWith('encrypted-secret');
     expect(totpService.verifyCode).toHaveBeenCalledWith('SECRET123', '123456');
@@ -480,17 +599,38 @@ describe('AuthService', () => {
         createdAt: true,
         expiresAt: true,
         id: true,
+        lastUsedAt: true,
       },
     });
     expect(capturedSessionArgs?.data.refreshTokenHash).toMatch(
       /^[a-f0-9]{64}$/,
     );
+    expect(accessTokenService.issueToken).toHaveBeenCalledWith(
+      {
+        sessionId: 'session-1',
+        userId: 'user-1',
+      },
+      authenticatedAt,
+    );
+    expect(authAuditService.log).toHaveBeenCalledWith({
+      authMethod: 'totp',
+      event: 'login',
+      ipAddress: '127.0.0.1',
+      outcome: 'success',
+      sessionId: 'session-1',
+      userAgent: 'jest',
+      userId: 'user-1',
+      username: 'alice',
+    });
+    expect(result.accessToken).toBe('access-token');
+    expect(result.accessTokenExpiresAt).toEqual(accessTokenExpiresAt);
     expect(result.authMethod).toBe('totp');
     expect(result.refreshToken).toMatch(/^[A-Za-z0-9_-]+$/);
     expect(result.session).toEqual({
       createdAt: authenticatedAt,
       expiresAt: new Date('2026-06-08T16:00:00.000Z'),
       id: 'session-1',
+      lastUsedAt: authenticatedAt,
     });
     expect(result.user).toEqual({
       id: 'user-1',
@@ -531,6 +671,11 @@ describe('AuthService', () => {
       createdAt: authenticatedAt,
       expiresAt: new Date('2026-06-08T16:05:00.000Z'),
       id: 'session-2',
+      lastUsedAt: authenticatedAt,
+    });
+    accessTokenService.issueToken.mockReturnValue({
+      expiresAt: new Date('2026-05-09T16:20:00.000Z'),
+      token: 'access-token',
     });
     jest.useFakeTimers().setSystemTime(authenticatedAt);
 
@@ -540,6 +685,10 @@ describe('AuthService', () => {
       username: 'alice',
     });
 
+    expect(authRateLimitService.assertAllowed).toHaveBeenCalledWith(
+      AUTH_RATE_LIMIT_TYPE.RECOVERY_CODE,
+      'alice',
+    );
     expect(prismaService.recoveryCode.findMany).toHaveBeenCalledWith({
       orderBy: {
         createdAt: 'asc',
@@ -565,4 +714,186 @@ describe('AuthService', () => {
     expect(result.authMethod).toBe('recovery_code');
     expect(result.session.id).toBe('session-2');
   });
+
+  it('records a failed login audit entry when the password is invalid', async () => {
+    const passwordHash = await hash('a-very-secure-password', {
+      type: argon2id,
+    });
+
+    prismaService.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      passwordHash,
+      totpEnabledAt: null,
+      totpSecretEncrypted: null,
+      username: 'alice',
+    });
+
+    await expect(
+      authService.login({
+        password: 'wrong-password-value',
+        totpCode: '123456',
+        username: 'alice',
+      }),
+    ).rejects.toThrow(UnauthorizedException);
+    expect(authRateLimitService.recordFailure).toHaveBeenCalledWith(
+      AUTH_RATE_LIMIT_TYPE.PASSWORD,
+      'alice',
+    );
+    expect(authAuditService.log).toHaveBeenCalledWith({
+      authMethod: 'password',
+      event: 'login',
+      failureReason: 'invalid_username_or_password',
+      outcome: 'failure',
+      userId: undefined,
+      username: 'alice',
+    });
+  });
+
+  it('rotates the refresh token for an active session', async () => {
+    const refreshedAt = new Date('2026-05-09T16:30:00.000Z');
+    const accessTokenExpiresAt = new Date('2026-05-09T16:45:00.000Z');
+    const originalRefreshToken = 'refresh-token';
+    const originalRefreshTokenHash = await createRefreshTokenHash(
+      originalRefreshToken,
+    );
+    let capturedUpdateArgs: Prisma.SessionUpdateArgs | undefined;
+
+    prismaService.session.findUnique.mockResolvedValue({
+      expiresAt: new Date('2026-06-08T16:00:00.000Z'),
+      id: 'session-1',
+      revokedAt: null,
+      user: {
+        username: 'alice',
+      },
+      userId: 'user-1',
+    });
+    prismaService.session.update.mockImplementation((args) => {
+      capturedUpdateArgs = args;
+
+      return Promise.resolve({
+        createdAt: new Date('2026-05-09T16:00:00.000Z'),
+        expiresAt: new Date('2026-06-08T16:00:00.000Z'),
+        id: 'session-1',
+        lastUsedAt: refreshedAt,
+      });
+    });
+    accessTokenService.issueToken.mockReturnValue({
+      expiresAt: accessTokenExpiresAt,
+      token: 'rotated-access-token',
+    });
+    jest.useFakeTimers().setSystemTime(refreshedAt);
+
+    const result = await authService.refresh(
+      {
+        refreshToken: originalRefreshToken,
+      },
+      {
+        ipAddress: '127.0.0.1',
+      },
+    );
+
+    expect(prismaService.session.findUnique).toHaveBeenCalledWith({
+      select: {
+        expiresAt: true,
+        id: true,
+        revokedAt: true,
+        user: {
+          select: {
+            username: true,
+          },
+        },
+        userId: true,
+      },
+      where: {
+        refreshTokenHash: originalRefreshTokenHash,
+      },
+    });
+    expect(capturedUpdateArgs).toMatchObject({
+      data: {
+        lastUsedAt: refreshedAt,
+      },
+      select: {
+        createdAt: true,
+        expiresAt: true,
+        id: true,
+        lastUsedAt: true,
+      },
+      where: {
+        id: 'session-1',
+      },
+    });
+    expect(capturedUpdateArgs?.data.refreshTokenHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(result.accessToken).toBe('rotated-access-token');
+    expect(result.accessTokenExpiresAt).toEqual(accessTokenExpiresAt);
+    expect(result.refreshToken).toMatch(/^[A-Za-z0-9_-]+$/);
+    expect(result.session.lastUsedAt).toEqual(refreshedAt);
+    expect(result.user).toEqual({
+      id: 'user-1',
+      username: 'alice',
+    });
+  });
+
+  it('revokes the current session from a valid access token', async () => {
+    const revokedAt = new Date('2026-05-09T16:45:00.000Z');
+
+    accessTokenService.verifyToken.mockReturnValue({
+      expiresAt: new Date('2026-05-09T17:00:00.000Z'),
+      sessionId: 'session-1',
+      userId: 'user-1',
+    });
+    prismaService.session.findUnique.mockResolvedValue({
+      id: 'session-1',
+      revokedAt: null,
+      user: {
+        username: 'alice',
+      },
+      userId: 'user-1',
+    });
+    prismaService.session.update.mockResolvedValue({
+      createdAt: new Date('2026-05-09T16:00:00.000Z'),
+      expiresAt: new Date('2026-06-08T16:00:00.000Z'),
+      id: 'session-1',
+      revokedAt,
+    });
+    jest.useFakeTimers().setSystemTime(revokedAt);
+
+    const result = await authService.revokeSession('access-token', {
+      userAgent: 'jest',
+    });
+
+    expect(accessTokenService.verifyToken).toHaveBeenCalledWith('access-token');
+    expect(prismaService.session.update).toHaveBeenCalledWith({
+      data: {
+        revokedAt,
+      },
+      select: {
+        id: true,
+        revokedAt: true,
+      },
+      where: {
+        id: 'session-1',
+      },
+    });
+    expect(authAuditService.log).toHaveBeenCalledWith({
+      authMethod: 'access_token',
+      event: 'session_revoke',
+      outcome: 'success',
+      sessionId: 'session-1',
+      userAgent: 'jest',
+      userId: 'user-1',
+      username: 'alice',
+    });
+    expect(result).toEqual({
+      session: {
+        id: 'session-1',
+        revokedAt,
+      },
+    });
+  });
 });
+
+async function createRefreshTokenHash(refreshToken: string): Promise<string> {
+  const { createHash } = await import('node:crypto');
+
+  return createHash('sha256').update(refreshToken).digest('hex');
+}

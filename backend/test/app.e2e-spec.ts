@@ -8,6 +8,31 @@ import { AppModule } from './../src/app.module';
 import { TotpService } from './../src/auth/totp.service';
 import { PrismaService } from './../src/prisma/prisma.service';
 
+type AuthAuditLogRecord = {
+  authMethod: string | null;
+  createdAt: Date;
+  event: string;
+  failureReason: string | null;
+  id: string;
+  ipAddress: string | null;
+  outcome: string;
+  sessionId: string | null;
+  userAgent: string | null;
+  userId: string | null;
+  username: string | null;
+};
+
+type AuthRateLimitRecord = {
+  attempts: number;
+  blockedUntil: Date | null;
+  createdAt: Date;
+  id: string;
+  subject: string;
+  type: string;
+  updatedAt: Date;
+  windowStartedAt: Date;
+};
+
 type AuthRecoveryCodeRecord = {
   codeHash: string;
   createdAt: Date;
@@ -40,6 +65,27 @@ type MockPrismaService = {
     Promise<unknown>,
     [(transaction: TransactionClient) => Promise<unknown>]
   >;
+  authAuditLog: {
+    create: jest.Mock<Promise<AuthAuditLogRecord>, [Prisma.AuthAuditLogCreateArgs]>;
+  };
+  authRateLimit: {
+    deleteMany: jest.Mock<
+      Promise<{ count: number }>,
+      [Prisma.AuthRateLimitDeleteManyArgs]
+    >;
+    findUnique: jest.Mock<
+      Promise<AuthRateLimitRecord | null>,
+      [Prisma.AuthRateLimitFindUniqueArgs]
+    >;
+    update: jest.Mock<
+      Promise<AuthRateLimitRecord>,
+      [Prisma.AuthRateLimitUpdateArgs]
+    >;
+    upsert: jest.Mock<
+      Promise<AuthRateLimitRecord>,
+      [Prisma.AuthRateLimitUpsertArgs]
+    >;
+  };
   recoveryCode: {
     createMany: jest.Mock<
       Promise<{ count: number }>,
@@ -63,6 +109,14 @@ type MockPrismaService = {
       Promise<Record<string, unknown>>,
       [Prisma.SessionCreateArgs]
     >;
+    findUnique: jest.Mock<
+      Promise<Record<string, unknown> | null>,
+      [Prisma.SessionFindUniqueArgs]
+    >;
+    update: jest.Mock<
+      Promise<Record<string, unknown>>,
+      [Prisma.SessionUpdateArgs]
+    >;
   };
   user: {
     create: jest.Mock<
@@ -81,12 +135,15 @@ type MockPrismaService = {
 };
 
 type TotpLoginResponse = {
+  accessToken: string;
+  accessTokenExpiresAt: string;
   authMethod: string;
   refreshToken: string;
   session: {
     createdAt: string;
     expiresAt: string;
     id: string;
+    lastUsedAt: string;
   };
   user: {
     id: string;
@@ -122,15 +179,21 @@ type TransactionClient = Pick<
 describe('AppController (e2e)', () => {
   let app: INestApplication<App>;
   let prismaService: MockPrismaService;
+  let storedAuditLogs: AuthAuditLogRecord[];
+  let storedRateLimits: Map<string, AuthRateLimitRecord>;
   let storedRecoveryCodes: AuthRecoveryCodeRecord[];
   let storedSessions: AuthSessionRecord[];
   let storedUsersById: Map<string, AuthUserRecord>;
   let storedUsers: Map<string, AuthUserRecord>;
 
   beforeEach(async () => {
+    process.env.AUTH_ACCESS_TOKEN_SECRET = 'kestrel-test-access-token-secret';
+    process.env.AUTH_ACCESS_TOKEN_TTL_SECONDS = '900';
     process.env.AUTH_TOTP_ENCRYPTION_KEY =
       'MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=';
     process.env.AUTH_TOTP_ISSUER = 'Kestrel Test';
+    storedAuditLogs = [];
+    storedRateLimits = new Map();
     storedRecoveryCodes = [];
     storedSessions = [];
     storedUsersById = new Map();
@@ -140,6 +203,103 @@ describe('AppController (e2e)', () => {
         Promise<unknown>,
         [(transaction: TransactionClient) => Promise<unknown>]
       >(),
+      authAuditLog: {
+        create: jest.fn((args: Prisma.AuthAuditLogCreateArgs) => {
+          const record: AuthAuditLogRecord = {
+            authMethod: toNullableString(args.data.authMethod),
+            createdAt: new Date(),
+            event: String(args.data.event),
+            failureReason: toNullableString(args.data.failureReason),
+            id: `audit-${storedAuditLogs.length + 1}`,
+            ipAddress: toNullableString(args.data.ipAddress),
+            outcome: String(args.data.outcome),
+            sessionId: toNullableString(args.data.sessionId),
+            userAgent: toNullableString(args.data.userAgent),
+            userId: toNullableString(args.data.userId),
+            username: toNullableString(args.data.username),
+          };
+          storedAuditLogs.push(record);
+
+          return Promise.resolve(record);
+        }),
+      },
+      authRateLimit: {
+        deleteMany: jest.fn((args: Prisma.AuthRateLimitDeleteManyArgs) => {
+          const key = getRateLimitKey(
+            String(args.where?.type),
+            String(args.where?.subject),
+          );
+          const deleted = storedRateLimits.delete(key);
+
+          return Promise.resolve({ count: deleted ? 1 : 0 });
+        }),
+        findUnique: jest.fn((args: Prisma.AuthRateLimitFindUniqueArgs) => {
+          const compositeWhere = args.where.type_subject;
+
+          return Promise.resolve(
+            storedRateLimits.get(
+              getRateLimitKey(compositeWhere.type, compositeWhere.subject),
+            ) ?? null,
+          );
+        }),
+        update: jest.fn((args: Prisma.AuthRateLimitUpdateArgs) => {
+          const compositeWhere = args.where.type_subject;
+          const key = getRateLimitKey(
+            compositeWhere.type,
+            compositeWhere.subject,
+          );
+          const existing = storedRateLimits.get(key);
+
+          if (existing == null) {
+            throw new Error('rate limit not found');
+          }
+
+          const updatedRecord: AuthRateLimitRecord = {
+            ...existing,
+            attempts: Number(args.data.attempts),
+            blockedUntil: toNullableDate(args.data.blockedUntil),
+            updatedAt: new Date(),
+          };
+          storedRateLimits.set(key, updatedRecord);
+
+          return Promise.resolve(updatedRecord);
+        }),
+        upsert: jest.fn((args: Prisma.AuthRateLimitUpsertArgs) => {
+          const compositeWhere = args.where.type_subject;
+          const key = getRateLimitKey(
+            compositeWhere.type,
+            compositeWhere.subject,
+          );
+          const existing = storedRateLimits.get(key);
+
+          if (existing != null) {
+            const updatedRecord: AuthRateLimitRecord = {
+              ...existing,
+              attempts: Number(args.update.attempts),
+              blockedUntil: toNullableDate(args.update.blockedUntil),
+              updatedAt: new Date(),
+              windowStartedAt: new Date(args.update.windowStartedAt as Date),
+            };
+            storedRateLimits.set(key, updatedRecord);
+
+            return Promise.resolve(updatedRecord);
+          }
+
+          const createdRecord: AuthRateLimitRecord = {
+            attempts: Number(args.create.attempts),
+            blockedUntil: toNullableDate(args.create.blockedUntil),
+            createdAt: new Date(),
+            id: `rate-limit-${storedRateLimits.size + 1}`,
+            subject: String(args.create.subject),
+            type: String(args.create.type),
+            updatedAt: new Date(),
+            windowStartedAt: new Date(args.create.windowStartedAt),
+          };
+          storedRateLimits.set(key, createdRecord);
+
+          return Promise.resolve(createdRecord);
+        }),
+      },
       recoveryCode: {
         createMany: jest.fn((args: Prisma.RecoveryCodeCreateManyArgs) => {
           const rows = Array.isArray(args.data) ? args.data : [args.data];
@@ -194,10 +354,7 @@ describe('AppController (e2e)', () => {
             throw new Error('recovery code not found');
           }
 
-          recoveryCode.usedAt =
-            (args.data.usedAt as Date | string | null | undefined) == null
-              ? null
-              : new Date(args.data.usedAt as Date | string);
+          recoveryCode.usedAt = toNullableDate(args.data.usedAt);
 
           return Promise.resolve(recoveryCode);
         }),
@@ -215,7 +372,47 @@ describe('AppController (e2e)', () => {
           };
           storedSessions.push(sessionRecord);
 
-          return Promise.resolve(applySelect(sessionRecord, args.select));
+          return Promise.resolve(
+            applySelect(enrichSessionRecord(sessionRecord), args.select),
+          );
+        }),
+        findUnique: jest.fn((args: Prisma.SessionFindUniqueArgs) => {
+          const session =
+            typeof args.where.id === 'string'
+              ? storedSessions.find((record) => record.id === args.where.id)
+              : storedSessions.find(
+                  (record) =>
+                    record.refreshTokenHash === args.where.refreshTokenHash,
+                );
+
+          return Promise.resolve(
+            session == null
+              ? null
+              : applySelect(enrichSessionRecord(session), args.select),
+          );
+        }),
+        update: jest.fn((args: Prisma.SessionUpdateArgs) => {
+          const session = storedSessions.find(
+            (record) => record.id === args.where.id,
+          );
+
+          if (session == null) {
+            throw new Error('session not found');
+          }
+
+          if (args.data.lastUsedAt != null) {
+            session.lastUsedAt = new Date(args.data.lastUsedAt as Date);
+          }
+          if (args.data.refreshTokenHash != null) {
+            session.refreshTokenHash = String(args.data.refreshTokenHash);
+          }
+          if (args.data.revokedAt != null) {
+            session.revokedAt = new Date(args.data.revokedAt as Date);
+          }
+
+          return Promise.resolve(
+            applySelect(enrichSessionRecord(session), args.select),
+          );
         }),
       },
       user: {
@@ -311,7 +508,7 @@ describe('AppController (e2e)', () => {
       });
   });
 
-  it('/auth/totp/setup + /auth/totp/verify + /auth/login (POST)', async () => {
+  it('/auth/totp/setup + /auth/totp/verify + /auth/login + /auth/refresh + /auth/session/revoke (POST)', async () => {
     const password = 'a-very-secure-password';
     const passwordHash = await hash(password, { type: argon2id });
 
@@ -370,6 +567,7 @@ describe('AppController (e2e)', () => {
 
     const loginResponse = await request(app.getHttpServer())
       .post('/auth/login')
+      .set('User-Agent', 'jest-e2e')
       .send({
         password,
         totpCode,
@@ -378,6 +576,8 @@ describe('AppController (e2e)', () => {
       .expect(201);
     const loginBody = loginResponse.body as TotpLoginResponse;
 
+    expect(loginBody.accessToken).toMatch(/^v1\./);
+    expect(loginBody.accessTokenExpiresAt).toBe('2026-05-09T15:48:00.000Z');
     expect(loginBody.authMethod).toBe('totp');
     expect(loginBody.refreshToken).toMatch(/^[A-Za-z0-9_-]+$/);
     expect(loginBody.session.id).toBe('session-1');
@@ -386,43 +586,178 @@ describe('AppController (e2e)', () => {
       username: 'alice',
     });
 
-    const recoveryLoginResponse = await request(app.getHttpServer())
-      .post('/auth/login')
+    const originalRefreshToken = loginBody.refreshToken;
+    const refreshResponse = await request(app.getHttpServer())
+      .post('/auth/refresh')
       .send({
-        password,
-        recoveryCode: verifyBody.recoveryCodes[0],
-        username: 'alice',
+        refreshToken: originalRefreshToken,
       })
       .expect(201);
-    const recoveryLoginBody = recoveryLoginResponse.body as TotpLoginResponse;
+    const refreshBody = refreshResponse.body as TotpLoginResponse;
 
-    expect(recoveryLoginBody.authMethod).toBe('recovery_code');
-    expect(recoveryLoginBody.session.id).toBe('session-2');
-    expect(storedSessions).toHaveLength(2);
-    expect(storedRecoveryCodes[0]?.usedAt?.toISOString()).toBe(
+    expect(refreshBody.accessToken).toMatch(/^v1\./);
+    expect(refreshBody.refreshToken).not.toBe(originalRefreshToken);
+    expect(refreshBody.session.id).toBe('session-1');
+    expect(refreshBody.session.lastUsedAt).toBe('2026-05-09T15:33:00.000Z');
+
+    await request(app.getHttpServer())
+      .post('/auth/refresh')
+      .send({
+        refreshToken: originalRefreshToken,
+      })
+      .expect(401);
+
+    const revokeResponse = await request(app.getHttpServer())
+      .post('/auth/session/revoke')
+      .set('Authorization', `Bearer ${refreshBody.accessToken}`)
+      .expect(201);
+
+    expect(revokeResponse.body).toEqual({
+      session: {
+        id: 'session-1',
+        revokedAt: '2026-05-09T15:33:00.000Z',
+      },
+    });
+
+    await request(app.getHttpServer())
+      .post('/auth/refresh')
+      .send({
+        refreshToken: refreshBody.refreshToken,
+      })
+      .expect(401);
+
+    expect(storedSessions).toHaveLength(1);
+    expect(storedSessions[0]?.revokedAt?.toISOString()).toBe(
       '2026-05-09T15:33:00.000Z',
     );
+    expect(
+      storedAuditLogs.map((record) => ({
+        event: record.event,
+        outcome: record.outcome,
+      })),
+    ).toEqual([
+      { event: 'login', outcome: 'success' },
+      { event: 'refresh', outcome: 'success' },
+      { event: 'refresh', outcome: 'failure' },
+      { event: 'session_revoke', outcome: 'success' },
+      { event: 'refresh', outcome: 'failure' },
+    ]);
+  });
+
+  it('/auth/login (POST) rate limits repeated invalid passwords', async () => {
+    const passwordHash = await hash('a-very-secure-password', {
+      type: argon2id,
+    });
+
+    storedUsers.set('alice', {
+      createdAt: new Date('2026-05-09T00:00:00.000Z'),
+      id: 'user-1',
+      passwordHash,
+      totpEnabledAt: null,
+      totpSecretEncrypted: null,
+      username: 'alice',
+    });
+    storedUsersById.set('user-1', storedUsers.get('alice') as AuthUserRecord);
+
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({
+          password: 'definitely-the-wrong-password',
+          totpCode: '123456',
+          username: 'alice',
+        })
+        .expect(401);
+    }
+
+    await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({
+        password: 'definitely-the-wrong-password',
+        totpCode: '123456',
+        username: 'alice',
+      })
+      .expect(429);
+
+    expect(storedRateLimits.get(getRateLimitKey('password', 'alice'))).toMatchObject({
+      attempts: 5,
+    });
+    expect(
+      storedAuditLogs.filter((record) => record.event === 'login'),
+    ).toHaveLength(6);
   });
 
   afterEach(async () => {
     jest.useRealTimers();
     await app.close();
+    delete process.env.AUTH_ACCESS_TOKEN_SECRET;
+    delete process.env.AUTH_ACCESS_TOKEN_TTL_SECONDS;
     delete process.env.AUTH_TOTP_ENCRYPTION_KEY;
     delete process.env.AUTH_TOTP_ISSUER;
   });
+
+  function enrichSessionRecord(
+    record: AuthSessionRecord,
+  ): AuthSessionRecord & { user: AuthUserRecord | null } {
+    return {
+      ...record,
+      user: storedUsersById.get(record.userId) ?? null,
+    };
+  }
 });
 
 function applySelect(
   record: Record<string, unknown>,
-  select: Record<string, boolean> | null | undefined,
+  select:
+    | Record<string, boolean | { select: Record<string, boolean> }>
+    | null
+    | undefined,
 ): Record<string, unknown> {
   if (select == null) {
     return { ...record };
   }
 
   return Object.fromEntries(
-    Object.entries(select)
-      .filter(([, value]) => value === true)
-      .map(([key]) => [key, record[key] ?? null]),
+    Object.entries(select).flatMap(([key, value]) => {
+      if (value === true) {
+        return [[key, record[key] ?? null]];
+      }
+
+      if (
+        value != null &&
+        typeof value === 'object' &&
+        'select' in value &&
+        record[key] != null &&
+        typeof record[key] === 'object'
+      ) {
+        return [
+          [
+            key,
+            applySelect(
+              record[key] as Record<string, unknown>,
+              value.select as Record<string, boolean>,
+            ),
+          ],
+        ];
+      }
+
+      return [];
+    }),
   );
+}
+
+function getRateLimitKey(type: string, subject: string): string {
+  return `${type}:${subject}`;
+}
+
+function toNullableDate(value: Date | string | null | undefined): Date | null {
+  if (value == null) {
+    return null;
+  }
+
+  return new Date(value);
+}
+
+function toNullableString(value: unknown): string | null {
+  return typeof value === 'string' ? value : null;
 }

@@ -3,17 +3,27 @@ import {
   ConflictException,
   Injectable,
   InternalServerErrorException,
+  TooManyRequestsException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { argon2id, hash, verify } from 'argon2';
 import { createHash, randomBytes } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
+import { AccessTokenService } from './access-token.service';
+import { AuthAuditMetadata, AuthAuditService } from './auth-audit.service';
+import {
+  AUTH_RATE_LIMIT_TYPE,
+  AuthRateLimitService,
+} from './auth-rate-limit.service';
 import { TotpService } from './totp.service';
 
 @Injectable()
 export class AuthService {
   constructor(
+    private readonly accessTokenService: AccessTokenService,
+    private readonly authAuditService: AuthAuditService,
+    private readonly authRateLimitService: AuthRateLimitService,
     private readonly prismaService: PrismaService,
     private readonly totpService: TotpService,
   ) {}
@@ -113,10 +123,22 @@ export class AuthService {
     }
 
     const secret = this.totpService.decryptSecret(user.totpSecretEncrypted);
+    await this.authRateLimitService.assertAllowed(
+      AUTH_RATE_LIMIT_TYPE.TOTP,
+      user.username,
+    );
 
     if (!this.totpService.verifyCode(secret, code)) {
+      await this.authRateLimitService.recordFailure(
+        AUTH_RATE_LIMIT_TYPE.TOTP,
+        user.username,
+      );
       throw new BadRequestException('invalid totp code');
     }
+    await this.authRateLimitService.reset(
+      AUTH_RATE_LIMIT_TYPE.TOTP,
+      user.username,
+    );
 
     const totpEnabledAt = new Date();
     const { recoveryCodes, updatedUser } =
@@ -161,74 +183,279 @@ export class AuthService {
     };
   }
 
-  async login(input: unknown) {
+  async login(input: unknown, metadata: AuthAuditMetadata = {}) {
     const loginRequest = parseLoginRequest(input);
-    const user = await this.authenticateUser(
-      loginRequest.username,
-      loginRequest.password,
-    );
+    const authMethod =
+      loginRequest.totpCode != null
+        ? ('totp' as const)
+        : ('recovery_code' as const);
+    let userId: string | undefined;
 
-    if (user.totpEnabledAt == null || user.totpSecretEncrypted == null) {
-      throw new UnauthorizedException('totp must be enabled before login');
+    try {
+      const user = await this.authenticateUser(
+        loginRequest.username,
+        loginRequest.password,
+      );
+      userId = user.id;
+
+      if (user.totpEnabledAt == null || user.totpSecretEncrypted == null) {
+        throw new UnauthorizedException('totp must be enabled before login');
+      }
+
+      const authenticatedAt = new Date();
+      const refreshToken = createRefreshToken();
+      const refreshTokenHash = hashRefreshToken(refreshToken);
+      const session = await this.prismaService.$transaction(
+        async (transaction) => {
+          if (loginRequest.totpCode != null) {
+            await this.validateTotpCode(
+              user.username,
+              user.totpSecretEncrypted,
+              loginRequest.totpCode,
+            );
+          } else {
+            await this.validateRecoveryCode(
+              transaction,
+              user.id,
+              user.username,
+              loginRequest.recoveryCode,
+              authenticatedAt,
+            );
+          }
+
+          return transaction.session.create({
+            data: {
+              expiresAt: createSessionExpiry(authenticatedAt),
+              lastUsedAt: authenticatedAt,
+              refreshTokenHash,
+              userId: user.id,
+            },
+            select: {
+              createdAt: true,
+              expiresAt: true,
+              id: true,
+              lastUsedAt: true,
+            },
+          });
+        },
+      );
+      const accessToken = this.accessTokenService.issueToken(
+        {
+          sessionId: session.id,
+          userId: user.id,
+        },
+        authenticatedAt,
+      );
+
+      await this.safeAuditLog({
+        ...metadata,
+        authMethod,
+        event: 'login',
+        outcome: 'success',
+        sessionId: session.id,
+        userId: user.id,
+        username: user.username,
+      });
+
+      return {
+        accessToken: accessToken.token,
+        accessTokenExpiresAt: accessToken.expiresAt,
+        authMethod,
+        refreshToken,
+        session,
+        user: {
+          id: user.id,
+          username: user.username,
+        },
+      };
+    } catch (error) {
+      await this.safeAuditLog({
+        ...metadata,
+        authMethod:
+          error instanceof UnauthorizedException &&
+          error.message === 'invalid username or password'
+            ? 'password'
+            : authMethod,
+        event: 'login',
+        failureReason: getAuditFailureReason(error),
+        outcome: 'failure',
+        userId,
+        username: loginRequest.username,
+      });
+
+      throw error;
+    }
+  }
+
+  async refresh(input: unknown, metadata: AuthAuditMetadata = {}) {
+    const { refreshToken } = parseRefreshRequest(input);
+    const now = new Date();
+    const refreshTokenHash = hashRefreshToken(refreshToken);
+    const session = await this.prismaService.session.findUnique({
+      select: {
+        expiresAt: true,
+        id: true,
+        revokedAt: true,
+        user: {
+          select: {
+            username: true,
+          },
+        },
+        userId: true,
+      },
+      where: {
+        refreshTokenHash,
+      },
+    });
+
+    if (session == null) {
+      await this.safeAuditLog({
+        ...metadata,
+        authMethod: 'refresh_token',
+        event: 'refresh',
+        failureReason: 'invalid_refresh_token',
+        outcome: 'failure',
+      });
+      throw new UnauthorizedException('invalid refresh token');
     }
 
-    const authenticatedAt = new Date();
-    const refreshToken = createRefreshToken();
-    const refreshTokenHash = hashRefreshToken(refreshToken);
-    const totpSecretEncrypted = user.totpSecretEncrypted;
+    if (
+      session.revokedAt != null ||
+      session.expiresAt.getTime() <= now.getTime()
+    ) {
+      await this.safeAuditLog({
+        ...metadata,
+        authMethod: 'refresh_token',
+        event: 'refresh',
+        failureReason:
+          session.revokedAt != null ? 'session_revoked' : 'session_expired',
+        outcome: 'failure',
+        sessionId: session.id,
+        userId: session.userId,
+        username: session.user.username,
+      });
+      throw new UnauthorizedException('session is no longer active');
+    }
 
-    const session = await this.prismaService.$transaction(
-      async (transaction) => {
-        if (loginRequest.totpCode != null) {
-          const secret = this.totpService.decryptSecret(totpSecretEncrypted);
-
-          if (!this.totpService.verifyCode(secret, loginRequest.totpCode)) {
-            throw new UnauthorizedException('invalid one-time code');
-          }
-        } else {
-          const consumedRecoveryCode = await useRecoveryCode(
-            transaction,
-            user.id,
-            loginRequest.recoveryCode,
-            authenticatedAt,
-          );
-
-          if (!consumedRecoveryCode) {
-            throw new UnauthorizedException('invalid one-time code');
-          }
-        }
-
-        return transaction.session.create({
-          data: {
-            expiresAt: createSessionExpiry(authenticatedAt),
-            lastUsedAt: authenticatedAt,
-            refreshTokenHash,
-            userId: user.id,
-          },
-          select: {
-            createdAt: true,
-            expiresAt: true,
-            id: true,
-          },
-        });
+    const nextRefreshToken = createRefreshToken();
+    const updatedSession = await this.prismaService.session.update({
+      data: {
+        lastUsedAt: now,
+        refreshTokenHash: hashRefreshToken(nextRefreshToken),
       },
+      select: {
+        createdAt: true,
+        expiresAt: true,
+        id: true,
+        lastUsedAt: true,
+      },
+      where: {
+        id: session.id,
+      },
+    });
+    const accessToken = this.accessTokenService.issueToken(
+      {
+        sessionId: session.id,
+        userId: session.userId,
+      },
+      now,
     );
 
+    await this.safeAuditLog({
+      ...metadata,
+      authMethod: 'refresh_token',
+      event: 'refresh',
+      outcome: 'success',
+      sessionId: session.id,
+      userId: session.userId,
+      username: session.user.username,
+    });
+
     return {
-      authMethod:
-        loginRequest.totpCode != null
-          ? ('totp' as const)
-          : ('recovery_code' as const),
-      refreshToken,
-      session,
+      accessToken: accessToken.token,
+      accessTokenExpiresAt: accessToken.expiresAt,
+      refreshToken: nextRefreshToken,
+      session: updatedSession,
       user: {
-        id: user.id,
-        username: user.username,
+        id: session.userId,
+        username: session.user.username,
       },
     };
   }
 
+  async revokeSession(
+    accessToken: string,
+    metadata: AuthAuditMetadata = {},
+  ) {
+    const tokenClaims = this.accessTokenService.verifyToken(accessToken);
+    const session = await this.prismaService.session.findUnique({
+      select: {
+        id: true,
+        revokedAt: true,
+        user: {
+          select: {
+            username: true,
+          },
+        },
+        userId: true,
+      },
+      where: {
+        id: tokenClaims.sessionId,
+      },
+    });
+
+    if (session == null || session.userId !== tokenClaims.userId) {
+      await this.safeAuditLog({
+        ...metadata,
+        authMethod: 'access_token',
+        event: 'session_revoke',
+        failureReason: 'invalid_session',
+        outcome: 'failure',
+        sessionId: tokenClaims.sessionId,
+        userId: tokenClaims.userId,
+      });
+      throw new UnauthorizedException('session is no longer active');
+    }
+
+    const revokedSession =
+      session.revokedAt == null
+        ? await this.prismaService.session.update({
+            data: {
+              revokedAt: new Date(),
+            },
+            select: {
+              id: true,
+              revokedAt: true,
+            },
+            where: {
+              id: session.id,
+            },
+          })
+        : {
+            id: session.id,
+            revokedAt: session.revokedAt,
+          };
+
+    await this.safeAuditLog({
+      ...metadata,
+      authMethod: 'access_token',
+      event: 'session_revoke',
+      outcome: 'success',
+      sessionId: session.id,
+      userId: session.userId,
+      username: session.user.username,
+    });
+
+    return {
+      session: revokedSession,
+    };
+  }
+
   private async authenticateUser(username: string, password: string) {
+    await this.authRateLimitService.assertAllowed(
+      AUTH_RATE_LIMIT_TYPE.PASSWORD,
+      username,
+    );
     const user = await this.prismaService.user.findUnique({
       select: {
         id: true,
@@ -241,16 +468,89 @@ export class AuthService {
     });
 
     if (user == null) {
+      await this.authRateLimitService.recordFailure(
+        AUTH_RATE_LIMIT_TYPE.PASSWORD,
+        username,
+      );
       throw new UnauthorizedException('invalid username or password');
     }
 
     const passwordMatches = await verify(user.passwordHash, password);
 
     if (!passwordMatches) {
+      await this.authRateLimitService.recordFailure(
+        AUTH_RATE_LIMIT_TYPE.PASSWORD,
+        username,
+      );
       throw new UnauthorizedException('invalid username or password');
     }
+    await this.authRateLimitService.reset(AUTH_RATE_LIMIT_TYPE.PASSWORD, username);
 
     return user;
+  }
+
+  private async safeAuditLog(
+    entry: Parameters<AuthAuditService['log']>[0],
+  ): Promise<void> {
+    try {
+      await this.authAuditService.log(entry);
+    } catch {
+      // Authentication must still return its primary result if audit persistence fails.
+    }
+  }
+
+  private async validateRecoveryCode(
+    transaction: Prisma.TransactionClient,
+    userId: string,
+    username: string,
+    recoveryCode: string,
+    authenticatedAt: Date,
+  ) {
+    await this.authRateLimitService.assertAllowed(
+      AUTH_RATE_LIMIT_TYPE.RECOVERY_CODE,
+      username,
+    );
+    const consumedRecoveryCode = await useRecoveryCode(
+      transaction,
+      userId,
+      recoveryCode,
+      authenticatedAt,
+    );
+
+    if (!consumedRecoveryCode) {
+      await this.authRateLimitService.recordFailure(
+        AUTH_RATE_LIMIT_TYPE.RECOVERY_CODE,
+        username,
+      );
+      throw new UnauthorizedException('invalid one-time code');
+    }
+
+    await this.authRateLimitService.reset(
+      AUTH_RATE_LIMIT_TYPE.RECOVERY_CODE,
+      username,
+    );
+  }
+
+  private async validateTotpCode(
+    username: string,
+    totpSecretEncrypted: string,
+    code: string,
+  ) {
+    await this.authRateLimitService.assertAllowed(
+      AUTH_RATE_LIMIT_TYPE.TOTP,
+      username,
+    );
+    const secret = this.totpService.decryptSecret(totpSecretEncrypted);
+
+    if (!this.totpService.verifyCode(secret, code)) {
+      await this.authRateLimitService.recordFailure(
+        AUTH_RATE_LIMIT_TYPE.TOTP,
+        username,
+      );
+      throw new UnauthorizedException('invalid one-time code');
+    }
+
+    await this.authRateLimitService.reset(AUTH_RATE_LIMIT_TYPE.TOTP, username);
   }
 }
 
@@ -346,6 +646,20 @@ function parseLoginRequest(input: unknown):
   throw new BadRequestException(
     'exactly one of totpCode or recoveryCode must be provided',
   );
+}
+
+function parseRefreshRequest(input: unknown): {
+  refreshToken: string;
+} {
+  const inputRecord = parseUnknownRecord(input);
+
+  if (typeof inputRecord.refreshToken !== 'string') {
+    throw new BadRequestException('refreshToken must be a string');
+  }
+
+  return {
+    refreshToken: inputRecord.refreshToken,
+  };
 }
 
 function parseUnknownRecord(input: unknown): Record<string, unknown> {
@@ -516,4 +830,27 @@ async function useRecoveryCode(
   }
 
   return false;
+}
+
+function getAuditFailureReason(error: unknown): string {
+  if (error instanceof BadRequestException) {
+    return 'bad_request';
+  }
+
+  if (error instanceof UnauthorizedException) {
+    return error.message
+      .toLowerCase()
+      .replaceAll(/[^a-z0-9]+/g, '_')
+      .replaceAll(/^_+|_+$/g, '');
+  }
+
+  if (error instanceof ConflictException) {
+    return 'conflict';
+  }
+
+  if (error instanceof TooManyRequestsException) {
+    return 'rate_limited';
+  }
+
+  return 'internal_error';
 }
