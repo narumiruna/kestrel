@@ -111,7 +111,11 @@ private fun MovementEngine.Mode.label(): String =
 
 @OptIn(ExperimentalPermissionsApi::class, ExperimentalMaterial3Api::class)
 @Composable
-fun MapScreen(modifier: Modifier = Modifier) {
+fun MapScreen(
+    modifier: Modifier = Modifier,
+    pendingFavoriteApply: Favorite? = null,
+    onFavoriteApplyConsumed: () -> Unit = {},
+) {
     val context = LocalContext.current
     val permissions =
         remember {
@@ -173,6 +177,7 @@ fun MapScreen(modifier: Modifier = Modifier) {
                         LocationService.setLocation(context, LatLng(fav.lat, fav.lng))
                         runState = RunState.Single
                     }
+                    prefs.touchFavorite(fav.name)
                 }
             }
         }
@@ -228,6 +233,13 @@ fun MapScreen(modifier: Modifier = Modifier) {
         runState = RunState.Idle
         showGoToSheet = false
         scope.launch { prefs.touchFavorite(favorite.name) }
+    }
+
+    LaunchedEffect(pendingFavoriteApply) {
+        pendingFavoriteApply?.let {
+            applyFavorite(it)
+            onFavoriteApplyConsumed()
+        }
     }
 
     if (showGenerateDialog) {
