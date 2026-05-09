@@ -175,45 +175,50 @@ export class AuthService {
     const authenticatedAt = new Date();
     const refreshToken = createRefreshToken();
     const refreshTokenHash = hashRefreshToken(refreshToken);
+    const totpSecretEncrypted = user.totpSecretEncrypted;
 
-    const session = await this.prismaService.$transaction(async (transaction) => {
-      if (loginRequest.totpCode != null) {
-        const secret = this.totpService.decryptSecret(user.totpSecretEncrypted);
+    const session = await this.prismaService.$transaction(
+      async (transaction) => {
+        if (loginRequest.totpCode != null) {
+          const secret = this.totpService.decryptSecret(totpSecretEncrypted);
 
-        if (!this.totpService.verifyCode(secret, loginRequest.totpCode)) {
-          throw new UnauthorizedException('invalid one-time code');
+          if (!this.totpService.verifyCode(secret, loginRequest.totpCode)) {
+            throw new UnauthorizedException('invalid one-time code');
+          }
+        } else {
+          const consumedRecoveryCode = await useRecoveryCode(
+            transaction,
+            user.id,
+            loginRequest.recoveryCode,
+            authenticatedAt,
+          );
+
+          if (!consumedRecoveryCode) {
+            throw new UnauthorizedException('invalid one-time code');
+          }
         }
-      } else {
-        const consumedRecoveryCode = await useRecoveryCode(
-          transaction,
-          user.id,
-          loginRequest.recoveryCode,
-          authenticatedAt,
-        );
 
-        if (!consumedRecoveryCode) {
-          throw new UnauthorizedException('invalid one-time code');
-        }
-      }
-
-      return transaction.session.create({
-        data: {
-          expiresAt: createSessionExpiry(authenticatedAt),
-          lastUsedAt: authenticatedAt,
-          refreshTokenHash,
-          userId: user.id,
-        },
-        select: {
-          createdAt: true,
-          expiresAt: true,
-          id: true,
-        },
-      });
-    });
+        return transaction.session.create({
+          data: {
+            expiresAt: createSessionExpiry(authenticatedAt),
+            lastUsedAt: authenticatedAt,
+            refreshTokenHash,
+            userId: user.id,
+          },
+          select: {
+            createdAt: true,
+            expiresAt: true,
+            id: true,
+          },
+        });
+      },
+    );
 
     return {
       authMethod:
-        loginRequest.totpCode != null ? ('totp' as const) : ('recovery_code' as const),
+        loginRequest.totpCode != null
+          ? ('totp' as const)
+          : ('recovery_code' as const),
       refreshToken,
       session,
       user: {
