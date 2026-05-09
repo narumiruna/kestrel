@@ -4,29 +4,41 @@ import android.Manifest
 import android.content.Intent
 import android.os.Build
 import android.provider.Settings
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
+import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SheetValue
+import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberBottomSheetScaffoldState
+import androidx.compose.material3.rememberStandardBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -36,6 +48,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -80,7 +93,7 @@ private fun MovementEngine.Mode.label(): String =
         MovementEngine.Mode.PingPong -> "Ping-pong"
     }
 
-@OptIn(ExperimentalPermissionsApi::class)
+@OptIn(ExperimentalPermissionsApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun MapScreen(modifier: Modifier = Modifier) {
     val context = LocalContext.current
@@ -158,6 +171,13 @@ fun MapScreen(modifier: Modifier = Modifier) {
     val ready = permissionState.allPermissionsGranted && mockAllowed
     val mockNow by LocationService.currentMock.collectAsStateWithLifecycle()
 
+    val sheetState =
+        rememberStandardBottomSheetState(
+            initialValue = SheetValue.PartiallyExpanded,
+            skipHiddenState = true,
+        )
+    val scaffoldState = rememberBottomSheetScaffoldState(bottomSheetState = sheetState)
+
     if (showGenerateDialog) {
         GenerateRouteDialog(
             onConfirm = { count, meters ->
@@ -178,101 +198,72 @@ fun MapScreen(modifier: Modifier = Modifier) {
     }
 
     pendingFavorite?.let { pending ->
-        val (title, supporting) =
-            when (pending) {
-                is PendingFavorite.Point ->
-                    "Save favorite" to "%.5f, %.5f".format(pending.target.lat, pending.target.lng)
-                is PendingFavorite.Route ->
-                    "Save route" to "${pending.waypoints.size} waypoints · ${pending.speedKmh.toInt()} km/h"
-            }
-        AlertDialog(
-            onDismissRequest = {
+        SaveFavoriteDialog(
+            pending = pending,
+            name = favoriteName,
+            onNameChange = { favoriteName = it },
+            onConfirm = {
+                val name = favoriteName.trim().ifEmpty { "Favorite ${favorites.size + 1}" }
+                scope.launch { prefs.addFavorite(pending.toFavorite(name)) }
                 pendingFavorite = null
                 favoriteName = ""
             },
-            title = { Text(title) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(supporting)
-                    OutlinedTextField(
-                        value = favoriteName,
-                        onValueChange = { favoriteName = it },
-                        label = { Text("Name") },
-                    )
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        val name = favoriteName.trim().ifEmpty { "Favorite ${favorites.size + 1}" }
-                        val fav =
-                            when (pending) {
-                                is PendingFavorite.Point ->
-                                    Favorite(
-                                        name = name,
-                                        lat = pending.target.lat,
-                                        lng = pending.target.lng,
-                                    )
-                                is PendingFavorite.Route -> {
-                                    val first = pending.waypoints.first()
-                                    Favorite(
-                                        name = name,
-                                        lat = first.lat,
-                                        lng = first.lng,
-                                        route =
-                                            FavoriteRoute(
-                                                lats =
-                                                    DoubleArray(pending.waypoints.size) { i ->
-                                                        pending.waypoints[i].lat
-                                                    },
-                                                lngs =
-                                                    DoubleArray(pending.waypoints.size) { i ->
-                                                        pending.waypoints[i].lng
-                                                    },
-                                                speedKmh = pending.speedKmh,
-                                            ),
-                                    )
-                                }
-                            }
-                        scope.launch { prefs.addFavorite(fav) }
-                        pendingFavorite = null
-                        favoriteName = ""
-                    },
-                ) { Text("Save") }
-            },
-            dismissButton = {
-                TextButton(onClick = {
-                    pendingFavorite = null
-                    favoriteName = ""
-                }) { Text("Cancel") }
+            onDismiss = {
+                pendingFavorite = null
+                favoriteName = ""
             },
         )
     }
 
-    Column(modifier = modifier.fillMaxSize()) {
-        if (!permissionState.allPermissionsGranted || !mockAllowed) {
-            StatusBanner(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
-                permissionState = permissionState,
-                mockAllowed = mockAllowed,
-                onOpenDeveloperOptions = {
-                    context.startActivity(
-                        Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS)
-                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+    BottomSheetScaffold(
+        modifier = modifier.fillMaxSize(),
+        scaffoldState = scaffoldState,
+        sheetPeekHeight = 156.dp,
+        sheetContent = {
+            MapSheet(
+                runState = runState,
+                waypointCount = waypoints.size,
+                mockNow = mockNow,
+                ready = ready,
+                speedKmh = speedKmh,
+                routeMode = routeMode,
+                onSpeedChange = { speedKmh = it },
+                onModeChange = { routeMode = it },
+                onPrimary = {
+                    handlePrimary(
+                        runState = runState,
+                        waypoints = waypoints,
+                        ready = ready,
+                        speedKmh = speedKmh,
+                        routeMode = routeMode,
+                        context = context,
+                        showGenerate = { showGenerateDialog = true },
+                        setRunState = { runState = it },
                     )
                 },
-                onRefreshMockCheck = { mockAllowed = mockProvider.isMockAllowed() },
+                onStop = {
+                    LocationService.stop(context)
+                    runState = RunState.Idle
+                },
+                onClear = {
+                    waypoints = emptyList()
+                    if (runState != RunState.Idle) {
+                        LocationService.stop(context)
+                        runState = RunState.Idle
+                    }
+                },
+                onSaveRoute = {
+                    pendingFavorite = PendingFavorite.Route(waypoints, speedKmh, routeMode)
+                },
+                onGenerate = { showGenerateDialog = true },
             )
-        }
-
+        },
+    ) { innerPadding ->
         Box(
             modifier =
                 Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
+                    .fillMaxSize()
+                    .padding(innerPadding),
         ) {
             KestrelMap(
                 modifier = Modifier.fillMaxSize(),
@@ -283,10 +274,6 @@ fun MapScreen(modifier: Modifier = Modifier) {
                 onMapClick = { point ->
                     if (runState == RunState.Idle || runState == RunState.Single) {
                         waypoints = waypoints + point
-                        if (ready) {
-                            LocationService.setLocation(context, point)
-                            runState = RunState.Single
-                        }
                     }
                 },
                 onMapLongClick = { pendingFavorite = PendingFavorite.Point(it) },
@@ -299,79 +286,337 @@ fun MapScreen(modifier: Modifier = Modifier) {
                     scope.launch { prefs.setLastCamera(snap) }
                 },
             )
-            InfoStrip(
-                modifier =
-                    Modifier
-                        .align(Alignment.TopCenter)
-                        .padding(8.dp),
-                waypointCount = waypoints.size,
-                runState = runState,
-            )
-            FilledTonalIconButton(
-                onClick = {
-                    myLocation?.let {
-                        cameraTarget = CameraSnapshot(it.lat, it.lng, 15.0)
-                    }
-                },
-                enabled = myLocation != null,
+            if (!permissionState.allPermissionsGranted || !mockAllowed) {
+                StatusBanner(
+                    modifier =
+                        Modifier
+                            .align(Alignment.TopCenter)
+                            .padding(horizontal = 12.dp, vertical = 12.dp),
+                    permissionState = permissionState,
+                    mockAllowed = mockAllowed,
+                    onOpenDeveloperOptions = {
+                        context.startActivity(
+                            Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS)
+                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                        )
+                    },
+                    onRefreshMockCheck = { mockAllowed = mockProvider.isMockAllowed() },
+                )
+            }
+            Column(
                 modifier =
                     Modifier
                         .align(Alignment.BottomEnd)
-                        .padding(12.dp),
+                        .padding(end = 16.dp, bottom = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalAlignment = Alignment.End,
             ) {
-                Icon(
-                    imageVector = Icons.Filled.MyLocation,
-                    contentDescription = "Center on me",
+                SmallFloatingActionButton(onClick = { showGenerateDialog = true }) {
+                    Icon(Icons.Filled.AutoAwesome, contentDescription = "Generate route")
+                }
+                SmallFloatingActionButton(
+                    onClick = {
+                        myLocation?.let { cameraTarget = CameraSnapshot(it.lat, it.lng, 15.0) }
+                    },
+                ) {
+                    Icon(Icons.Filled.MyLocation, contentDescription = "Center on me")
+                }
+            }
+        }
+    }
+}
+
+private fun PendingFavorite.toFavorite(name: String): Favorite =
+    when (this) {
+        is PendingFavorite.Point ->
+            Favorite(name = name, lat = target.lat, lng = target.lng)
+        is PendingFavorite.Route -> {
+            val first = waypoints.first()
+            Favorite(
+                name = name,
+                lat = first.lat,
+                lng = first.lng,
+                route =
+                    FavoriteRoute(
+                        lats = DoubleArray(waypoints.size) { i -> waypoints[i].lat },
+                        lngs = DoubleArray(waypoints.size) { i -> waypoints[i].lng },
+                        speedKmh = speedKmh,
+                        mode = mode.name,
+                    ),
+            )
+        }
+    }
+
+@Suppress("LongParameterList")
+private fun handlePrimary(
+    runState: RunState,
+    waypoints: List<LatLng>,
+    ready: Boolean,
+    speedKmh: Double,
+    routeMode: MovementEngine.Mode,
+    context: android.content.Context,
+    showGenerate: () -> Unit,
+    setRunState: (RunState) -> Unit,
+) {
+    when (runState) {
+        RunState.Idle -> {
+            when {
+                waypoints.isEmpty() -> showGenerate()
+                waypoints.size == 1 -> {
+                    if (ready) {
+                        LocationService.setLocation(context, waypoints.first())
+                        setRunState(RunState.Single)
+                    }
+                }
+                else -> {
+                    if (ready) {
+                        LocationService.startRoute(context, waypoints, speedKmh, routeMode)
+                        setRunState(RunState.RoutePlaying)
+                    }
+                }
+            }
+        }
+        RunState.Single -> Unit // handled by Stop
+        RunState.RoutePlaying -> {
+            LocationService.pause(context)
+            setRunState(RunState.RoutePaused)
+        }
+        RunState.RoutePaused -> {
+            LocationService.resume(context)
+            setRunState(RunState.RoutePlaying)
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Suppress("LongParameterList")
+@Composable
+private fun MapSheet(
+    runState: RunState,
+    waypointCount: Int,
+    mockNow: LatLng?,
+    ready: Boolean,
+    speedKmh: Double,
+    routeMode: MovementEngine.Mode,
+    onSpeedChange: (Double) -> Unit,
+    onModeChange: (MovementEngine.Mode) -> Unit,
+    onPrimary: () -> Unit,
+    onStop: () -> Unit,
+    onClear: () -> Unit,
+    onSaveRoute: () -> Unit,
+    onGenerate: () -> Unit,
+) {
+    val isRouteRunning = runState == RunState.RoutePlaying || runState == RunState.RoutePaused
+    val canShowExtras = !isRouteRunning
+    Column(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        StatusRow(runState = runState, waypointCount = waypointCount, mockNow = mockNow)
+        PrimaryActionRow(
+            runState = runState,
+            waypointCount = waypointCount,
+            ready = ready,
+            onPrimary = onPrimary,
+            onStop = onStop,
+        )
+        if (canShowExtras && waypointCount > 0) {
+            HorizontalDivider()
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(
+                    onClick = onClear,
+                    modifier = Modifier.weight(1f),
+                ) { Text("Clear") }
+                OutlinedButton(
+                    onClick = onSaveRoute,
+                    enabled = waypointCount >= 2,
+                    modifier = Modifier.weight(1f),
+                ) { Text("Save route") }
+                OutlinedButton(
+                    onClick = onGenerate,
+                    modifier = Modifier.weight(1f),
+                ) { Text("Re-generate") }
+            }
+        }
+        HorizontalDivider()
+        SectionLabel("Speed")
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            SPEED_PRESETS.forEach { preset ->
+                ChipChoice(
+                    label = "${preset.toInt()} km/h",
+                    selected = preset == speedKmh,
+                    enabled = !isRouteRunning,
+                    onClick = { onSpeedChange(preset) },
                 )
             }
         }
+        SectionLabel("Mode")
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            MovementEngine.Mode.entries.forEach { entry ->
+                ChipChoice(
+                    label = entry.label(),
+                    selected = entry == routeMode,
+                    enabled = !isRouteRunning && waypointCount >= 2,
+                    onClick = { onModeChange(entry) },
+                )
+            }
+        }
+        Spacer(Modifier.size(4.dp))
+    }
+}
 
-        ControlPanel(
+@Composable
+private fun StatusRow(
+    runState: RunState,
+    waypointCount: Int,
+    mockNow: LatLng?,
+) {
+    val (dotColor, title, subtitle) =
+        when (runState) {
+            RunState.Idle ->
+                Triple(
+                    MaterialTheme.colorScheme.outline,
+                    if (waypointCount == 0) "Idle" else "$waypointCount waypoints",
+                    if (waypointCount == 0) {
+                        "Tap the map to drop a point or generate a route."
+                    } else if (waypointCount == 1) {
+                        "Tap a button below to mock this point."
+                    } else {
+                        "Ready to play."
+                    },
+                )
+            RunState.Single ->
+                Triple(
+                    MaterialTheme.colorScheme.error,
+                    "Mocking single point",
+                    mockNow?.let { "%.5f, %.5f".format(it.lat, it.lng) } ?: "—",
+                )
+            RunState.RoutePlaying ->
+                Triple(
+                    MaterialTheme.colorScheme.error,
+                    "Route playing",
+                    "$waypointCount waypoints",
+                )
+            RunState.RoutePaused ->
+                Triple(
+                    MaterialTheme.colorScheme.tertiary,
+                    "Route paused",
+                    "$waypointCount waypoints",
+                )
+        }
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Box(
             modifier =
                 Modifier
-                    .fillMaxWidth()
-                    .padding(12.dp),
-            ready = ready,
-            waypoints = waypoints,
-            speedKmh = speedKmh,
-            routeMode = routeMode,
-            runState = runState,
-            onSpeedChange = { speedKmh = it },
-            onModeChange = { routeMode = it },
-            onGenerateRoute = { showGenerateDialog = true },
-            onSaveRoute = {
-                pendingFavorite = PendingFavorite.Route(waypoints, speedKmh, routeMode)
-            },
-            onClear = {
-                waypoints = emptyList()
-                if (runState != RunState.Idle) {
-                    LocationService.stop(context)
-                    runState = RunState.Idle
-                }
-            },
-            onSetSingle = {
-                val last = waypoints.lastOrNull() ?: return@ControlPanel
-                LocationService.setLocation(context, last)
-                runState = RunState.Single
-            },
-            onPlay = {
-                LocationService.startRoute(context, waypoints, speedKmh, routeMode)
-                runState = RunState.RoutePlaying
-            },
-            onPause = {
-                LocationService.pause(context)
-                runState = RunState.RoutePaused
-            },
-            onResume = {
-                LocationService.resume(context)
-                runState = RunState.RoutePlaying
-            },
-            onStop = {
-                LocationService.stop(context)
-                runState = RunState.Idle
-            },
+                    .size(10.dp)
+                    .clip(CircleShape)
+                    .background(dotColor),
         )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.titleMedium)
+            Text(
+                subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
+}
+
+@Composable
+private fun PrimaryActionRow(
+    runState: RunState,
+    waypointCount: Int,
+    ready: Boolean,
+    onPrimary: () -> Unit,
+    onStop: () -> Unit,
+) {
+    when (runState) {
+        RunState.Idle -> {
+            val label =
+                when {
+                    waypointCount == 0 -> "Generate random route"
+                    waypointCount == 1 -> "Mock this point"
+                    else -> "Play route"
+                }
+            val enabled =
+                when {
+                    waypointCount == 0 -> true
+                    else -> ready
+                }
+            Button(
+                onClick = onPrimary,
+                enabled = enabled,
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text(label) }
+        }
+        RunState.Single ->
+            Button(
+                onClick = onStop,
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("Stop mock") }
+        RunState.RoutePlaying ->
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    onClick = onPrimary,
+                    modifier = Modifier.weight(1f),
+                ) { Text("Pause") }
+                OutlinedButton(
+                    onClick = onStop,
+                    modifier = Modifier.weight(1f),
+                ) { Text("Stop") }
+            }
+        RunState.RoutePaused ->
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    onClick = onPrimary,
+                    modifier = Modifier.weight(1f),
+                ) { Text("Resume") }
+                OutlinedButton(
+                    onClick = onStop,
+                    modifier = Modifier.weight(1f),
+                ) { Text("Stop") }
+            }
+    }
+}
+
+@Composable
+private fun SectionLabel(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+}
+
+@Composable
+private fun ChipChoice(
+    label: String,
+    selected: Boolean,
+    enabled: Boolean,
+    onClick: () -> Unit,
+) {
+    AssistChip(
+        onClick = onClick,
+        label = { Text(label) },
+        enabled = enabled,
+        colors =
+            if (selected) {
+                AssistChipDefaults.assistChipColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    labelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                )
+            } else {
+                AssistChipDefaults.assistChipColors()
+            },
+    )
 }
 
 @OptIn(ExperimentalPermissionsApi::class)
@@ -430,31 +675,6 @@ private fun StatusBanner(
 }
 
 @Composable
-private fun InfoStrip(
-    modifier: Modifier,
-    waypointCount: Int,
-    runState: RunState,
-) {
-    val label =
-        when (runState) {
-            RunState.Idle -> "$waypointCount waypoints"
-            RunState.Single -> "single point mock"
-            RunState.RoutePlaying -> "playing • $waypointCount waypoints"
-            RunState.RoutePaused -> "paused • $waypointCount waypoints"
-        }
-    Card(
-        modifier = modifier,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-        )
-    }
-}
-
-@Composable
 private fun GenerateRouteDialog(
     initialPointCount: Int = 10,
     initialSpacingMeters: Int = 50,
@@ -501,134 +721,36 @@ private fun GenerateRouteDialog(
     )
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ControlPanel(
-    modifier: Modifier,
-    ready: Boolean,
-    waypoints: List<LatLng>,
-    speedKmh: Double,
-    routeMode: MovementEngine.Mode,
-    runState: RunState,
-    onSpeedChange: (Double) -> Unit,
-    onModeChange: (MovementEngine.Mode) -> Unit,
-    onGenerateRoute: () -> Unit,
-    onSaveRoute: () -> Unit,
-    onClear: () -> Unit,
-    onSetSingle: () -> Unit,
-    onPlay: () -> Unit,
-    onPause: () -> Unit,
-    onResume: () -> Unit,
-    onStop: () -> Unit,
+private fun SaveFavoriteDialog(
+    pending: PendingFavorite,
+    name: String,
+    onNameChange: (String) -> Unit,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
 ) {
-    val isRouteRunning = runState == RunState.RoutePlaying || runState == RunState.RoutePaused
-    Card(modifier = modifier) {
-        Column(
-            modifier = Modifier.padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Text(
-                text = "Speed",
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                SPEED_PRESETS.forEach { preset ->
-                    val selected = preset == speedKmh
-                    AssistChip(
-                        onClick = { onSpeedChange(preset) },
-                        label = { Text("${preset.toInt()} km/h") },
-                        enabled = !isRouteRunning,
-                        leadingIcon =
-                            if (selected) {
-                                { Text("•") }
-                            } else {
-                                null
-                            },
-                    )
-                }
-            }
-            Text(
-                text = "Mode",
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                MovementEngine.Mode.entries.forEach { entry ->
-                    val selected = entry == routeMode
-                    AssistChip(
-                        onClick = { onModeChange(entry) },
-                        label = { Text(entry.label()) },
-                        enabled = !isRouteRunning,
-                        leadingIcon =
-                            if (selected) {
-                                { Text("•") }
-                            } else {
-                                null
-                            },
-                    )
-                }
-            }
-            if (!isRouteRunning) {
-                Button(
-                    onClick = onGenerateRoute,
-                    modifier = Modifier.fillMaxWidth(),
-                ) { Text("Generate random route") }
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    OutlinedButton(
-                        onClick = onClear,
-                        enabled = waypoints.isNotEmpty(),
-                        modifier = Modifier.weight(1f),
-                    ) { Text("Clear") }
-                    OutlinedButton(
-                        onClick = onSaveRoute,
-                        enabled = waypoints.size >= 2,
-                        modifier = Modifier.weight(1f),
-                    ) { Text("Save route") }
-                    Button(
-                        onClick = onSetSingle,
-                        enabled = ready && waypoints.isNotEmpty(),
-                        modifier = Modifier.weight(1f),
-                    ) { Text("Set last") }
-                }
-            }
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                when (runState) {
-                    RunState.RoutePlaying ->
-                        Button(
-                            onClick = onPause,
-                            modifier = Modifier.weight(1f),
-                        ) { Text("Pause") }
-                    RunState.RoutePaused ->
-                        Button(
-                            onClick = onResume,
-                            modifier = Modifier.weight(1f),
-                        ) { Text("Resume") }
-                    else ->
-                        Button(
-                            onClick = onPlay,
-                            enabled = ready && waypoints.size >= 2,
-                            modifier = Modifier.weight(1f),
-                        ) { Text("Play route") }
-                }
-                OutlinedButton(
-                    onClick = onStop,
-                    enabled = runState != RunState.Idle,
-                    modifier = Modifier.weight(1f),
-                ) { Text("Stop") }
-            }
+    val (title, supporting) =
+        when (pending) {
+            is PendingFavorite.Point ->
+                "Save favorite" to "%.5f, %.5f".format(pending.target.lat, pending.target.lng)
+            is PendingFavorite.Route ->
+                "Save route" to
+                    "${pending.waypoints.size} waypoints · ${pending.speedKmh.toInt()} km/h"
         }
-    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(supporting)
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = onNameChange,
+                    label = { Text("Name") },
+                )
+            }
+        },
+        confirmButton = { TextButton(onClick = onConfirm) { Text("Save") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
 }
