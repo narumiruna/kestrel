@@ -94,7 +94,7 @@ async function expectRecoveryCodeHashesToMatch(
       expect(
         verify(
           recoveryCodeRows[index]?.codeHash ?? '',
-          recoveryCode.replace('-', ''),
+          recoveryCode.replaceAll('-', ''),
         ),
       ).resolves.toBe(true),
     ),
