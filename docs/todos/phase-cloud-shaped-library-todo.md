@@ -203,8 +203,8 @@
 - [x] Migration tests：startup favoriteName → libraryItemId。
 - [x] Repository tests：add place。
 - [x] Repository tests：add route / waypoints order。
-- [ ] Repository tests：rename 不改 id。
-- [ ] Repository tests：touch。
+- [x] Repository tests：rename 不改 id。
+- [x] Repository tests：touch。
 - [x] Repository tests：reorder。
 - [ ] 手動測試：既有本機 favorites migration。
 - [ ] 手動測試：Go to apply point / route。
@@ -221,11 +221,11 @@
 - [ ] Go to 面板可套用 migrated route，speed / mode 正確。
 - [ ] Save point 會建立 `Place + LibraryItem`，重啟後仍存在。
 - [ ] Save route 會建立 `Route + RouteRevision + Waypoints + LibraryItem`，重啟後仍存在。
-- [ ] Rename 不改變 item identity；startup reference 不會斷。
+- [x] Rename 不改變 item identity；startup reference 不會斷。
 - [x] Recent sorting 使用 `LibraryItem.lastUsedAt`。
 - [x] Manual sorting 使用 `LibraryItem.sortOrder`，重啟後保留。
-- [ ] Startup favorite 改用 `libraryItemId`，舊 `favoriteName` 可 migration。
-- [ ] UI 不再直接依賴 `Favorite.name` 作操作 key。
+- [x] Startup favorite 改用 `libraryItemId`，舊 `favoriteName` 可 migration。
+- [x] UI 不再直接依賴 `Favorite.name` 作操作 key。
 - [x] `just check` 通過。
 - [x] `just lint` 通過。
 

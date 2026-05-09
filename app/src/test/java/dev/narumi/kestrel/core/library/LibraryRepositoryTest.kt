@@ -1,5 +1,6 @@
 package dev.narumi.kestrel.core.library
 
+import dev.narumi.kestrel.core.data.StartupPreference
 import dev.narumi.kestrel.core.library.db.LibraryItemEntity
 import dev.narumi.kestrel.core.library.db.LibraryItemRecord
 import dev.narumi.kestrel.core.library.db.PlaceEntity
@@ -13,6 +14,34 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 class LibraryRepositoryTest {
+    @Test
+    fun `normalizedLibraryItemName trims names and rejects blank input`() {
+        assertEquals("New name", normalizedLibraryItemName("  New name  "))
+        assertNull(normalizedLibraryItemName("   "))
+    }
+
+    @Test
+    fun `rename startup favorite only follows matching library item id`() {
+        val startup =
+            StartupPreference(
+                mode = StartupPreference.Mode.Favorite,
+                libraryItemId = "item-1",
+                favoriteName = "Old name",
+            )
+
+        assertEquals(true, shouldRenameStartupFavorite(startup, "item-1"))
+        assertEquals(false, shouldRenameStartupFavorite(startup, "item-2"))
+        assertEquals(false, shouldRenameStartupFavorite(StartupPreference(StartupPreference.Mode.Last), "item-1"))
+    }
+
+    @Test
+    fun `touchLibraryItemValues uses the same timestamp for last used and updated at`() {
+        val touch = touchLibraryItemValues(123L)
+
+        assertEquals(123L, touch.lastUsedAt)
+        assertEquals(123L, touch.updatedAt)
+    }
+
     @Test
     fun `buildPlaceLibraryRows creates place and linked library item`() {
         val rows =
