@@ -50,10 +50,6 @@ fun OptionsScreen(modifier: Modifier = Modifier) {
     var defaultPointCount by remember { mutableStateOf("") }
     var defaultSpacingMeters by remember { mutableStateOf("") }
 
-    LaunchedEffect(Unit) {
-        libraryRepository.ensureMigrated()
-    }
-
     LaunchedEffect(randomRoute.defaultPointCount, randomRoute.defaultSpacingMeters) {
         defaultPointCount = randomRoute.defaultPointCount.toString()
         defaultSpacingMeters = formatMeters(randomRoute.defaultSpacingMeters)
@@ -104,7 +100,6 @@ fun OptionsScreen(modifier: Modifier = Modifier) {
                     StartupPreference(
                         mode = StartupPreference.Mode.Favorite,
                         libraryItemId = item.item.id,
-                        favoriteName = item.name,
                     ),
                 )
             },
@@ -147,16 +142,12 @@ private fun StartupPreferenceCard(
             onSelect = {
                 val target =
                     items.firstOrNull { it.item.id == startup.libraryItemId }
-                        ?: startup.favoriteName?.let { favoriteName ->
-                            items.firstOrNull { it.name == favoriteName }
-                        }
                         ?: items.firstOrNull()
                         ?: return@StartupRadioRow
                 onUpdate(
                     StartupPreference(
                         mode = StartupPreference.Mode.Favorite,
                         libraryItemId = target.item.id,
-                        favoriteName = target.name,
                     ),
                 )
             },
@@ -181,9 +172,7 @@ private fun FavoriteStartupPicker(
             StartupRadioRow(
                 label = item.name,
                 supporting = item.description(),
-                selected =
-                    startup.libraryItemId == item.item.id ||
-                        (startup.libraryItemId == null && startup.favoriteName == item.name),
+                selected = startup.libraryItemId == item.item.id,
                 onSelect = { onSelect(item) },
             )
         }

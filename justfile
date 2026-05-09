@@ -29,6 +29,10 @@ check:
 lint:
     JAVA_HOME="{{java_home}}" PATH="{{java_home}}/bin:$PATH" ./gradlew detekt
 
+# run JVM unit tests (debug variant)
+test:
+    JAVA_HOME="{{java_home}}" PATH="{{java_home}}/bin:$PATH" ./gradlew :app:testDebugUnitTest
+
 # regenerate detekt baseline (accept current warnings as-is)
 lint-baseline:
     JAVA_HOME="{{java_home}}" PATH="{{java_home}}/bin:$PATH" ./gradlew detektBaseline

@@ -29,7 +29,6 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -77,10 +76,6 @@ fun FavoritesScreen(
     var pointText by remember { mutableStateOf("") }
     var routeSpeedText by remember { mutableStateOf("") }
     var routeMode by remember { mutableStateOf(MovementEngine.Mode.Once) }
-
-    LaunchedEffect(Unit) {
-        libraryRepository.ensureMigrated()
-    }
 
     val visibleItems =
         items
@@ -167,10 +162,7 @@ fun FavoritesScreen(
                 libraryRepository.removeItem(item.item.id)
                 if (
                     startup.mode == StartupPreference.Mode.Favorite &&
-                    (
-                        startup.libraryItemId == item.item.id ||
-                            (startup.libraryItemId == null && startup.favoriteName == item.name)
-                    )
+                    startup.libraryItemId == item.item.id
                 ) {
                     prefs.setStartupPreference(StartupPreference(StartupPreference.Mode.Last))
                 }

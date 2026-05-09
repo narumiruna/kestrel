@@ -21,17 +21,16 @@ class LibraryRepositoryTest {
     }
 
     @Test
-    fun `rename startup favorite only follows matching library item id`() {
+    fun `isStartupFavoriteItem only matches favorite mode with same library item id`() {
         val startup =
             StartupPreference(
                 mode = StartupPreference.Mode.Favorite,
                 libraryItemId = "item-1",
-                favoriteName = "Old name",
             )
 
-        assertEquals(true, shouldRenameStartupFavorite(startup, "item-1"))
-        assertEquals(false, shouldRenameStartupFavorite(startup, "item-2"))
-        assertEquals(false, shouldRenameStartupFavorite(StartupPreference(StartupPreference.Mode.Last), "item-1"))
+        assertEquals(true, isStartupFavoriteItem(startup, "item-1"))
+        assertEquals(false, isStartupFavoriteItem(startup, "item-2"))
+        assertEquals(false, isStartupFavoriteItem(StartupPreference(StartupPreference.Mode.Last), "item-1"))
     }
 
     @Test
