@@ -17,17 +17,32 @@ build:
 clean:
     JAVA_HOME="{{java_home}}" PATH="{{java_home}}/bin:$PATH" ./gradlew clean
 
-# auto-format Kotlin / xml / misc with spotless + ktlint
+# auto-format Android + web code
 format:
     JAVA_HOME="{{java_home}}" PATH="{{java_home}}/bin:$PATH" ./gradlew spotlessApply
+    just web-format
 
-# verify formatting without changing files
+# verify Android + web formatting/lint without changing files
 check:
     JAVA_HOME="{{java_home}}" PATH="{{java_home}}/bin:$PATH" ./gradlew spotlessCheck
+    just web-check
 
-# run detekt static analysis
+# run Android detekt + web linter
 lint:
     JAVA_HOME="{{java_home}}" PATH="{{java_home}}/bin:$PATH" ./gradlew detekt
+    just web-lint
+
+# auto-format web code with Biome, including safe fixes and import sorting
+web-format:
+    cd web && npm exec -- biome check --write .
+
+# verify web formatting/lint/import sorting without changing files
+web-check:
+    cd web && npm exec -- biome ci .
+
+# run web linter only
+web-lint:
+    cd web && npm exec -- biome lint .
 
 # run JVM unit tests (debug variant)
 test:

@@ -2,9 +2,17 @@
 
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
-import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { type FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/components/AuthProvider';
-import { ApiError, type Place, type PlaceInput, type Route, type RouteInput, type RouteMode, type RouteWaypoint } from '@/lib/api';
+import {
+  ApiError,
+  type Place,
+  type PlaceInput,
+  type Route,
+  type RouteInput,
+  type RouteMode,
+  type RouteWaypoint,
+} from '@/lib/api';
 
 const RouteMapEditor = dynamic(() => import('@/components/RouteMapEditor'), {
   ssr: false,
@@ -63,15 +71,16 @@ export default function DashboardPage() {
   }, [auth.isAuthenticated, auth.isHydrated, loadLibrary, router]);
 
   async function savePlace(input: PlaceInput) {
-    const savedPlace = selectedPlace == null
-      ? await auth.apiRequest<Place>('/places', {
-          body: JSON.stringify(input),
-          method: 'POST',
-        })
-      : await auth.apiRequest<Place>(`/places/${selectedPlace.id}`, {
-          body: JSON.stringify(input),
-          method: 'PATCH',
-        });
+    const savedPlace =
+      selectedPlace == null
+        ? await auth.apiRequest<Place>('/places', {
+            body: JSON.stringify(input),
+            method: 'POST',
+          })
+        : await auth.apiRequest<Place>(`/places/${selectedPlace.id}`, {
+            body: JSON.stringify(input),
+            method: 'PATCH',
+          });
 
     await loadLibrary();
     setSelectedPlaceId(savedPlace.id);
@@ -84,15 +93,16 @@ export default function DashboardPage() {
   }
 
   async function saveRoute(input: RouteInput) {
-    const savedRoute = selectedRoute == null
-      ? await auth.apiRequest<Route>('/routes', {
-          body: JSON.stringify(input),
-          method: 'POST',
-        })
-      : await auth.apiRequest<Route>(`/routes/${selectedRoute.id}`, {
-          body: JSON.stringify(input),
-          method: 'PATCH',
-        });
+    const savedRoute =
+      selectedRoute == null
+        ? await auth.apiRequest<Route>('/routes', {
+            body: JSON.stringify(input),
+            method: 'POST',
+          })
+        : await auth.apiRequest<Route>(`/routes/${selectedRoute.id}`, {
+            body: JSON.stringify(input),
+            method: 'PATCH',
+          });
 
     await loadLibrary();
     setSelectedRouteId(savedRoute.id);
@@ -121,7 +131,11 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      {error == null ? null : <div className="error" style={{ marginBottom: '1rem' }}>{error}</div>}
+      {error == null ? null : (
+        <div className="error" style={{ marginBottom: '1rem' }}>
+          {error}
+        </div>
+      )}
 
       <section className="dashboard-grid">
         <aside className="grid">
@@ -142,7 +156,9 @@ export default function DashboardPage() {
                   onClick={() => setSelectedPlaceId(place.id)}
                 >
                   <strong>{place.name}</strong>
-                  <span className="muted">{formatCoord(place.latitude)}, {formatCoord(place.longitude)}</span>
+                  <span className="muted">
+                    {formatCoord(place.latitude)}, {formatCoord(place.longitude)}
+                  </span>
                   <TagRow tags={place.tags} />
                 </button>
               ))}
@@ -167,7 +183,8 @@ export default function DashboardPage() {
                 >
                   <strong>{route.name}</strong>
                   <span className="muted">
-                    {route.currentRevision?.waypoints.length ?? 0} waypoints · {route.defaultSpeedKmh} km/h · {formatMode(route.mode)}
+                    {route.currentRevision?.waypoints.length ?? 0} waypoints ·{' '}
+                    {route.defaultSpeedKmh} km/h · {formatMode(route.mode)}
                   </span>
                   <span className="chip-row">
                     <span className="chip">rev {route.currentRevision?.revisionNumber ?? '—'}</span>
@@ -227,7 +244,10 @@ function PlaceEditor({
         latitude: parseNumber(latitude, 'latitude'),
         longitude: parseNumber(longitude, 'longitude'),
         name,
-        tags: tags.split(',').map((tag) => tag.trim()).filter(Boolean),
+        tags: tags
+          .split(',')
+          .map((tag) => tag.trim())
+          .filter(Boolean),
       });
     } catch (nextError) {
       setError(formatError(nextError));
@@ -247,11 +267,21 @@ function PlaceEditor({
       <div className="split">
         <label>
           Latitude
-          <input required inputMode="decimal" value={latitude} onChange={(event) => setLatitude(event.target.value)} />
+          <input
+            required
+            inputMode="decimal"
+            value={latitude}
+            onChange={(event) => setLatitude(event.target.value)}
+          />
         </label>
         <label>
           Longitude
-          <input required inputMode="decimal" value={longitude} onChange={(event) => setLongitude(event.target.value)} />
+          <input
+            required
+            inputMode="decimal"
+            value={longitude}
+            onChange={(event) => setLongitude(event.target.value)}
+          />
         </label>
       </div>
       <label>
@@ -263,9 +293,13 @@ function PlaceEditor({
         <textarea value={description} onChange={(event) => setDescription(event.target.value)} />
       </label>
       <div className="row">
-        <button disabled={isSaving} type="submit">{isSaving ? 'Saving…' : 'Save place'}</button>
+        <button disabled={isSaving} type="submit">
+          {isSaving ? 'Saving…' : 'Save place'}
+        </button>
         {onDelete == null ? null : (
-          <button className="danger" disabled={isSaving} type="button" onClick={onDelete}>Delete</button>
+          <button className="danger" disabled={isSaving} type="button" onClick={onDelete}>
+            Delete
+          </button>
         )}
       </div>
     </form>
@@ -326,7 +360,9 @@ function RouteEditor({
     <form className="panel stack" onSubmit={submit}>
       <div className="row" style={{ justifyContent: 'space-between' }}>
         <h2>{route == null ? 'New route' : 'Route editor'}</h2>
-        {route?.currentRevision == null ? null : <span className="chip">latest revision {route.currentRevision.revisionNumber}</span>}
+        {route?.currentRevision == null ? null : (
+          <span className="chip">latest revision {route.currentRevision.revisionNumber}</span>
+        )}
       </div>
       {error == null ? null : <div className="error">{error}</div>}
       <RouteMapEditor waypoints={waypoints} onChange={setWaypoints} />
@@ -337,7 +373,12 @@ function RouteEditor({
       <div className="split">
         <label>
           Default speed (km/h)
-          <input required inputMode="decimal" value={defaultSpeedKmh} onChange={(event) => setDefaultSpeedKmh(event.target.value)} />
+          <input
+            required
+            inputMode="decimal"
+            value={defaultSpeedKmh}
+            onChange={(event) => setDefaultSpeedKmh(event.target.value)}
+          />
         </label>
         <label>
           Playback mode
@@ -349,7 +390,12 @@ function RouteEditor({
         </label>
       </div>
       <label className="row">
-        <input checked={isPublic} style={{ width: 'auto' }} type="checkbox" onChange={(event) => setIsPublic(event.target.checked)} />
+        <input
+          checked={isPublic}
+          style={{ width: 'auto' }}
+          type="checkbox"
+          onChange={(event) => setIsPublic(event.target.checked)}
+        />
         Public route
       </label>
       <label>
@@ -360,38 +406,75 @@ function RouteEditor({
       <div className="stack">
         <h3>Waypoints</h3>
         {waypoints.map((waypoint, index) => (
+          // biome-ignore lint/suspicious/noArrayIndexKey: waypoint rows are edited by position until drag-and-drop adds stable row ids.
           <div className="waypoint-row" key={`${index}-${waypoint.latitude}-${waypoint.longitude}`}>
             <span className="chip">#{index + 1}</span>
             <input
               inputMode="decimal"
               value={waypoint.latitude}
-              onChange={(event) => updateWaypoint(waypoints, setWaypoints, index, 'latitude', event.target.value)}
+              onChange={(event) =>
+                updateWaypoint(waypoints, setWaypoints, index, 'latitude', event.target.value)
+              }
             />
             <input
               inputMode="decimal"
               value={waypoint.longitude}
-              onChange={(event) => updateWaypoint(waypoints, setWaypoints, index, 'longitude', event.target.value)}
+              onChange={(event) =>
+                updateWaypoint(waypoints, setWaypoints, index, 'longitude', event.target.value)
+              }
             />
             <div className="row">
-              <button className="secondary" disabled={index === 0} type="button" onClick={() => moveWaypoint(waypoints, setWaypoints, index, index - 1)}>↑</button>
-              <button className="secondary" disabled={index === waypoints.length - 1} type="button" onClick={() => moveWaypoint(waypoints, setWaypoints, index, index + 1)}>↓</button>
-              <button className="danger" disabled={waypoints.length <= 2} type="button" onClick={() => setWaypoints(waypoints.filter((_, currentIndex) => currentIndex !== index))}>×</button>
+              <button
+                className="secondary"
+                disabled={index === 0}
+                type="button"
+                onClick={() => moveWaypoint(waypoints, setWaypoints, index, index - 1)}
+              >
+                ↑
+              </button>
+              <button
+                className="secondary"
+                disabled={index === waypoints.length - 1}
+                type="button"
+                onClick={() => moveWaypoint(waypoints, setWaypoints, index, index + 1)}
+              >
+                ↓
+              </button>
+              <button
+                className="danger"
+                disabled={waypoints.length <= 2}
+                type="button"
+                onClick={() =>
+                  setWaypoints(waypoints.filter((_, currentIndex) => currentIndex !== index))
+                }
+              >
+                ×
+              </button>
             </div>
           </div>
         ))}
         <button
           className="secondary"
           type="button"
-          onClick={() => setWaypoints([...waypoints, waypoints.at(-1) ?? { latitude: 25.033, longitude: 121.5654 }])}
+          onClick={() =>
+            setWaypoints([
+              ...waypoints,
+              waypoints.at(-1) ?? { latitude: 25.033, longitude: 121.5654 },
+            ])
+          }
         >
           Add waypoint
         </button>
       </div>
 
       <div className="row">
-        <button disabled={isSaving || waypoints.length < 2} type="submit">{isSaving ? 'Saving…' : 'Save route'}</button>
+        <button disabled={isSaving || waypoints.length < 2} type="submit">
+          {isSaving ? 'Saving…' : 'Save route'}
+        </button>
         {onDelete == null ? null : (
-          <button className="danger" disabled={isSaving} type="button" onClick={onDelete}>Delete</button>
+          <button className="danger" disabled={isSaving} type="button" onClick={onDelete}>
+            Delete
+          </button>
         )}
       </div>
     </form>
@@ -405,7 +488,11 @@ function TagRow({ tags }: { tags: string[] }) {
 
   return (
     <span className="chip-row">
-      {tags.map((tag) => <span className="chip" key={tag}>{tag}</span>)}
+      {tags.map((tag) => (
+        <span className="chip" key={tag}>
+          {tag}
+        </span>
+      ))}
     </span>
   );
 }

@@ -2,14 +2,14 @@
 
 import {
   createContext,
+  type ReactNode,
   useCallback,
   useContext,
   useEffect,
   useMemo,
   useState,
-  type ReactNode,
 } from 'react';
-import { ApiError, apiFetch, refreshSession, type AuthSession } from '@/lib/api';
+import { ApiError, type AuthSession, apiFetch, refreshSession } from '@/lib/api';
 
 type AuthContextValue = {
   apiRequest: <T>(path: string, options?: RequestInit) => Promise<T>;
