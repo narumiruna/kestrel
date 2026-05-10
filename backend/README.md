@@ -20,7 +20,7 @@ cp .env.example .env
 Default local database URL:
 
 ```bash
-postgresql://kestrel:kestrel@localhost:5432/kestrel_cloud?schema=public
+postgresql://kestrel:kestrel@localhost:15432/kestrel_cloud?schema=public
 ```
 
 Additional auth settings:
@@ -43,7 +43,7 @@ npm run prisma:generate
 npm run start:dev
 ```
 
-The API will start on `http://localhost:3000`.
+The API will start on `http://localhost:3300`.
 
 ## Validation
 
