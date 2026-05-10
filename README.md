@@ -68,9 +68,9 @@ app/src/main/java/dev/narumi/kestrel/
 |---|---|
 | Build debug APK | `just build` |
 | Build → install → launch | `just` (or `just br`) |
-| Auto-format (Spotless + ktlint) | `just format` |
-| Verify formatting (no writes) | `just check` |
-| Detekt static analysis | `just lint` |
+| Auto-format (Spotless + ktlint + Biome) | `just format` |
+| Verify formatting / web checks (no writes) | `just check` |
+| Detekt + web static analysis | `just lint` |
 | Regenerate Detekt baseline | `just lint-baseline` |
 | Install git hooks (prek) | `just hooks` |
 | Reset app data | `just reset` |
