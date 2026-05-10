@@ -11,12 +11,12 @@ npm install
 npm run dev
 ```
 
-The console runs on `http://localhost:3001` and rewrites `/api/backend/*` to `http://localhost:3000` by default.
+The console runs on `http://localhost:3301` and rewrites `/api/backend/*` to `http://localhost:3300` by default.
 
 Set a custom API origin with:
 
 ```bash
-KESTREL_API_BASE_URL=http://localhost:3000 npm run dev
+KESTREL_API_BASE_URL=http://localhost:3300 npm run dev
 ```
 
 ## Current scope
