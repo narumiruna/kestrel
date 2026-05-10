@@ -212,13 +212,13 @@ Favorites 列表每個 row 加一個 overflow icon，下拉選：
 
 ## 8. 驗收條件
 
-- [ ] 貼 `25.0330, 121.5654` / `25.0330 121.5654` / Google Maps URL 都能跳轉
-- [ ] Go to 面板能套用某個單點 favorite，套完面板自動關、底部 sheet 顯示 Mock this point
-- [ ] Go to 面板能套用某個 route favorite，套完不自動播、speed/mode 都已套上
-- [ ] route 跑步中按 Go to 套東西，會先停舊 mock 再套新
-- [ ] Favorites 頁兩個 tab 切換正常、空狀態文案合理
-- [ ] 三種排序模式皆可運作，重啟保留設定
+- [x] 貼 `25.0330, 121.5654` / `25.0330 121.5654` / Google Maps URL 都能跳轉
+- [x] Go to 面板能套用某個單點 favorite，套完面板自動關、底部 sheet 顯示 Mock this point
+- [x] Go to 面板能套用某個 route favorite，套完不自動播、speed/mode 都已套上
+- [x] route 跑步中按 Go to 套東西，會先停舊 mock 再套新
+- [x] Favorites 頁兩個 tab 切換正常、空狀態文案合理
+- [x] 三種排序模式皆可運作，重啟保留設定
 - [ ] Manual 模式下能拖曳重排、順序持久化
-- [ ] Rename / Edit coords / Edit speed-mode / Delete / Apply now 都可運作
-- [ ] 套用 favorite 會更新 `lastUsedAt`，Recent 排序順序如預期變化
+- [x] Rename / Edit coords / Edit speed-mode / Delete / Apply now 都可運作
+- [x] 套用 favorite 會更新 `lastUsedAt`，Recent 排序順序如預期變化
 - [ ] `just check` / `just lint` 通過

@@ -234,7 +234,7 @@
 ## 13. 後續清理 / 非本 phase
 
 - [x] 移除 legacy DataStore favorites JSON（2026-05-10：刪除 `Favorite`/`FavoriteRoute`、`FAVORITES`/`LIBRARY_ROOM_MIGRATED` keys、deprecated 操作 methods、`StartupPreference.favoriteName`、`FavoriteToLibraryMigrator` 與其 test、`LibraryRepository.ensureMigrated`/`resolveLegacyStartupPreference`/`updateStartupPreference`，`LibraryDao.findLibraryItemIdByName`/`countLibraryItems`，UI fallback 路徑）。
-- [ ] 加 Android sync remote id binding。
+- [x] 加 Android sync remote id binding。
 - [ ] 加 dirty/local-only upload state。
 - [ ] 加完整 route revision history lazy load。
 - [ ] 加 per-segment speed / pause playback。
