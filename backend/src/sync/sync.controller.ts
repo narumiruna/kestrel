@@ -1,4 +1,12 @@
-import { Controller, Get, Query, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import type { AuthenticatedRequest } from '../auth/auth-request';
 import { getAuthenticatedUserId } from '../auth/auth-request';
 import { SessionAuthGuard } from '../auth/session-auth.guard';
@@ -13,6 +21,11 @@ export class SyncController {
   @Get('bootstrap')
   bootstrap(@Req() request: AuthenticatedRequest) {
     return this.syncService.bootstrap(getAuthenticatedUserId(request));
+  }
+
+  @Post('upload')
+  upload(@Req() request: AuthenticatedRequest, @Body() body: unknown) {
+    return this.syncService.upload(getAuthenticatedUserId(request), body);
   }
 
   @Get('changes')

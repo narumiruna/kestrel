@@ -16,6 +16,7 @@ export const libraryItemSelect = {
   routeId: true,
   sortOrder: true,
   updatedAt: true,
+  version: true,
 } satisfies Prisma.LibraryItemSelect;
 
 export const placeSelect = {
@@ -133,6 +134,7 @@ export function mapLibraryItem(libraryItem: LibraryItemRecord) {
     routeId: libraryItem.routeId,
     sortOrder: libraryItem.sortOrder,
     updatedAt: libraryItem.updatedAt,
+    version: libraryItem.version,
   };
 }
 

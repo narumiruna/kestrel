@@ -131,6 +131,66 @@ internal data class CloudLibraryItemPayload(
     val routeId: String? = null,
     val sortOrder: Int,
     val updatedAt: String,
+    val version: Int = 1,
+)
+
+@Serializable
+internal data class CloudSyncUploadRequest(
+    val changes: List<CloudSyncUploadChange>,
+)
+
+@Serializable
+internal data class CloudSyncUploadChange(
+    val clientMutationId: String,
+    val expectedVersion: Int? = null,
+    val place: CloudSyncUploadPlace? = null,
+    val remoteLibraryItemId: String? = null,
+    val remotePlaceId: String? = null,
+    val type: CloudSyncUploadChangeType,
+)
+
+@Serializable
+internal data class CloudSyncUploadPlace(
+    val description: String? = null,
+    val latitude: Double,
+    val longitude: Double,
+    val name: String,
+    val tags: List<String> = emptyList(),
+)
+
+@Serializable
+internal enum class CloudSyncUploadChangeType { PLACE_CREATE, PLACE_UPDATE, PLACE_DELETE }
+
+@Serializable
+internal data class CloudSyncUploadResponse(
+    val conflicts: List<CloudSyncUploadConflictResult> = emptyList(),
+    val failed: List<CloudSyncUploadFailedResult> = emptyList(),
+    val serverTime: String,
+    val uploaded: List<CloudSyncUploadUploadedResult> = emptyList(),
+)
+
+@Serializable
+internal data class CloudSyncUploadUploadedResult(
+    val clientMutationId: String,
+    val libraryItem: CloudLibraryItemPayload? = null,
+    val place: CloudPlacePayload? = null,
+    val status: String,
+)
+
+@Serializable
+internal data class CloudSyncUploadConflictResult(
+    val clientMutationId: String,
+    val cloudLibraryItem: CloudLibraryItemPayload? = null,
+    val cloudPlace: CloudPlacePayload? = null,
+    val reason: String,
+    val status: String,
+)
+
+@Serializable
+internal data class CloudSyncUploadFailedResult(
+    val clientMutationId: String,
+    val message: String,
+    val status: String,
 )
 
 @Serializable

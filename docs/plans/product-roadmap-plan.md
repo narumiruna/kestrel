@@ -30,7 +30,7 @@ The remaining roadmap should not reopen completed local-library or cloud-sync fo
 - [x] Build web console login and place/route editing workflows.
 - [x] Build Android cloud login, sync bootstrap/changes, cursor recovery, and current-revision route execution.
 - [ ] Implement route sharing as the next product slice: public latest route links and copy-to-library.
-- [ ] Implement sync/upload strengthening: local-only upload, remote-id binding after upload, and documented conflict policy.
+- [ ] Implement sync/upload strengthening: local-only place upload, remote-id binding after upload, and documented conflict policy are in progress via `2026-05-10_android-local-upload-conflict-plan.md` and PR #46; conflict UI/actions and routes remain follow-ups.
 - [ ] Implement device/session management: device state reporting, session/device list, and revoke controls.
 - [ ] Design remote command model only after device/session management exists and has an explicit threat model.
 - [ ] Harden operations: secrets management, DB backup/rollback, backend/web CI, structured logging, health/metrics, and API docs/client generation.
@@ -45,6 +45,6 @@ The remaining roadmap should not reopen completed local-library or cloud-sync fo
 
 - [x] Product roadmap reflects the implemented Android, backend, web, and sync baseline from the consolidated legacy planning docs.
 - [ ] `sharing-plan.md` is completed and merged for public latest route links and copy-to-library.
-- [ ] Local-only upload/conflict policy has an accepted plan and implementation PRs.
+- [ ] Local-only upload/conflict policy has an accepted plan and implementation PRs; place-first work is in `2026-05-10_android-local-upload-conflict-plan.md` and PR #46, with completion pending conflict UI/actions and smoke tests.
 - [ ] Device/session management has an accepted plan before remote commands are designed.
 - [ ] Operations checklist has CI, logging, health, backup, and API documentation coverage.

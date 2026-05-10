@@ -19,6 +19,7 @@ model User {
   devices             Device[]
   libraryItems        LibraryItem[]
   places              Place[]
+  syncUploadMutations SyncUploadMutation[]
   recoveryCodes       RecoveryCode[]
   routeRevisions      RouteRevision[] @relation("RouteRevisionCreator")
   routes              Route[]
@@ -155,6 +156,7 @@ model LibraryItem {
   placeId    String?         @unique @map("place_id") @db.Uuid
   routeId    String?         @unique @map("route_id") @db.Uuid
   sortOrder  Int             @map("sort_order")
+  version    Int             @default(1)
   pinned     Boolean         @default(false)
   lastUsedAt DateTime?       @map("last_used_at")
   createdAt  DateTime        @default(now()) @map("created_at")
@@ -201,6 +203,20 @@ model DeviceState {
   @@index([selectedRouteId])
   @@index([selectedRouteRevisionId])
   @@map("device_states")
+}
+
+model SyncUploadMutation {
+  id               String   @id @default(uuid()) @db.Uuid
+  userId           String   @map("user_id") @db.Uuid
+  clientMutationId String   @map("client_mutation_id") @db.VarChar(128)
+  requestHash      String   @map("request_hash") @db.VarChar(64)
+  result           Json
+  createdAt        DateTime @default(now()) @map("created_at")
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, clientMutationId])
+  @@index([userId])
+  @@map("sync_upload_mutations")
 }
 
 model SyncEvent {

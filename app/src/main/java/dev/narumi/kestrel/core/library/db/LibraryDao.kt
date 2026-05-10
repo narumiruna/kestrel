@@ -30,6 +30,10 @@ abstract class LibraryDao {
     @Query("SELECT * FROM library_items WHERE id = :itemId")
     abstract suspend fun getStartupLibraryItem(itemId: String): LibraryItemRecord?
 
+    @Transaction
+    @Query("SELECT * FROM library_items WHERE kind = 'Place' AND sync_status IN ('LocalOnly', 'Dirty', 'Deleted')")
+    abstract suspend fun getPendingPlaceUploadRecords(): List<LibraryItemRecord>
+
     @Query("SELECT * FROM library_items ORDER BY sort_order ASC, created_at ASC")
     abstract suspend fun getLibraryItemsSnapshot(): List<LibraryItemEntity>
 
@@ -53,6 +57,12 @@ abstract class LibraryDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     abstract suspend fun upsertSyncStates(states: List<SyncStateEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    abstract suspend fun upsertPendingSyncChanges(changes: List<PendingSyncChangeEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    abstract suspend fun upsertSyncConflicts(conflicts: List<SyncConflictEntity>)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     abstract suspend fun upsertPlaces(places: List<PlaceEntity>)
@@ -133,6 +143,43 @@ abstract class LibraryDao {
         sortOrder: Int,
         updatedAt: Long,
     )
+
+    @Query("UPDATE places SET remote_id = :remoteId, sync_status = 'Synced' WHERE id = :placeId")
+    abstract suspend fun markPlaceUploaded(
+        placeId: String,
+        remoteId: String,
+    )
+
+    @Query(
+        """
+        UPDATE library_items
+        SET remote_id = :remoteId, remote_version = :remoteVersion, sync_status = 'Synced', updated_at = :updatedAt
+        WHERE id = :itemId
+        """,
+    )
+    abstract suspend fun markLibraryItemUploaded(
+        itemId: String,
+        remoteId: String,
+        remoteVersion: Int,
+        updatedAt: Long,
+    )
+
+    @Query("UPDATE library_items SET sync_status = :syncStatus, updated_at = :updatedAt WHERE id = :itemId")
+    abstract suspend fun updateLibraryItemSyncStatus(
+        itemId: String,
+        syncStatus: SyncStatus,
+        updatedAt: Long,
+    )
+
+    @Query("UPDATE places SET sync_status = :syncStatus, updated_at = :updatedAt WHERE id = :placeId")
+    abstract suspend fun updatePlaceSyncStatus(
+        placeId: String,
+        syncStatus: SyncStatus,
+        updatedAt: Long,
+    )
+
+    @Query("DELETE FROM pending_sync_changes WHERE library_item_id = :libraryItemId")
+    abstract suspend fun deletePendingSyncChangesForItem(libraryItemId: String)
 
     @Query("SELECT * FROM sync_state WHERE key IN (:keys)")
     abstract suspend fun getSyncStates(keys: List<String>): List<SyncStateEntity>

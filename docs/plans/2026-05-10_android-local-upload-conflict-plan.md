@@ -36,20 +36,23 @@ Local ids and cloud ids remain separate identities: Android keeps local UUIDs st
 
 ## Plan
 
-- [ ] Add backend `LibraryItem.version` with a Prisma migration and map it in library/sync DTOs; verify with backend migration/test commands and DTO snapshots or unit tests.
-- [ ] Update backend place create/update/delete flows to bump `LibraryItem.version` for rename, coordinate/content edits, and soft delete; verify with library service tests that version increments and sync events include the new version.
-- [ ] Add backend sync upload models and `POST /sync/upload` for place create/update/delete changes, with per-item transactions and response buckets `uploaded`, `conflicts`, and `failed`; verify with backend tests for partial success.
-- [ ] Add backend idempotency storage keyed by `(userId, clientMutationId)` with request hash and stored result; verify with tests that identical retries return the same result and mismatched payload reuse is rejected.
-- [ ] Add Android Room migrations for `pending_sync_changes` and `sync_conflicts`, plus any local remote-version fields needed to store the last synced `LibraryItem.version`; verify with Room migration tests or targeted DAO tests.
-- [ ] Update Android local place mutations so local-only place delete hard-deletes, while synced place rename/edit/delete creates or updates an outbox change and sets entity `syncStatus` to `Dirty` or `Deleted`; verify with repository unit tests.
-- [ ] Extend `CloudApiClient` with `/sync/upload` request/response models for place create/update/delete and per-item `clientMutationId`; verify with serialization/unit tests.
-- [ ] Update `CloudSyncRepository` to run pull/classify/upload/pull-confirm and to persist uploaded remote ids/versions back into existing local rows without changing local ids; verify with sync repository tests for local-only place upload.
-- [ ] Implement conflict detection for dirty/deleted place changes when backend or remote changes report a newer `LibraryItem.version`; persist `sync_conflicts` with local/cloud snapshots and base/remote versions; verify with tests covering update-vs-update and delete-vs-update conflicts.
+- [x] Add backend `LibraryItem.version` with a Prisma migration and map it in library/sync DTOs; verified in PR #46 with `cd backend && npm run build` and `cd backend && npm run lint`.
+- [x] Update backend place create/update/delete flows to bump `LibraryItem.version` for rename, coordinate/content edits, and soft delete; implemented in PR #46, with dedicated version increment tests still needed.
+- [x] Add backend sync upload models and `POST /sync/upload` for place create/update/delete changes, with per-item transactions and response buckets `uploaded`, `conflicts`, and `failed`; implemented in PR #46, with partial-success tests still needed.
+- [x] Add backend idempotency storage keyed by `(userId, clientMutationId)` with request hash and stored result; implemented in PR #46, with retry/reuse tests still needed.
+- [x] Add Android Room migrations for `pending_sync_changes` and `sync_conflicts`, plus any local remote-version fields needed to store the last synced `LibraryItem.version`; verified in PR #46 with `just build`, `just check`, and `just lint`.
+- [x] Update Android local place mutations so local-only place delete hard-deletes, while synced place rename/edit/delete sets entity `syncStatus` to `Dirty` or `Deleted`; implemented in PR #46, but `pending_sync_changes` is not yet the payload source of truth and repository unit tests are still needed.
+- [x] Extend `CloudApiClient` with `/sync/upload` request/response models for place create/update/delete and per-item `clientMutationId`; verified in PR #46 with `just build`.
+- [x] Update `CloudSyncRepository` to run pull/upload/pull-confirm and to persist uploaded remote ids/versions back into existing local rows without changing local ids; implemented in PR #46, with sync repository tests for local-only place upload still needed.
+- [x] Implement conflict detection for dirty/deleted place changes when backend reports a newer `LibraryItem.version`; persist `sync_conflicts` with local/cloud snapshots and base/remote versions; implemented in PR #46, with richer JSON snapshots and update-vs-update/delete-vs-update tests still needed.
+- [ ] Make `pending_sync_changes` the upload payload source of truth instead of deriving upload changes from current entity state; verify with DAO/repository tests that dirty state and outbox rows update atomically.
 - [ ] Add Options → Cloud sync conflict UI showing pending place conflicts and actions `Use Cloud`, `Use Local`, and `Keep Both`; verify with Compose preview/smoke test and manual user acceptance.
 - [ ] Implement conflict actions: `Use Cloud` applies cloud snapshot and clears outbox/conflict, `Use Local` retries upload with the local snapshot and current expected version, and `Keep Both` keeps cloud on the original synced item while duplicating local snapshot as a new local-only place; verify with repository/sync tests.
 - [ ] Keep `lastUsedAt` and reorder best-effort outside conflict handling; verify existing touch/reorder behavior still works after sync changes with targeted tests or manual smoke test.
-- [ ] Update `android-local-library-plan.md`, `android-cloud-sync-plan.md`, and `product-roadmap-plan.md` checklists to point to this plan and mark place upload/conflict as the active first slice; verify by reviewing docs diff.
-- [ ] Run validation: `just check`, `just lint`, backend test/lint commands, and one Android real-device smoke test for local place create → foreground/manual sync → cloud visibility → conflict resolution.
+- [x] Update `android-local-library-plan.md`, `android-cloud-sync-plan.md`, and `product-roadmap-plan.md` checklists to point to this plan and mark place upload/conflict as the active first slice; verified by docs diff in PR #46 follow-up.
+- [ ] Run full validation: `just check`, `just lint`, backend test/lint commands, and one Android real-device smoke test for local place create → foreground/manual sync → cloud visibility → conflict resolution.
+  - PR #46 validation so far: `just check`, `just lint`, `just build`, `cd backend && npm run lint`, and `cd backend && npm run build` pass.
+  - `cd backend && npm test -- --runInBand` has one failing auth guard spec (`session is no longer active`) while all other suites pass; resolve or confirm pre-existing before merging.
 
 ## Risks
 
