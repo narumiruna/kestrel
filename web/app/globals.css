@@ -1,17 +1,114 @@
+/* ==========================================================================
+   DESIGN TOKENS — Light mode (default)
+   ========================================================================== */
+
 :root {
-  --background: #08111f;
-  --card: #0f1b2d;
-  --card-strong: #14243a;
-  --text: #edf5ff;
-  --muted: #9fb1c8;
-  --line: #263a56;
-  --accent: #55d0ff;
-  --accent-strong: #26b7ee;
-  --danger: #ff6b7a;
-  --success: #70e3a4;
+  /* Primary / Sprout Green */
+  --color-primary: #76c945;
+  --color-primary-dark: #4f9a2f;
+  --color-primary-text: #1a3a0a;
+
+  /* Secondary / Petal Pink */
+  --color-secondary: #f9aecb;
+
+  /* Accent / Sunny Yellow */
+  --color-accent: #ffd54f;
+
+  /* Backgrounds */
+  --color-bg: #eaf7ff;
+  --color-surface-bg: #f7fbf2;
+  --color-surface: rgb(255 255 255 / 82%);
+
+  /* Text */
+  --color-text: #263238;
+  --color-text-secondary: #607d8b;
+
+  /* Borders */
+  --color-border: rgb(55 71 79 / 12%);
+  --color-border-focus: #76c945;
+
+  /* Status — danger */
+  --color-danger: #c0392b;
+  --color-danger-bg: rgb(192 57 43 / 8%);
+  --color-danger-border: rgb(192 57 43 / 25%);
+  --color-danger-text: #7b1a13;
+
+  /* Status — success */
+  --color-success: #2e7d32;
+  --color-success-bg: rgb(46 125 50 / 8%);
+  --color-success-border: rgb(46 125 50 / 25%);
+  --color-success-text: #1b5120;
+
+  /* Radii */
+  --radius-xs: 0.5rem;
+  --radius-sm: 0.75rem;
+  --radius-md: 1rem;
+  --radius-lg: 1.4rem;
+  --radius-pill: 999px;
+
+  /* Shadows */
+  --shadow-xs: 0 1px 4px rgb(38 50 56 / 6%);
+  --shadow-sm: 0 2px 10px rgb(38 50 56 / 8%);
+  --shadow-md: 0 4px 20px rgb(38 50 56 / 10%);
+  --shadow-lg: 0 8px 40px rgb(38 50 56 / 12%);
+
+  /* Focus ring */
+  --focus-ring: 0 0 0 3px rgb(118 201 69 / 35%);
+
+  /* Transitions */
+  --transition-fast: 0.15s ease;
+  --transition: 0.2s ease;
 }
 
-* {
+/* ==========================================================================
+   DESIGN TOKENS — Dark mode
+   ========================================================================== */
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-primary: #8ddc5a;
+    --color-primary-dark: #6bbf3a;
+    --color-primary-text: #0d1f08;
+
+    --color-secondary: #f6a6c8;
+    --color-accent: #ffd76a;
+
+    --color-bg: #101a14;
+    --color-surface-bg: #141f18;
+    --color-surface: rgb(28 40 32 / 82%);
+
+    --color-text: #f2f7f3;
+    --color-text-secondary: #b8c7bc;
+
+    --color-border: rgb(255 255 255 / 12%);
+    --color-border-focus: #8ddc5a;
+
+    --color-danger: #ff7a7a;
+    --color-danger-bg: rgb(255 122 122 / 10%);
+    --color-danger-border: rgb(255 122 122 / 30%);
+    --color-danger-text: #ffd9de;
+
+    --color-success: #70e3a4;
+    --color-success-bg: rgb(112 227 164 / 10%);
+    --color-success-border: rgb(112 227 164 / 25%);
+    --color-success-text: #ddffeb;
+
+    --shadow-xs: 0 1px 4px rgb(0 0 0 / 25%);
+    --shadow-sm: 0 2px 10px rgb(0 0 0 / 35%);
+    --shadow-md: 0 4px 20px rgb(0 0 0 / 45%);
+    --shadow-lg: 0 8px 40px rgb(0 0 0 / 55%);
+
+    --focus-ring: 0 0 0 3px rgb(141 220 90 / 40%);
+  }
+}
+
+/* ==========================================================================
+   RESET & BASE
+   ========================================================================== */
+
+*,
+*::before,
+*::after {
   box-sizing: border-box;
 }
 
@@ -23,17 +120,46 @@ body {
 
 body {
   background:
-    radial-gradient(circle at 20% 10%, rgb(33 91 130 / 45%), transparent 32rem),
-    radial-gradient(circle at 80% 0%, rgb(19 87 85 / 30%), transparent 28rem), var(--background);
-  color: var(--text);
+    radial-gradient(ellipse at 18% 0%, rgb(118 201 69 / 12%), transparent 45%),
+    radial-gradient(ellipse at 85% 6%, rgb(249 174 203 / 10%), transparent 40%), var(--color-bg);
+  color: var(--color-text);
   font-family:
-    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    -apple-system, BlinkMacSystemFont, "SF Pro", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.5;
+}
+
+@media (prefers-color-scheme: dark) {
+  body {
+    background:
+      radial-gradient(circle at 20% 10%, rgb(28 80 40 / 45%), transparent 32rem),
+      radial-gradient(circle at 80% 0%, rgb(15 55 28 / 30%), transparent 28rem), var(--color-bg);
+  }
 }
 
 a {
-  color: inherit;
+  color: var(--color-primary-dark);
   text-decoration: none;
+  transition: color var(--transition-fast);
 }
+
+a:hover {
+  color: var(--color-primary);
+}
+
+@media (prefers-color-scheme: dark) {
+  a {
+    color: var(--color-primary);
+  }
+
+  a:hover {
+    color: var(--color-primary-dark);
+  }
+}
+
+/* ==========================================================================
+   FORM ELEMENTS — base font reset
+   ========================================================================== */
 
 button,
 input,
@@ -42,42 +168,119 @@ textarea {
   font: inherit;
 }
 
+/* ==========================================================================
+   BUTTONS
+   ========================================================================== */
+
 button {
-  background: var(--accent);
-  border: 0;
-  border-radius: 999px;
-  color: #041421;
+  background: var(--color-primary);
+  border: 1.5px solid transparent;
+  border-radius: var(--radius-pill);
+  color: var(--color-primary-text);
   cursor: pointer;
-  font-weight: 700;
-  padding: 0.7rem 1rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  padding: 0.65rem 1.1rem;
+  transition:
+    background var(--transition),
+    box-shadow var(--transition),
+    transform var(--transition-fast);
 }
 
-button.secondary {
-  background: transparent;
-  border: 1px solid var(--line);
-  color: var(--text);
+button:hover:not(:disabled) {
+  background: var(--color-primary-dark);
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
 }
 
-button.danger {
-  background: transparent;
-  border: 1px solid rgb(255 107 122 / 60%);
-  color: var(--danger);
+button:active:not(:disabled) {
+  box-shadow: none;
+  transform: translateY(0);
+}
+
+button:focus-visible {
+  box-shadow: var(--focus-ring);
+  outline: none;
 }
 
 button:disabled {
   cursor: not-allowed;
-  opacity: 0.55;
+  opacity: 0.5;
 }
+
+/* Secondary */
+button.secondary {
+  backdrop-filter: blur(8px);
+  background: var(--color-surface);
+  border-color: var(--color-border);
+  color: var(--color-text);
+}
+
+button.secondary:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+@media (prefers-color-scheme: dark) {
+  button.secondary {
+    background: rgb(28 40 32 / 70%);
+  }
+
+  button.secondary:hover:not(:disabled) {
+    background: rgb(40 58 44 / 90%);
+    border-color: var(--color-primary);
+  }
+}
+
+/* Danger */
+button.danger {
+  background: var(--color-danger-bg);
+  border-color: var(--color-danger-border);
+  color: var(--color-danger);
+}
+
+button.danger:hover:not(:disabled) {
+  background: rgb(192 57 43 / 14%);
+  box-shadow: 0 2px 8px rgb(192 57 43 / 15%);
+}
+
+@media (prefers-color-scheme: dark) {
+  button.danger:hover:not(:disabled) {
+    background: rgb(255 122 122 / 16%);
+    box-shadow: 0 2px 8px rgb(255 122 122 / 15%);
+  }
+}
+
+/* ==========================================================================
+   INPUTS
+   ========================================================================== */
 
 input,
 select,
 textarea {
-  background: #081321;
-  border: 1px solid var(--line);
-  border-radius: 0.8rem;
-  color: var(--text);
-  padding: 0.72rem 0.85rem;
+  background: var(--color-surface);
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text);
+  padding: 0.7rem 0.9rem;
+  transition:
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast);
   width: 100%;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--color-border-focus);
+  box-shadow: var(--focus-ring);
+  outline: none;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--color-text-secondary);
+  opacity: 0.7;
 }
 
 textarea {
@@ -85,12 +288,35 @@ textarea {
   resize: vertical;
 }
 
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: var(--color-primary);
+  width: auto;
+}
+
+@media (prefers-color-scheme: dark) {
+  input,
+  select,
+  textarea {
+    background: rgb(20 30 24 / 80%);
+  }
+}
+
+/* ==========================================================================
+   LABELS
+   ========================================================================== */
+
 label {
-  color: var(--muted);
+  color: var(--color-text-secondary);
   display: grid;
-  font-size: 0.88rem;
+  font-size: 0.875rem;
+  font-weight: 500;
   gap: 0.4rem;
 }
+
+/* ==========================================================================
+   LAYOUT
+   ========================================================================== */
 
 .shell {
   margin: 0 auto;
@@ -98,22 +324,27 @@ label {
   padding: 2rem;
 }
 
-.topbar,
-.card,
-.panel {
-  background: rgb(15 27 45 / 82%);
-  border: 1px solid rgb(255 255 255 / 9%);
-  box-shadow: 0 24px 80px rgb(0 0 0 / 24%);
-}
+/* ==========================================================================
+   TOP BAR
+   ========================================================================== */
 
 .topbar {
   align-items: center;
-  border-radius: 1.4rem;
+  backdrop-filter: blur(12px);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
   display: flex;
   justify-content: space-between;
   margin-bottom: 1.3rem;
-  padding: 1rem 1.2rem;
+  padding: 0.9rem 1.2rem;
+  transition: box-shadow var(--transition);
 }
+
+/* ==========================================================================
+   BRAND
+   ========================================================================== */
 
 .brand {
   display: grid;
@@ -121,17 +352,28 @@ label {
 }
 
 .brand strong {
-  font-size: 1.1rem;
+  color: var(--color-text);
+  font-size: 1.05rem;
+  font-weight: 700;
 }
 
+/* ==========================================================================
+   UTILITY
+   ========================================================================== */
+
 .muted {
-  color: var(--muted);
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
 }
 
 .grid {
   display: grid;
   gap: 1rem;
 }
+
+/* ==========================================================================
+   DASHBOARD GRID
+   ========================================================================== */
 
 .dashboard-grid {
   align-items: start;
@@ -140,18 +382,38 @@ label {
   grid-template-columns: minmax(18rem, 0.9fr) minmax(24rem, 1.4fr);
 }
 
+/* ==========================================================================
+   CARDS & PANELS
+   ========================================================================== */
+
 .card,
 .panel {
-  border-radius: 1.2rem;
-  padding: 1rem;
+  backdrop-filter: blur(10px);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: 1.1rem;
+  transition: box-shadow var(--transition);
 }
 
 .card h2,
 .card h3,
 .panel h2,
 .panel h3 {
+  color: var(--color-text);
+  font-weight: 700;
   margin: 0 0 0.8rem;
 }
+
+.card h2,
+.panel h2 {
+  font-size: 1.1rem;
+}
+
+/* ==========================================================================
+   STACK / ROW / SPLIT
+   ========================================================================== */
 
 .stack {
   display: grid;
@@ -161,7 +423,7 @@ label {
 .row {
   align-items: center;
   display: flex;
-  gap: 0.7rem;
+  gap: 0.6rem;
 }
 
 .row > * {
@@ -174,63 +436,133 @@ label {
   grid-template-columns: 1fr 1fr;
 }
 
+/* ==========================================================================
+   LIST ITEMS
+   ========================================================================== */
+
 .list {
   display: grid;
-  gap: 0.6rem;
+  gap: 0.5rem;
 }
 
 .list-item {
-  background: rgb(255 255 255 / 4%);
-  border: 1px solid rgb(255 255 255 / 8%);
-  border-radius: 0.9rem;
+  background: rgb(255 255 255 / 50%);
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-md);
   cursor: pointer;
   display: grid;
-  gap: 0.35rem;
-  padding: 0.8rem;
+  gap: 0.3rem;
+  padding: 0.75rem 0.9rem;
   text-align: left;
+  transition:
+    background var(--transition),
+    border-color var(--transition),
+    box-shadow var(--transition),
+    transform var(--transition-fast);
+}
+
+.list-item:hover:not(:disabled) {
+  background: rgb(255 255 255 / 80%);
+  border-color: rgb(118 201 69 / 40%);
+  box-shadow: var(--shadow-xs);
+  transform: translateY(-1px);
+}
+
+.list-item:focus-visible {
+  border-color: var(--color-border-focus);
+  box-shadow: var(--focus-ring);
+  outline: none;
 }
 
 .list-item.active {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 1px rgb(85 208 255 / 30%);
+  background: rgb(118 201 69 / 8%);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgb(118 201 69 / 20%);
 }
+
+.list-item.active:hover {
+  background: rgb(118 201 69 / 12%);
+}
+
+@media (prefers-color-scheme: dark) {
+  .list-item {
+    background: rgb(28 40 32 / 50%);
+  }
+
+  .list-item:hover:not(:disabled) {
+    background: rgb(40 58 44 / 80%);
+  }
+
+  .list-item.active {
+    background: rgb(141 220 90 / 10%);
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 2px rgb(141 220 90 / 20%);
+  }
+
+  .list-item.active:hover {
+    background: rgb(141 220 90 / 14%);
+  }
+}
+
+/* ==========================================================================
+   CHIPS
+   ========================================================================== */
 
 .chip-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.4rem;
+  gap: 0.35rem;
 }
 
 .chip {
-  background: rgb(85 208 255 / 10%);
-  border: 1px solid rgb(85 208 255 / 22%);
-  border-radius: 999px;
-  color: #cdefff;
-  font-size: 0.78rem;
+  background: rgb(118 201 69 / 12%);
+  border: 1px solid rgb(118 201 69 / 25%);
+  border-radius: var(--radius-pill);
+  color: var(--color-primary-dark);
+  font-size: 0.75rem;
+  font-weight: 500;
   padding: 0.2rem 0.55rem;
 }
 
+@media (prefers-color-scheme: dark) {
+  .chip {
+    background: rgb(141 220 90 / 12%);
+    border-color: rgb(141 220 90 / 25%);
+    color: var(--color-primary);
+  }
+}
+
+/* ==========================================================================
+   STATUS MESSAGES
+   ========================================================================== */
+
 .error {
-  background: rgb(255 107 122 / 12%);
-  border: 1px solid rgb(255 107 122 / 35%);
-  border-radius: 0.8rem;
-  color: #ffd9de;
-  padding: 0.75rem;
+  background: var(--color-danger-bg);
+  border: 1px solid var(--color-danger-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-danger-text);
+  font-size: 0.9rem;
+  padding: 0.75rem 1rem;
 }
 
 .success {
-  background: rgb(112 227 164 / 12%);
-  border: 1px solid rgb(112 227 164 / 30%);
-  border-radius: 0.8rem;
-  color: #ddffeb;
-  padding: 0.75rem;
+  background: var(--color-success-bg);
+  border: 1px solid var(--color-success-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-success-text);
+  font-size: 0.9rem;
+  padding: 0.75rem 1rem;
 }
+
+/* ==========================================================================
+   AUTH PAGE
+   ========================================================================== */
 
 .auth-page {
   display: grid;
   min-height: 100vh;
-  place-items: center;
   padding: 2rem;
+  place-items: center;
 }
 
 .auth-card {
@@ -238,9 +570,14 @@ label {
   width: 100%;
 }
 
+/* ==========================================================================
+   TABS
+   ========================================================================== */
+
 .tabs {
-  background: rgb(255 255 255 / 4%);
-  border-radius: 999px;
+  background: rgb(118 201 69 / 8%);
+  border: 1px solid rgb(118 201 69 / 15%);
+  border-radius: var(--radius-pill);
   display: grid;
   gap: 0.25rem;
   grid-template-columns: 1fr 1fr;
@@ -249,33 +586,74 @@ label {
 
 .tabs button {
   background: transparent;
-  color: var(--muted);
+  border: none;
+  color: var(--color-text-secondary);
+  font-weight: 500;
+  transition:
+    background var(--transition),
+    color var(--transition);
+}
+
+.tabs button:hover:not(:disabled) {
+  background: rgb(118 201 69 / 12%);
+  box-shadow: none;
+  transform: none;
 }
 
 .tabs button.active {
-  background: var(--accent);
-  color: #041421;
+  background: var(--color-primary);
+  color: var(--color-primary-text);
 }
+
+.tabs button.active:hover {
+  background: var(--color-primary-dark);
+  transform: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  .tabs {
+    background: rgb(141 220 90 / 8%);
+    border-color: rgb(141 220 90 / 15%);
+  }
+
+  .tabs button:hover:not(:disabled) {
+    background: rgb(141 220 90 / 12%);
+  }
+}
+
+/* ==========================================================================
+   QR CODE
+   ========================================================================== */
 
 .qr {
   background: white;
-  border-radius: 0.8rem;
+  border-radius: var(--radius-sm);
   max-width: 14rem;
   padding: 0.4rem;
   width: 100%;
 }
 
+/* ==========================================================================
+   MAP
+   ========================================================================== */
+
 .map {
-  border-radius: 1rem;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-xs);
   height: 24rem;
   overflow: hidden;
 }
 
 .map-mini {
-  border-radius: 0.8rem;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-xs);
   height: 13rem;
   overflow: hidden;
 }
+
+/* ==========================================================================
+   WAYPOINT ROW
+   ========================================================================== */
 
 .waypoint-row {
   align-items: center;
@@ -283,6 +661,10 @@ label {
   gap: 0.5rem;
   grid-template-columns: auto 1fr 1fr auto;
 }
+
+/* ==========================================================================
+   RESPONSIVE
+   ========================================================================== */
 
 @media (max-width: 860px) {
   .dashboard-grid,
