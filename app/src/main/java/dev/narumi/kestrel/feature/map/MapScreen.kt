@@ -175,6 +175,7 @@ fun MapScreen(
     var routeMode by remember { mutableStateOf(MovementEngine.Mode.Once) }
     var runState by remember { mutableStateOf(RunState.Idle) }
     var pendingFavorite by remember { mutableStateOf<PendingFavorite?>(null) }
+    var pendingLongPressPoint by remember { mutableStateOf<LatLng?>(null) }
     var favoriteName by remember { mutableStateOf("") }
     var cameraTarget by remember { mutableStateOf<CameraSnapshot?>(null) }
     var awaitCurrentForStartup by remember { mutableStateOf(false) }
@@ -350,6 +351,25 @@ fun MapScreen(
         )
     }
 
+    pendingLongPressPoint?.let { point ->
+        LongPressActionDialog(
+            point = point,
+            onSaveFavorite = {
+                pendingFavorite = PendingFavorite.Point(point)
+                pendingLongPressPoint = null
+            },
+            onMockPoint = {
+                applyPoint(point)
+                if (ready) {
+                    LocationService.setLocation(context, point)
+                    runState = RunState.Single
+                }
+                pendingLongPressPoint = null
+            },
+            onDismiss = { pendingLongPressPoint = null },
+        )
+    }
+
     BottomSheetScaffold(
         modifier = modifier.fillMaxSize(),
         scaffoldState = scaffoldState,
@@ -411,7 +431,7 @@ fun MapScreen(
                         waypoints = waypoints + point
                     }
                 },
-                onMapLongClick = { pendingFavorite = PendingFavorite.Point(it) },
+                onMapLongClick = { pendingLongPressPoint = it },
                 onCameraIdle = { snap ->
                     lastCameraCenter = LatLng(snap.lat, snap.lng)
                     if (!firstCameraIdleSeen) {
@@ -1109,5 +1129,21 @@ private fun SaveFavoriteDialog(
         },
         confirmButton = { TextButton(onClick = onConfirm) { Text("Save") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}
+
+@Composable
+private fun LongPressActionDialog(
+    point: LatLng,
+    onSaveFavorite: () -> Unit,
+    onMockPoint: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Choose action") },
+        text = { Text("%.5f, %.5f".format(point.lat, point.lng)) },
+        confirmButton = { TextButton(onClick = onSaveFavorite) { Text("Save favorite") } },
+        dismissButton = { TextButton(onClick = onMockPoint) { Text("Mock this point") } },
     )
 }
