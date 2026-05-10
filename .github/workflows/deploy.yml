@@ -1,0 +1,51 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Prepare environment file
+        env:
+          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          AUTH_ACCESS_TOKEN_SECRET: ${{ secrets.AUTH_ACCESS_TOKEN_SECRET }}
+          AUTH_TOTP_ENCRYPTION_KEY: ${{ secrets.AUTH_TOTP_ENCRYPTION_KEY }}
+        run: |
+          install -m 600 /dev/null .env
+          {
+            echo "POSTGRES_DB=${POSTGRES_DB:-kestrel}"
+            echo "POSTGRES_USER=${POSTGRES_USER}"
+            echo "POSTGRES_PASSWORD=${POSTGRES_PASSWORD}"
+            echo "AUTH_ACCESS_TOKEN_SECRET=${AUTH_ACCESS_TOKEN_SECRET}"
+            echo "AUTH_TOTP_ENCRYPTION_KEY=${AUTH_TOTP_ENCRYPTION_KEY}"
+          } >> .env
+
+      - name: Validate Docker Compose config
+        run: |
+          docker compose config --quiet
+
+      - name: Deploy with Docker Compose
+        run: |
+          docker compose up -d --build --remove-orphans
+
+      - name: Remove environment file
+        if: always()
+        run: rm -f .env
