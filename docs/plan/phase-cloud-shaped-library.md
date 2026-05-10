@@ -411,18 +411,19 @@ data class LibraryItemWithContent(
 
 ## 11. 驗收條件
 
-- [ ] 首次啟動會把既有 DataStore favorites migrate 到 Room。
-- [ ] Migration 後 Points / Routes 數量與原本一致。
-- [ ] Go to 面板可套用 migrated point。
-- [ ] Go to 面板可套用 migrated route，speed / mode 正確。
-- [ ] Save point 會建立 `Place + LibraryItem`，重啟後仍存在。
-- [ ] Save route 會建立 `Route + RouteRevision + Waypoints + LibraryItem`，重啟後仍存在。
-- [ ] Rename 不改變 item identity；startup reference 不會斷。
-- [ ] Recent sorting 使用 `LibraryItem.lastUsedAt`。
-- [ ] Manual sorting 使用 `LibraryItem.sortOrder`，重啟後保留。
-- [ ] Startup favorite 改用 `libraryItemId`，舊 `favoriteName` 可 migration。
-- [ ] UI 不再直接依賴 `Favorite.name` 作操作 key。
-- [ ] `just check` / `just lint` 通過。
+- [x] 首次啟動會把既有 DataStore favorites migrate 到 Room。
+- [x] Migration 後 Points / Routes 數量與原本一致。
+- [x] Go to 面板可套用 migrated point。
+- [x] Go to 面板可套用 migrated route，speed / mode 正確。
+- [x] Save point 會建立 `Place + LibraryItem`，重啟後仍存在。
+- [x] Save route 會建立 `Route + RouteRevision + Waypoints + LibraryItem`，重啟後仍存在。
+- [x] Rename 不改變 item identity；startup reference 不會斷。
+- [x] Recent sorting 使用 `LibraryItem.lastUsedAt`。
+- [x] Manual sorting 使用 `LibraryItem.sortOrder`，重啟後保留。
+- [x] Startup favorite 改用 `libraryItemId`。
+- [x] 舊 `favoriteName` 可 migration。
+- [x] UI 不再直接依賴 `Favorite.name` 作操作 key。
+- [x] `just check` / `just lint` 通過。
 
 ---
 

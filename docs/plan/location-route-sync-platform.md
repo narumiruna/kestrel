@@ -403,13 +403,13 @@ Android 端改為 cloud-shaped local library：
 
 ## 12. 驗收條件（產品級 MVP）
 
-- [ ] 使用者可在 Web 以 username/password + TOTP 登入。
-- [ ] Web 可建立 / 編輯 place。
-- [ ] Web 可建立 / 編輯 route waypoints、default speed、mode。
-- [ ] Android 可登入同帳號。
-- [ ] Android 首次 bootstrap 後看得到 Web 建立的 places / routes。
-- [ ] Web 修改 route 後產生新 revision，Android changes sync 後取得最新版。
-- [ ] Android 可套用單點並 mock。
-- [ ] Android 可播放同步下來的 route。
+- [x] 使用者可在 Web 以 username/password + TOTP 登入。
+- [x] Web 可建立 / 編輯 place。
+- [x] Web 可建立 / 編輯 route waypoints、default speed、mode。
+- [x] Android 可登入同帳號。
+- [x] Android 首次 bootstrap 後看得到 Web 建立的 places / routes。
+- [x] Web 修改 route 後產生新 revision，Android changes sync 後取得最新版。
+- [x] Android 可套用單點並 mock。
+- [x] Android 可播放同步下來的 route。
 - [ ] Web 可產生 public latest share link。
 - [ ] 登入使用者可 copy public route 到自己的 library。
