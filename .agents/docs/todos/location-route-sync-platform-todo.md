@@ -68,17 +68,17 @@
 
 ## Phase 4：Next.js Web console
 
-- [ ] 建立 Next.js app。
-- [ ] 實作 username/password + TOTP login UI。
-- [ ] 實作 session refresh / logout。
-- [ ] 建立 authenticated shell layout。
-- [ ] 建立 Place list / detail / edit。
-- [ ] 建立 Route list / detail。
-- [ ] 整合 MapLibre GL JS。
-- [ ] 實作 route waypoint 新增 / 刪除 / 拖曳排序。
-- [ ] 實作 route default speed / mode 設定。
-- [ ] 儲存 route 時呼叫 API 並建立新 revision。
-- [ ] 顯示 route latest revision number。
+- [x] 建立 Next.js app。
+- [x] 實作 username/password + TOTP login UI。
+- [x] 實作 session refresh / logout。
+- [x] 建立 authenticated shell layout。
+- [x] 建立 Place list / detail / edit。
+- [x] 建立 Route list / detail。
+- [x] 整合 MapLibre GL JS。
+- [ ] 實作 route waypoint 新增 / 刪除 / 拖曳排序。（目前支援點地圖新增、刪除、按鈕重排、拖曳 marker 改座標；尚未做 list drag-and-drop 排序。）
+- [x] 實作 route default speed / mode 設定。
+- [x] 儲存 route 時呼叫 API 並建立新 revision。
+- [x] 顯示 route latest revision number。
 
 ---
 
