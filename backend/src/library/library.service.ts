@@ -142,17 +142,31 @@ export class LibraryService {
       throw new NotFoundException('place not found');
     }
 
-    await this.prismaService.place.update({
-      data: updateInput,
-      where: {
-        id: place.id,
-      },
-    });
-    await recordSyncEvent(this.prismaService, {
-      entityId: place.id,
-      entityType: SyncEntityType.PLACE,
-      operation: SyncOperation.UPSERT,
-      userId,
+    await this.prismaService.$transaction(async (tx) => {
+      await tx.place.update({
+        data: updateInput,
+        where: {
+          id: place.id,
+        },
+      });
+      await tx.libraryItem.updateMany({
+        data: {
+          version: {
+            increment: 1,
+          },
+        },
+        where: {
+          deletedAt: null,
+          placeId: place.id,
+          userId,
+        },
+      });
+      await recordSyncEvent(tx, {
+        entityId: place.id,
+        entityType: SyncEntityType.PLACE,
+        operation: SyncOperation.UPSERT,
+        userId,
+      });
     });
 
     return this.getPlace(userId, place.id);
@@ -194,6 +208,9 @@ export class LibraryService {
         await tx.libraryItem.update({
           data: {
             deletedAt,
+            version: {
+              increment: 1,
+            },
           },
           where: {
             id: place.libraryItem.id,

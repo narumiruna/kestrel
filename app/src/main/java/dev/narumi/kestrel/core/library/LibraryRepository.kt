@@ -12,6 +12,7 @@ import dev.narumi.kestrel.core.library.db.LibraryItemRecord
 import dev.narumi.kestrel.core.library.db.PlaceEntity
 import dev.narumi.kestrel.core.library.db.RouteEntity
 import dev.narumi.kestrel.core.library.db.RouteRevisionEntity
+import dev.narumi.kestrel.core.library.db.SyncStatus
 import dev.narumi.kestrel.core.library.db.WaypointEntity
 import dev.narumi.kestrel.core.location.LatLng
 import kotlinx.coroutines.flow.Flow
@@ -152,7 +153,11 @@ private class RoomLibraryRepository(
         val updatedAt = System.currentTimeMillis()
         database.withTransaction {
             when (record.item.kind) {
-                LibraryItemKind.Place -> record.item.placeId?.let { dao.renamePlace(it, trimmedName, updatedAt) }
+                LibraryItemKind.Place ->
+                    record.item.placeId?.let {
+                        dao.renamePlace(it, trimmedName, updatedAt)
+                        markPlaceDirty(record, updatedAt)
+                    }
                 LibraryItemKind.Route -> record.item.routeId?.let { dao.renameRoute(it, trimmedName, updatedAt) }
             }
         }
@@ -163,7 +168,17 @@ private class RoomLibraryRepository(
         lat: Double,
         lng: Double,
     ) {
-        dao.updatePlace(placeId, lat, lng, System.currentTimeMillis())
+        val updatedAt = System.currentTimeMillis()
+        database.withTransaction {
+            dao.updatePlace(placeId, lat, lng, updatedAt)
+            val record = dao.getLibraryItemsSnapshot().firstOrNull { it.placeId == placeId }
+            if (record != null) {
+                val itemRecord = dao.getLibraryItem(record.id)
+                if (itemRecord != null) {
+                    markPlaceDirty(itemRecord, updatedAt)
+                }
+            }
+        }
     }
 
     override suspend fun updateRouteParams(
@@ -180,7 +195,15 @@ private class RoomLibraryRepository(
         val shouldResetStartupPreference = isStartupFavoriteItem(startupPreference, itemId)
         database.withTransaction {
             when (record.item.kind) {
-                LibraryItemKind.Place -> record.item.placeId?.let { dao.deletePlace(it) }
+                LibraryItemKind.Place ->
+                    record.item.placeId?.let {
+                        if (record.item.remoteId == null) {
+                            dao.deletePlace(it)
+                        } else {
+                            dao.updatePlaceSyncStatus(it, SyncStatus.Deleted, System.currentTimeMillis())
+                            dao.updateLibraryItemSyncStatus(record.item.id, SyncStatus.Deleted, System.currentTimeMillis())
+                        }
+                    }
                 LibraryItemKind.Route -> record.item.routeId?.let { dao.deleteRoute(it) }
             }
         }
@@ -208,6 +231,15 @@ private class RoomLibraryRepository(
 
     override suspend fun setSortMode(mode: FavoritesSortMode.Mode) {
         prefs.setFavoritesSortMode(mode)
+    }
+
+    private suspend fun markPlaceDirty(
+        record: LibraryItemRecord,
+        updatedAt: Long,
+    ) {
+        val nextStatus = if (record.item.remoteId == null) SyncStatus.LocalOnly else SyncStatus.Dirty
+        record.item.placeId?.let { dao.updatePlaceSyncStatus(it, nextStatus, updatedAt) }
+        dao.updateLibraryItemSyncStatus(record.item.id, nextStatus, updatedAt)
     }
 }
 
