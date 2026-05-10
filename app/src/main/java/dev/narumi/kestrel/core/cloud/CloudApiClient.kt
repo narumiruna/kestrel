@@ -71,6 +71,16 @@ class CloudApiClient(
             accessToken = accessToken,
         )
 
+    internal suspend fun upload(
+        accessToken: String,
+        request: CloudSyncUploadRequest,
+    ): CloudSyncUploadResponse =
+        postJson<CloudSyncUploadRequest, CloudSyncUploadResponse>(
+            path = "/sync/upload",
+            body = request,
+            accessToken = accessToken,
+        )
+
     private suspend inline fun <reified Request : Any, reified Response : Any> postJson(
         path: String,
         body: Request,

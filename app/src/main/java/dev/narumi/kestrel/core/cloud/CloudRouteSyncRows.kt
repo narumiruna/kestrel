@@ -88,6 +88,7 @@ internal fun CloudLibraryItemPayload.toLibraryItemEntity(
         sortOrder = sortOrder,
         lastUsedAt = lastUsedAt?.toEpochMillis(),
         syncStatus = SyncStatus.Synced,
+        remoteVersion = version,
         createdAt = createdAt.toEpochMillis(),
         updatedAt = updatedAt.toEpochMillis(),
     )
