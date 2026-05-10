@@ -233,7 +233,7 @@ bootstrap 是 full snapshot，因此：
 - [x] refresh token 以 Keystore-backed encrypted storage 保存。
 - [x] `Sync now` 可成功 bootstrap cloud places / routes 到 Room。
 - [x] Favorites / Go to 可看到 Web 建立的 cloud library。
-- [ ] route 會使用 cloud current revision snapshot 執行。
+- [x] route 會使用 cloud current revision snapshot 執行。
 - [x] changes sync 可抓到 Web 新增 / 修改 / 刪除。
-- [ ] cursor 過期時會自動 fallback 到 bootstrap。
+- [x] cursor 過期時會自動 fallback 到 bootstrap。
 - [x] Options 頁可看到 last synced at / 最近 sync error。
