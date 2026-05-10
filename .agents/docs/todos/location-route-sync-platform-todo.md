@@ -37,31 +37,31 @@
 
 ## Phase 2：Cloud library API
 
-- [ ] 建立 `Place` Prisma model。
-- [ ] 建立 `Route` Prisma model。
-- [ ] 建立 `RouteRevision` Prisma model。
-- [ ] 建立 `LibraryItem` Prisma model。
-- [ ] 建立 `Device` / `DeviceState` Prisma model（可先不完整使用）。
-- [ ] 實作 Place CRUD API。
-- [ ] 實作 Route create/update API。
-- [ ] Route update 時建立 immutable `RouteRevision`。
-- [ ] 實作 LibraryItem reorder / touch。
-- [ ] 實作 soft delete / tombstone 語意。
-- [ ] 加 owner-based authorization middleware / guard。
-- [ ] API validation：lat/lng、waypoint count、speed、mode。
+- [x] 建立 `Place` Prisma model。
+- [x] 建立 `Route` Prisma model。
+- [x] 建立 `RouteRevision` Prisma model。
+- [x] 建立 `LibraryItem` Prisma model。
+- [x] 建立 `Device` / `DeviceState` Prisma model（可先不完整使用）。
+- [x] 實作 Place CRUD API。
+- [x] 實作 Route create/update API。
+- [x] Route update 時建立 immutable `RouteRevision`。
+- [x] 實作 LibraryItem reorder / touch。
+- [x] 實作 soft delete / tombstone 語意。
+- [x] 加 owner-based authorization middleware / guard。
+- [x] API validation：lat/lng、waypoint count、speed、mode。
 
 ---
 
 ## Phase 3：Sync API
 
-- [ ] 建立 `SyncEvent` Prisma model。
-- [ ] 所有 library mutation 寫入 `SyncEvent`。
-- [ ] 實作 `GET /sync/bootstrap`。
-- [ ] bootstrap 回傳 places / routes latest revisions / library items / cursor。
-- [ ] 實作 `GET /sync/changes?since=<cursor>`。
-- [ ] changes 回傳 upserts / deletions / next cursor。
-- [ ] 定義 cursor 過期時的 error code。
-- [ ] 加 sync API integration tests。
+- [x] 建立 `SyncEvent` Prisma model。
+- [x] 所有 library mutation 寫入 `SyncEvent`。
+- [x] 實作 `GET /sync/bootstrap`。
+- [x] bootstrap 回傳 places / routes latest revisions / library items / cursor。
+- [x] 實作 `GET /sync/changes?since=<cursor>`。
+- [x] changes 回傳 upserts / deletions / next cursor。
+- [x] 定義 cursor 過期時的 error code。
+- [x] 加 sync API integration tests。
 - [ ] 寫 API payload versioning 策略。
 
 ---
