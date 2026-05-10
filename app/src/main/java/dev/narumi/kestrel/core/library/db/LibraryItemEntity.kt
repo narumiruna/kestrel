@@ -39,6 +39,7 @@ data class LibraryItemEntity(
     @ColumnInfo(name = "sort_order") val sortOrder: Int,
     @ColumnInfo(name = "last_used_at") val lastUsedAt: Long? = null,
     @ColumnInfo(name = "sync_status") val syncStatus: SyncStatus = SyncStatus.LocalOnly,
+    @ColumnInfo(name = "remote_version") val remoteVersion: Int? = null,
     @ColumnInfo(name = "created_at") val createdAt: Long,
     @ColumnInfo(name = "updated_at") val updatedAt: Long,
 )
