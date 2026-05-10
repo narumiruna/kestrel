@@ -197,7 +197,7 @@ class CloudSyncRepository private constructor(
                 )
             }
         } catch (error: CloudApiException) {
-            if (error.statusCode == 410 && error.code == SYNC_CURSOR_EXPIRED_CODE) {
+            if (error.isRecoverableCursorError()) {
                 database.withTransaction {
                     dao.deleteSyncState(SyncStateKeys.CURSOR)
                 }
@@ -356,6 +356,11 @@ private object SyncStateKeys {
 }
 
 private const val SYNC_CURSOR_EXPIRED_CODE = "SYNC_CURSOR_EXPIRED"
+private const val SYNC_CURSOR_AHEAD_MESSAGE = "since cursor is ahead of server state"
+
+private fun CloudApiException.isRecoverableCursorError(): Boolean =
+    (statusCode == 410 && code == SYNC_CURSOR_EXPIRED_CODE) ||
+        (statusCode == 400 && message == SYNC_CURSOR_AHEAD_MESSAGE)
 
 private fun List<SyncStateEntity>.toCloudSyncState(): CloudSyncState {
     val values = associate { it.key to it.value }
