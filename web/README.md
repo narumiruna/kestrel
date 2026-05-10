@@ -33,6 +33,9 @@ KESTREL_API_BASE_URL=http://localhost:3000 npm run dev
 ## Validation
 
 ```bash
+just web-format
+just web-check
+just web-lint
 npm run typecheck
 npm run build
 ```
