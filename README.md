@@ -75,6 +75,8 @@ app/src/main/java/dev/narumi/kestrel/
 | Install git hooks (prek) | `just hooks` |
 | Reset app data | `just reset` |
 | Follow logcat | `just log` |
+| Start web + backend + postgres via Docker Compose | `just cloud-up` |
+| Stop Docker Compose stack | `just cloud-down` |
 
 ### Unit tests
 
@@ -109,6 +111,30 @@ npm run dev
 ```
 
 Open `http://localhost:3001`. Set `KESTREL_API_BASE_URL` if the API is not on `http://localhost:3000`.
+
+### Docker Compose stack
+
+To run PostgreSQL, the NestJS backend, and the Next.js web console together:
+
+```bash
+just cloud-up
+```
+
+Or directly:
+
+```bash
+docker compose up --build
+```
+
+Services:
+
+- PostgreSQL: `localhost:5432`
+- Backend API: `http://localhost:3000`
+- Web console: `http://localhost:3001`
+
+The Compose file uses development defaults and mounts `backend/` and `web/` for live reload.
+If those ports are already taken, copy `.env.example` to `.env` and change the `KESTREL_*_PORT` values.
+Use `just cloud-down` to stop the stack.
 
 ---
 
