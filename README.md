@@ -1,8 +1,8 @@
 # 🦅 Kestrel
 
-Android mock GPS app — lock your device location to any coordinate, play back a route automatically, or generate a random walking path.
+Kestrel is an Android mock GPS app that lets you set a custom location, simulate walking along a route, and generate random walking paths without root access.
 
-Built with **Kotlin · Jetpack Compose · Material 3 · MapLibre Native**. No root required.
+It is built with Kotlin, Jetpack Compose, Material 3, and MapLibre. Kestrel uses Android's official mock location APIs and is designed for development, testing, and personal location simulation workflows.
 
 ---
 
