@@ -1,4 +1,4 @@
-# Kestrel
+# 🦅 Kestrel
 
 Android mock GPS app — lock your device location to any coordinate, play back a route automatically, or generate a random walking path.
 
