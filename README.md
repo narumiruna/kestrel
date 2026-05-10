@@ -110,7 +110,7 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:3001`. Set `KESTREL_API_BASE_URL` if the API is not on `http://localhost:3000`.
+Open `http://localhost:3301`. Set `KESTREL_API_BASE_URL` if the API is not on `http://localhost:3300`.
 
 ### Docker Compose stack
 
@@ -128,9 +128,9 @@ docker compose up --build
 
 Services:
 
-- PostgreSQL: `localhost:5432`
-- Backend API: `http://localhost:3000`
-- Web console: `http://localhost:3001`
+- PostgreSQL: `localhost:15432`
+- Backend API: `http://localhost:3300`
+- Web console: `http://localhost:3301`
 
 The Compose file uses development defaults and mounts `backend/` and `web/` for live reload.
 If those ports are already taken, copy `.env.example` to `.env` and change the `KESTREL_*_PORT` values.
