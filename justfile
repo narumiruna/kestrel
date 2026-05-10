@@ -48,6 +48,18 @@ web-lint:
 test:
     JAVA_HOME="{{java_home}}" PATH="{{java_home}}/bin:$PATH" ./gradlew :app:testDebugUnitTest
 
+# start the web + backend + postgres dev stack with Docker Compose
+cloud-up:
+    docker compose up --build
+
+# stop the web + backend + postgres dev stack
+cloud-down:
+    docker compose down
+
+# follow logs for the web + backend + postgres dev stack
+cloud-log:
+    docker compose logs -f web backend postgres
+
 # regenerate detekt baseline (accept current warnings as-is)
 lint-baseline:
     JAVA_HOME="{{java_home}}" PATH="{{java_home}}/bin:$PATH" ./gradlew detektBaseline
