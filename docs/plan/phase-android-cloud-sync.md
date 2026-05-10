@@ -3,7 +3,7 @@
 > 此 phase 把 Android 從「只有本機 cloud-shaped library」推進到「能登入 cloud、拉下遠端 library、保存 session、顯示 sync 狀態」。
 > 本 phase 先做資料同步與登入，不做 local-only item upload、衝突解決 UI、realtime remote control。
 >
-> 長期產品藍圖見 `.agents/docs/plan/location-route-sync-platform.md`。
+> 長期產品藍圖見 `docs/plan/location-route-sync-platform.md`。
 
 ---
 
