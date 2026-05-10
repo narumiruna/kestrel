@@ -8,10 +8,10 @@
 
 > 詳細拆解見 `docs/todos/phase-cloud-shaped-library-todo.md`。
 
-- [ ] 新增 Room-based Library domain。
-- [ ] DataStore favorites migration 到 Room。
-- [ ] Favorites / Go to / Save flows 改接 LibraryRepository。
-- [ ] 移除 UI 對 `Favorite.name` identity 的依賴。
+- [x] 新增 Room-based Library domain。
+- [x] DataStore favorites migration 到 Room。
+- [x] Favorites / Go to / Save flows 改接 LibraryRepository。
+- [x] 移除 UI 對 `Favorite.name` identity 的依賴。
 
 ---
 
@@ -93,9 +93,9 @@
 - [x] 實作 foreground/manual refresh。
 - [x] 實作 changes polling。
 - [x] 處理 deletions。
-- [ ] cursor 過期時重新 bootstrap。
+- [x] cursor 過期時重新 bootstrap。
 - [x] UI 顯示 last synced at / sync error。
-- [ ] Android 套用 cloud route 使用 current revision snapshot。
+- [x] Android 套用 cloud route 使用 current revision snapshot。
 
 ---
 
