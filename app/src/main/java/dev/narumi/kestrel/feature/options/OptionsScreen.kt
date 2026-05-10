@@ -33,6 +33,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.narumi.kestrel.core.cloud.CloudApiException
 import dev.narumi.kestrel.core.cloud.CloudAuthRepository
 import dev.narumi.kestrel.core.cloud.CloudSession
+import dev.narumi.kestrel.core.cloud.CloudSyncRepository
+import dev.narumi.kestrel.core.cloud.CloudSyncState
 import dev.narumi.kestrel.core.data.CloudSettings
 import dev.narumi.kestrel.core.data.KestrelPrefs
 import dev.narumi.kestrel.core.data.RandomRoutePreference
@@ -41,40 +43,38 @@ import dev.narumi.kestrel.core.library.LibraryItemWithContent
 import dev.narumi.kestrel.core.library.LibraryRepository
 import dev.narumi.kestrel.core.library.description
 import kotlinx.coroutines.launch
+import java.io.IOException
 import java.util.Date
+
+private data class CloudLoginForm(
+    val username: String = "",
+    val password: String = "",
+    val oneTimeCode: String = "",
+    val useRecoveryCode: Boolean = false,
+)
+
+private data class CloudSettingsUiState(
+    val apiBaseUrl: String,
+    val loading: Boolean,
+    val message: String?,
+    val error: String?,
+    val session: CloudSession?,
+    val syncState: CloudSyncState,
+)
 
 @Composable
 fun OptionsScreen(modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val prefs = remember { KestrelPrefs(context) }
-    val authRepository = remember { CloudAuthRepository.getInstance(context) }
     val libraryRepository = remember { LibraryRepository.getInstance(context) }
     val scope = rememberCoroutineScope()
 
-    val cloudSettings by prefs.cloudSettings.collectAsStateWithLifecycle(CloudSettings())
     val items by libraryRepository.items.collectAsStateWithLifecycle(emptyList())
     val startup by prefs.startupPreference.collectAsStateWithLifecycle(StartupPreference())
     val randomRoute by prefs.randomRoutePreference.collectAsStateWithLifecycle(RandomRoutePreference())
 
-    var apiBaseUrl by remember { mutableStateOf(cloudSettings.apiBaseUrl) }
-    var username by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
-    var oneTimeCode by remember { mutableStateOf("") }
-    var useRecoveryCode by remember { mutableStateOf(false) }
-    var cloudSession by remember { mutableStateOf<CloudSession?>(null) }
-    var cloudMessage by remember { mutableStateOf<String?>(null) }
-    var cloudError by remember { mutableStateOf<String?>(null) }
-    var cloudLoading by remember { mutableStateOf(false) }
     var defaultPointCount by remember { mutableStateOf("") }
     var defaultSpacingMeters by remember { mutableStateOf("") }
-
-    LaunchedEffect(Unit) {
-        cloudSession = authRepository.currentSession()
-    }
-
-    LaunchedEffect(cloudSettings.apiBaseUrl) {
-        apiBaseUrl = cloudSettings.apiBaseUrl
-    }
 
     LaunchedEffect(randomRoute.defaultPointCount, randomRoute.defaultSpacingMeters) {
         defaultPointCount = randomRoute.defaultPointCount.toString()
@@ -93,95 +93,7 @@ fun OptionsScreen(modifier: Modifier = Modifier) {
                 .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        CloudSettingsCard(
-            apiBaseUrl = apiBaseUrl,
-            cloudError = cloudError,
-            cloudLoading = cloudLoading,
-            cloudMessage = cloudMessage,
-            cloudSession = cloudSession,
-            onApiBaseUrlChange = { apiBaseUrl = it },
-            onLogin = {
-                scope.launch {
-                    cloudLoading = true
-                    cloudError = null
-                    cloudMessage = null
-                    try {
-                        val session =
-                            if (useRecoveryCode) {
-                                authRepository.loginWithRecoveryCode(
-                                    username = username,
-                                    password = password,
-                                    recoveryCode = oneTimeCode,
-                                )
-                            } else {
-                                authRepository.loginWithTotp(
-                                    username = username,
-                                    password = password,
-                                    totpCode = oneTimeCode,
-                                )
-                            }
-                        cloudSession = session
-                        cloudMessage = "Signed in as ${session.username}"
-                        oneTimeCode = ""
-                    } catch (error: Exception) {
-                        cloudError = error.toCloudErrorMessage()
-                    } finally {
-                        cloudLoading = false
-                    }
-                }
-            },
-            onLogout = {
-                scope.launch {
-                    cloudLoading = true
-                    cloudError = null
-                    cloudMessage = null
-                    try {
-                        authRepository.logout()
-                        cloudSession = null
-                        cloudMessage = "Signed out"
-                    } catch (error: Exception) {
-                        cloudError = error.toCloudErrorMessage()
-                    } finally {
-                        cloudLoading = false
-                    }
-                }
-            },
-            onPasswordChange = { password = it },
-            onRefreshSession = {
-                scope.launch {
-                    cloudLoading = true
-                    cloudError = null
-                    cloudMessage = null
-                    try {
-                        val refreshedSession = authRepository.refreshSession()
-                        cloudSession = refreshedSession
-                        if (refreshedSession == null) {
-                            cloudError = "Session expired. Please sign in again."
-                        } else {
-                            cloudMessage = "Session refreshed"
-                        }
-                    } catch (error: Exception) {
-                        cloudError = error.toCloudErrorMessage()
-                    } finally {
-                        cloudLoading = false
-                    }
-                }
-            },
-            onSaveApiBaseUrl = {
-                scope.launch {
-                    prefs.setCloudApiBaseUrl(apiBaseUrl)
-                    cloudMessage = "Saved API base URL"
-                    cloudError = null
-                }
-            },
-            onToggleRecoveryCode = { useRecoveryCode = it },
-            onUsernameChange = { username = it },
-            onOneTimeCodeChange = { oneTimeCode = it },
-            oneTimeCode = oneTimeCode,
-            password = password,
-            useRecoveryCode = useRecoveryCode,
-            username = username,
-        )
+        CloudSettingsSection()
 
         StartupPreferenceCard(
             items = items,
@@ -223,29 +135,140 @@ fun OptionsScreen(modifier: Modifier = Modifier) {
     }
 }
 
+@Suppress("LongMethod")
+@Composable
+private fun CloudSettingsSection() {
+    val context = LocalContext.current
+    val prefs = remember { KestrelPrefs(context) }
+    val authRepository = remember { CloudAuthRepository.getInstance(context) }
+    val syncRepository = remember { CloudSyncRepository.getInstance(context) }
+    val scope = rememberCoroutineScope()
+
+    val cloudSettings by prefs.cloudSettings.collectAsStateWithLifecycle(CloudSettings())
+    val cloudSyncState by syncRepository.syncState.collectAsStateWithLifecycle(CloudSyncState())
+
+    var loginForm by remember { mutableStateOf(CloudLoginForm()) }
+    var cloudSession by remember { mutableStateOf<CloudSession?>(null) }
+    var cloudMessage by remember { mutableStateOf<String?>(null) }
+    var cloudError by remember { mutableStateOf<String?>(null) }
+    var cloudLoading by remember { mutableStateOf(false) }
+    var apiBaseUrl by remember { mutableStateOf(cloudSettings.apiBaseUrl) }
+
+    LaunchedEffect(Unit) {
+        cloudSession = authRepository.currentSession()
+    }
+
+    LaunchedEffect(cloudSettings.apiBaseUrl) {
+        apiBaseUrl = cloudSettings.apiBaseUrl
+    }
+
+    CloudSettingsCard(
+        uiState =
+            buildCloudSettingsUiState(
+                apiBaseUrl = apiBaseUrl,
+                loading = cloudLoading,
+                message = cloudMessage,
+                error = cloudError,
+                session = cloudSession,
+                syncState = cloudSyncState,
+            ),
+        loginForm = loginForm,
+        onApiBaseUrlChange = { apiBaseUrl = it },
+        onLoginFormChange = { loginForm = it },
+        onSaveApiBaseUrl = {
+            launchCloudUiAction(
+                scope = scope,
+                setLoading = { cloudLoading = it },
+                setError = { cloudError = it },
+                setMessage = { cloudMessage = it },
+            ) {
+                prefs.setCloudApiBaseUrl(apiBaseUrl)
+                cloudMessage = "Saved API base URL"
+            }
+        },
+        onLogin = {
+            launchCloudUiAction(
+                scope = scope,
+                setLoading = { cloudLoading = it },
+                setError = { cloudError = it },
+                setMessage = { cloudMessage = it },
+            ) {
+                val session =
+                    if (loginForm.useRecoveryCode) {
+                        authRepository.loginWithRecoveryCode(
+                            username = loginForm.username,
+                            password = loginForm.password,
+                            recoveryCode = loginForm.oneTimeCode,
+                        )
+                    } else {
+                        authRepository.loginWithTotp(
+                            username = loginForm.username,
+                            password = loginForm.password,
+                            totpCode = loginForm.oneTimeCode,
+                        )
+                    }
+                cloudSession = session
+                loginForm = loginForm.copy(oneTimeCode = "")
+                syncRepository.syncNow()
+                cloudMessage = "Signed in as ${session.username}"
+            }
+        },
+        onRefreshSession = {
+            launchCloudUiAction(
+                scope = scope,
+                setLoading = { cloudLoading = it },
+                setError = { cloudError = it },
+                setMessage = { cloudMessage = it },
+            ) {
+                val refreshedSession = authRepository.refreshSession()
+                cloudSession = refreshedSession
+                if (refreshedSession == null) {
+                    cloudError = "Session expired. Please sign in again."
+                } else {
+                    cloudMessage = "Session refreshed"
+                }
+            }
+        },
+        onLogout = {
+            launchCloudUiAction(
+                scope = scope,
+                setLoading = { cloudLoading = it },
+                setError = { cloudError = it },
+                setMessage = { cloudMessage = it },
+            ) {
+                authRepository.logout()
+                cloudSession = null
+                cloudMessage = "Signed out"
+            }
+        },
+        onSyncNow = {
+            launchCloudUiAction(
+                scope = scope,
+                setLoading = { cloudLoading = it },
+                setError = { cloudError = it },
+                setMessage = { cloudMessage = it },
+            ) {
+                syncRepository.syncNow()
+                cloudMessage = "Sync complete"
+            }
+        },
+    )
+}
+
 @Composable
 private fun CloudSettingsCard(
-    apiBaseUrl: String,
-    cloudError: String?,
-    cloudLoading: Boolean,
-    cloudMessage: String?,
-    cloudSession: CloudSession?,
-    username: String,
-    password: String,
-    oneTimeCode: String,
-    useRecoveryCode: Boolean,
+    uiState: CloudSettingsUiState,
+    loginForm: CloudLoginForm,
     onApiBaseUrlChange: (String) -> Unit,
-    onUsernameChange: (String) -> Unit,
-    onPasswordChange: (String) -> Unit,
-    onOneTimeCodeChange: (String) -> Unit,
-    onToggleRecoveryCode: (Boolean) -> Unit,
+    onLoginFormChange: (CloudLoginForm) -> Unit,
     onSaveApiBaseUrl: () -> Unit,
     onLogin: () -> Unit,
     onRefreshSession: () -> Unit,
     onLogout: () -> Unit,
+    onSyncNow: () -> Unit,
 ) {
     Text(
-        text = "Cloud sync (Phase 5 foundation)",
+        text = "Cloud sync",
         style = MaterialTheme.typography.titleMedium,
     )
     Card(modifier = Modifier.fillMaxWidth()) {
@@ -254,7 +277,7 @@ private fun CloudSettingsCard(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             OutlinedTextField(
-                value = apiBaseUrl,
+                value = uiState.apiBaseUrl,
                 onValueChange = onApiBaseUrlChange,
                 label = { Text("API base URL") },
                 singleLine = true,
@@ -262,75 +285,141 @@ private fun CloudSettingsCard(
             )
             OutlinedButton(onClick = onSaveApiBaseUrl) { Text("Save API URL") }
 
-            if (cloudSession == null) {
-                OutlinedTextField(
-                    value = username,
-                    onValueChange = onUsernameChange,
-                    label = { Text("Username") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
+            if (uiState.session == null) {
+                CloudSignedOutCardContent(
+                    loginForm = loginForm,
+                    loading = uiState.loading,
+                    onLoginFormChange = onLoginFormChange,
+                    onLogin = onLogin,
                 )
-                OutlinedTextField(
-                    value = password,
-                    onValueChange = onPasswordChange,
-                    label = { Text("Password") },
-                    singleLine = true,
-                    visualTransformation = PasswordVisualTransformation(),
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                OutlinedTextField(
-                    value = oneTimeCode,
-                    onValueChange = onOneTimeCodeChange,
-                    label = { Text(if (useRecoveryCode) "Recovery code" else "TOTP code") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                StartupRadioRow(
-                    label = "Use recovery code instead of TOTP",
-                    selected = useRecoveryCode,
-                    onSelect = { onToggleRecoveryCode(!useRecoveryCode) },
-                )
-                Button(
-                    onClick = onLogin,
-                    enabled = !cloudLoading && username.isNotBlank() && password.isNotBlank() && oneTimeCode.isNotBlank(),
-                ) {
-                    Text(if (cloudLoading) "Signing in…" else "Sign in")
-                }
             } else {
-                Text(
-                    text = "Signed in as ${cloudSession.username}",
-                    style = MaterialTheme.typography.titleSmall,
+                CloudSignedInCardContent(
+                    session = uiState.session,
+                    syncState = uiState.syncState,
+                    loading = uiState.loading,
+                    onRefreshSession = onRefreshSession,
+                    onLogout = onLogout,
+                    onSyncNow = onSyncNow,
                 )
-                Text(
-                    text = "Access token expires at ${Date(cloudSession.accessTokenExpiresAt)}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = onRefreshSession, enabled = !cloudLoading) {
-                        Text("Refresh session")
-                    }
-                    OutlinedButton(onClick = onLogout, enabled = !cloudLoading) {
-                        Text("Sign out")
-                    }
-                }
             }
 
-            cloudMessage?.let {
-                Text(
-                    text = it,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-            }
-            cloudError?.let {
-                Text(
-                    text = it,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error,
-                )
-            }
+            CloudStatusMessage(
+                message = uiState.message,
+                error = uiState.error,
+            )
         }
+    }
+}
+
+@Composable
+private fun CloudSignedOutCardContent(
+    loginForm: CloudLoginForm,
+    loading: Boolean,
+    onLoginFormChange: (CloudLoginForm) -> Unit,
+    onLogin: () -> Unit,
+) {
+    OutlinedTextField(
+        value = loginForm.username,
+        onValueChange = { onLoginFormChange(loginForm.copy(username = it)) },
+        label = { Text("Username") },
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth(),
+    )
+    OutlinedTextField(
+        value = loginForm.password,
+        onValueChange = { onLoginFormChange(loginForm.copy(password = it)) },
+        label = { Text("Password") },
+        singleLine = true,
+        visualTransformation = PasswordVisualTransformation(),
+        modifier = Modifier.fillMaxWidth(),
+    )
+    OutlinedTextField(
+        value = loginForm.oneTimeCode,
+        onValueChange = { onLoginFormChange(loginForm.copy(oneTimeCode = it)) },
+        label = { Text(if (loginForm.useRecoveryCode) "Recovery code" else "TOTP code") },
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth(),
+    )
+    StartupRadioRow(
+        label = "Use recovery code instead of TOTP",
+        selected = loginForm.useRecoveryCode,
+        onSelect = {
+            onLoginFormChange(loginForm.copy(useRecoveryCode = !loginForm.useRecoveryCode))
+        },
+    )
+    Button(
+        onClick = onLogin,
+        enabled =
+            !loading &&
+                loginForm.username.isNotBlank() &&
+                loginForm.password.isNotBlank() &&
+                loginForm.oneTimeCode.isNotBlank(),
+    ) {
+        Text(if (loading) "Signing in…" else "Sign in")
+    }
+}
+
+@Composable
+private fun CloudSignedInCardContent(
+    session: CloudSession,
+    syncState: CloudSyncState,
+    loading: Boolean,
+    onRefreshSession: () -> Unit,
+    onLogout: () -> Unit,
+    onSyncNow: () -> Unit,
+) {
+    Text(
+        text = "Signed in as ${session.username}",
+        style = MaterialTheme.typography.titleSmall,
+    )
+    Text(
+        text = "Access token expires at ${Date(session.accessTokenExpiresAt)}",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    Text(
+        text = "Last synced: ${syncState.lastSyncedAt?.let(::Date)?.toString() ?: "Never"}",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    syncState.lastError?.let {
+        Text(
+            text = "Last sync error: $it",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.error,
+        )
+    }
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Button(onClick = onSyncNow, enabled = !loading) {
+            Text(if (loading) "Syncing…" else "Sync now")
+        }
+        OutlinedButton(onClick = onRefreshSession, enabled = !loading) {
+            Text("Refresh session")
+        }
+        OutlinedButton(onClick = onLogout, enabled = !loading) {
+            Text("Sign out")
+        }
+    }
+}
+
+@Composable
+private fun CloudStatusMessage(
+    message: String?,
+    error: String?,
+) {
+    message?.let {
+        Text(
+            text = it,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.primary,
+        )
+    }
+    error?.let {
+        Text(
+            text = it,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.error,
+        )
     }
 }
 
@@ -501,11 +590,63 @@ private fun formatDistance(meters: Double): String =
         "${formatMeters(meters)} m"
     }
 
-private fun Exception.toCloudErrorMessage(): String =
-    when (this) {
-        is CloudApiException -> message
-        else -> message ?: "Unexpected cloud error"
+private fun buildCloudSettingsUiState(
+    apiBaseUrl: String,
+    loading: Boolean,
+    message: String?,
+    error: String?,
+    session: CloudSession?,
+    syncState: CloudSyncState,
+): CloudSettingsUiState =
+    CloudSettingsUiState(
+        apiBaseUrl = apiBaseUrl,
+        loading = loading,
+        message = message,
+        error = error,
+        session = session,
+        syncState = syncState,
+    )
+
+private fun launchCloudUiAction(
+    scope: kotlinx.coroutines.CoroutineScope,
+    setLoading: (Boolean) -> Unit,
+    setError: (String?) -> Unit,
+    setMessage: (String?) -> Unit,
+    block: suspend () -> Unit,
+) {
+    scope.launch {
+        runCloudAction(
+            setLoading = setLoading,
+            setError = setError,
+            setMessage = setMessage,
+            block = block,
+        )
     }
+}
+
+private suspend fun runCloudAction(
+    setLoading: (Boolean) -> Unit,
+    setError: (String?) -> Unit,
+    setMessage: (String?) -> Unit,
+    block: suspend () -> Unit,
+) {
+    setLoading(true)
+    setError(null)
+    setMessage(null)
+    try {
+        block()
+    } catch (error: CloudApiException) {
+        setError(error.message)
+    } catch (error: IOException) {
+        setError(error.toCloudErrorMessage())
+    } catch (error: IllegalStateException) {
+        setError(error.toCloudErrorMessage())
+    } finally {
+        setLoading(false)
+    }
+}
+
+private fun Throwable.toCloudErrorMessage(): String = message ?: "Unexpected cloud error"
 
 @Composable
 private fun StartupRadioRow(
