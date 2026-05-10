@@ -64,6 +64,12 @@ abstract class LibraryDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     abstract suspend fun upsertSyncConflicts(conflicts: List<SyncConflictEntity>)
 
+    @Query("SELECT * FROM pending_sync_changes ORDER BY created_at ASC")
+    abstract suspend fun getPendingSyncChanges(): List<PendingSyncChangeEntity>
+
+    @Query("SELECT * FROM pending_sync_changes WHERE library_item_id = :libraryItemId LIMIT 1")
+    abstract suspend fun getPendingSyncChangeForItem(libraryItemId: String): PendingSyncChangeEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     abstract suspend fun upsertPlaces(places: List<PlaceEntity>)
 
@@ -180,6 +186,9 @@ abstract class LibraryDao {
 
     @Query("DELETE FROM pending_sync_changes WHERE library_item_id = :libraryItemId")
     abstract suspend fun deletePendingSyncChangesForItem(libraryItemId: String)
+
+    @Query("DELETE FROM sync_conflicts WHERE library_item_id = :libraryItemId")
+    abstract suspend fun deleteSyncConflictsForItem(libraryItemId: String)
 
     @Query("SELECT * FROM sync_state WHERE key IN (:keys)")
     abstract suspend fun getSyncStates(keys: List<String>): List<SyncStateEntity>

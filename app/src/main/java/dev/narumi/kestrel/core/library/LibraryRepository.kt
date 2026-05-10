@@ -9,6 +9,7 @@ import dev.narumi.kestrel.core.library.db.KestrelDatabase
 import dev.narumi.kestrel.core.library.db.LibraryDao
 import dev.narumi.kestrel.core.library.db.LibraryItemEntity
 import dev.narumi.kestrel.core.library.db.LibraryItemRecord
+import dev.narumi.kestrel.core.library.db.PendingSyncChangeEntity
 import dev.narumi.kestrel.core.library.db.PlaceEntity
 import dev.narumi.kestrel.core.library.db.RouteEntity
 import dev.narumi.kestrel.core.library.db.RouteRevisionEntity
@@ -17,6 +18,8 @@ import dev.narumi.kestrel.core.library.db.WaypointEntity
 import dev.narumi.kestrel.core.location.LatLng
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import java.util.UUID
 
 interface LibraryRepository {
@@ -87,6 +90,7 @@ private class RoomLibraryRepository(
     private val prefs: KestrelPrefs,
 ) : LibraryRepository {
     private val dao: LibraryDao = database.libraryDao()
+    private val json = Json { ignoreUnknownKeys = true }
 
     override val items: Flow<List<LibraryItemWithContent>> =
         dao.observeLibraryItems().map { records -> records.map(LibraryItemRecord::toDomain) }
@@ -111,7 +115,15 @@ private class RoomLibraryRepository(
                 now = System.currentTimeMillis(),
                 uuidFactory = { UUID.randomUUID().toString() },
             )
-        dao.insertPlaceWithLibraryItem(place = rows.place, item = rows.item)
+        database.withTransaction {
+            dao.insertPlaceWithLibraryItem(place = rows.place, item = rows.item)
+            val record = checkNotNull(dao.getLibraryItem(rows.item.id))
+            upsertPendingPlaceChange(
+                record = record,
+                type = uploadChangeTypeNameForPlaceMutation(record.item.remoteId),
+                updatedAt = rows.item.updatedAt,
+            )
+        }
         return rows.item.id
     }
 
@@ -156,7 +168,7 @@ private class RoomLibraryRepository(
                 LibraryItemKind.Place ->
                     record.item.placeId?.let {
                         dao.renamePlace(it, trimmedName, updatedAt)
-                        markPlaceDirty(record, updatedAt)
+                        markPlaceDirty(record.item.id, updatedAt)
                     }
                 LibraryItemKind.Route -> record.item.routeId?.let { dao.renameRoute(it, trimmedName, updatedAt) }
             }
@@ -173,10 +185,7 @@ private class RoomLibraryRepository(
             dao.updatePlace(placeId, lat, lng, updatedAt)
             val record = dao.getLibraryItemsSnapshot().firstOrNull { it.placeId == placeId }
             if (record != null) {
-                val itemRecord = dao.getLibraryItem(record.id)
-                if (itemRecord != null) {
-                    markPlaceDirty(itemRecord, updatedAt)
-                }
+                markPlaceDirty(record.id, updatedAt)
             }
         }
     }
@@ -198,10 +207,17 @@ private class RoomLibraryRepository(
                 LibraryItemKind.Place ->
                     record.item.placeId?.let {
                         if (record.item.remoteId == null) {
+                            dao.deletePendingSyncChangesForItem(record.item.id)
                             dao.deletePlace(it)
                         } else {
-                            dao.updatePlaceSyncStatus(it, SyncStatus.Deleted, System.currentTimeMillis())
-                            dao.updateLibraryItemSyncStatus(record.item.id, SyncStatus.Deleted, System.currentTimeMillis())
+                            val updatedAt = System.currentTimeMillis()
+                            upsertPendingPlaceChange(
+                                record = record,
+                                type = CloudPlaceUploadChangeTypes.DELETE,
+                                updatedAt = updatedAt,
+                            )
+                            dao.updatePlaceSyncStatus(it, SyncStatus.Deleted, updatedAt)
+                            dao.updateLibraryItemSyncStatus(record.item.id, SyncStatus.Deleted, updatedAt)
                         }
                     }
                 LibraryItemKind.Route -> record.item.routeId?.let { dao.deleteRoute(it) }
@@ -234,14 +250,63 @@ private class RoomLibraryRepository(
     }
 
     private suspend fun markPlaceDirty(
-        record: LibraryItemRecord,
+        itemId: String,
         updatedAt: Long,
     ) {
-        val nextStatus = if (record.item.remoteId == null) SyncStatus.LocalOnly else SyncStatus.Dirty
+        val record = dao.getLibraryItem(itemId) ?: return
+        val nextStatus = syncStatusForPlaceMutation(record.item.remoteId)
         record.item.placeId?.let { dao.updatePlaceSyncStatus(it, nextStatus, updatedAt) }
         dao.updateLibraryItemSyncStatus(record.item.id, nextStatus, updatedAt)
+        val updatedRecord = dao.getLibraryItem(itemId) ?: return
+        upsertPendingPlaceChange(
+            record = updatedRecord,
+            type = uploadChangeTypeNameForPlaceMutation(record.item.remoteId),
+            updatedAt = updatedAt,
+        )
+    }
+
+    private suspend fun upsertPendingPlaceChange(
+        record: LibraryItemRecord,
+        type: String,
+        updatedAt: Long,
+    ) {
+        val payload = record.toPendingPlaceSyncPayload() ?: return
+        val existing = dao.getPendingSyncChangeForItem(record.item.id)
+        val createdAt = existing?.createdAt ?: updatedAt
+        dao.upsertPendingSyncChanges(
+            listOf(
+                PendingSyncChangeEntity(
+                    id = existing?.id ?: record.item.id,
+                    libraryItemId = record.item.id,
+                    clientMutationId = existing?.clientMutationId ?: randomUuid(),
+                    type = preserveCreateType(existing?.type, type),
+                    baseVersion = existing?.baseVersion ?: record.item.remoteVersion,
+                    payloadJson = json.encodeToString(payload),
+                    createdAt = createdAt,
+                    updatedAt = updatedAt,
+                ),
+            ),
+        )
+        dao.deleteSyncConflictsForItem(record.item.id)
     }
 }
+
+private object CloudPlaceUploadChangeTypes {
+    const val CREATE = "PLACE_CREATE"
+    const val DELETE = "PLACE_DELETE"
+}
+
+private fun preserveCreateType(
+    existingType: String?,
+    nextType: String,
+): String =
+    if (existingType == CloudPlaceUploadChangeTypes.CREATE && nextType != CloudPlaceUploadChangeTypes.DELETE) {
+        CloudPlaceUploadChangeTypes.CREATE
+    } else {
+        nextType
+    }
+
+private fun randomUuid(): String = UUID.randomUUID().toString()
 
 internal data class LibraryItemTouchValues(
     val lastUsedAt: Long,
