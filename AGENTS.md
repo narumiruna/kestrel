@@ -32,8 +32,8 @@
   - `feature/favorites/`、`feature/options/`、`feature/settings/`、`feature/routes/`、`feature/tracks/`
   - `MainActivity.kt` — `NavigationSuiteScaffold`，三個 tab：Map / Favorites / Options
 - `app/src/test/java/...` — JUnit 純 Kotlin 單元測試（Android Context 不能 instantiate；那種放 `androidTest/`）
-- `.agents/docs/plan/` — phase 設計文件（先寫文件再實作；風格見 `phase-quick-jump-and-favorites.md`）
-- `.agents/docs/TODO.md` — 依工程量分類的 backlog
+- `docs/plan/` — phase 設計文件（先寫文件再實作；風格見 `phase-quick-jump-and-favorites.md`）
+- `docs/todos/TODO.md` — 依工程量分類的 backlog
 
 ## Style 與工具
 
@@ -55,8 +55,8 @@
 
 ## 工作流程
 
-- 大改動先寫 phase 文件到 `.agents/docs/plan/`，再拆 PR 實作。文件結構參考 `phase-quick-jump-and-favorites.md`：動機 / 範圍 / 設計 / 互動影響 / 實作步驟 / 風險 / 驗收條件。
-- `.agents/docs/TODO.md` 的 quick wins 適合零碎時間做；做完打 `[x]`。
+- 大改動先寫 phase 文件到 `docs/plan/`，再拆 PR 實作。文件結構參考 `phase-quick-jump-and-favorites.md`：動機 / 範圍 / 設計 / 互動影響 / 實作步驟 / 風險 / 驗收條件。
+- `docs/todos/TODO.md` 的 quick wins 適合零碎時間做；做完打 `[x]`。
 - Git：不要 `git add -A`，只 stage 改動的檔案。Commit message 用 conventional 風格 + `Co-Authored-By` trailer。push 之前先 `just check && just lint`。
 
 ## 不要做
