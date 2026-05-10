@@ -41,6 +41,7 @@ A **foreground service** (type `location`) keeps the mock alive while the UI is 
 
 ```
 backend/                     # NestJS + Prisma cloud platform backend
+web/                         # Next.js cloud console
 app/src/main/java/dev/narumi/kestrel/
 ├── core/
 │   ├── data/        # DataStore Preferences, @Serializable schema
@@ -96,6 +97,18 @@ npm run db:up
 npm run prisma:migrate:dev
 npm run start:dev
 ```
+
+### Web console
+
+The Next.js cloud console lives in `web/` and proxies `/api/backend/*` to the NestJS API.
+
+```bash
+cd web
+npm install
+npm run dev
+```
+
+Open `http://localhost:3001`. Set `KESTREL_API_BASE_URL` if the API is not on `http://localhost:3000`.
 
 ---
 
