@@ -51,8 +51,17 @@ abstract class LibraryDao {
     @Insert(onConflict = OnConflictStrategy.ABORT)
     abstract suspend fun insertLibraryItem(item: LibraryItemEntity)
 
-    @Insert(onConflict = OnConflictStrategy.ABORT)
-    abstract suspend fun insertSyncStates(states: List<SyncStateEntity>)
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    abstract suspend fun upsertSyncStates(states: List<SyncStateEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    abstract suspend fun upsertPlaces(places: List<PlaceEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    abstract suspend fun upsertRoutes(routes: List<RouteEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    abstract suspend fun upsertRouteRevisions(revisions: List<RouteRevisionEntity>)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     abstract suspend fun upsertLibraryItems(items: List<LibraryItemEntity>)
@@ -125,12 +134,78 @@ abstract class LibraryDao {
         updatedAt: Long,
     )
 
+    @Query("SELECT * FROM sync_state WHERE key IN (:keys)")
+    abstract suspend fun getSyncStates(keys: List<String>): List<SyncStateEntity>
+
+    @Query("SELECT * FROM sync_state WHERE key IN (:keys)")
+    abstract fun observeSyncStates(keys: List<String>): Flow<List<SyncStateEntity>>
+
+    @Query("SELECT id FROM places WHERE remote_id = :remoteId LIMIT 1")
+    abstract suspend fun findPlaceIdByRemoteId(remoteId: String): String?
+
+    @Query("SELECT id FROM routes WHERE remote_id = :remoteId LIMIT 1")
+    abstract suspend fun findRouteIdByRemoteId(remoteId: String): String?
+
+    @Query("SELECT id FROM route_revisions WHERE remote_id = :remoteId LIMIT 1")
+    abstract suspend fun findRouteRevisionIdByRemoteId(remoteId: String): String?
+
+    @Query("SELECT id FROM library_items WHERE remote_id = :remoteId LIMIT 1")
+    abstract suspend fun findLibraryItemIdByRemoteId(remoteId: String): String?
+
+    @Query("DELETE FROM waypoints WHERE route_revision_id = :routeRevisionId")
+    abstract suspend fun deleteWaypointsForRouteRevision(routeRevisionId: String)
+
+    @Query("DELETE FROM route_revisions WHERE route_id = :routeId AND id != :keepRevisionId AND remote_id IS NOT NULL")
+    abstract suspend fun deleteSyncedRouteRevisionsForRouteExcept(
+        routeId: String,
+        keepRevisionId: String,
+    )
+
+    @Query("DELETE FROM route_revisions WHERE remote_id = :remoteId")
+    abstract suspend fun deleteRouteRevisionByRemoteId(remoteId: String)
+
+    @Query("DELETE FROM sync_state WHERE key = :key")
+    abstract suspend fun deleteSyncState(key: String)
+
     @Query("DELETE FROM library_items WHERE id = :itemId")
     abstract suspend fun deleteLibraryItem(itemId: String)
+
+    @Query("DELETE FROM library_items WHERE remote_id = :remoteId")
+    abstract suspend fun deleteLibraryItemByRemoteId(remoteId: String)
+
+    @Query("DELETE FROM library_items WHERE sync_status = 'Synced'")
+    abstract suspend fun deleteAllSyncedLibraryItems()
+
+    @Query("DELETE FROM library_items WHERE sync_status = 'Synced' AND remote_id NOT IN (:remoteIds)")
+    abstract suspend fun deleteSyncedLibraryItemsNotIn(remoteIds: List<String>)
 
     @Query("DELETE FROM places WHERE id = :placeId")
     abstract suspend fun deletePlace(placeId: String)
 
+    @Query("DELETE FROM places WHERE remote_id = :remoteId")
+    abstract suspend fun deletePlaceByRemoteId(remoteId: String)
+
+    @Query("DELETE FROM places WHERE sync_status = 'Synced'")
+    abstract suspend fun deleteAllSyncedPlaces()
+
+    @Query("DELETE FROM places WHERE sync_status = 'Synced' AND remote_id NOT IN (:remoteIds)")
+    abstract suspend fun deleteSyncedPlacesNotIn(remoteIds: List<String>)
+
     @Query("DELETE FROM routes WHERE id = :routeId")
     abstract suspend fun deleteRoute(routeId: String)
+
+    @Query("DELETE FROM routes WHERE remote_id = :remoteId")
+    abstract suspend fun deleteRouteByRemoteId(remoteId: String)
+
+    @Query("DELETE FROM routes WHERE sync_status = 'Synced'")
+    abstract suspend fun deleteAllSyncedRoutes()
+
+    @Query("DELETE FROM routes WHERE sync_status = 'Synced' AND remote_id NOT IN (:remoteIds)")
+    abstract suspend fun deleteSyncedRoutesNotIn(remoteIds: List<String>)
+
+    @Query("DELETE FROM route_revisions WHERE remote_id IS NOT NULL")
+    abstract suspend fun deleteAllSyncedRouteRevisions()
+
+    @Query("DELETE FROM route_revisions WHERE remote_id IS NOT NULL AND remote_id NOT IN (:remoteIds)")
+    abstract suspend fun deleteSyncedRouteRevisionsNotIn(remoteIds: List<String>)
 }
