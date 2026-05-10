@@ -2,7 +2,7 @@
 
 > 目的：讓使用者在 Web 上登入帳號，建立 / 編輯地點與路徑，並同步到 Android 手機執行 mock location 或 route playback。
 >
-> 本文件是長期產品與架構藍圖；近期 Android 地基重構見 `docs/plan/phase-cloud-shaped-library.md`。
+> 本文件是長期產品與架構藍圖；近期 Android 地基重構見 `.agents/docs/plan/phase-cloud-shaped-library.md`。
 
 ---
 

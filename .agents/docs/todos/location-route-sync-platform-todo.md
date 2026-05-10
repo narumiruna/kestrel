@@ -1,12 +1,12 @@
 # TODO：地點與路徑同步平台
 
-來源：`docs/plan/location-route-sync-platform.md`。
+來源：`.agents/docs/plan/location-route-sync-platform.md`。
 
 ---
 
 ## Phase 0：Android cloud-shaped local library
 
-> 詳細拆解見 `docs/todos/phase-cloud-shaped-library-todo.md`。
+> 詳細拆解見 `.agents/docs/todos/phase-cloud-shaped-library-todo.md`。
 
 - [ ] 新增 Room-based Library domain。
 - [ ] DataStore favorites migration 到 Room。

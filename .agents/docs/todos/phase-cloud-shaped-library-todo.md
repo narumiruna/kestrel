@@ -1,6 +1,6 @@
 # TODO：Phase Android cloud-shaped Library domain
 
-來源：`docs/plan/phase-cloud-shaped-library.md`。
+來源：`.agents/docs/plan/phase-cloud-shaped-library.md`。
 
 ---
 

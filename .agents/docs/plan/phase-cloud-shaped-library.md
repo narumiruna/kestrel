@@ -3,7 +3,7 @@
 > 此 phase 先把 Android 本機資料模型改成與未來雲端一致的 `Place / Route / RouteRevision / Waypoint / LibraryItem`。
 > 目的不是立刻做 Web/API sync，而是趁目前 0 使用者，把 `Favorite(name as id)` 技術債移除，讓本機模式也使用未來雲端形狀。
 >
-> 長期產品藍圖見 `docs/plan/location-route-sync-platform.md`。
+> 長期產品藍圖見 `.agents/docs/plan/location-route-sync-platform.md`。
 
 ---
 
