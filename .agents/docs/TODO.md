@@ -4,7 +4,7 @@
 
 ## Phase：Go to 面板 + Favorites 整理（A + D）
 
-來源：`docs/plan/phase-quick-jump-and-favorites.md`。
+來源：`.agents/docs/plan/phase-quick-jump-and-favorites.md`。
 
 ### 實作步驟
 
