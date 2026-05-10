@@ -93,6 +93,7 @@ import dev.narumi.kestrel.core.location.rememberCurrentLocation
 import dev.narumi.kestrel.core.map.KestrelMap
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import java.util.Locale
 
 private enum class RunState { Idle, Single, RoutePlaying, RoutePaused }
 
@@ -175,6 +176,7 @@ fun MapScreen(
     var routeMode by remember { mutableStateOf(MovementEngine.Mode.Once) }
     var runState by remember { mutableStateOf(RunState.Idle) }
     var pendingFavorite by remember { mutableStateOf<PendingFavorite?>(null) }
+    var pendingLongPressPoint by remember { mutableStateOf<LatLng?>(null) }
     var favoriteName by remember { mutableStateOf("") }
     var cameraTarget by remember { mutableStateOf<CameraSnapshot?>(null) }
     var awaitCurrentForStartup by remember { mutableStateOf(false) }
@@ -350,6 +352,24 @@ fun MapScreen(
         )
     }
 
+    pendingLongPressPoint?.let { point ->
+        LongPressActionDialog(
+            point = point,
+            ready = ready,
+            onSaveFavorite = {
+                pendingFavorite = PendingFavorite.Point(point)
+                pendingLongPressPoint = null
+            },
+            onMockPoint = {
+                applyPoint(point)
+                LocationService.setLocation(context, point)
+                runState = RunState.Single
+                pendingLongPressPoint = null
+            },
+            onDismiss = { pendingLongPressPoint = null },
+        )
+    }
+
     BottomSheetScaffold(
         modifier = modifier.fillMaxSize(),
         scaffoldState = scaffoldState,
@@ -411,7 +431,7 @@ fun MapScreen(
                         waypoints = waypoints + point
                     }
                 },
-                onMapLongClick = { pendingFavorite = PendingFavorite.Point(it) },
+                onMapLongClick = { pendingLongPressPoint = it },
                 onCameraIdle = { snap ->
                     lastCameraCenter = LatLng(snap.lat, snap.lng)
                     if (!firstCameraIdleSeen) {
@@ -1108,6 +1128,37 @@ private fun SaveFavoriteDialog(
             }
         },
         confirmButton = { TextButton(onClick = onConfirm) { Text("Save") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}
+
+@Composable
+private fun LongPressActionDialog(
+    point: LatLng,
+    ready: Boolean,
+    onSaveFavorite: () -> Unit,
+    onMockPoint: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Choose action") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Latitude: %.5f".format(Locale.US, point.lat))
+                Text("Longitude: %.5f".format(Locale.US, point.lng))
+                OutlinedButton(
+                    onClick = onSaveFavorite,
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text("Save favorite") }
+                OutlinedButton(
+                    onClick = onMockPoint,
+                    enabled = ready,
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text("Mock this point") }
+            }
+        },
+        confirmButton = {},
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
 }
