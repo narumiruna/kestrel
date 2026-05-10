@@ -1,47 +1,46 @@
 # 🦅 Kestrel
 
-Kestrel is an Android mock GPS app that lets you set a custom location, simulate walking along a route, and generate random walking paths without root access.
+Kestrel is an Android mock GPS app that lets you pin the system location to any point on the globe, simulate walking along a route, or generate random walking paths — all without root access.
 
-It is built with Kotlin, Jetpack Compose, Material 3, and MapLibre. Kestrel uses Android's official mock location APIs and is designed for development, testing, and personal location simulation workflows.
-
----
-
-## Features
-
-| # | Feature | Description |
-|---|---|---|
-| F1 | **Single-point mock** | Tap the map or paste `lat,lng` / a Google Maps URL to pin the system location to that point. |
-| F2 | **Route playback** | Define waypoints, set speed (km/h), and let the engine walk the path automatically. Supports Once / Loop / PingPong modes. |
-| F3 | **Random route generation** | Input a waypoint count and step distance; the app generates a smooth random walk from the current map centre. |
-| — | **Favorites** | Save single points or full routes. Three sort modes: Recent / Alphabetical / Manual. |
-| — | **Startup behaviour** | Resume the last mock state, stay at current location, or apply a saved favourite on every launch. |
+Built with **Kotlin**, **Jetpack Compose**, **Material 3**, and **MapLibre**. Kestrel uses Android's official mock location APIs and is designed for development, testing, and personal location-simulation workflows.
 
 ---
 
-## Requirements
+## ✨ Features
 
-- Android 10+ (API 29)
-- Developer Options → **Select mock location app** → Kestrel
+| Feature | Description |
+|---|---|
+| 📍 **Single-point mock** | Tap the map or paste a `lat,lng` coordinate / Google Maps URL to lock the system location to that point. |
+| 🚶 **Route playback** | Define waypoints, set speed (km/h), and let the engine walk the path automatically. Supports **Once / Loop / PingPong** playback modes. |
+| 🎲 **Random route generation** | Enter a waypoint count and step distance; Kestrel generates a smooth random walk from the current map centre. |
+| ⭐ **Favorites** | Save single points or full routes. Sort by **Recent / Alphabetical / Manual** order. |
+| 🔄 **Startup behaviour** | Resume the last mock state, stay at the current location, or apply a saved favourite on every launch. |
+
+---
+
+## 📋 Requirements
+
+- Android 10+ (API 29+)
+- **Developer Options → Select mock location app → Kestrel**
 - *(Recommended)* Settings → Location → Location Services → **Google Location Accuracy** → Off
-  (Disabling this prevents Google Play Services from overriding the mocked position with Wi-Fi / cell fusion.)
+
+  Disabling Google Location Accuracy prevents Google Play Services from overriding the mocked position with Wi-Fi / cell-tower fusion.
 
 ---
 
-## How It Works
+## ⚙️ How It Works
 
-Kestrel uses the Android platform API `LocationManager.addTestProvider()` / `setTestProviderLocation()` — the official mock location mechanism. No root or system modification is required.
+Kestrel uses the Android platform APIs `LocationManager.addTestProvider()` and `setTestProviderLocation()` — the official mock location mechanism. No root or system modification is required.
 
 A **foreground service** (type `location`) keeps the mock alive while the UI is in the background. Movement is driven by a 1 Hz tick that advances `MovementEngine` along the route and pushes each sample through `MockProviderManager`.
 
-> **Note:** Apps protected by Play Integrity or SafetyNet can still detect mock locations — this is a system-level behaviour that Kestrel does not attempt to bypass.
+> ⚠️ **Note:** Apps protected by Play Integrity or SafetyNet can still detect mock locations — this is a system-level behaviour that Kestrel does not attempt to bypass.
 
 ---
 
-## Project Structure
+## 🗂️ Project Structure
 
 ```
-backend/                     # NestJS + Prisma cloud platform backend
-web/                         # Next.js cloud console
 app/src/main/java/dev/narumi/kestrel/
 ├── core/
 │   ├── data/        # DataStore Preferences, @Serializable schema
@@ -55,42 +54,44 @@ app/src/main/java/dev/narumi/kestrel/
     ├── routes/
     ├── tracks/
     └── settings/
+
+backend/             # NestJS + Prisma cloud platform backend
+web/                 # Next.js cloud console
 ```
 
 ---
 
-## Development
+## 🛠️ Development
 
-> Prerequisites: Android Studio, JDK (bundled with Android Studio), `adb` on `PATH`.
-> All common tasks are in the [`justfile`](justfile) — install [just](https://github.com/casey/just) to use them.
+> **Prerequisites:** Android Studio, JDK (bundled with Android Studio), `adb` on `PATH`.
+> All common tasks are driven by the [`justfile`](justfile) — install [just](https://github.com/casey/just) to use them.
 
 | Task | Command |
 |---|---|
 | Build debug APK | `just build` |
 | Build → install → launch | `just` (or `just br`) |
+| Run unit tests | `just test` |
 | Auto-format (Spotless + ktlint + Biome) | `just format` |
-| Verify formatting / web checks (no writes) | `just check` |
-| Detekt + web static analysis | `just lint` |
+| Verify formatting (no writes) | `just check` |
+| Detekt static analysis | `just lint` |
 | Regenerate Detekt baseline | `just lint-baseline` |
 | Install git hooks (prek) | `just hooks` |
 | Reset app data | `just reset` |
 | Follow logcat | `just log` |
-| Start web + backend + postgres via Docker Compose | `just cloud-up` |
+| Start full dev stack (Docker Compose) | `just cloud-up` |
 | Stop Docker Compose stack | `just cloud-down` |
 
-### Unit tests
-
-```bash
-# macOS example — adjust to match your Android Studio installation
-JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" \
-  ./gradlew :app:testDebugUnitTest
-```
+### 🧪 Unit tests
 
 Pure-Kotlin tests (no Android context needed) live in `app/src/test/`. Tests that require an Android context go in `app/src/androidTest/`.
 
-### Cloud platform backend
+```bash
+just test
+```
 
-The cloud platform backend lives in `backend/`.
+### ☁️ Cloud platform backend
+
+The NestJS + Prisma backend lives in `backend/`.
 
 ```bash
 cd backend
@@ -100,7 +101,7 @@ npm run prisma:migrate:dev
 npm run start:dev
 ```
 
-### Web console
+### 🌐 Web console
 
 The Next.js cloud console lives in `web/` and proxies `/api/backend/*` to the NestJS API.
 
@@ -110,35 +111,29 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:3301`. Set `KESTREL_API_BASE_URL` if the API is not on `http://localhost:3300`.
+Open `http://localhost:3301`. Set `KESTREL_API_BASE_URL` if the API is not running on `http://localhost:3300`.
 
-### Docker Compose stack
+### 🐳 Docker Compose stack
 
 To run PostgreSQL, the NestJS backend, and the Next.js web console together:
 
 ```bash
-just cloud-up
+just cloud-up   # or: docker compose up --build
 ```
 
-Or directly:
+| Service | Address |
+|---|---|
+| PostgreSQL | `localhost:15432` |
+| Backend API | `http://localhost:3300` |
+| Web console | `http://localhost:3301` |
 
-```bash
-docker compose up --build
-```
-
-Services:
-
-- PostgreSQL: `localhost:15432`
-- Backend API: `http://localhost:3300`
-- Web console: `http://localhost:3301`
-
-The Compose file uses development defaults and mounts `backend/` and `web/` for live reload.
-If those ports are already taken, copy `.env.example` to `.env` and change the `KESTREL_*_PORT` values.
+The Compose file uses development defaults and bind-mounts `backend/` and `web/` for live reload.
+If those ports are already taken, copy `.env.example` to `.env` and adjust the `KESTREL_*_PORT` variables.
 Use `just cloud-down` to stop the stack.
 
 ---
 
-## Permissions
+## 🔐 Permissions
 
 ```xml
 <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
@@ -146,13 +141,13 @@ Use `just cloud-down` to stop the stack.
 <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
 <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION"/>
 <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
-<uses-permission android:name="android.permission.INTERNET"/> <!-- tile downloads -->
+<uses-permission android:name="android.permission.INTERNET"/> <!-- map tile downloads -->
 ```
 
-`ACCESS_MOCK_LOCATION` is declared in the manifest (required for the app to appear in the Developer Options mock location picker) but has no runtime effect since Android 6.
+`ACCESS_MOCK_LOCATION` is declared in the manifest (required for the app to appear in the Developer Options mock-location picker) but has no runtime effect since Android 6.
 
 ---
 
-## License
+## 📄 License
 
-This project does not currently include a license file. All rights reserved unless otherwise stated.
+[GNU Affero General Public License v3.0](LICENSE)
