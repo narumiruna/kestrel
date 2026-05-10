@@ -20,6 +20,10 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          # Previous dev-stack deploys bind-mounted the checkout and may have left
+          # root-owned ignored build artifacts (for example web/.next).
+          clean: false
 
       - name: Prepare environment file
         env:
@@ -40,11 +44,11 @@ jobs:
 
       - name: Validate Docker Compose config
         run: |
-          docker compose config --quiet
+          docker compose -f compose.deploy.yaml config --quiet
 
       - name: Deploy with Docker Compose
         run: |
-          docker compose up -d --build --remove-orphans
+          docker compose -f compose.deploy.yaml up -d --build --remove-orphans
 
       - name: Remove environment file
         if: always()
