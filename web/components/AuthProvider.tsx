@@ -67,7 +67,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           throw error;
         }
 
-        const refreshedSession = await refreshSession(session.refreshToken);
+        let refreshedSession: AuthSession;
+
+        try {
+          refreshedSession = await refreshSession(session.refreshToken);
+        } catch (refreshError) {
+          logout();
+          throw refreshError;
+        }
+
         saveSession(refreshedSession);
 
         return apiFetch<T>(path, {
@@ -76,7 +84,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
       }
     },
-    [saveSession, session],
+    [logout, saveSession, session],
   );
 
   const value = useMemo<AuthContextValue>(
