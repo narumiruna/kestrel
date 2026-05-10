@@ -1144,11 +1144,18 @@ private fun LongPressActionDialog(
         title = { Text("Choose action") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("%.5f, %.5f".format(point.lat, point.lng))
-                TextButton(onClick = onMockPoint) { Text("Mock this point") }
+                Text("Latitude %.5f, Longitude %.5f".format(point.lat, point.lng))
+                Button(
+                    onClick = onSaveFavorite,
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text("Save favorite") }
+                OutlinedButton(
+                    onClick = onMockPoint,
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text("Mock this point") }
             }
         },
-        confirmButton = { TextButton(onClick = onSaveFavorite) { Text("Save favorite") } },
+        confirmButton = {},
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
 }
