@@ -93,6 +93,7 @@ import dev.narumi.kestrel.core.location.rememberCurrentLocation
 import dev.narumi.kestrel.core.map.KestrelMap
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import java.util.Locale
 
 private enum class RunState { Idle, Single, RoutePlaying, RoutePaused }
 
@@ -360,7 +361,6 @@ fun MapScreen(
                 pendingLongPressPoint = null
             },
             onMockPoint = {
-                if (!ready) return@LongPressActionDialog
                 applyPoint(point)
                 LocationService.setLocation(context, point)
                 runState = RunState.Single
@@ -1145,8 +1145,8 @@ private fun LongPressActionDialog(
         title = { Text("Choose action") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Latitude: %.5f".format(point.lat))
-                Text("Longitude: %.5f".format(point.lng))
+                Text("Latitude: %.5f".format(Locale.US, point.lat))
+                Text("Longitude: %.5f".format(Locale.US, point.lng))
                 OutlinedButton(
                     onClick = onSaveFavorite,
                     modifier = Modifier.fillMaxWidth(),
