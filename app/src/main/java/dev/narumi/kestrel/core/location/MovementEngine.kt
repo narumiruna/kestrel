@@ -20,15 +20,9 @@ class MovementEngine(
 
     private val segments: List<Segment> =
         buildList {
-            val expanded =
-                if (mode == Mode.Loop && waypoints.size >= 2) {
-                    waypoints + waypoints.first()
-                } else {
-                    waypoints
-                }
-            for (i in 0 until expanded.lastIndex) {
-                val a = expanded[i]
-                val b = expanded[i + 1]
+            for (i in 0 until waypoints.lastIndex) {
+                val a = waypoints[i]
+                val b = waypoints[i + 1]
                 val len = haversineMeters(a, b)
                 if (len > 0.0) add(Segment(a, b, len, bearingDegrees(a, b)))
             }
