@@ -72,7 +72,7 @@ export default function RouteMapEditor({ className = 'map', onChange, waypoints 
           'line-join': 'round',
         },
         paint: {
-          'line-color': '#26b7ee',
+          'line-color': '#76c945',
           'line-width': 4,
         },
         source: LINE_SOURCE_ID,
@@ -139,7 +139,7 @@ function syncMarkers(
 
   waypoints.forEach((waypoint, index) => {
     const marker = new maplibregl.Marker({
-      color: index === 0 ? '#70e3a4' : '#55d0ff',
+      color: index === 0 ? '#76c945' : '#f9aecb',
       draggable: true,
     })
       .setLngLat([waypoint.longitude, waypoint.latitude])
