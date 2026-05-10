@@ -4,11 +4,13 @@ import android.content.Context
 import androidx.room.withTransaction
 import dev.narumi.kestrel.core.data.KestrelPrefs
 import dev.narumi.kestrel.core.library.PendingPlaceSyncPayload
+import dev.narumi.kestrel.core.library.buildPlaceLibraryRows
 import dev.narumi.kestrel.core.library.db.KestrelDatabase
 import dev.narumi.kestrel.core.library.db.LibraryDao
 import dev.narumi.kestrel.core.library.db.PendingSyncChangeEntity
 import dev.narumi.kestrel.core.library.db.SyncConflictEntity
 import dev.narumi.kestrel.core.library.db.SyncStateEntity
+import dev.narumi.kestrel.core.library.toPendingPlaceSyncPayload
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
@@ -35,6 +37,21 @@ data class CloudSyncState(
     val userId: String? = null,
 )
 
+data class CloudPlaceConflict(
+    val id: String,
+    val libraryItemId: String,
+    val baseVersion: Int?,
+    val remoteVersion: Int,
+    val localName: String,
+    val localDescription: String?,
+    val localLatitude: Double,
+    val localLongitude: Double,
+    val cloudName: String,
+    val cloudDescription: String?,
+    val cloudLatitude: Double,
+    val cloudLongitude: Double,
+)
+
 @Suppress("TooManyFunctions")
 class CloudSyncRepository private constructor(
     context: Context,
@@ -50,6 +67,9 @@ class CloudSyncRepository private constructor(
 
     val syncState: Flow<CloudSyncState> =
         dao.observeSyncStates(CLOUD_SYNC_STATE_KEYS).map { states -> states.toCloudSyncState() }
+
+    val placeConflicts: Flow<List<CloudPlaceConflict>> =
+        dao.observeSyncConflicts().map { conflicts -> conflicts.mapNotNull(::toPlaceConflict) }
 
     suspend fun syncNow() {
         syncMutex.withLock {
@@ -67,6 +87,46 @@ class CloudSyncRepository private constructor(
 
         runCatching {
             syncNow()
+        }
+    }
+
+    suspend fun resolveConflictUseCloud(conflictId: String) {
+        database.withTransaction {
+            val conflict = dao.getSyncConflict(conflictId) ?: return@withTransaction
+            if (applyCloudConflictSnapshot(conflict)) {
+                dao.deletePendingSyncChangesForItem(conflict.libraryItemId)
+                dao.deleteSyncConflictsForItem(conflict.libraryItemId)
+            }
+        }
+    }
+
+    suspend fun resolveConflictUseLocal(conflictId: String) {
+        database.withTransaction {
+            val conflict = dao.getSyncConflict(conflictId) ?: return@withTransaction
+            val pendingChange = dao.getPendingSyncChangeForItem(conflict.libraryItemId) ?: return@withTransaction
+            dao.upsertPendingSyncChanges(
+                listOf(
+                    pendingChange.copy(
+                        clientMutationId = randomUuid(),
+                        baseVersion = conflict.remoteVersion,
+                        updatedAt = System.currentTimeMillis(),
+                    ),
+                ),
+            )
+            dao.deleteSyncConflictsForItem(conflict.libraryItemId)
+        }
+        syncNow()
+    }
+
+    suspend fun resolveConflictKeepBoth(conflictId: String) {
+        database.withTransaction {
+            val conflict = dao.getSyncConflict(conflictId) ?: return@withTransaction
+            val localSnapshot = conflict.decodeLocalSnapshotOrNull() ?: return@withTransaction
+            if (applyCloudConflictSnapshot(conflict)) {
+                duplicateLocalPlaceSnapshot(localSnapshot)
+                dao.deletePendingSyncChangesForItem(conflict.libraryItemId)
+                dao.deleteSyncConflictsForItem(conflict.libraryItemId)
+            }
         }
     }
 
@@ -285,6 +345,62 @@ class CloudSyncRepository private constructor(
         )
     }
 
+    private suspend fun applyCloudConflictSnapshot(conflict: SyncConflictEntity): Boolean {
+        val cloudConflict = conflict.decodeCloudSnapshotOrNull()
+        val cloudPlace = cloudConflict?.cloudPlace
+        val cloudLibraryItem = cloudConflict?.cloudLibraryItem
+        val localPlaceId =
+            cloudPlace?.let { place ->
+                dao.getLibraryItem(conflict.libraryItemId)?.item?.placeId ?: dao.findPlaceIdByRemoteId(place.id)
+            }
+        return if (cloudPlace == null || cloudLibraryItem == null || localPlaceId == null) {
+            false
+        } else {
+            dao.upsertPlaces(listOf(cloudPlace.toPlaceEntity(localPlaceId)))
+            dao.upsertLibraryItems(
+                listOf(
+                    cloudLibraryItem.toLibraryItemEntity(
+                        localId = conflict.libraryItemId,
+                        localPlaceId = localPlaceId,
+                        localRouteId = null,
+                    ),
+                ),
+            )
+            true
+        }
+    }
+
+    private suspend fun duplicateLocalPlaceSnapshot(localSnapshot: PendingPlaceSyncPayload) {
+        val now = System.currentTimeMillis()
+        val rows =
+            buildPlaceLibraryRows(
+                name = localSnapshot.name,
+                lat = localSnapshot.latitude,
+                lng = localSnapshot.longitude,
+                description = localSnapshot.description,
+                tags = localSnapshot.tags,
+                sortOrder = (dao.getMaxSortOrder() ?: -1) + 1,
+                now = now,
+                uuidFactory = ::randomUuid,
+            )
+        dao.insertPlaceWithLibraryItem(rows.place, rows.item)
+        val record = dao.getLibraryItem(rows.item.id) ?: return
+        val payload = record.toPendingPlaceSyncPayload() ?: return
+        dao.upsertPendingSyncChanges(
+            listOf(
+                PendingSyncChangeEntity(
+                    id = rows.item.id,
+                    libraryItemId = rows.item.id,
+                    clientMutationId = randomUuid(),
+                    type = CloudSyncUploadChangeType.PLACE_CREATE.name,
+                    payloadJson = json.encodeToString(payload),
+                    createdAt = now,
+                    updatedAt = now,
+                ),
+            ),
+        )
+    }
+
     private fun toUploadChange(change: PendingSyncChangeEntity): CloudSyncUploadChange? {
         val payload = change.decodePayloadOrNull() ?: return null
         val type = change.type.toCloudSyncUploadChangeTypeOrNull() ?: return null
@@ -309,12 +425,42 @@ class CloudSyncRepository private constructor(
         )
     }
 
-    private fun PendingSyncChangeEntity.decodePayloadOrNull(): PendingPlaceSyncPayload? =
+    private fun PendingSyncChangeEntity.decodePayloadOrNull(): PendingPlaceSyncPayload? = decodePlacePayloadOrNull(payloadJson)
+
+    private fun SyncConflictEntity.decodeLocalSnapshotOrNull(): PendingPlaceSyncPayload? = decodePlacePayloadOrNull(localSnapshotJson)
+
+    private fun SyncConflictEntity.decodeCloudSnapshotOrNull(): CloudSyncUploadConflictResult? =
+        try {
+            json.decodeFromString<CloudSyncUploadConflictResult>(cloudSnapshotJson)
+        } catch (_: SerializationException) {
+            null
+        }
+
+    private fun decodePlacePayloadOrNull(payloadJson: String): PendingPlaceSyncPayload? =
         try {
             json.decodeFromString<PendingPlaceSyncPayload>(payloadJson)
         } catch (_: SerializationException) {
             null
         }
+
+    private fun toPlaceConflict(conflict: SyncConflictEntity): CloudPlaceConflict? {
+        val local = conflict.decodeLocalSnapshotOrNull() ?: return null
+        val cloud = conflict.decodeCloudSnapshotOrNull()?.cloudPlace ?: return null
+        return CloudPlaceConflict(
+            id = conflict.id,
+            libraryItemId = conflict.libraryItemId,
+            baseVersion = conflict.baseVersion,
+            remoteVersion = conflict.remoteVersion,
+            localName = local.name,
+            localDescription = local.description,
+            localLatitude = local.latitude,
+            localLongitude = local.longitude,
+            cloudName = cloud.name,
+            cloudDescription = cloud.description,
+            cloudLatitude = cloud.latitude,
+            cloudLongitude = cloud.longitude,
+        )
+    }
 
     private fun String.toCloudSyncUploadChangeTypeOrNull(): CloudSyncUploadChangeType? = runCatching { CloudSyncUploadChangeType.valueOf(this) }.getOrNull()
 

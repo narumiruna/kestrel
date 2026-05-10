@@ -70,6 +70,12 @@ abstract class LibraryDao {
     @Query("SELECT * FROM pending_sync_changes WHERE library_item_id = :libraryItemId LIMIT 1")
     abstract suspend fun getPendingSyncChangeForItem(libraryItemId: String): PendingSyncChangeEntity?
 
+    @Query("SELECT * FROM sync_conflicts ORDER BY created_at ASC")
+    abstract fun observeSyncConflicts(): Flow<List<SyncConflictEntity>>
+
+    @Query("SELECT * FROM sync_conflicts WHERE id = :conflictId LIMIT 1")
+    abstract suspend fun getSyncConflict(conflictId: String): SyncConflictEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     abstract suspend fun upsertPlaces(places: List<PlaceEntity>)
 
