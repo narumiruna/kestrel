@@ -78,6 +78,15 @@ data class RandomRoutePreference(
     val usesLastSettings: Boolean get() = lastPointCount != null && lastSpacingMeters != null
 }
 
+@Serializable
+data class CloudSettings(
+    val apiBaseUrl: String = DEFAULT_API_BASE_URL,
+) {
+    companion object {
+        const val DEFAULT_API_BASE_URL = "http://10.0.2.2:3000"
+    }
+}
+
 private val Context.prefStore by preferencesDataStore("kestrel_prefs")
 
 private object Keys {
@@ -88,6 +97,7 @@ private object Keys {
     val MOCK_STATE = stringPreferencesKey("mock_state_json")
     val STARTUP_PREF = stringPreferencesKey("startup_pref_json")
     val RANDOM_ROUTE_PREF = stringPreferencesKey("random_route_pref_json")
+    val CLOUD_SETTINGS = stringPreferencesKey("cloud_settings_json")
 }
 
 class KestrelPrefs(
@@ -103,6 +113,7 @@ class KestrelPrefs(
     val startupPreference: Flow<StartupPreference> = store.data.map { it.toStartupPref(json) }
     val randomRoutePreference: Flow<RandomRoutePreference> =
         store.data.map { it.toRandomRoutePref(json) }
+    val cloudSettings: Flow<CloudSettings> = store.data.map { it.toCloudSettings(json) }
 
     suspend fun setLastCamera(snap: CameraSnapshot) {
         store.edit {
@@ -173,7 +184,20 @@ class KestrelPrefs(
         }
     }
 
+    suspend fun setCloudApiBaseUrl(apiBaseUrl: String) {
+        store.edit { prefs ->
+            val current = prefs.toCloudSettings(json)
+            prefs[Keys.CLOUD_SETTINGS] =
+                json.encodeToString(
+                    CloudSettings.serializer(),
+                    current.copy(apiBaseUrl = apiBaseUrl.trim()),
+                )
+        }
+    }
+
     suspend fun startupPreferenceValue(): StartupPreference = startupPreference.first()
+
+    suspend fun cloudSettingsValue(): CloudSettings = cloudSettings.first()
 
     private fun Preferences.toCamera(): CameraSnapshot? {
         val lat = this[Keys.LAST_CAM_LAT] ?: return null
@@ -208,5 +232,12 @@ class KestrelPrefs(
         return runCatching {
             json.decodeFromString(RandomRoutePreference.serializer(), raw)
         }.getOrDefault(RandomRoutePreference())
+    }
+
+    private fun Preferences.toCloudSettings(json: Json): CloudSettings {
+        val raw = this[Keys.CLOUD_SETTINGS] ?: return CloudSettings()
+        return runCatching {
+            json.decodeFromString(CloudSettings.serializer(), raw)
+        }.getOrDefault(CloudSettings())
     }
 }
