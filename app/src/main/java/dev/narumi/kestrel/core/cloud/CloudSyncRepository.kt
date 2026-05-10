@@ -3,16 +3,20 @@ package dev.narumi.kestrel.core.cloud
 import android.content.Context
 import androidx.room.withTransaction
 import dev.narumi.kestrel.core.data.KestrelPrefs
+import dev.narumi.kestrel.core.library.PendingPlaceSyncPayload
 import dev.narumi.kestrel.core.library.db.KestrelDatabase
 import dev.narumi.kestrel.core.library.db.LibraryDao
-import dev.narumi.kestrel.core.library.db.LibraryItemRecord
+import dev.narumi.kestrel.core.library.db.PendingSyncChangeEntity
 import dev.narumi.kestrel.core.library.db.SyncConflictEntity
 import dev.narumi.kestrel.core.library.db.SyncStateEntity
-import dev.narumi.kestrel.core.library.db.SyncStatus
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.serialization.SerializationException
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import java.io.IOException
 import java.util.UUID
 
@@ -41,6 +45,7 @@ class CloudSyncRepository private constructor(
     private val prefs = KestrelPrefs(applicationContext)
     private val authRepository = CloudAuthRepository.getInstance(applicationContext)
     private val apiClient = CloudApiClient(baseUrlProvider = { prefs.cloudSettingsValue().apiBaseUrl })
+    private val json = Json { ignoreUnknownKeys = true }
     private val syncMutex = Mutex()
 
     val syncState: Flow<CloudSyncState> =
@@ -215,16 +220,16 @@ class CloudSyncRepository private constructor(
     }
 
     private suspend fun uploadPendingPlaceChanges() {
-        val pendingRecords = dao.getPendingPlaceUploadRecords().filter { it.place != null }
-        if (pendingRecords.isEmpty()) {
+        val pendingChanges = dao.getPendingSyncChanges().filter { it.type.startsWith("PLACE_") }
+        val uploadChanges = pendingChanges.mapNotNull(::toUploadChange)
+        if (uploadChanges.isEmpty()) {
             return
         }
 
-        val request = CloudSyncUploadRequest(changes = pendingRecords.map(::toUploadChange))
-        val response = withAuthorizedSession { apiClient.upload(it.accessToken, request) }
+        val response = withAuthorizedSession { apiClient.upload(it.accessToken, CloudSyncUploadRequest(uploadChanges)) }
         database.withTransaction {
-            response.uploaded.forEach { uploaded -> applyUploadedPlace(uploaded) }
-            response.conflicts.forEach { conflict -> persistConflict(pendingRecords, conflict) }
+            response.uploaded.forEach { uploaded -> applyUploadedPlace(pendingChanges, uploaded) }
+            response.conflicts.forEach { conflict -> persistConflict(pendingChanges, conflict) }
             if (response.failed.isNotEmpty()) {
                 dao.upsertSyncStates(
                     listOf(SyncStateEntity(SyncStateKeys.LAST_ERROR, response.failed.first().message)),
@@ -233,12 +238,16 @@ class CloudSyncRepository private constructor(
         }
     }
 
-    private suspend fun applyUploadedPlace(uploaded: CloudSyncUploadUploadedResult) {
+    private suspend fun applyUploadedPlace(
+        pendingChanges: List<PendingSyncChangeEntity>,
+        uploaded: CloudSyncUploadUploadedResult,
+    ) {
+        val pendingChange = pendingChanges.firstOrNull { it.clientMutationId == uploaded.clientMutationId } ?: return
         val place = uploaded.place ?: return
         val libraryItem = uploaded.libraryItem ?: return
-        val localItemId = dao.findLibraryItemIdByRemoteId(libraryItem.id) ?: findLocalItemId(uploaded.clientMutationId)
-        val localPlaceId = dao.findPlaceIdByRemoteId(place.id) ?: findLocalPlaceId(uploaded.clientMutationId)
-        if (localItemId == null || localPlaceId == null) {
+        val localItemId = dao.findLibraryItemIdByRemoteId(libraryItem.id) ?: pendingChange.libraryItemId
+        val localPlaceId = dao.findPlaceIdByRemoteId(place.id) ?: dao.getLibraryItem(localItemId)?.item?.placeId
+        if (localPlaceId == null) {
             return
         }
 
@@ -250,75 +259,64 @@ class CloudSyncRepository private constructor(
             updatedAt = libraryItem.updatedAt.toEpochMillis(),
         )
         dao.deletePendingSyncChangesForItem(localItemId)
+        dao.deleteSyncConflictsForItem(localItemId)
     }
 
     private suspend fun persistConflict(
-        pendingRecords: List<LibraryItemRecord>,
+        pendingChanges: List<PendingSyncChangeEntity>,
         conflict: CloudSyncUploadConflictResult,
     ) {
-        val localRecord = pendingRecords.firstOrNull { toClientMutationId(it) == conflict.clientMutationId } ?: return
+        val pendingChange = pendingChanges.firstOrNull { it.clientMutationId == conflict.clientMutationId } ?: return
         val cloudLibraryItem = conflict.cloudLibraryItem ?: return
         dao.upsertSyncConflicts(
             listOf(
                 SyncConflictEntity(
                     id = conflict.clientMutationId,
-                    libraryItemId = localRecord.item.id,
-                    pendingChangeId = conflict.clientMutationId,
+                    libraryItemId = pendingChange.libraryItemId,
+                    pendingChangeId = pendingChange.id,
                     kind = "Place",
-                    baseVersion = localRecord.item.remoteVersion,
+                    baseVersion = pendingChange.baseVersion,
                     remoteVersion = cloudLibraryItem.version,
-                    localSnapshotJson = localRecord.place.toString(),
-                    cloudSnapshotJson = conflict.toString(),
+                    localSnapshotJson = pendingChange.payloadJson,
+                    cloudSnapshotJson = json.encodeToString(conflict),
                     createdAt = System.currentTimeMillis(),
                 ),
             ),
         )
     }
 
-    private suspend fun findLocalItemId(clientMutationId: String): String? =
-        dao
-            .getPendingPlaceUploadRecords()
-            .firstOrNull { toClientMutationId(it) == clientMutationId }
-            ?.item
-            ?.id
-
-    private suspend fun findLocalPlaceId(clientMutationId: String): String? =
-        dao
-            .getPendingPlaceUploadRecords()
-            .firstOrNull { toClientMutationId(it) == clientMutationId }
-            ?.item
-            ?.placeId
-
-    private fun toUploadChange(record: LibraryItemRecord): CloudSyncUploadChange {
-        val place = checkNotNull(record.place)
-        val type =
-            when {
-                record.item.syncStatus == SyncStatus.Deleted -> CloudSyncUploadChangeType.PLACE_DELETE
-                record.item.remoteId == null -> CloudSyncUploadChangeType.PLACE_CREATE
-                else -> CloudSyncUploadChangeType.PLACE_UPDATE
-            }
+    private fun toUploadChange(change: PendingSyncChangeEntity): CloudSyncUploadChange? {
+        val payload = change.decodePayloadOrNull() ?: return null
+        val type = change.type.toCloudSyncUploadChangeTypeOrNull() ?: return null
         return CloudSyncUploadChange(
-            clientMutationId = toClientMutationId(record),
-            expectedVersion = record.item.remoteVersion,
+            clientMutationId = change.clientMutationId,
+            expectedVersion = change.baseVersion,
             place =
                 if (type == CloudSyncUploadChangeType.PLACE_DELETE) {
                     null
                 } else {
                     CloudSyncUploadPlace(
-                        description = place.description,
-                        latitude = place.lat,
-                        longitude = place.lng,
-                        name = place.name,
-                        tags = place.tags,
+                        description = payload.description,
+                        latitude = payload.latitude,
+                        longitude = payload.longitude,
+                        name = payload.name,
+                        tags = payload.tags,
                     )
                 },
-            remoteLibraryItemId = record.item.remoteId,
-            remotePlaceId = place.remoteId,
+            remoteLibraryItemId = payload.remoteLibraryItemId,
+            remotePlaceId = payload.remotePlaceId,
             type = type,
         )
     }
 
-    private fun toClientMutationId(record: LibraryItemRecord): String = "place-${record.item.id}-${record.item.updatedAt}-${record.item.syncStatus}"
+    private fun PendingSyncChangeEntity.decodePayloadOrNull(): PendingPlaceSyncPayload? =
+        try {
+            json.decodeFromString<PendingPlaceSyncPayload>(payloadJson)
+        } catch (_: SerializationException) {
+            null
+        }
+
+    private fun String.toCloudSyncUploadChangeTypeOrNull(): CloudSyncUploadChangeType? = runCatching { CloudSyncUploadChangeType.valueOf(this) }.getOrNull()
 
     private suspend fun upsertRouteRows(routeRows: List<CloudRouteSyncRows>) {
         if (routeRows.isEmpty()) {

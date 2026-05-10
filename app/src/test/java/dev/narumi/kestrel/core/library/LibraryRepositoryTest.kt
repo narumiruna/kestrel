@@ -7,6 +7,7 @@ import dev.narumi.kestrel.core.library.db.PlaceEntity
 import dev.narumi.kestrel.core.library.db.RouteEntity
 import dev.narumi.kestrel.core.library.db.RouteRevisionEntity
 import dev.narumi.kestrel.core.library.db.RouteWithContent
+import dev.narumi.kestrel.core.library.db.SyncStatus
 import dev.narumi.kestrel.core.library.db.WaypointEntity
 import dev.narumi.kestrel.core.location.LatLng
 import org.junit.Assert.assertEquals
@@ -114,6 +115,53 @@ class LibraryRepositoryTest {
         assertEquals(listOf(0, 1, 2), entities.map { it.sequence })
         assertEquals(listOf(25.0, 25.1, 25.2), entities.map { it.lat })
         assertEquals(listOf(121.5, 121.6, 121.7), entities.map { it.lng })
+    }
+
+    @Test
+    fun `pending place sync payload captures current local place snapshot and remote ids`() {
+        val record =
+            LibraryItemRecord(
+                item =
+                    LibraryItemEntity(
+                        id = "item-1",
+                        remoteId = "remote-item-1",
+                        kind = LibraryItemKind.Place,
+                        placeId = "place-1",
+                        sortOrder = 0,
+                        remoteVersion = 3,
+                        createdAt = 1L,
+                        updatedAt = 2L,
+                    ),
+                place =
+                    PlaceEntity(
+                        id = "place-1",
+                        remoteId = "remote-place-1",
+                        name = "Local name",
+                        lat = 25.0,
+                        lng = 121.5,
+                        description = "Local description",
+                        tags = listOf("tag-a"),
+                        createdAt = 1L,
+                        updatedAt = 2L,
+                    ),
+            )
+
+        val payload = record.toPendingPlaceSyncPayload()
+
+        assertEquals("Local name", payload?.name)
+        assertEquals(25.0, payload?.latitude ?: 0.0, 0.0)
+        assertEquals(121.5, payload?.longitude ?: 0.0, 0.0)
+        assertEquals("remote-item-1", payload?.remoteLibraryItemId)
+        assertEquals("remote-place-1", payload?.remotePlaceId)
+        assertEquals(listOf("tag-a"), payload?.tags)
+    }
+
+    @Test
+    fun `place mutation helpers distinguish local-only create from synced update`() {
+        assertEquals(SyncStatus.LocalOnly, syncStatusForPlaceMutation(null))
+        assertEquals(SyncStatus.Dirty, syncStatusForPlaceMutation("remote-item-1"))
+        assertEquals("PLACE_CREATE", uploadChangeTypeNameForPlaceMutation(null))
+        assertEquals("PLACE_UPDATE", uploadChangeTypeNameForPlaceMutation("remote-item-1"))
     }
 
     @Test
