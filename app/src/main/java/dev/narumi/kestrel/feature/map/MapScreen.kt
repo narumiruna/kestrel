@@ -1144,8 +1144,9 @@ private fun LongPressActionDialog(
         title = { Text("Choose action") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Latitude %.5f, Longitude %.5f".format(point.lat, point.lng))
-                Button(
+                Text("Latitude: %.5f".format(point.lat))
+                Text("Longitude: %.5f".format(point.lng))
+                OutlinedButton(
                     onClick = onSaveFavorite,
                     modifier = Modifier.fillMaxWidth(),
                 ) { Text("Save favorite") }
