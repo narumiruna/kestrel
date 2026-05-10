@@ -354,16 +354,16 @@ fun MapScreen(
     pendingLongPressPoint?.let { point ->
         LongPressActionDialog(
             point = point,
+            ready = ready,
             onSaveFavorite = {
                 pendingFavorite = PendingFavorite.Point(point)
                 pendingLongPressPoint = null
             },
             onMockPoint = {
+                if (!ready) return@LongPressActionDialog
                 applyPoint(point)
-                if (ready) {
-                    LocationService.setLocation(context, point)
-                    runState = RunState.Single
-                }
+                LocationService.setLocation(context, point)
+                runState = RunState.Single
                 pendingLongPressPoint = null
             },
             onDismiss = { pendingLongPressPoint = null },
@@ -1135,6 +1135,7 @@ private fun SaveFavoriteDialog(
 @Composable
 private fun LongPressActionDialog(
     point: LatLng,
+    ready: Boolean,
     onSaveFavorite: () -> Unit,
     onMockPoint: () -> Unit,
     onDismiss: () -> Unit,
@@ -1152,6 +1153,7 @@ private fun LongPressActionDialog(
                 ) { Text("Save favorite") }
                 OutlinedButton(
                     onClick = onMockPoint,
+                    enabled = ready,
                     modifier = Modifier.fillMaxWidth(),
                 ) { Text("Mock this point") }
             }
