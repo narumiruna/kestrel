@@ -229,11 +229,11 @@ bootstrap 是 full snapshot，因此：
 
 ## 11. 驗收條件
 
-- [ ] 使用者可在 Android 以 username/password + TOTP 登入。
-- [ ] refresh token 以 Keystore-backed encrypted storage 保存。
-- [ ] `Sync now` 可成功 bootstrap cloud places / routes 到 Room。
-- [ ] Favorites / Go to 可看到 Web 建立的 cloud library。
+- [x] 使用者可在 Android 以 username/password + TOTP 登入。
+- [x] refresh token 以 Keystore-backed encrypted storage 保存。
+- [x] `Sync now` 可成功 bootstrap cloud places / routes 到 Room。
+- [x] Favorites / Go to 可看到 Web 建立的 cloud library。
 - [ ] route 會使用 cloud current revision snapshot 執行。
-- [ ] changes sync 可抓到 Web 新增 / 修改 / 刪除。
+- [x] changes sync 可抓到 Web 新增 / 修改 / 刪除。
 - [ ] cursor 過期時會自動 fallback 到 bootstrap。
-- [ ] Options 頁可看到 last synced at / 最近 sync error。
+- [x] Options 頁可看到 last synced at / 最近 sync error。
