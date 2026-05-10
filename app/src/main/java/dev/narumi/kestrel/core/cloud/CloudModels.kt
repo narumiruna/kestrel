@@ -1,6 +1,5 @@
 package dev.narumi.kestrel.core.cloud
 
-import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -53,9 +52,107 @@ internal data class UserPayload(
 )
 
 @Serializable
+internal data class CloudBootstrapResponse(
+    val places: List<CloudPlacePayload> = emptyList(),
+    val routes: List<CloudRoutePayload> = emptyList(),
+    val libraryItems: List<CloudLibraryItemPayload> = emptyList(),
+    val syncCursor: String,
+    val serverTime: String,
+)
+
+@Serializable
+internal data class CloudChangesResponse(
+    val places: List<CloudPlacePayload> = emptyList(),
+    val routes: List<CloudRoutePayload> = emptyList(),
+    val libraryItems: List<CloudLibraryItemPayload> = emptyList(),
+    val deletions: List<CloudDeletionPayload> = emptyList(),
+    val nextCursor: String,
+    val serverTime: String,
+)
+
+@Serializable
+internal data class CloudPlacePayload(
+    val createdAt: String,
+    val deletedAt: String? = null,
+    val description: String? = null,
+    val id: String,
+    val libraryItem: CloudLibraryItemPayload? = null,
+    val latitude: Double,
+    val longitude: Double,
+    val name: String,
+    val tags: List<String> = emptyList(),
+    val updatedAt: String,
+)
+
+@Serializable
+internal data class CloudRoutePayload(
+    val createdAt: String,
+    val currentRevision: CloudRouteRevisionPayload? = null,
+    val defaultSpeedKmh: Double,
+    val deletedAt: String? = null,
+    val description: String? = null,
+    val id: String,
+    val isPublic: Boolean = false,
+    val libraryItem: CloudLibraryItemPayload? = null,
+    val mode: CloudRouteMode,
+    val name: String,
+    val updatedAt: String,
+)
+
+@Serializable
+internal data class CloudRouteRevisionPayload(
+    val createdAt: String,
+    val createdBy: String,
+    val defaultSpeedKmh: Double,
+    val id: String,
+    val mode: CloudRouteMode,
+    val revisionNumber: Int,
+    val waypoints: List<CloudWaypointPayload> = emptyList(),
+)
+
+@Serializable
+internal data class CloudWaypointPayload(
+    val latitude: Double,
+    val longitude: Double,
+    val pauseSeconds: Double? = null,
+    val sequence: Int = 0,
+    val speedKmh: Double? = null,
+)
+
+@Serializable
+internal data class CloudLibraryItemPayload(
+    val createdAt: String,
+    val deletedAt: String? = null,
+    val id: String,
+    val kind: CloudLibraryItemKind,
+    val lastUsedAt: String? = null,
+    val pinned: Boolean = false,
+    val placeId: String? = null,
+    val routeId: String? = null,
+    val sortOrder: Int,
+    val updatedAt: String,
+)
+
+@Serializable
+internal data class CloudDeletionPayload(
+    val deletedAt: String? = null,
+    val entityId: String,
+    val entityType: CloudSyncEntityType,
+)
+
+@Serializable
+internal enum class CloudLibraryItemKind { PLACE, ROUTE }
+
+@Serializable
+internal enum class CloudRouteMode { ONCE, LOOP, PING_PONG }
+
+@Serializable
+internal enum class CloudSyncEntityType { PLACE, ROUTE, ROUTE_REVISION, LIBRARY_ITEM, DEVICE_STATE }
+
+@Serializable
 internal data class ErrorResponse(
     val code: String? = null,
-    val message: ErrorMessage? = null,
+    val message: String? = null,
 )
 
 @Serializable
@@ -68,18 +165,3 @@ internal data class RevokedSessionPayload(
     val id: String,
     val revokedAt: String,
 )
-
-@Serializable
-internal sealed interface ErrorMessage {
-    @Serializable
-    @SerialName("string")
-    data class Single(
-        val value: String,
-    ) : ErrorMessage
-
-    @Serializable
-    @SerialName("array")
-    data class Many(
-        val value: List<String>,
-    ) : ErrorMessage
-}
