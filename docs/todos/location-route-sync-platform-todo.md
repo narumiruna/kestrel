@@ -84,17 +84,17 @@
 
 ## Phase 5：Android cloud sync
 
-- [ ] Android 加 auth token storage（Keystore / encrypted storage）。
-- [ ] Android login UI：username/password + TOTP。
-- [ ] 實作 API client。
-- [ ] 實作 sync bootstrap。
-- [ ] 將 bootstrap payload upsert 到 Room。
-- [ ] 實作 sync cursor 保存。
-- [ ] 實作 foreground/manual refresh。
-- [ ] 實作 changes polling。
-- [ ] 處理 deletions。
+- [x] Android 加 auth token storage（Keystore / encrypted storage）。
+- [x] Android login UI：username/password + TOTP。
+- [x] 實作 API client。
+- [x] 實作 sync bootstrap。
+- [x] 將 bootstrap payload upsert 到 Room。
+- [x] 實作 sync cursor 保存。
+- [x] 實作 foreground/manual refresh。
+- [x] 實作 changes polling。
+- [x] 處理 deletions。
 - [ ] cursor 過期時重新 bootstrap。
-- [ ] UI 顯示 last synced at / sync error。
+- [x] UI 顯示 last synced at / sync error。
 - [ ] Android 套用 cloud route 使用 current revision snapshot。
 
 ---

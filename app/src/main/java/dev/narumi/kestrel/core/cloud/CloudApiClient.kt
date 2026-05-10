@@ -1,10 +1,10 @@
 package dev.narumi.kestrel.core.cloud
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerializationException
+import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
 import java.io.BufferedReader
 import java.io.InputStream
 import java.io.InputStreamReader
@@ -56,12 +56,27 @@ class CloudApiClient(
         )
     }
 
+    internal suspend fun bootstrap(accessToken: String): CloudBootstrapResponse =
+        getJson(
+            path = "/sync/bootstrap",
+            accessToken = accessToken,
+        )
+
+    internal suspend fun getChanges(
+        accessToken: String,
+        since: String,
+    ): CloudChangesResponse =
+        getJson(
+            path = "/sync/changes?since=$since",
+            accessToken = accessToken,
+        )
+
     private suspend inline fun <reified Request : Any, reified Response : Any> postJson(
         path: String,
         body: Request,
         accessToken: String? = null,
     ): Response {
-        val requestBody = json.encodeToString<Request>(body)
+        val requestBody = json.encodeToString(body)
         return request(
             method = "POST",
             path = path,
@@ -81,60 +96,75 @@ class CloudApiClient(
             accessToken = accessToken,
         )
 
+    private suspend inline fun <reified Response : Any> getJson(
+        path: String,
+        accessToken: String? = null,
+    ): Response =
+        request(
+            method = "GET",
+            path = path,
+            accessToken = accessToken,
+        )
+
     private suspend inline fun <reified Response : Any> request(
         method: String,
         path: String,
         body: String? = null,
         accessToken: String? = null,
-    ): Response {
-        val url = URL(normalizedBaseUrl() + path)
-        val connection = (url.openConnection() as HttpURLConnection).apply {
-            requestMethod = method
-            connectTimeout = CONNECT_TIMEOUT_MILLIS
-            readTimeout = READ_TIMEOUT_MILLIS
-            setRequestProperty("Accept", "application/json")
-            setRequestProperty("Content-Type", "application/json; charset=utf-8")
-            if (accessToken != null) {
-                setRequestProperty("Authorization", "Bearer $accessToken")
-            }
-            doInput = true
-        }
-
-        try {
-            if (body != null) {
-                connection.doOutput = true
-                connection.outputStream.use { output ->
-                    output.write(body.toByteArray(StandardCharsets.UTF_8))
+    ): Response =
+        withContext(Dispatchers.IO) {
+            val url = URL(normalizedBaseUrl() + path)
+            val connection =
+                (url.openConnection() as HttpURLConnection).apply {
+                    requestMethod = method
+                    connectTimeout = CONNECT_TIMEOUT_MILLIS
+                    readTimeout = READ_TIMEOUT_MILLIS
+                    setRequestProperty("Accept", "application/json")
+                    setRequestProperty("Content-Type", "application/json; charset=utf-8")
+                    if (accessToken != null) {
+                        setRequestProperty("Authorization", "Bearer $accessToken")
+                    }
+                    doInput = true
                 }
-            }
 
-            val statusCode = connection.responseCode
-            val responseBody =
-                readStream(
-                    if (statusCode in SUCCESS_STATUS_CODE_RANGE) {
-                        connection.inputStream
-                    } else {
-                        connection.errorStream
-                    },
-                )
+            try {
+                if (body != null) {
+                    connection.doOutput = true
+                    connection.outputStream.use { output ->
+                        output.write(body.toByteArray(StandardCharsets.UTF_8))
+                    }
+                }
 
-            if (statusCode !in SUCCESS_STATUS_CODE_RANGE) {
+                val statusCode = connection.responseCode
+                val responseBody =
+                    readStream(
+                        if (statusCode in SUCCESS_STATUS_CODE_RANGE) {
+                            connection.inputStream
+                        } else {
+                            connection.errorStream
+                        },
+                    )
+
+                if (statusCode !in SUCCESS_STATUS_CODE_RANGE) {
+                    val errorResponse = responseBody.toErrorResponse(json)
+                    throw CloudApiException(
+                        statusCode = statusCode,
+                        code = errorResponse?.code,
+                        message = errorResponse?.message ?: responseBody.ifBlank { "Cloud request failed" },
+                    )
+                }
+
+                return@withContext json.decodeFromString<Response>(responseBody)
+            } catch (error: SerializationException) {
                 throw CloudApiException(
-                    statusCode = statusCode,
-                    message = responseBody.toBackendMessage(),
+                    statusCode = connection.responseCode.takeIf { it > 0 } ?: 0,
+                    message = error.message ?: "Failed to parse cloud response",
+                    cause = error,
                 )
+            } finally {
+                connection.disconnect()
             }
-
-            return json.decodeFromString<Response>(responseBody)
-        } catch (error: SerializationException) {
-            throw CloudApiException(
-                statusCode = connection.responseCode.takeIf { it > 0 } ?: 0,
-                message = error.message ?: "Failed to parse cloud response",
-            )
-        } finally {
-            connection.disconnect()
         }
-    }
 
     private suspend fun normalizedBaseUrl(): String = baseUrlProvider().trim().trimEnd('/')
 
@@ -157,8 +187,10 @@ class CloudApiClient(
 
 class CloudApiException(
     val statusCode: Int,
+    val code: String? = null,
     override val message: String,
-) : IllegalStateException(message)
+    cause: Throwable? = null,
+) : IllegalStateException(message, cause)
 
 private fun readStream(inputStream: InputStream?): String {
     if (inputStream == null) {
@@ -170,19 +202,12 @@ private fun readStream(inputStream: InputStream?): String {
     }
 }
 
-private fun String.toBackendMessage(): String {
+private fun String.toErrorResponse(json: Json): ErrorResponse? {
     if (isBlank()) {
-        return "Cloud request failed"
+        return null
     }
 
     return runCatching {
-        val root = Json.parseToJsonElement(this)
-        val message = (root as? JsonObject)?.get("message")
-
-        when (message) {
-            is JsonPrimitive -> message.content
-            is JsonArray -> message.joinToString("\n") { element -> (element as? JsonPrimitive)?.content ?: element.toString() }
-            else -> this
-        }
-    }.getOrDefault(this)
+        json.decodeFromString<ErrorResponse>(this)
+    }.getOrNull()
 }
