@@ -1,7 +1,8 @@
 'use client';
 
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { FormEvent, useEffect, useState } from 'react';
+import { type FormEvent, useEffect, useState } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import { ApiError, login, register, setupTotp, verifyTotp } from '@/lib/api';
 
@@ -39,9 +40,7 @@ export default function LoginPage() {
       const session = await login({
         password,
         username,
-        ...(isRecoveryCode
-          ? { recoveryCode: oneTimeCode }
-          : { totpCode: oneTimeCode }),
+        ...(isRecoveryCode ? { recoveryCode: oneTimeCode } : { totpCode: oneTimeCode }),
       });
       auth.saveSession(session);
       router.replace('/dashboard');
@@ -149,12 +148,22 @@ export default function LoginPage() {
 
             {totpSetup == null ? (
               <p className="muted">
-                Passwords must be at least 12 characters. Registration starts TOTP setup immediately.
+                Passwords must be at least 12 characters. Registration starts TOTP setup
+                immediately.
               </p>
             ) : (
               <div className="stack">
-                <div className="success">Scan this QR code, then enter the current authenticator code.</div>
-                <img alt="TOTP QR code" className="qr" src={totpSetup.qrCodeDataUrl} />
+                <div className="success">
+                  Scan this QR code, then enter the current authenticator code.
+                </div>
+                <Image
+                  alt="TOTP QR code"
+                  className="qr"
+                  height={224}
+                  src={totpSetup.qrCodeDataUrl}
+                  unoptimized
+                  width={224}
+                />
                 <label>
                   Secret
                   <input readOnly value={totpSetup.secret} />
@@ -177,7 +186,9 @@ export default function LoginPage() {
                 <strong>Save these recovery codes now. They will not be shown again.</strong>
                 <div className="chip-row">
                   {recoveryCodes.map((code) => (
-                    <code className="chip" key={code}>{code}</code>
+                    <code className="chip" key={code}>
+                      {code}
+                    </code>
                   ))}
                 </div>
               </div>

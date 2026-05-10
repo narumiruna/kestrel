@@ -1,6 +1,6 @@
 'use client';
 
-import maplibregl, { type GeoJSONSource, type Map, type Marker } from 'maplibre-gl';
+import maplibregl, { type GeoJSONSource, type Map as MapLibreMap, type Marker } from 'maplibre-gl';
 import { useEffect, useRef } from 'react';
 import type { RouteWaypoint } from '@/lib/api';
 
@@ -15,7 +15,7 @@ const LINE_LAYER_ID = 'route-line';
 
 export default function RouteMapEditor({ className = 'map', onChange, waypoints }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const mapRef = useRef<Map | null>(null);
+  const mapRef = useRef<MapLibreMap | null>(null);
   const markersRef = useRef<Marker[]>([]);
   const onChangeRef = useRef(onChange);
   const waypointsRef = useRef(waypoints);
@@ -32,7 +32,10 @@ export default function RouteMapEditor({ className = 'map', onChange, waypoints 
 
     const firstWaypoint = waypointsRef.current[0];
     const map = new maplibregl.Map({
-      center: firstWaypoint == null ? [121.5654, 25.033] : [firstWaypoint.longitude, firstWaypoint.latitude],
+      center:
+        firstWaypoint == null
+          ? [121.5654, 25.033]
+          : [firstWaypoint.longitude, firstWaypoint.latitude],
       container: containerRef.current,
       style: {
         glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
@@ -91,7 +94,9 @@ export default function RouteMapEditor({ className = 'map', onChange, waypoints 
     mapRef.current = map;
 
     return () => {
-      markersRef.current.forEach((marker) => marker.remove());
+      markersRef.current.forEach((marker) => {
+        marker.remove();
+      });
       markersRef.current = [];
       map.remove();
       mapRef.current = null;
@@ -122,12 +127,14 @@ export default function RouteMapEditor({ className = 'map', onChange, waypoints 
 }
 
 function syncMarkers(
-  map: Map,
+  map: MapLibreMap,
   existingMarkers: Marker[],
   waypoints: RouteWaypoint[],
   onChange: (waypoints: RouteWaypoint[]) => void,
 ) {
-  existingMarkers.forEach((marker) => marker.remove());
+  existingMarkers.forEach((marker) => {
+    marker.remove();
+  });
   existingMarkers.length = 0;
 
   waypoints.forEach((waypoint, index) => {
@@ -157,7 +164,7 @@ function syncMarkers(
   });
 }
 
-function fitWaypoints(map: Map, waypoints: RouteWaypoint[]) {
+function fitWaypoints(map: MapLibreMap, waypoints: RouteWaypoint[]) {
   if (waypoints.length === 0) {
     return;
   }
@@ -186,7 +193,7 @@ function fitWaypoints(map: Map, waypoints: RouteWaypoint[]) {
   });
 }
 
-function updateLine(map: Map, waypoints: RouteWaypoint[]) {
+function updateLine(map: MapLibreMap, waypoints: RouteWaypoint[]) {
   const source = map.getSource(LINE_SOURCE_ID) as GeoJSONSource | undefined;
 
   source?.setData(toLineFeature(waypoints));
