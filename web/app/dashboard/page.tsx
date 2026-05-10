@@ -70,6 +70,14 @@ export default function DashboardPage() {
     void loadLibrary();
   }, [auth.isAuthenticated, auth.isHydrated, loadLibrary, router]);
 
+  if (!auth.isHydrated || !auth.isAuthenticated) {
+    return (
+      <main className="shell">
+        <p className="muted">Loading session…</p>
+      </main>
+    );
+  }
+
   async function savePlace(input: PlaceInput) {
     const savedPlace =
       selectedPlace == null
