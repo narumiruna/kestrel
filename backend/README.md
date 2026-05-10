@@ -1,6 +1,6 @@
 # Kestrel Cloud Backend
 
-NestJS + Prisma backend workspace for the location/route sync platform described in `docs/plan/location-route-sync-platform.md`.
+NestJS + Prisma backend workspace for the location/route sync platform described in `docs/plans/product-roadmap-plan.md`.
 
 ## Included foundation
 
