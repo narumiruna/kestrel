@@ -28,10 +28,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.narumi.kestrel.core.cloud.CloudApiException
 import dev.narumi.kestrel.core.cloud.CloudAuthRepository
+import dev.narumi.kestrel.core.cloud.CloudPlaceConflict
 import dev.narumi.kestrel.core.cloud.CloudSession
 import dev.narumi.kestrel.core.cloud.CloudSyncRepository
 import dev.narumi.kestrel.core.cloud.CloudSyncState
@@ -146,6 +148,7 @@ private fun CloudSettingsSection() {
 
     val cloudSettings by prefs.cloudSettings.collectAsStateWithLifecycle(CloudSettings())
     val cloudSyncState by syncRepository.syncState.collectAsStateWithLifecycle(CloudSyncState())
+    val placeConflicts by syncRepository.placeConflicts.collectAsStateWithLifecycle(emptyList())
 
     var loginForm by remember { mutableStateOf(CloudLoginForm()) }
     var cloudSession by remember { mutableStateOf<CloudSession?>(null) }
@@ -250,6 +253,44 @@ private fun CloudSettingsSection() {
             ) {
                 syncRepository.syncNow()
                 cloudMessage = "Sync complete"
+            }
+        },
+    )
+
+    CloudConflictCard(
+        conflicts = placeConflicts,
+        loading = cloudLoading,
+        onUseCloud = { conflict ->
+            launchCloudUiAction(
+                scope = scope,
+                setLoading = { cloudLoading = it },
+                setError = { cloudError = it },
+                setMessage = { cloudMessage = it },
+            ) {
+                syncRepository.resolveConflictUseCloud(conflict.id)
+                cloudMessage = "Applied cloud version"
+            }
+        },
+        onUseLocal = { conflict ->
+            launchCloudUiAction(
+                scope = scope,
+                setLoading = { cloudLoading = it },
+                setError = { cloudError = it },
+                setMessage = { cloudMessage = it },
+            ) {
+                syncRepository.resolveConflictUseLocal(conflict.id)
+                cloudMessage = "Uploaded local version"
+            }
+        },
+        onKeepBoth = { conflict ->
+            launchCloudUiAction(
+                scope = scope,
+                setLoading = { cloudLoading = it },
+                setError = { cloudError = it },
+                setMessage = { cloudMessage = it },
+            ) {
+                syncRepository.resolveConflictKeepBoth(conflict.id)
+                cloudMessage = "Kept both versions"
             }
         },
     )
@@ -398,6 +439,74 @@ private fun CloudSignedInCardContent(
         }
         OutlinedButton(onClick = onLogout, enabled = !loading) {
             Text("Sign out")
+        }
+    }
+}
+
+@Composable
+private fun CloudConflictCard(
+    conflicts: List<CloudPlaceConflict>,
+    loading: Boolean,
+    onUseCloud: (CloudPlaceConflict) -> Unit,
+    onUseLocal: (CloudPlaceConflict) -> Unit,
+    onKeepBoth: (CloudPlaceConflict) -> Unit,
+) {
+    if (conflicts.isEmpty()) return
+    Text(
+        text = "Sync conflicts",
+        style = MaterialTheme.typography.titleMedium,
+    )
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(
+                text = "Choose which place version to keep.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            conflicts.forEachIndexed { index, conflict ->
+                if (index > 0) HorizontalDivider()
+                CloudConflictItem(
+                    conflict = conflict,
+                    loading = loading,
+                    onUseCloud = { onUseCloud(conflict) },
+                    onUseLocal = { onUseLocal(conflict) },
+                    onKeepBoth = { onKeepBoth(conflict) },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun CloudConflictItem(
+    conflict: CloudPlaceConflict,
+    loading: Boolean,
+    onUseCloud: () -> Unit,
+    onUseLocal: () -> Unit,
+    onKeepBoth: () -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            text = conflict.localName,
+            style = MaterialTheme.typography.titleSmall,
+        )
+        Text(
+            text = "Local: ${conflict.localName} (${formatCoordinate(conflict.localLatitude)}, ${formatCoordinate(conflict.localLongitude)})",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = "Cloud: ${conflict.cloudName} (${formatCoordinate(conflict.cloudLatitude)}, ${formatCoordinate(conflict.cloudLongitude)})",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = onUseCloud, enabled = !loading) { Text("Use Cloud") }
+            Button(onClick = onUseLocal, enabled = !loading) { Text("Use Local") }
+            OutlinedButton(onClick = onKeepBoth, enabled = !loading) { Text("Keep Both") }
         }
     }
 }
@@ -590,6 +699,8 @@ private fun formatDistance(meters: Double): String =
         "${formatMeters(meters)} m"
     }
 
+private fun formatCoordinate(value: Double): String = "%.5f".format(value)
+
 private fun buildCloudSettingsUiState(
     apiBaseUrl: String,
     loading: Boolean,
@@ -647,6 +758,37 @@ private suspend fun runCloudAction(
 }
 
 private fun Throwable.toCloudErrorMessage(): String = message ?: "Unexpected cloud error"
+
+@Suppress("UnusedPrivateMember")
+@Preview(showBackground = true)
+@Composable
+private fun CloudConflictCardPreview() {
+    MaterialTheme {
+        CloudConflictCard(
+            conflicts =
+                listOf(
+                    CloudPlaceConflict(
+                        id = "conflict-1",
+                        libraryItemId = "item-1",
+                        baseVersion = 2,
+                        remoteVersion = 3,
+                        localName = "Local cafe",
+                        localDescription = "Edited on Android",
+                        localLatitude = 25.033,
+                        localLongitude = 121.565,
+                        cloudName = "Cloud cafe",
+                        cloudDescription = "Edited on web",
+                        cloudLatitude = 25.034,
+                        cloudLongitude = 121.566,
+                    ),
+                ),
+            loading = false,
+            onUseCloud = {},
+            onUseLocal = {},
+            onKeepBoth = {},
+        )
+    }
+}
 
 @Composable
 private fun StartupRadioRow(
