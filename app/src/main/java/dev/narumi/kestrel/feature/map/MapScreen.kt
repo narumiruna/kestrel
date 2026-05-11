@@ -60,6 +60,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -88,6 +90,7 @@ import dev.narumi.kestrel.core.location.LocationService
 import dev.narumi.kestrel.core.location.MockProviderManager
 import dev.narumi.kestrel.core.location.MovementEngine
 import dev.narumi.kestrel.core.location.RouteGenerator
+import dev.narumi.kestrel.core.location.RuntimeState
 import dev.narumi.kestrel.core.location.parseCoordInput
 import dev.narumi.kestrel.core.location.rememberCurrentLocation
 import dev.narumi.kestrel.core.map.KestrelMap
@@ -95,7 +98,63 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.util.Locale
 
-private enum class RunState { Idle, Single, RoutePlaying, RoutePaused }
+internal enum class RunState { Idle, Single, RoutePlaying, RoutePaused }
+
+/**
+ * Computed snapshot the map UI should render this frame. Lives separately from the user's drafts
+ * so the runtime state from [LocationService] always wins while a Single / Route is active.
+ */
+internal data class MapRender(
+    val runState: RunState,
+    val waypoints: List<LatLng>,
+    val speedKmh: Double,
+    val routeMode: MovementEngine.Mode,
+)
+
+/**
+ * Reconcile the service's [RuntimeState] with the user's draft state into what to render.
+ *
+ * - Idle / Single: use drafts. Single keeps the same "drafts editable while a single point is
+ *   mocked" behavior the UI had before, with the actual mock dot coming from `currentMock`.
+ * - Route: service is authoritative for waypoints / speed / mode; drafts are ignored.
+ */
+internal fun reconcileMapRender(
+    runtime: RuntimeState,
+    draftWaypoints: List<LatLng>,
+    draftSpeedKmh: Double,
+    draftRouteMode: MovementEngine.Mode,
+): MapRender =
+    when (runtime) {
+        RuntimeState.Idle -> MapRender(RunState.Idle, draftWaypoints, draftSpeedKmh, draftRouteMode)
+        is RuntimeState.Single ->
+            MapRender(RunState.Single, draftWaypoints, draftSpeedKmh, draftRouteMode)
+        is RuntimeState.Route ->
+            MapRender(
+                runState = if (runtime.paused) RunState.RoutePaused else RunState.RoutePlaying,
+                waypoints = runtime.waypoints,
+                speedKmh = runtime.speedKmh,
+                routeMode = runtime.mode,
+            )
+    }
+
+/**
+ * `rememberSaveable` saver for the user's drafted waypoint list. Flattens to alternating lat/lng
+ * doubles so it fits the autoSaver list type without needing LatLng to be Parcelable.
+ */
+private val DraftWaypointsSaver: Saver<List<LatLng>, List<Double>> =
+    Saver(
+        save = { list ->
+            buildList(list.size * 2) {
+                list.forEach {
+                    add(it.lat)
+                    add(it.lng)
+                }
+            }
+        },
+        restore = { flat ->
+            (flat.indices step 2).map { LatLng(flat[it], flat[it + 1]) }
+        },
+    )
 
 private sealed interface PendingFavorite {
     data class Point(
@@ -171,10 +230,13 @@ fun MapScreen(
         prefs.randomRoutePreference.collectAsStateWithLifecycle(RandomRoutePreference())
 
     var mockAllowed by remember { mutableStateOf(false) }
-    var waypoints by remember { mutableStateOf<List<LatLng>>(emptyList()) }
-    var speedKmh by remember { mutableStateOf(20.0) }
-    var routeMode by remember { mutableStateOf(MovementEngine.Mode.Once) }
-    var runState by remember { mutableStateOf(RunState.Idle) }
+    // Draft state: the route the user is composing before pressing Play. While a Route is
+    // actually running, the service is the source of truth and these drafts are not displayed.
+    var waypoints by rememberSaveable(stateSaver = DraftWaypointsSaver) {
+        mutableStateOf<List<LatLng>>(emptyList())
+    }
+    var speedKmh by rememberSaveable { mutableStateOf(20.0) }
+    var routeMode by rememberSaveable { mutableStateOf(MovementEngine.Mode.Once) }
     var pendingFavorite by remember { mutableStateOf<PendingFavorite?>(null) }
     var pendingLongPressPoint by remember { mutableStateOf<LatLng?>(null) }
     var favoriteName by remember { mutableStateOf("") }
@@ -216,7 +278,6 @@ fun MapScreen(
                         setCameraTarget = { cameraTarget = it },
                         setSpeedKmh = { speedKmh = it },
                         setRouteMode = { routeMode = it },
-                        setRunState = { runState = it },
                     )
                     libraryRepository.touchItem(item.item.id)
                 }
@@ -234,6 +295,12 @@ fun MapScreen(
 
     val ready = permissionState.allPermissionsGranted && mockAllowed
     val mockNow by LocationService.currentMock.collectAsStateWithLifecycle()
+    val runtimeState by LocationService.runtimeState.collectAsStateWithLifecycle()
+    val render = reconcileMapRender(runtimeState, waypoints, speedKmh, routeMode)
+    val runState = render.runState
+    val renderedWaypoints = render.waypoints
+    val renderedSpeedKmh = render.speedKmh
+    val renderedRouteMode = render.routeMode
 
     val sheetState =
         rememberStandardBottomSheetState(
@@ -244,12 +311,13 @@ fun MapScreen(
     val goToSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     fun applyPoint(point: LatLng) {
+        // The service emits RuntimeState.Idle from ACTION_STOP, so the derived runState catches
+        // up automatically; no manual reset needed here.
         if (runState != RunState.Idle) {
             LocationService.stop(context)
         }
         waypoints = listOf(point)
         cameraTarget = CameraSnapshot(point.lat, point.lng, 15.0)
-        runState = RunState.Idle
         showGoToSheet = false
     }
 
@@ -271,7 +339,6 @@ fun MapScreen(
                     .getOrDefault(MovementEngine.Mode.Once)
             routeWaypoints.firstOrNull()?.let { cameraTarget = CameraSnapshot(it.lat, it.lng, 15.0) }
         }
-        runState = RunState.Idle
         showGoToSheet = false
         scope.launch { libraryRepository.touchItem(item.item.id) }
     }
@@ -298,7 +365,6 @@ fun MapScreen(
                 scope.launch { prefs.setLastRandomRouteSettings(count, meters) }
                 if (runState == RunState.Single) {
                     LocationService.stop(context)
-                    runState = RunState.Idle
                 }
                 showGenerateDialog = false
             },
@@ -363,7 +429,6 @@ fun MapScreen(
             onMockPoint = {
                 applyPoint(point)
                 LocationService.setLocation(context, point)
-                runState = RunState.Single
                 pendingLongPressPoint = null
             },
             onDismiss = { pendingLongPressPoint = null },
@@ -377,11 +442,11 @@ fun MapScreen(
         sheetContent = {
             MapSheet(
                 runState = runState,
-                waypointCount = waypoints.size,
+                waypointCount = renderedWaypoints.size,
                 mockNow = mockNow,
                 ready = ready,
-                speedKmh = speedKmh,
-                routeMode = routeMode,
+                speedKmh = renderedSpeedKmh,
+                routeMode = renderedRouteMode,
                 onSpeedChange = { speedKmh = it },
                 onModeChange = { routeMode = it },
                 onPrimary = {
@@ -393,18 +458,13 @@ fun MapScreen(
                         routeMode = routeMode,
                         context = context,
                         showGenerate = { showGenerateDialog = true },
-                        setRunState = { runState = it },
                     )
                 },
-                onStop = {
-                    LocationService.stop(context)
-                    runState = RunState.Idle
-                },
+                onStop = { LocationService.stop(context) },
                 onClear = {
                     waypoints = emptyList()
                     if (runState != RunState.Idle) {
                         LocationService.stop(context)
-                        runState = RunState.Idle
                     }
                 },
                 onSaveRoute = {
@@ -423,10 +483,13 @@ fun MapScreen(
             KestrelMap(
                 modifier = Modifier.fillMaxSize(),
                 mockLocation = mockNow,
-                polyline = waypoints,
+                polyline = renderedWaypoints,
                 myLocation = myLocation,
                 cameraTarget = cameraTarget,
                 onMapClick = { point ->
+                    // Preserve previous behavior: drafts editable while Idle or Single, locked
+                    // while a Route is running so the user cannot accidentally mutate the
+                    // service-owned route through map taps.
                     if (runState == RunState.Idle || runState == RunState.Single) {
                         waypoints = waypoints + point
                     }
@@ -637,14 +700,13 @@ private fun applyStartupItem(
     setCameraTarget: (CameraSnapshot?) -> Unit,
     setSpeedKmh: (Double) -> Unit,
     setRouteMode: (MovementEngine.Mode) -> Unit,
-    setRunState: (RunState) -> Unit,
 ) {
     val point = item.primaryPoint() ?: return
     setCameraTarget(CameraSnapshot(point.lat, point.lng, 13.0))
     if (item.kind == LibraryItemKind.Place) {
         setWaypoints(listOf(point))
+        // LocationService will emit RuntimeState.Single, which the derived runState picks up.
         LocationService.setLocation(context, point)
-        setRunState(RunState.Single)
         return
     }
     val route = item.route ?: return
@@ -654,7 +716,6 @@ private fun applyStartupItem(
         runCatching { MovementEngine.Mode.valueOf(route.mode) }
             .getOrDefault(MovementEngine.Mode.Once),
     )
-    setRunState(RunState.Idle)
 }
 
 @Suppress("LongParameterList")
@@ -666,35 +727,24 @@ private fun handlePrimary(
     routeMode: MovementEngine.Mode,
     context: Context,
     showGenerate: () -> Unit,
-    setRunState: (RunState) -> Unit,
 ) {
+    // Every transition below ends in a LocationService action; the resulting RuntimeState emit is
+    // what flips the derived runState, so we no longer push runState locally.
     when (runState) {
         RunState.Idle -> {
             when {
                 waypoints.isEmpty() -> showGenerate()
                 waypoints.size == 1 -> {
-                    if (ready) {
-                        LocationService.setLocation(context, waypoints.first())
-                        setRunState(RunState.Single)
-                    }
+                    if (ready) LocationService.setLocation(context, waypoints.first())
                 }
                 else -> {
-                    if (ready) {
-                        LocationService.startRoute(context, waypoints, speedKmh, routeMode)
-                        setRunState(RunState.RoutePlaying)
-                    }
+                    if (ready) LocationService.startRoute(context, waypoints, speedKmh, routeMode)
                 }
             }
         }
         RunState.Single -> Unit // handled by Stop
-        RunState.RoutePlaying -> {
-            LocationService.pause(context)
-            setRunState(RunState.RoutePaused)
-        }
-        RunState.RoutePaused -> {
-            LocationService.resume(context)
-            setRunState(RunState.RoutePlaying)
-        }
+        RunState.RoutePlaying -> LocationService.pause(context)
+        RunState.RoutePaused -> LocationService.resume(context)
     }
 }
 
