@@ -133,6 +133,20 @@ Use `just cloud-down` to stop the stack.
 
 ---
 
+## 🤖 Continuous Integration
+
+`.github/workflows/ci.yml` runs three lanes on every PR and push to `main`:
+
+| Lane | What it runs | Triggers on |
+|---|---|---|
+| `android` | `spotlessCheck`, `detekt`, `:app:assembleDebug`, unit tests (non-blocking), uploads `app-debug.apk` artifact | changes under `app/`, top-level Gradle files, `detekt*`, `justfile`, or `.github/workflows/ci.yml` |
+| `backend` | `npm ci`, `prisma generate`, `lint`, `test`, `test:e2e`, `typecheck`, `build` | changes under `backend/` or `.github/workflows/ci.yml` |
+| `web` | `npm ci`, `lint`, `typecheck`, `build` | changes under `web/` or `.github/workflows/ci.yml` |
+
+A leading `changes` job uses `dorny/paths-filter` to gate each lane, so a PR touching only one workspace skips the others. Push events to `main` always run all three.
+
+---
+
 ## 🔐 Permissions
 
 ```xml
