@@ -13,7 +13,38 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      android: ${{ steps.filter.outputs.android }}
+      backend: ${{ steps.filter.outputs.backend }}
+      web: ${{ steps.filter.outputs.web }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            android:
+              - 'app/**'
+              - 'build.gradle.kts'
+              - 'settings.gradle.kts'
+              - 'gradle.properties'
+              - 'gradle/**'
+              - 'detekt.yml'
+              - 'detekt-baseline.xml'
+              - 'justfile'
+              - '.github/workflows/ci.yml'
+            backend:
+              - 'backend/**'
+              - '.github/workflows/ci.yml'
+            web:
+              - 'web/**'
+              - '.github/workflows/ci.yml'
+
   android:
+    needs: changes
+    if: github.event_name == 'push' || needs.changes.outputs.android == 'true'
     runs-on: ubuntu-latest
 
     steps:
@@ -40,6 +71,8 @@ jobs:
           if-no-files-found: error
 
   backend:
+    needs: changes
+    if: github.event_name == 'push' || needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -66,10 +99,18 @@ jobs:
       - name: Test
         run: npm run test
 
+      - name: Test (e2e)
+        run: npm run test:e2e
+
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Build
+        run: npm run build
+
   web:
+    needs: changes
+    if: github.event_name == 'push' || needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
