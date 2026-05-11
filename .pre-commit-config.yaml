@@ -21,3 +21,9 @@ repos:
         language: system
         pass_filenames: false
         files: \.(kt|kts|xml|md|toml|yaml)$|^justfile$
+      - id: biome
+        name: biome ci (web)
+        entry: bash -c 'cd web && npm exec -- biome ci .'
+        language: system
+        pass_filenames: false
+        files: ^web/.*$

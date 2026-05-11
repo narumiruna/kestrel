@@ -51,7 +51,7 @@ The API will start on `http://localhost:3300`.
 npm run lint
 npm run test
 npm run test:e2e
-npm run build
+npm run typecheck
 ```
 
 ## Database utilities
