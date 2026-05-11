@@ -76,6 +76,7 @@ class LocationService : Service() {
                 stopMock()
                 currentMode = MockState.Mode.Idle
                 _currentMock.value = null
+                _runtimeState.value = RuntimeState.Idle
                 scope.launch { prefs.setMockState(null) }
                 stopForegroundCompat()
                 stopSelf()
@@ -87,9 +88,11 @@ class LocationService : Service() {
                 val lat = intent.getDoubleExtra(EXTRA_LAT, Double.NaN)
                 val lng = intent.getDoubleExtra(EXTRA_LNG, Double.NaN)
                 if (lat.isFinite() && lng.isFinite()) {
+                    val point = LatLng(lat, lng)
                     ensureMockStarted()
-                    startSingleKeepAlive(LatLng(lat, lng))
+                    startSingleKeepAlive(point)
                     currentMode = MockState.Mode.Single
+                    _runtimeState.value = RuntimeState.Single(point)
                     refreshNotification()
                     scope.launch {
                         prefs.setMockState(
@@ -123,12 +126,20 @@ class LocationService : Service() {
                     // already cleared by stopRoute() inside startRoute().
                     startRoute(waypoints, speedKmh, mode, initialProgressMeters = 0.0, initialForward = true)
                     currentMode = MockState.Mode.Route
+                    _runtimeState.value =
+                        RuntimeState.Route(
+                            waypoints = waypoints,
+                            speedKmh = speedKmh,
+                            mode = mode,
+                            paused = false,
+                        )
                     refreshNotification()
                     scope.launch { persistRouteState(progressMeters = 0.0, forward = true) }
                 }
             }
             ACTION_PAUSE -> {
                 paused = true
+                updateRouteRuntimePaused(paused = true)
                 refreshNotification()
                 // Snapshot progress so a kill during pause doesn't lose accumulated motion.
                 scope.launch {
@@ -138,6 +149,7 @@ class LocationService : Service() {
             }
             ACTION_RESUME -> {
                 paused = false
+                updateRouteRuntimePaused(paused = false)
                 refreshNotification()
                 // Match pause: keep the persisted progress fresh across resume too.
                 scope.launch {
@@ -173,9 +185,11 @@ class LocationService : Service() {
         when (state.mode) {
             MockState.Mode.Single ->
                 state.single?.let {
+                    val point = LatLng(it.lat, it.lng)
                     ensureMockStarted()
-                    startSingleKeepAlive(LatLng(it.lat, it.lng))
+                    startSingleKeepAlive(point)
                     currentMode = MockState.Mode.Single
+                    _runtimeState.value = RuntimeState.Single(point)
                     refreshNotification()
                 }
             MockState.Mode.Route ->
@@ -195,11 +209,25 @@ class LocationService : Service() {
                             initialForward = r.forward,
                         )
                         currentMode = MockState.Mode.Route
+                        // `paused` cannot survive process death (it lives only in service memory),
+                        // so a restored route always comes back unpaused. Documented limitation.
+                        _runtimeState.value =
+                            RuntimeState.Route(
+                                waypoints = wps,
+                                speedKmh = r.speedKmh,
+                                mode = mode,
+                                paused = false,
+                            )
                         refreshNotification()
                     }
                 }
             MockState.Mode.Idle -> Unit
         }
+    }
+
+    private fun updateRouteRuntimePaused(paused: Boolean) {
+        val current = _runtimeState.value as? RuntimeState.Route ?: return
+        _runtimeState.value = current.copy(paused = paused)
     }
 
     private fun startRoute(
@@ -246,6 +274,7 @@ class LocationService : Service() {
                     activeRouteWaypoints = emptyList()
                     currentMode = MockState.Mode.Single
                     startSingleKeepAlive(last)
+                    _runtimeState.value = RuntimeState.Single(last)
                     refreshNotification()
                     prefs.setMockState(
                         MockState(
@@ -453,6 +482,17 @@ class LocationService : Service() {
 
         private val _currentMock = MutableStateFlow<LatLng?>(null)
         val currentMock: StateFlow<LatLng?> = _currentMock.asStateFlow()
+
+        private val _runtimeState = MutableStateFlow<RuntimeState>(RuntimeState.Idle)
+
+        /**
+         * What the service is doing right now (Idle / Single / Route). UI should derive its
+         * run-state from this flow instead of from local Compose `remember` values so a
+         * MapScreen dispose (tab switch, config change) does not desync from the actual service.
+         *
+         * Updated only on real transitions, never per-tick.
+         */
+        val runtimeState: StateFlow<RuntimeState> = _runtimeState.asStateFlow()
 
         fun start(context: Context) {
             sendIntent(context, ACTION_START, foreground = true)
