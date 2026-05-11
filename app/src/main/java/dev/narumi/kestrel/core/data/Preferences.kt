@@ -32,6 +32,11 @@ data class RouteState(
     val lngs: DoubleArray,
     val speedKmh: Double,
     val mode: String = "Once",
+    // Persisted distance the MovementEngine had reached when this state was last written.
+    // Defaults to 0.0 so older payloads (which never carried this field) decode as "start of route".
+    val progressMeters: Double = 0.0,
+    // PingPong direction at the time of the last write. Ignored by Once / Loop modes on restore.
+    val forward: Boolean = true,
 )
 
 @Serializable

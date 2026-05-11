@@ -10,6 +10,8 @@ class MovementEngine(
     waypoints: List<LatLng>,
     private val speedMps: Double,
     private val mode: Mode = Mode.Once,
+    initialProgressMeters: Double = 0.0,
+    initialForward: Boolean = true,
 ) {
     enum class Mode { Once, Loop, PingPong }
 
@@ -28,8 +30,15 @@ class MovementEngine(
             }
         }
     private val totalDistance: Double = segments.sumOf { it.length }
-    private var progress: Double = 0.0
-    private var forward: Boolean = true
+
+    // Seeded from persisted state so that a service restart resumes near where the previous run
+    // stopped, instead of from the first waypoint. Clamped into [0, totalDistance] to keep corrupt
+    // or stale snapshots from producing out-of-range progress.
+    private var progress: Double = initialProgressMeters.coerceIn(0.0, totalDistance)
+
+    // PingPong only; Once/Loop ignore this. Defaults to forward so old persisted payloads (which
+    // never stored direction) resume in the natural reading direction.
+    private var forward: Boolean = initialForward
 
     fun advance(deltaSeconds: Double): MockSample {
         if (totalDistance == 0.0) return sampleAt(0.0)
@@ -61,6 +70,8 @@ class MovementEngine(
     fun isFinished(): Boolean = mode == Mode.Once && progress >= totalDistance
 
     fun progressMeters(): Double = progress
+
+    fun isForward(): Boolean = forward
 
     private fun sampleAt(meters: Double): MockSample {
         if (segments.isEmpty()) {
