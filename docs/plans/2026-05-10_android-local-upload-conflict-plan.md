@@ -41,7 +41,7 @@ Local ids and cloud ids remain separate identities: Android keeps local UUIDs st
 - [x] Add backend sync upload models and `POST /sync/upload` for place create/update/delete changes, with per-item transactions and response buckets `uploaded`, `conflicts`, and `failed`; implemented in PR #46, with partial-success tests still needed.
 - [x] Add backend idempotency storage keyed by `(userId, clientMutationId)` with request hash and stored result; implemented in PR #46, with retry/reuse tests still needed.
 - [x] Add Android Room migrations for `pending_sync_changes` and `sync_conflicts`, plus any local remote-version fields needed to store the last synced `LibraryItem.version`; verified in PR #46 with `just build`, `just check`, and `just lint`.
-- [x] Update Android local place mutations so local-only place delete hard-deletes, while synced place rename/edit/delete sets entity `syncStatus` to `Dirty` or `Deleted`; implemented in PR #46, but `pending_sync_changes` is not yet the payload source of truth and repository unit tests are still needed.
+- [x] Update Android local place mutations so local-only place delete hard-deletes, while synced place rename/edit/delete sets entity `syncStatus` to `Dirty` or `Deleted`; implemented in PR #46 (with `pending_sync_changes` becoming the payload source of truth in PR #47), repository unit tests still needed.
 - [x] Extend `CloudApiClient` with `/sync/upload` request/response models for place create/update/delete and per-item `clientMutationId`; verified in PR #46 with `just build`.
 - [x] Update `CloudSyncRepository` to run pull/upload/pull-confirm and to persist uploaded remote ids/versions back into existing local rows without changing local ids; implemented in PR #46, with sync repository tests for local-only place upload still needed.
 - [x] Implement conflict detection for dirty/deleted place changes when backend reports a newer `LibraryItem.version`; persist `sync_conflicts` with local/cloud snapshots and base/remote versions; implemented in PR #46, with richer JSON snapshots and update-vs-update/delete-vs-update tests still needed.
@@ -53,7 +53,7 @@ Local ids and cloud ids remain separate identities: Android keeps local UUIDs st
 - [ ] Run full validation: `just check`, `just lint`, backend test/lint commands, and one Android real-device smoke test for local place create → foreground/manual sync → cloud visibility → conflict resolution. See **Validation runbook** below for the exact step sequence.
   - 2026-05-11 Android validation: `just check`, `just lint`, `just build`, and `JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" ./gradlew :app:testDebugUnitTest` pass; backend commands and real-device conflict smoke still pending.
   - PR #46 validation so far: `just check`, `just lint`, `just build`, `cd backend && npm run lint`, and `cd backend && npm run build` pass.
-  - 2026-05-11 backend validation: `cd backend && npm run lint`, `cd backend && npm run build`, and `cd backend && npm test -- --runInBand` all pass after fixing the time-bomb `session-auth.guard.spec.ts` (used a fixed past `expiresAt`); now uses `jest.useFakeTimers()` + `setSystemTime`.
+  - 2026-05-11 backend validation: `cd backend && npm run lint`, `cd backend && npm run build`, and `cd backend && npm test -- --runInBand` all pass after fixing the time-bomb `session-auth.guard.spec.ts` (used a fixed past `expiresAt`) in PR #49; now uses `jest.useFakeTimers()` + `setSystemTime`.
 
 ## Risks
 
