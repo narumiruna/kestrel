@@ -29,6 +29,9 @@ This backlog comes from the general TODO and the operations/DX sections of the c
 - [ ] Plan on-road movement using OSRM/GraphHopper public API without offline routing.
 - [ ] Add zh-TW and ja string resources after UI strings stabilize.
 - [ ] Add instrumented CI tests for emulator service lifecycle and startup mode apply behavior.
+- [ ] Show current mode + speed numerically in `MapScreen` status row while a route is playing; today it only shows `Route playing` + waypoint count, so operators can't tell at a glance which mode/speed the restored route is in. Surfaced by `2026-05-11_route-ui-state-restore-plan.md` smoke results.
+- [ ] Make `ChipChoice` with `enabled = false && selected = true` visually distinct (reduced-alpha `primaryContainer` or outline); today `AssistChip` disabled colors mask the selected state so running-route mode/speed chips all look identical grey. Surfaced by `2026-05-11_route-ui-state-restore-plan.md` smoke results.
+- [ ] Decide whether `MapScreen` drafts (`waypoints` / `speedKmh` / `routeMode`) should survive tab switching. Today `rememberSaveable` survives config change but not tab switch, because `NavigationSuiteScaffold` is not backed by a `SaveableStateHolder`. Either document the limitation or migrate tab navigation to a `NavHost` backstack in a dedicated plan. Surfaced by `2026-05-11_route-ui-state-restore-plan.md` smoke results.
 
 ## Risks
 
