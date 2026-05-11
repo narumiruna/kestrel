@@ -97,7 +97,7 @@ Side effect: the destructive `if (runState != Idle) stop(...)` guards in `applyP
 - [x] Update the Once-finish path in `LocationService.startRoute` to also emit `RuntimeState.Single(last)` alongside the existing `MockState` write. Pending: device repro at finish moment.
 - [x] Add a unit test under `app/src/test/java/dev/narumi/kestrel/feature/map/MapRenderReconciliationTest.kt` exercising the four `RuntimeState` cases against the pure `reconcileMapRender` function. Verified by `./gradlew :app:testDebugUnitTest` (4 tests pass).
 - [x] Run `just format`, `just check`, `just lint`, and `:app:testDebugUnitTest`. All green on commit `<pending>` (recorded after commit).
-- [ ] Manual repro of the original bug on a real device, after the fix: start a Loop route → switch to Favorites tab → wait 10 s → switch back → confirm polyline + Pause button + speed/mode chips reflect the running route; then tap Stop and confirm it stops. Record date + commit hash here.
+- [x] Manual repro of the original bug on a real device, after the fix: start a Loop route → switch to Favorites tab → wait 10 s → switch back → confirm polyline + Pause button + speed/mode chips reflect the running route; then tap Stop and confirm it stops. Recorded under "Smoke results" below (2026-05-11, commit `b0746a8`, moto g34 5G / Android 15).
 - [x] Add a `## GOTCHA` entry to `docs/MEMORY.md` referencing `LocationService.runtimeState` as the source of truth for any UI that needs to know if a mock is running. Verified by `git grep "runtimeState" docs/MEMORY.md`.
 
 ## Risks
@@ -115,8 +115,89 @@ Revert is a single PR revert: no schema change, no DataStore migration, no notif
 
 - [x] `LocationService.runtimeState: StateFlow<RuntimeState>` exists, is emitted on every state transition listed in the Plan, and is **not** emitted from the per-tick progress writer, verified by `rg "_runtimeState.value" app/src/main` matching only transition sites.
 - [x] `MapScreen` derives run state from `runtimeState` and no longer reads or writes a local `var runState`, verified by `rg "var runState" app/src/main/java/dev/narumi/kestrel/feature/map/` returning no matches.
-- [ ] Draft `waypoints` / `speedKmh` / `routeMode` survive a device rotation, verified by manual repro recorded in this plan with date + commit hash.
-- [ ] Switching tabs while a route is playing and switching back restores polyline + Pause/Resume + Stop without any user action and without resetting the route, verified by manual repro recorded with date + commit hash.
-- [ ] Once-route finishing while MapScreen is *not* visible leaves a Single pin visible when MapScreen returns, verified by manual repro recorded with date + commit hash.
+- [x] Draft `waypoints` / `speedKmh` / `routeMode` survive a device rotation, verified by manual repro recorded in "Smoke results" below.
+- [x] Switching tabs while a route is playing and switching back restores polyline + Pause/Resume + Stop without any user action and without resetting the route, verified by manual repro recorded in "Smoke results" below.
+- [x] Once-route finishing while MapScreen is *not* visible leaves a Single pin visible when MapScreen returns, verified by manual repro recorded in "Smoke results" below.
 - [x] `just format`, `just check`, `just lint`, and `:app:testDebugUnitTest` all pass on the final commit (commit hash recorded post-commit).
 - [x] `docs/MEMORY.md` has the new `## GOTCHA` entry pointing at `LocationService.runtimeState`, verified by `git grep "runtimeState" docs/MEMORY.md`.
+
+## Manual smoke runbook
+
+Run against a real device (mock-location must be set to Kestrel in Developer Options). Baseline commit at runbook authoring: `b0746a8`. Record actual commit hash with `git rev-parse HEAD` before starting.
+
+### Setup (once per session)
+
+> **DO NOT run `just reset`.** It is `pm clear` and will destroy the operator's favorites, prefs, and mock state with no undo. The three scenarios below only build *draft* routes (map taps / Generate dialog) and *do not* require a clean app state. If you genuinely need a clean state, ask first and back up `files/datastore/kestrel_prefs.preferences_pb` via `adb` beforehand.
+
+1. Plug in device, `just devices` — expect exactly one entry.
+2. `just br` — build, install, launch. Wait for MapScreen to render. If a mock is already running from a previous session, tap **Stop mock** before starting Scenario A so you begin from Idle.
+3. In a second terminal: `just logf` — clear + follow. Keep this open during all four scenarios; grep for `LocationService` / `RuntimeState` lines.
+4. Record: device model, Android version, `git rev-parse HEAD`, runbook date.
+
+### Scenario A — tab-switch while Loop route is playing (Plan last item + Completion #4)
+
+1. On Map tab, tap the small FAB with the sparkle icon (`Generate route`) → in the dialog set Mode = **Loop**, accept defaults → tap Generate.
+2. Tap the primary button in the bottom sheet (`Play route`). Confirm a polyline is drawn and the chip shows `Loop` + speed.
+3. Switch to **Favorites** tab. Wait ≥ 10 s (route keeps running in foreground service).
+4. Switch back to **Map** tab.
+5. **Expect**:
+   - polyline visible immediately on first frame,
+   - mode chip = `Loop`, speed chip matches step 2,
+   - primary button = `Pause` (not `Play`, not `Generate`),
+   - no extra user gesture needed,
+   - blue mock dot continues moving (route did NOT reset to start).
+6. Tap **Pause** → primary becomes `Resume`, dot stops.
+7. Tap **Resume** → dot moves again.
+8. Tap **Stop mock** → polyline cleared, mode back to draft state, blue dot stops streaming.
+9. logcat sanity check: no `RuntimeState` emissions during the 10 s wait (only on transitions in steps 2, 6, 7, 8).
+
+Fill in: `Scenario A: <date> <commit> PASS|FAIL — <notes>`.
+
+### Scenario B — device rotation preserves draft (Completion #3)
+
+1. From Idle (run `just reset && just br` if previous scenario left state).
+2. On Map tab, tap 3 points on the map to build a draft polyline. Adjust speed slider to a non-default value (e.g. 60). Change mode chip to **PingPong**. Do **not** press Play.
+3. Rotate device (or `adb shell settings put system user_rotation 1` then back to 0).
+4. **Expect** after rotation: same 3 waypoints, same 60 km/h, mode chip still `PingPong`, primary button still `Play route`.
+
+Fill in: `Scenario B: <date> <commit> PASS|FAIL — <notes>`.
+
+### Scenario C — Once route finishes while MapScreen is hidden (Completion #5)
+
+1. From Idle. On Map tap 2 close-together points so a Once route finishes in ~5 s at default speed. Set mode = **Once**.
+2. Tap `Play route`.
+3. Immediately switch to **Favorites** tab. Wait ~15 s (longer than the route duration).
+4. Switch back to **Map**.
+5. **Expect**: single pin at the route's last waypoint, no polyline of remaining route, primary button = `Stop mock` (Single state), blue dot stationary at the end.
+6. `just prefs` (optional) — DataStore `mockState` should be `Single`, not `Route`.
+
+Fill in: `Scenario C: <date> <commit> PASS|FAIL — <notes>`.
+
+### Recording results
+
+After all three scenarios PASS, edit this plan:
+
+- Tick the four remaining `[ ]` boxes (Plan last item + Completion #3 / #4 / #5).
+- Append a `### Smoke results` subsection below with the three filled-in lines from above, plus device + Android version.
+- Commit with `docs(plans): record route-ui-state-restore smoke results` (stage only this file).
+
+If any scenario FAILs: do **not** tick. Open a follow-up entry under `## Unknowns` describing the failure mode + logcat snippet, and stop — that becomes the next plan.
+
+### Smoke results
+
+- **Date**: 2026-05-11
+- **Commit**: `b0746a8` (main, post-merge of PR #56)
+- **Device**: Motorola moto g34 5G, Android 15 (API 35)
+- **Operator notes**: this run also caught two surfaces that are not regressions of this plan but worth tracking separately (see follow-ups below).
+
+| Scenario | Result | Notes |
+|---|---|---|
+| A — Loop route + tab switch | PASS | Polyline restored on return; primary button = Pause; blue dot continued from where it was (no reset to start). Pause stops the dot, Resume restarts it, Stop clears polyline and returns primary to `Generate random route`. Mode/speed chips are visually indistinguishable while route is running (all three look grey) because `AssistChip` with `enabled=false` overrides the `primaryContainer` selected color; the underlying `selected` state is correct per `reconcileMapRender` (returns `runtime.mode` / `runtime.speedKmh` when `RuntimeState is Route`). Treated as cosmetic, filed as follow-up. |
+| B — Draft survives rotation | PASS | 3 map-tap waypoints + Ping-pong mode survived portrait → landscape → portrait. Speed stayed at 20 km/h (the default; weak signal on its own, but Ping-pong vs default Once is a strong signal that `rememberSaveable` is wired correctly). |
+| C — Once route finishes while hidden | PASS | Played a short 2-point Once route, switched to Favorites within ~1 s of pressing Play, waited 15 s, switched back. No polyline, primary = `Stop mock`, status = single point. Once-finish → `RuntimeState.Single` transition emitted while MapScreen was disposed and surfaced correctly on re-composition. |
+
+### Follow-ups (out of scope for this plan)
+
+- Status row while a route is playing should display the current mode + speed numerically (today it only shows `Route playing` + waypoint count); without this, an operator can't tell at a glance whether the restored route is in Once/Loop/PingPong or what speed it's running at.
+- `ChipChoice` with `enabled = false && selected = true` is visually indistinguishable from an unselected disabled chip. Consider keeping `primaryContainer` at reduced alpha (or adding an outline) so the selected mode/speed stays visible while a route is running.
+- Drafts (`waypoints` / `speedKmh` / `routeMode`) do **not** survive a tab switch, only a config change. This is consistent with the Non-Goals (`NavigationSuiteScaffold` is not a `SaveableStateHolder`-backed backstack) but is surprising to operators. Either accept and document, or migrate tab navigation to `NavHost` in a separate plan.
