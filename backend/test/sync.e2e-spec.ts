@@ -90,7 +90,7 @@ describe('SyncController (e2e)', () => {
     ];
     sessions = [
       {
-        expiresAt: new Date('2026-05-10T00:00:00.000Z'),
+        expiresAt: new Date(Date.now() + 60 * 60 * 1000),
         id: 'session-1',
         revokedAt: null,
         userId: 'user-1',
