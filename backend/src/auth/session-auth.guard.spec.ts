@@ -2,6 +2,15 @@ import { UnauthorizedException } from '@nestjs/common';
 import { SessionAuthGuard } from './session-auth.guard';
 
 describe('SessionAuthGuard', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-05-09T17:30:00.000Z'));
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it('accepts an active session and attaches claims to the request', async () => {
     const request = {
       header: jest.fn().mockReturnValue('Bearer access-token'),

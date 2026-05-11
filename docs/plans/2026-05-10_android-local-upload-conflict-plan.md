@@ -41,7 +41,7 @@ Local ids and cloud ids remain separate identities: Android keeps local UUIDs st
 - [x] Add backend sync upload models and `POST /sync/upload` for place create/update/delete changes, with per-item transactions and response buckets `uploaded`, `conflicts`, and `failed`; implemented in PR #46, with partial-success tests still needed.
 - [x] Add backend idempotency storage keyed by `(userId, clientMutationId)` with request hash and stored result; implemented in PR #46, with retry/reuse tests still needed.
 - [x] Add Android Room migrations for `pending_sync_changes` and `sync_conflicts`, plus any local remote-version fields needed to store the last synced `LibraryItem.version`; verified in PR #46 with `just build`, `just check`, and `just lint`.
-- [x] Update Android local place mutations so local-only place delete hard-deletes, while synced place rename/edit/delete sets entity `syncStatus` to `Dirty` or `Deleted`; implemented in PR #46, but `pending_sync_changes` is not yet the payload source of truth and repository unit tests are still needed.
+- [x] Update Android local place mutations so local-only place delete hard-deletes, while synced place rename/edit/delete sets entity `syncStatus` to `Dirty` or `Deleted`; implemented in PR #46 (with `pending_sync_changes` becoming the payload source of truth in PR #47), repository unit tests still needed.
 - [x] Extend `CloudApiClient` with `/sync/upload` request/response models for place create/update/delete and per-item `clientMutationId`; verified in PR #46 with `just build`.
 - [x] Update `CloudSyncRepository` to run pull/upload/pull-confirm and to persist uploaded remote ids/versions back into existing local rows without changing local ids; implemented in PR #46, with sync repository tests for local-only place upload still needed.
 - [x] Implement conflict detection for dirty/deleted place changes when backend reports a newer `LibraryItem.version`; persist `sync_conflicts` with local/cloud snapshots and base/remote versions; implemented in PR #46, with richer JSON snapshots and update-vs-update/delete-vs-update tests still needed.
@@ -50,10 +50,11 @@ Local ids and cloud ids remain separate identities: Android keeps local UUIDs st
 - [x] Implement conflict actions: `Use Cloud` applies cloud snapshot and clears outbox/conflict, `Use Local` retries upload with the local snapshot and current expected version, and `Keep Both` keeps cloud on the original synced item while duplicating local snapshot as a new local-only place; verified with `just check`, `just lint`, and `:app:testDebugUnitTest`; richer repository/sync tests still needed.
 - [x] Keep `lastUsedAt` and reorder best-effort outside conflict handling; existing touch/reorder unit tests still pass after sync changes with `:app:testDebugUnitTest`.
 - [x] Update `android-local-library-plan.md`, `android-cloud-sync-plan.md`, and `product-roadmap-plan.md` checklists to point to this plan and mark place upload/conflict as the active first slice; verified by docs diff in PR #46 follow-up.
-- [ ] Run full validation: `just check`, `just lint`, backend test/lint commands, and one Android real-device smoke test for local place create → foreground/manual sync → cloud visibility → conflict resolution.
-  - 2026-05-11 Android validation: `just check`, `just lint`, `just build`, and `JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" ./gradlew :app:testDebugUnitTest` pass; backend commands and real-device conflict smoke still pending.
-  - PR #46 validation so far: `just check`, `just lint`, `just build`, `cd backend && npm run lint`, and `cd backend && npm run build` pass.
-  - `cd backend && npm test -- --runInBand` has one failing auth guard spec (`session is no longer active`) while all other suites pass; resolve or confirm pre-existing before merging.
+- [x] Run full validation: `just check`, `just lint`, backend test/lint commands, and one Android real-device smoke test for local place create → foreground/manual sync → cloud visibility → conflict resolution. See **Validation runbook** below for the exact step sequence.
+  - 2026-05-11 Android validation: `just check`, `just lint`, `just build`, and `JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" ./gradlew :app:testDebugUnitTest --rerun-tasks` pass (9 suites / 44 tests / 0 failures).
+  - 2026-05-11 backend validation: `cd backend && npm run lint`, `cd backend && npm run build`, and `cd backend && npm test -- --runInBand` all pass (7 suites / 30 tests / 0 failures) after fixing the time-bomb `session-auth.guard.spec.ts` (used a fixed past `expiresAt`) in PR #49; now uses `jest.useFakeTimers()` + `setSystemTime`.
+  - 2026-05-11 real-device smoke test on commit `2a0224a` against the `compose.yaml` stack: created local-only `smoke-A-1` on Android → `Sync now` → visible on web. Renamed on web → renamed on Android without syncing → `Sync now` → conflict surfaced under Options → Cloud sync. Exercised `Use Cloud` (cloud snapshot won), `Use Local` (cloud took local snapshot, no re-conflict), and `Keep Both` (cloud kept its snapshot, Android grew a new local-only row that uploaded as a second cloud place on the next sync). Airplane-mode toggle mid-upload of `smoke-A-3-IDEM` produced no crash, only `failed to connect`; re-syncing after airplane off ended with exactly one cloud place. PR #50 (`fix(web): verify stored session…`) had to land first because `LoginPage` was getting stuck mid-redirect on the web; Next.js dev origin check also blocked `/_next/*` chunks from `10.0.0.51`, so the web side of the smoke uses `http://127.0.0.1:3301`.
+  - Known follow-ups out of this run: backend `LibraryItem.version` bump tests, `/sync/upload` partial-success and idempotency reuse tests, richer conflict variants (update-vs-update, delete-vs-update, delete-vs-update), and Android `CloudSyncRepository` tests for local-only place upload. None blocked smoke; tracked under the Completion Checklist below.
 
 ## Risks
 
@@ -61,6 +62,29 @@ Local ids and cloud ids remain separate identities: Android keeps local UUIDs st
 - Hybrid outbox state can drift from entity `syncStatus`; repository mutations and sync resolution must update both in one Room transaction.
 - `POST /sync/upload` duplicates some CRUD semantics; backend service code should share validation/mapping where practical.
 - Conflict UI in Options is discoverable enough for the first slice but may need Favorites badges later.
+
+## Validation runbook
+
+Run these on the macOS dev machine (this is where `java_home` in `justfile` points and where `adb` is installed). The WSL Linux side cannot run Android Gradle, and `backend/node_modules` there is owned by root, so backend commands also belong here.
+
+1. Android static checks + unit tests:
+   - `just check`
+   - `just lint`
+   - `JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" ./gradlew :app:testDebugUnitTest`
+2. Backend lint/build/tests:
+   - `cd backend && npm run lint`
+   - `cd backend && npm run build`
+   - `cd backend && npm test -- --runInBand`
+3. Real-device smoke test (one Android device with mock-location selected as this app):
+   - Sign in to cloud account A.
+   - Create a local-only place on Android → trigger `Sync now` → confirm it appears on the web for account A with the same name/coords.
+   - From the web, rename that place; from Android (without syncing yet), also rename it to a different name → `Sync now` → confirm a conflict row appears under Options → Cloud sync.
+   - Exercise all three conflict actions on separate conflicts: `Use Cloud`, `Use Local`, `Keep Both`. Verify each post-condition:
+     - `Use Cloud`: local row matches cloud snapshot; outbox + conflict cleared.
+     - `Use Local`: cloud place ends up matching the local snapshot; conflict cleared.
+     - `Keep Both`: original synced place keeps cloud snapshot; a new local-only place with the local snapshot exists on Android.
+   - Force-quit the app mid-upload (airplane mode toggle) and re-sync to confirm no duplicate cloud places (idempotency).
+4. Record the run date + commit hash and tick the matching Completion Checklist items.
 
 ## Rollback / Recovery
 
@@ -71,9 +95,9 @@ Local ids and cloud ids remain separate identities: Android keeps local UUIDs st
 
 ## Completion Checklist
 
-- [ ] Local-only Android places upload to cloud and bind returned `remoteId`/version to the existing local rows, verified by automated tests and an Android smoke test.
-- [ ] Synced Android place rename/coordinate edit/delete syncs to cloud through `/sync/upload`, verified by backend and Android tests.
-- [ ] Web/cloud concurrent edits produce persisted item-level Android conflicts, verified by conflict tests and manual UI acceptance.
-- [ ] `Use Cloud`, `Use Local`, and `Keep Both` resolve place conflicts without losing local or cloud snapshots, verified by tests and smoke test.
-- [ ] Retry after upload response loss does not duplicate cloud places, verified by idempotency tests.
-- [ ] Route upload/conflict remains explicitly deferred to a follow-up plan or unchecked roadmap item, verified by docs update.
+- [ ] Local-only Android places upload to cloud and bind returned `remoteId`/version to the existing local rows, verified by automated tests and an Android smoke test. _Implementation landed in PR #46; 2026-05-11 smoke test on commit `2a0224a` confirmed `smoke-A-1` uploaded and bound `remoteId`/`version`; still awaiting `CloudSyncRepository` unit tests for the local-only upload path._
+- [ ] Synced Android place rename/coordinate edit/delete syncs to cloud through `/sync/upload`, verified by backend and Android tests. _Backend + Android implementation landed; rename round-trip verified on smoke (2026-05-11) for both Android→cloud and cloud-snapshot-wins paths; backend `LibraryItem.version` bump tests and `/sync/upload` partial-success tests still needed, and coordinate-edit / delete paths were not exercised on smoke._
+- [ ] Web/cloud concurrent edits produce persisted item-level Android conflicts, verified by conflict tests and manual UI acceptance. _Detection + persistence implemented; 2026-05-11 smoke surfaced an update-vs-update conflict on Options → Cloud sync; richer update-vs-update / delete-vs-update unit tests still needed._
+- [ ] `Use Cloud`, `Use Local`, and `Keep Both` resolve place conflicts without losing local or cloud snapshots, verified by tests and smoke test. _Actions implemented and covered by `:app:testDebugUnitTest`; all three actions verified end-to-end on the 2026-05-11 smoke test, including Keep Both producing a duplicated local-only row that uploaded as a second cloud place on the next sync; richer repository/sync tests still needed._
+- [ ] Retry after upload response loss does not duplicate cloud places, verified by idempotency tests. _Backend idempotency storage keyed by `(userId, clientMutationId)` implemented; 2026-05-11 smoke toggled airplane mode mid-upload of `smoke-A-3-IDEM` and the retry produced exactly one cloud place with no crash; backend retry/reuse unit tests still needed._
+- [x] Route upload/conflict remains explicitly deferred to a follow-up plan or unchecked roadmap item, verified by docs update. _`product-roadmap-plan.md`, `android-local-library-plan.md`, and `android-cloud-sync-plan.md` already point at this plan as the place-only first slice._
