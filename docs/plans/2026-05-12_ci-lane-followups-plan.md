@@ -49,13 +49,13 @@ The workflow itself is in every set so that workflow edits always re-run everyth
 
 ## Plan
 
-- [ ] Add a `changes` job to `.github/workflows/ci.yml` using `dorny/paths-filter@v3` that emits `android`, `backend`, `web` outputs based on the path globs above; verify by `yamllint .github/workflows/ci.yml` (or `pre-commit run check-yaml --files .github/workflows/ci.yml`) passing.
-- [ ] Add `needs: changes` plus `if: github.event_name == 'push' || needs.changes.outputs.<lane> == 'true'` to each of `android`, `backend`, `web` jobs; verify by reading the diff and confirming each lane has the guard.
-- [ ] Add a `Build` step (`run: npm run build`) to the `backend` job after `Typecheck`; verify in the next CI run by seeing the step succeed in the `backend` job log.
-- [ ] Add a `Test (e2e)` step (`run: npm run test:e2e`) to the `backend` job after `Test`; verify in the next CI run by seeing both `Test` and `Test (e2e)` succeed.
-- [ ] In `docs/plans/engineering-backlog-plan.md`, mark the three `Surfaced by PR #58 review` items as `[x]`; verify by `grep -c '\[x\] .*Surfaced by PR #58 review' docs/plans/engineering-backlog-plan.md` returning `3`.
-- [ ] Open PR against `main`; verify the PR's own CI run shows all three jobs `pass` (touching `.github/workflows/ci.yml` forces all lanes via the workflow-self glob).
-- [ ] After merging, validate the skip path with a tiny docs-only PR (e.g. typo fix in any `docs/**` file): `gh pr checks` should show `android`, `backend`, `web` as `Skipped` and only the `changes` job running. `dorny/paths-filter` on `pull_request` compares against the merge base, so the skip cannot be proven inside the same PR that edits `ci.yml`.
+- [x] Added a `changes` job to `.github/workflows/ci.yml` using `dorny/paths-filter@v3` that emits `android`, `backend`, `web` outputs. Verified by `prek run check-yaml --files .github/workflows/ci.yml` Passed.
+- [x] Added `needs: changes` plus `if: github.event_name == 'push' || needs.changes.outputs.<lane> == 'true'` to each of `android`, `backend`, `web` jobs. Verified by reading the merged diff (PR #60).
+- [x] Added a `Build` step (`run: npm run build`) to the `backend` job after `Typecheck`. Verified in CI run 25687758702 (backend job log shows `Build: success`).
+- [x] Added a `Test (e2e)` step (`run: npm run test:e2e`) to the `backend` job after `Test`. Verified in CI run 25687758702 (backend job log shows both `Test: success` and `Test (e2e): success`). Also fixed a bit-rot in `backend/test/sync.e2e-spec.ts` (hard-coded past `expiresAt`) surfaced by promoting e2e into CI.
+- [x] Marked the three `Surfaced by PR #58 review` items as `[x]` in `docs/plans/engineering-backlog-plan.md`. Verified by `grep -c '\[x\] .*Surfaced by PR #58 review' docs/plans/engineering-backlog-plan.md` → `3`.
+- [x] Opened PR #60 against `main`; CI run 25687758702 showed all three lanes `pass` (workflow-self glob forced them to run).
+- [x] After merging #60, validated skip path with PR #61 (docs-only README change). `gh run view 25688009020` showed `changes: success`, `android: skipped`, `backend: skipped`, `web: skipped`.
 
 ## Risks
 
@@ -70,10 +70,10 @@ The workflow itself is in every set so that workflow edits always re-run everyth
 
 ## Completion Checklist
 
-- [ ] `.github/workflows/ci.yml` contains a `changes` job using `dorny/paths-filter@v3` with `android`, `backend`, `web` outputs (verified by `grep -E 'dorny/paths-filter|outputs:' .github/workflows/ci.yml`).
-- [ ] Each of `android`, `backend`, `web` jobs declares `needs: changes` and the `if: github.event_name == 'push' || needs.changes.outputs.<lane> == 'true'` guard (verified by inspecting `.github/workflows/ci.yml`).
-- [ ] `backend` job includes both `Build` and `Test (e2e)` steps after the existing steps (verified by reading the workflow file and by the corresponding step names appearing in the PR's CI run log).
-- [ ] `gh pr checks <new-pr>` shows `android`, `backend`, `web` all `pass` on the PR (workflow edit forces all lanes to run).
-- [ ] After merge, a follow-up docs-only PR demonstrates `android` / `backend` / `web` all reported as `Skipped` (verified by `gh pr checks <docs-pr>`); URL recorded in this checklist item.
-- [ ] `docs/plans/engineering-backlog-plan.md` has all three `Surfaced by PR #58 review` items marked `[x]` (verified by `grep -c '\[x\] .*Surfaced by PR #58 review' docs/plans/engineering-backlog-plan.md` → `3`).
-- [ ] The new PR is merged to `main` (verified by `gh pr view <new-pr> --json state -q .state` → `MERGED`).
+- [x] `.github/workflows/ci.yml` contains a `changes` job using `dorny/paths-filter@v3` with `android`, `backend`, `web` outputs (verified by reading the merged file).
+- [x] Each of `android`, `backend`, `web` jobs declares `needs: changes` and the `if: github.event_name == 'push' || needs.changes.outputs.<lane> == 'true'` guard.
+- [x] `backend` job includes both `Build` and `Test (e2e)` steps; CI run 25687758702 shows both steps succeeding.
+- [x] `gh pr checks 60` showed `android`, `backend`, `web` all `pass` on the PR (workflow edit forced all lanes to run).
+- [x] Follow-up docs-only PR #61 (https://github.com/narumiruna/kestrel/pull/61) demonstrated `android` / `backend` / `web` all `skipped` and only `changes` running (run 25688009020).
+- [x] `docs/plans/engineering-backlog-plan.md` has all three `Surfaced by PR #58 review` items marked `[x]` (verified by `grep -c '\[x\] .*Surfaced by PR #58 review' docs/plans/engineering-backlog-plan.md` → `3`).
+- [x] PR #60 merged to `main` (commit `d622ba4`); PR #61 merged to `main` shortly after.
