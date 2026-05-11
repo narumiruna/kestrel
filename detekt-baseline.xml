@@ -3,9 +3,9 @@
   <ManuallySuppressedIssues></ManuallySuppressedIssues>
   <CurrentIssues>
     <ID>ComplexCondition:LocationService.kt$LocationService$lats != null &amp;&amp; lngs != null &amp;&amp; lats.size == lngs.size &amp;&amp; lats.size &gt;= 2 &amp;&amp; speedKmh.isFinite() &amp;&amp; speedKmh &gt; 0</ID>
-    <ID>CyclomaticComplexMethod:MapScreen.kt$@OptIn(ExperimentalPermissionsApi::class, ExperimentalMaterial3Api::class) @Composable fun MapScreen( modifier: Modifier = Modifier, pendingFavoriteApply: Favorite? = null, onFavoriteApplyConsumed: () -&gt; Unit = {}, )</ID>
+    <ID>CyclomaticComplexMethod:LocationService.kt$LocationService$override fun onStartCommand( intent: Intent?, flags: Int, startId: Int, ): Int</ID>
     <ID>LongMethod:KestrelMap.kt$@Composable fun KestrelMap( modifier: Modifier = Modifier, initialCenter: LatLng = LatLng(25.0330, 121.5654), initialZoom: Double = 11.0, mockLocation: LatLng? = null, polyline: List&lt;LatLng&gt; = emptyList(), myLocation: LatLng? = null, cameraTarget: CameraSnapshot? = null, onMapClick: (LatLng) -&gt; Unit = {}, onMapLongClick: (LatLng) -&gt; Unit = {}, onCameraIdle: (CameraSnapshot) -&gt; Unit = {}, )</ID>
     <ID>LongMethod:LocationService.kt$LocationService$override fun onStartCommand( intent: Intent?, flags: Int, startId: Int, ): Int</ID>
-    <ID>LongMethod:MapScreen.kt$@OptIn(ExperimentalPermissionsApi::class, ExperimentalMaterial3Api::class) @Composable fun MapScreen( modifier: Modifier = Modifier, pendingFavoriteApply: Favorite? = null, onFavoriteApplyConsumed: () -&gt; Unit = {}, )</ID>
+    <ID>TooManyFunctions:LocationService.kt$LocationService : Service</ID>
   </CurrentIssues>
 </SmellBaseline>
