@@ -13,6 +13,9 @@ This backlog comes from the general TODO and the operations/DX sections of the c
 - [ ] Add Android GitHub Actions CI for PRs: `just check`, `just lint`, and `:app:assembleDebug`, with Gradle cache.
 - [x] Add backend CI for test, lint, and typecheck.
 - [x] Add web CI for lint/typecheck/build.
+- [ ] Add `paths:` filter (or `dorny/paths-filter`) to `.github/workflows/ci.yml` so `android`, `backend`, and `web` jobs only run when their respective workspace files change. Surfaced by PR #58 review.
+- [ ] Add an optional `nest build` step to the `backend` CI job to catch `nest-cli.json` / asset-copy regressions that `typecheck` misses. Surfaced by PR #58 review.
+- [ ] Decide policy for promoting backend `test:e2e` into CI (separate job with Postgres service vs. nightly vs. keep local-only). Surfaced by PR #58 review.
 - [ ] Add API structured logging with request id, auth user/session metadata where safe, and error classification.
 - [ ] Add API metrics and health checks suitable for Docker/production monitoring.
 - [ ] Write secrets management strategy for deploy: required env vars, rotation, and local `.env` guidance.

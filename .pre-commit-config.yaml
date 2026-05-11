@@ -26,4 +26,4 @@ repos:
         entry: bash -c 'cd web && npm exec -- biome ci .'
         language: system
         pass_filenames: false
-        files: ^web/.*$
+        files: ^web/.*\.(ts|tsx|js|jsx|json|jsonc|css)$
