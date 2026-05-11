@@ -31,6 +31,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 
 class LocationService : Service() {
     private lateinit var mockProvider: MockProviderManager
@@ -42,6 +43,13 @@ class LocationService : Service() {
 
     @Volatile private var paused = false
     private var currentMode: MockState.Mode = MockState.Mode.Idle
+
+    // Snapshot of the in-flight route so periodic + transition writes can rebuild the matching
+    // `RouteState` (with current progress + forward) without re-reading waypoints from DataStore.
+    private var activeEngine: MovementEngine? = null
+    private var activeRouteWaypoints: List<LatLng> = emptyList()
+    private var activeRouteSpeedKmh: Double = 0.0
+    private var activeRouteMode: MovementEngine.Mode = MovementEngine.Mode.Once
 
     override fun onCreate() {
         super.onCreate()
@@ -111,26 +119,31 @@ class LocationService : Service() {
                     speedKmh > 0
                 ) {
                     val waypoints = lats.indices.map { LatLng(lats[it], lngs[it]) }
-                    startRoute(waypoints, speedKmh, mode)
+                    // Fresh route, fresh progress. Any leftover state from a previous route was
+                    // already cleared by stopRoute() inside startRoute().
+                    startRoute(waypoints, speedKmh, mode, initialProgressMeters = 0.0, initialForward = true)
                     currentMode = MockState.Mode.Route
                     refreshNotification()
-                    scope.launch {
-                        prefs.setMockState(
-                            MockState(
-                                mode = MockState.Mode.Route,
-                                route = RouteState(lats, lngs, speedKmh, mode.name),
-                            ),
-                        )
-                    }
+                    scope.launch { persistRouteState(progressMeters = 0.0, forward = true) }
                 }
             }
             ACTION_PAUSE -> {
                 paused = true
                 refreshNotification()
+                // Snapshot progress so a kill during pause doesn't lose accumulated motion.
+                scope.launch {
+                    val engine = activeEngine ?: return@launch
+                    persistRouteState(engine.progressMeters(), engine.isForward())
+                }
             }
             ACTION_RESUME -> {
                 paused = false
                 refreshNotification()
+                // Match pause: keep the persisted progress fresh across resume too.
+                scope.launch {
+                    val engine = activeEngine ?: return@launch
+                    persistRouteState(engine.progressMeters(), engine.isForward())
+                }
             }
             else -> ensureForeground()
         }
@@ -138,6 +151,14 @@ class LocationService : Service() {
     }
 
     override fun onDestroy() {
+        // Best-effort progress flush before the scope is cancelled. onDestroy is not guaranteed to
+        // run under sudden kills; the periodic tick writer is what makes overnight kills survivable.
+        val engine = activeEngine
+        if (engine != null && currentMode == MockState.Mode.Route) {
+            runCatching {
+                runBlocking { persistRouteState(engine.progressMeters(), engine.isForward()) }
+            }
+        }
         stopRoute()
         stopSingleKeepAlive()
         stopMock()
@@ -164,7 +185,15 @@ class LocationService : Service() {
                         val mode =
                             runCatching { MovementEngine.Mode.valueOf(r.mode) }
                                 .getOrDefault(MovementEngine.Mode.Once)
-                        startRoute(wps, r.speedKmh, mode)
+                        // Seed the engine with the last persisted progress so Loop / PingPong don't
+                        // visibly jump back to the first waypoint after the system restarts us.
+                        startRoute(
+                            waypoints = wps,
+                            speedKmh = r.speedKmh,
+                            mode = mode,
+                            initialProgressMeters = r.progressMeters,
+                            initialForward = r.forward,
+                        )
                         currentMode = MockState.Mode.Route
                         refreshNotification()
                     }
@@ -177,21 +206,44 @@ class LocationService : Service() {
         waypoints: List<LatLng>,
         speedKmh: Double,
         mode: MovementEngine.Mode,
+        initialProgressMeters: Double = 0.0,
+        initialForward: Boolean = true,
     ) {
         stopRoute()
         ensureMockStarted()
         paused = false
-        val engine = MovementEngine(waypoints, speedKmh / 3.6, mode)
+        val engine =
+            MovementEngine(
+                waypoints = waypoints,
+                speedMps = speedKmh / 3.6,
+                mode = mode,
+                initialProgressMeters = initialProgressMeters,
+                initialForward = initialForward,
+            )
+        activeEngine = engine
+        activeRouteWaypoints = waypoints
+        activeRouteSpeedKmh = speedKmh
+        activeRouteMode = mode
         routeJob =
             scope.launch {
+                var tickCounter = 0
                 while (isActive && !engine.isFinished()) {
                     delay(TICK_MILLIS)
                     if (paused) continue
                     val sample = engine.advance(TICK_MILLIS / 1000.0)
                     pushSample(sample)
+                    tickCounter++
+                    if (tickCounter >= PROGRESS_WRITE_INTERVAL_TICKS) {
+                        tickCounter = 0
+                        // Snapshot progress + direction in the same write so they can't disagree
+                        // across a process restart.
+                        persistRouteState(engine.progressMeters(), engine.isForward())
+                    }
                 }
                 if (mode == MovementEngine.Mode.Once && engine.isFinished()) {
                     val last = waypoints.last()
+                    activeEngine = null
+                    activeRouteWaypoints = emptyList()
                     currentMode = MockState.Mode.Single
                     startSingleKeepAlive(last)
                     refreshNotification()
@@ -209,6 +261,32 @@ class LocationService : Service() {
         routeJob?.cancel()
         routeJob = null
         paused = false
+        activeEngine = null
+        activeRouteWaypoints = emptyList()
+    }
+
+    private suspend fun persistRouteState(
+        progressMeters: Double,
+        forward: Boolean,
+    ) {
+        val waypoints = activeRouteWaypoints
+        if (waypoints.isEmpty()) return
+        val lats = DoubleArray(waypoints.size) { waypoints[it].lat }
+        val lngs = DoubleArray(waypoints.size) { waypoints[it].lng }
+        prefs.setMockState(
+            MockState(
+                mode = MockState.Mode.Route,
+                route =
+                    RouteState(
+                        lats = lats,
+                        lngs = lngs,
+                        speedKmh = activeRouteSpeedKmh,
+                        mode = activeRouteMode.name,
+                        progressMeters = progressMeters,
+                        forward = forward,
+                    ),
+            ),
+        )
     }
 
     private fun startSingleKeepAlive(point: LatLng) {
@@ -363,6 +441,10 @@ class LocationService : Service() {
         private const val CHANNEL_ID = "kestrel_location"
         private const val NOTIFICATION_ID = 1001
         private const val TICK_MILLIS = 1000L
+
+        // Write progress every PROGRESS_WRITE_INTERVAL_TICKS ticks (= 5 s at the current tick rate).
+        // Matches the plan's accepted jump-back budget of <= 5 s * speed after a kill.
+        private const val PROGRESS_WRITE_INTERVAL_TICKS = 5
         private const val TAG = "LocationService"
         private const val REQ_CONTENT = 0
         private const val REQ_PAUSE = 1
