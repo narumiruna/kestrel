@@ -6,6 +6,7 @@
     "dev": "next dev --port 3301",
     "build": "next build",
     "start": "next start --port 3301",
+    "lint": "biome lint .",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
