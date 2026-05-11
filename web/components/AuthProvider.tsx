@@ -30,15 +30,64 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const storedSession = window.localStorage.getItem(STORAGE_KEY);
 
-    if (storedSession != null) {
-      try {
-        setSession(JSON.parse(storedSession) as AuthSession);
-      } catch {
-        window.localStorage.removeItem(STORAGE_KEY);
-      }
+    if (storedSession == null) {
+      setIsHydrated(true);
+      return;
     }
 
-    setIsHydrated(true);
+    let parsedSession: AuthSession;
+
+    try {
+      parsedSession = JSON.parse(storedSession) as AuthSession;
+    } catch {
+      window.localStorage.removeItem(STORAGE_KEY);
+      setIsHydrated(true);
+      return;
+    }
+
+    // Verify the stored session by refreshing its access token before we
+    // expose `isAuthenticated = true`. Without this, a stale or
+    // server-rejected session would let `LoginPage` redirect to
+    // `/dashboard`, which then bounces back to `/login` once the first
+    // protected request 401s. During that loop the login form is
+    // technically mounted but its tab buttons feel unclickable because
+    // the router is mid-navigation.
+    let cancelled = false;
+
+    refreshSession(parsedSession.refreshToken)
+      .then((refreshed) => {
+        if (cancelled) {
+          return;
+        }
+
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(refreshed));
+        setSession(refreshed);
+      })
+      .catch((error: unknown) => {
+        if (cancelled) {
+          return;
+        }
+
+        // Only drop the stored session when the backend explicitly
+        // rejected the refresh token. Network errors / 5xx keep it so a
+        // transient outage doesn't sign the user out.
+        if (error instanceof ApiError && error.status === 401) {
+          window.localStorage.removeItem(STORAGE_KEY);
+          setSession(null);
+          return;
+        }
+
+        setSession(parsedSession);
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setIsHydrated(true);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const saveSession = useCallback((nextSession: AuthSession) => {
