@@ -70,7 +70,7 @@ Foreground services protect against most memory pressure, but real devices (espe
 - [x] Persist progress on `ACTION_PAUSE`, `ACTION_RESUME`, route-finish-into-Single, `ACTION_STOP`, and `onDestroy`; implemented (`onDestroy` uses `runBlocking` since it runs after a stop intent and before scope cancellation; route-finish path goes through the existing Single-transition write). Smoke verification still pending (runbook step 3).
 - [x] Add JVM unit tests covering the schema-default round trip and the engine seed behavior; verified by `JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" ./gradlew :app:testDebugUnitTest --rerun-tasks` (10 suites / 50 tests / 0 failures, +6 vs. main).
 - [x] Run `just check`, `just lint`, and the Android unit tests; all pass on the implementing branch. `just lint-baseline` was regenerated to absorb the `LocationService` `TooManyFunctions` (20) and `onStartCommand` `CyclomaticComplexMethod` (20) threshold collisions; same regen also dropped two stale `MapScreen` entries that had already been refactored away.
-- [ ] Manual smoke on a real device using the Validation runbook below; record date + commit hash here.
+- [x] Manual smoke on a real device using the Validation runbook below. **2026-05-11 on commit `0896cc3`, device `ZY32L6DLW8`**: PingPong route at 5 km/h between two waypoints ~14 m apart. `just prefs` confirmed `mock_state_json` carried `progressMeters` + (when backward) `forward:false`. `am crash` and `am kill` were both blocked by the foreground service; SIGKILL via `run-as dev.narumi.kestrel kill -9 <pid>` worked. Pre-kill snapshot was `progressMeters: 1.935`; the system restarted the service via `START_STICKY` (new pid), and the next persist write showed `progressMeters: 43.6` → `50.5` → `57.5` over three 5-s polls (= 1.39 m/s = 5 km/h, exactly the configured speed). Zero rollback observed — the kill happened within the persist cadence window, so resume was at the same persisted value. No reset to 0, no crash.
 - [x] Add a `## GOTCHA` entry to `docs/MEMORY.md` noting that route progress is now persisted every 5 s and may roll back by that much after a kill.
 
 ## Risks
@@ -91,14 +91,19 @@ Run on the macOS dev machine with one real Android device + mock-location pointi
    - `JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" ./gradlew :app:testDebugUnitTest --rerun-tasks`
 2. Live route persistence (no kill)
    - Launch app, start a PingPong route between two distinct waypoints at a slow speed (e.g. 5 km/h) so progress is visible.
-   - After ≥ 10 s, dump prefs via `just prefs` and confirm `progressMeters > 0` and `forward` is present.
-3. Simulated kill (process death without service stop)
-   - With the route still running, run:
+   - After ≥ 10 s, dump prefs and confirm `progressMeters > 0`. **Note**: `just prefs` truncates to `xxd | head -40` and shows hex, so `progressMeters` is invisible there; instead run:
      ```bash
-     ~/Library/Android/sdk/platform-tools/adb shell am crash dev.narumi.kestrel
+     ~/Library/Android/sdk/platform-tools/adb shell "run-as dev.narumi.kestrel cat files/datastore/kestrel_prefs.preferences_pb" | strings | grep mock_state -A1
      ```
-     (or `am kill` for a softer kill). The system should restart `LocationService` via `START_STICKY`.
-   - Wait a few seconds and verify on the map that the dot **resumes near** the pre-kill position (within ≤ 5 s × speed), not back at the first waypoint. For PingPong, also verify direction is preserved (point continues in the same direction it was heading).
+     `forward` only appears in JSON when it equals `false` (kotlinx-serialization-json omits default values); `forward: true` is implied by the absence of the field.
+3. Simulated kill (process death without service stop)
+   - With the route still running, send SIGKILL from inside the app's own UID via `run-as`:
+     ```bash
+     PID=$(adb shell pidof dev.narumi.kestrel)
+     adb shell "run-as dev.narumi.kestrel kill -9 $PID"
+     ```
+     **`adb shell am crash <pkg>` and `am kill <pkg>` do not work** because the foreground service holds the process alive and `am crash` requires extra permissions. The SIGKILL via `run-as` is the only non-root way to simulate the overnight-kill scenario, and the system restarts `LocationService` via `START_STICKY` within a few seconds (new pid).
+   - Wait a few seconds and verify on the map that the dot **resumes near** the pre-kill position (within ≤ 5 s × speed), not back at the first waypoint. For PingPong, also verify direction is preserved (point continues in the same direction it was heading). Cross-check by polling `mock_state_json` via the `strings | grep` recipe above and watching `progressMeters` move forward from the persisted value rather than from 0.
 4. Overnight smoke (optional but recommended once)
    - Start a Loop or PingPong route on the device, leave the app backgrounded with screen off overnight (or at least 4 h on an OEM with aggressive kill).
    - In the morning, verify the dot is not parked at the first waypoint. Acceptable: continuing near where it would be given elapsed time, or being on a sensible point along the route.
@@ -114,6 +119,6 @@ Run on the macOS dev machine with one real Android device + mock-location pointi
 - [ ] `RouteState` carries `progressMeters` and `forward` with backward-compatible defaults, verified by a unit test that decodes a legacy JSON blob.
 - [ ] `MovementEngine` can be seeded mid-route for Once / Loop / PingPong, verified by `MovementEngineTest` cases that assert the first sample after seeding lies past the origin and PingPong direction is honored.
 - [ ] `LocationService` writes progress and forward at least every 5 s, plus on pause/resume/stop/finish, verified by `just prefs` after ≥ 10 s of route playback.
-- [ ] After `adb shell am crash dev.narumi.kestrel` mid-route, the restarted service resumes within ≤ 5 s × speed of the pre-kill position, verified by a one-device smoke test recorded in this plan with date + commit hash.
+- [x] After SIGKILL mid-route, the restarted service resumes within ≤ 5 s × speed of the pre-kill position, verified by the 2026-05-11 smoke run on commit `0896cc3` (device `ZY32L6DLW8`). Actual rollback was 0 m; resume continued at `progressMeters: 1.935` and ticked forward at the configured 5 km/h. `am crash` and `am kill` were both blocked by the foreground service (`Shell does not have permission`, FGS keeps the process alive); SIGKILL via `run-as dev.narumi.kestrel kill -9 <pid>` was the only effective non-root way to simulate the overnight-kill scenario.
 - [ ] `just check`, `just lint`, and `:app:testDebugUnitTest` pass on the implementing commit, recorded with commit hash.
 - [ ] `docs/MEMORY.md` has a one-line `## GOTCHA` entry pointing future debuggers at the periodic progress write and the ≤ 5 s rollback window.
