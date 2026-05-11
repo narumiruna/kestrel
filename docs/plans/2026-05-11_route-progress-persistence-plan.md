@@ -62,16 +62,16 @@ Foreground services protect against most memory pressure, but real devices (espe
 
 ## Plan
 
-- [ ] Read `KestrelPrefs.setMockState` and confirm whether DataStore writes the full blob each call; if so, decide whether to keep N = 5 s or stretch to N = 10 s. Record the decision in this plan before code changes.
-- [ ] Extend `RouteState` in `app/src/main/java/dev/narumi/kestrel/core/data/Preferences.kt` with `progressMeters: Double = 0.0` and `forward: Boolean = true`; verify backward compatibility by adding a unit test that decodes a JSON blob without the new fields and gets defaults.
-- [ ] Extend `MovementEngine` constructor with `initialProgressMeters: Double = 0.0` and `initialForward: Boolean = true`; clamp `initialProgressMeters` into `[0, totalDistance]`; verify with new `MovementEngineTest` cases for Once / Loop / PingPong seeded mid-route.
-- [ ] Update `LocationService.startRoute` to take an initial progress/forward pair and seed the engine; update `restoreState()` Route branch to read them from `RouteState`; verify by inspection + the existing unit tests still passing.
-- [ ] Add a periodic progress writer inside the route loop: every `PROGRESS_WRITE_INTERVAL_TICKS` ticks, write current `progressMeters` and `forward` back into `MockState.route` without changing other fields; verify by adb-driven smoke (see Validation runbook).
-- [ ] Persist progress on `ACTION_PAUSE`, `ACTION_RESUME`, route-finish-into-Single, `ACTION_STOP`, and `onDestroy`; verify by inspection + smoke.
-- [ ] Add JVM unit tests covering the schema-default round trip and the engine seed behavior; verify with `JAVA_HOME=… ./gradlew :app:testDebugUnitTest`.
-- [ ] Run `just check`, `just lint`, and the Android unit tests; record commit hash + results in this plan.
+- [x] Read `KestrelPrefs.setMockState` and confirm whether DataStore writes the full blob each call; if so, decide whether to keep N = 5 s or stretch to N = 10 s. **Decision (2026-05-11): keep N = 5 s.** `setMockState` calls `store.edit { it[Keys.MOCK_STATE] = json.encodeToString(...) }`, which rewrites only the one key (Preferences DataStore is key-scoped). The serialized `MockState` is on the order of a few hundred bytes; writing it every 5 s is well within DataStore's coalescing budget.
+- [x] Extend `RouteState` in `app/src/main/java/dev/narumi/kestrel/core/data/Preferences.kt` with `progressMeters: Double = 0.0` and `forward: Boolean = true`; verified by `RouteStateSerializationTest.decodesLegacyJsonWithoutProgressOrForward` (legacy JSON without the new fields decodes to defaults) and `roundTripsNewFields`.
+- [x] Extend `MovementEngine` constructor with `initialProgressMeters: Double = 0.0` and `initialForward: Boolean = true`; clamp `initialProgressMeters` into `[0, totalDistance]`; verified by new `MovementEngineTest` cases for Once / Loop / PingPong seeded mid-route plus `initialProgressIsClampedIntoRange`.
+- [x] Update `LocationService.startRoute` to take an initial progress/forward pair and seed the engine; update `restoreState()` Route branch to read them from `RouteState`; verified by inspection + the existing unit tests still passing.
+- [x] Add a periodic progress writer inside the route loop: every `PROGRESS_WRITE_INTERVAL_TICKS` ticks, write current `progressMeters` and `forward` back into `MockState.route` without changing other fields; implemented as the `tickCounter`-driven branch inside `startRoute`'s loop. Smoke verification still pending (runbook step 3).
+- [x] Persist progress on `ACTION_PAUSE`, `ACTION_RESUME`, route-finish-into-Single, `ACTION_STOP`, and `onDestroy`; implemented (`onDestroy` uses `runBlocking` since it runs after a stop intent and before scope cancellation; route-finish path goes through the existing Single-transition write). Smoke verification still pending (runbook step 3).
+- [x] Add JVM unit tests covering the schema-default round trip and the engine seed behavior; verified by `JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" ./gradlew :app:testDebugUnitTest --rerun-tasks` (10 suites / 50 tests / 0 failures, +6 vs. main).
+- [x] Run `just check`, `just lint`, and the Android unit tests; all pass on the implementing branch. `just lint-baseline` was regenerated to absorb the `LocationService` `TooManyFunctions` (20) and `onStartCommand` `CyclomaticComplexMethod` (20) threshold collisions; same regen also dropped two stale `MapScreen` entries that had already been refactored away.
 - [ ] Manual smoke on a real device using the Validation runbook below; record date + commit hash here.
-- [ ] Add a `## GOTCHA` entry to `docs/MEMORY.md` noting that route progress is now persisted every 5 s and may roll back by that much after a kill.
+- [x] Add a `## GOTCHA` entry to `docs/MEMORY.md` noting that route progress is now persisted every 5 s and may roll back by that much after a kill.
 
 ## Risks
 
