@@ -53,7 +53,7 @@ Local ids and cloud ids remain separate identities: Android keeps local UUIDs st
 - [ ] Run full validation: `just check`, `just lint`, backend test/lint commands, and one Android real-device smoke test for local place create → foreground/manual sync → cloud visibility → conflict resolution. See **Validation runbook** below for the exact step sequence.
   - 2026-05-11 Android validation: `just check`, `just lint`, `just build`, and `JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" ./gradlew :app:testDebugUnitTest` pass; backend commands and real-device conflict smoke still pending.
   - PR #46 validation so far: `just check`, `just lint`, `just build`, `cd backend && npm run lint`, and `cd backend && npm run build` pass.
-  - `cd backend && npm test -- --runInBand` has one failing auth guard spec (`session is no longer active`) while all other suites pass; resolve or confirm pre-existing before merging.
+  - 2026-05-11 backend validation: `cd backend && npm run lint`, `cd backend && npm run build`, and `cd backend && npm test -- --runInBand` all pass after fixing the time-bomb `session-auth.guard.spec.ts` (used a fixed past `expiresAt`); now uses `jest.useFakeTimers()` + `setSystemTime`.
 
 ## Risks
 
@@ -73,7 +73,7 @@ Run these on the macOS dev machine (this is where `java_home` in `justfile` poin
 2. Backend lint/build/tests:
    - `cd backend && npm run lint`
    - `cd backend && npm run build`
-   - `cd backend && npm test -- --runInBand` — confirm the previously failing `session is no longer active` auth guard spec is either fixed or accepted as pre-existing before merging.
+   - `cd backend && npm test -- --runInBand`
 3. Real-device smoke test (one Android device with mock-location selected as this app):
    - Sign in to cloud account A.
    - Create a local-only place on Android → trigger `Sync now` → confirm it appears on the web for account A with the same name/coords.
