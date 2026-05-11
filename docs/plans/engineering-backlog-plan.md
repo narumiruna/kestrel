@@ -11,8 +11,8 @@ This backlog comes from the general TODO and the operations/DX sections of the c
 ## Plan
 
 - [ ] Add Android GitHub Actions CI for PRs: `just check`, `just lint`, and `:app:assembleDebug`, with Gradle cache.
-- [ ] Add backend CI for test, lint, and typecheck.
-- [ ] Add web CI for lint/typecheck/build.
+- [x] Add backend CI for test, lint, and typecheck.
+- [x] Add web CI for lint/typecheck/build.
 - [ ] Add API structured logging with request id, auth user/session metadata where safe, and error classification.
 - [ ] Add API metrics and health checks suitable for Docker/production monitoring.
 - [ ] Write secrets management strategy for deploy: required env vars, rotation, and local `.env` guidance.

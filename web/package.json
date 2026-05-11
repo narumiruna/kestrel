@@ -6,7 +6,8 @@
     "dev": "next dev --port 3301",
     "build": "next build",
     "start": "next start --port 3301",
-    "typecheck": "tsc --noEmit"
+    "lint": "biome lint .",
+    "typecheck": "next typegen && tsc --noEmit"
   },
   "dependencies": {
     "maplibre-gl": "^5.14.0",
