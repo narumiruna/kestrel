@@ -23,8 +23,8 @@ Android can sign in with username/password + TOTP or recovery code, store sessio
 - [x] Implement changes polling for upserts, deletions, cursor storage, and foreground/manual refresh.
 - [x] Recover from `SYNC_CURSOR_EXPIRED` and `since cursor is ahead of server state` by clearing only the sync cursor and bootstrapping.
 - [x] Ensure route application uses Room current revision snapshot waypoints and route-level speed/mode.
-- [x] Define local-only upload policy, including when to prompt, how to bind remote ids, and how to represent dirty/deleted states; place-first implementation is tracked in `2026-05-10_android-local-upload-conflict-plan.md` and PR #46.
-- [x] Define conflict policy: cloud wins, local dirty upload, and any manual resolution cases; manual item-level conflict resolution remains in `2026-05-10_android-local-upload-conflict-plan.md`.
+- [x] Define local-only upload policy, including when to prompt, how to bind remote ids, and how to represent dirty/deleted states; place-first implementation shipped across PRs #46–#49 under `2026-05-10_android-local-upload-conflict-plan.md`.
+- [x] Define conflict policy: cloud wins, local dirty upload, and any manual resolution cases; manual item-level conflict resolution (`Use Cloud` / `Use Local` / `Keep Both`) is implemented and smoke-verified in PRs #46–#49 under `2026-05-10_android-local-upload-conflict-plan.md`.
 - [ ] Add device state reporting once device/session management has a concrete product slice.
 
 ## Risks
@@ -40,4 +40,4 @@ Android can sign in with username/password + TOTP or recovery code, store sessio
 - [x] Bootstrap and changes sync web-created places/routes into Room.
 - [x] Cursor expired/ahead conditions recover without clearing all app data.
 - [x] Cloud routes execute using current revision snapshots.
-- [ ] Upload/conflict/device-state follow-ups have separate accepted plans before implementation; place upload/conflict is active in `2026-05-10_android-local-upload-conflict-plan.md`, while device state remains unplanned.
+- [ ] Upload/conflict/device-state follow-ups have separate accepted plans before implementation; place upload/conflict is implemented and smoke-verified under `2026-05-10_android-local-upload-conflict-plan.md` (PRs #46–#49), with only its automated-test Completion Checklist items outstanding, while device state remains unplanned.

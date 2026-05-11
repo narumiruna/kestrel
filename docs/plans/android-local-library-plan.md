@@ -22,7 +22,7 @@ The original phase replaced DataStore `Favorite(name as id)` storage with Room-b
 - [x] Preserve current UX: Points/Routes tabs, recent/manual sorting, rename/edit/delete/apply-now, and route playback from current revision waypoints.
 - [x] Remove legacy DataStore favorites JSON and migration-only code paths after stabilization.
 - [x] Add remote-id columns and lookup helpers used by Android cloud sync.
-- [x] Add dirty/local-only upload state transitions for local places that should be pushed to cloud; first implementation is tracked in `2026-05-10_android-local-upload-conflict-plan.md` and PR #46.
+- [x] Add dirty/local-only upload state transitions for local places that should be pushed to cloud; place upload + manual conflict resolution shipped end-to-end across PRs #46–#49 under `2026-05-10_android-local-upload-conflict-plan.md`.
 - [ ] Add lazy loading of complete route revision history if Android needs history UI.
 - [ ] Add per-segment speed and pause playback once route execution supports waypoint metadata.
 
@@ -38,5 +38,5 @@ The original phase replaced DataStore `Favorite(name as id)` storage with Room-b
 - [x] UI no longer reads or mutates legacy DataStore favorites.
 - [x] Startup favorite references use `libraryItemId` rather than name identity.
 - [x] Remote-id binding exists for synced cloud rows.
-- [ ] Dirty/local-only upload behavior is planned and implemented for places; remaining proof requires conflict UI/actions, outbox source-of-truth cleanup, and smoke tests in `2026-05-10_android-local-upload-conflict-plan.md`.
+- [ ] Dirty/local-only upload behavior is planned and implemented for places; outbox source-of-truth, conflict UI/actions, and real-device smoke all landed via PRs #46–#49 under `2026-05-10_android-local-upload-conflict-plan.md`. Remaining proof is the automated test coverage still listed in that plan's Completion Checklist.
 - [ ] Route revision history and per-segment playback remain explicit follow-ups, not hidden baseline work.
