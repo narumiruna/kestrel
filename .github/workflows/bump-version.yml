@@ -6,6 +6,7 @@ on:
       bump_type:
         description: Semantic version segment to increment for Android, backend, and web.
         required: true
+        default: "patch"
         type: choice
         options:
           - major
