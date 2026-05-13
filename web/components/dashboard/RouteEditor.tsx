@@ -47,11 +47,19 @@ export default function RouteEditor({
       longitude: waypoint.longitude,
     })) ?? [],
   );
+  const [fitRequest, setFitRequest] = useState(0);
   const [focusTarget, setFocusTarget] = useState<RouteWaypoint | null>(null);
+  const [selectedWaypointIndex, setSelectedWaypointIndex] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const routeBuilderHint = getRouteBuilderHint(waypoints.length, places.length);
   const saveDisabledReason = getSaveDisabledReason(waypoints.length);
+
+  useEffect(() => {
+    if (selectedWaypointIndex != null && selectedWaypointIndex >= waypoints.length) {
+      setSelectedWaypointIndex(null);
+    }
+  }, [selectedWaypointIndex, waypoints.length]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -91,6 +99,29 @@ export default function RouteEditor({
 
     setWaypoints([waypoint]);
     setFocusTarget(waypoint);
+    setSelectedWaypointIndex(0);
+  }
+
+  function duplicateLastWaypoint() {
+    const lastWaypoint = waypoints.at(-1);
+
+    if (lastWaypoint == null) {
+      return;
+    }
+
+    setWaypoints([...waypoints, lastWaypoint]);
+    setSelectedWaypointIndex(waypoints.length);
+  }
+
+  function removeWaypoint(index: number) {
+    setWaypoints(waypoints.filter((_, currentIndex) => currentIndex !== index));
+    setSelectedWaypointIndex((currentIndex) => {
+      if (currentIndex == null || currentIndex === index) {
+        return null;
+      }
+
+      return currentIndex > index ? currentIndex - 1 : currentIndex;
+    });
   }
 
   function confirmDelete() {
@@ -138,16 +169,37 @@ export default function RouteEditor({
           </label>
         ) : null}
         <div className="map-builder">
-          <RouteMapEditor focusTarget={focusTarget} waypoints={waypoints} onChange={setWaypoints} />
+          <RouteMapEditor
+            fitRequest={fitRequest}
+            focusTarget={focusTarget}
+            selectedWaypointIndex={selectedWaypointIndex}
+            waypoints={waypoints}
+            onChange={setWaypoints}
+            onSelectWaypoint={setSelectedWaypointIndex}
+          />
           <div className="map-instruction">Click map to add waypoint · Drag markers to adjust</div>
+        </div>
+        <div className="map-action-row">
+          <button
+            className="secondary"
+            disabled={waypoints.length === 0}
+            type="button"
+            onClick={() => setFitRequest((currentRequest) => currentRequest + 1)}
+          >
+            Fit route
+          </button>
+          <span className="muted">Add from map click, then use rows for exact coordinates.</span>
         </div>
 
         <div className="stack">
           <h3>Waypoints</h3>
           {waypoints.map((waypoint, index) => (
-            // biome-ignore lint/suspicious/noArrayIndexKey: waypoint rows are edited by position until drag-and-drop adds stable row ids.
-            <div className="waypoint-row" key={`${index}-${waypoint.latitude}-${waypoint.longitude}`}>
-              <span className="chip">#{index + 1}</span>
+            <div
+              className={`waypoint-row ${selectedWaypointIndex === index ? 'selected' : ''}`}
+              key={getWaypointKey(waypoint, index)}
+              onPointerDown={() => setSelectedWaypointIndex(index)}
+            >
+              <span className="chip">{getWaypointLabel(index, waypoints.length)}</span>
               <input
                 inputMode="decimal"
                 value={waypoint.latitude}
@@ -179,13 +231,7 @@ export default function RouteEditor({
                 >
                   ↓
                 </button>
-                <button
-                  className="danger"
-                  type="button"
-                  onClick={() =>
-                    setWaypoints(waypoints.filter((_, currentIndex) => currentIndex !== index))
-                  }
-                >
+                <button className="danger" type="button" onClick={() => removeWaypoint(index)}>
                   ×
                 </button>
               </div>
@@ -193,15 +239,11 @@ export default function RouteEditor({
           ))}
           <button
             className="secondary"
+            disabled={waypoints.length === 0}
             type="button"
-            onClick={() =>
-              setWaypoints([
-                ...waypoints,
-                waypoints.at(-1) ?? { latitude: 25.033, longitude: 121.5654 },
-              ])
-            }
+            onClick={duplicateLastWaypoint}
           >
-            Add waypoint
+            Duplicate last waypoint
           </button>
         </div>
       </section>
@@ -278,6 +320,22 @@ export default function RouteEditor({
       </footer>
     </form>
   );
+}
+
+function getWaypointKey(waypoint: RouteWaypoint, index: number): string {
+  return `${waypoint.sequence ?? index}-${waypoint.latitude}-${waypoint.longitude}`;
+}
+
+function getWaypointLabel(index: number, waypointCount: number): string {
+  if (index === 0) {
+    return 'Start';
+  }
+
+  if (index === waypointCount - 1) {
+    return 'End';
+  }
+
+  return `Stop ${index + 1}`;
 }
 
 function getRouteBuilderHint(waypointCount: number, placeCount: number): string {

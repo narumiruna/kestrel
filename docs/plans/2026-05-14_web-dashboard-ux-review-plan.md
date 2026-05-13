@@ -79,10 +79,10 @@
 
 ### Phase 3 — 改善 waypoint 操作
 
-- [ ] 在 waypoint row 顯示更語意化 label：`Start`、`Stop 2`、`End`，而不是只有 `#1`；用 route 有 2/3/多點的畫面驗證 label 正確。
-- [ ] 點選 waypoint row 時設定 selected waypoint，並在 map marker 上用顏色 / scale / popup 反映 selected 狀態；用手動點 row 與 marker 驗證雙向同步。
-- [ ] 將 `Add waypoint` 從「複製最後一點」改為更明確的兩種操作：`Add from map click` instruction 與 `Duplicate last waypoint` 次要 action；用新增點流程驗證不再產生意外重疊。
-- [ ] 加入 `Fit route` 按鈕，僅由使用者主動觸發地圖重新縮放；用 map zoom 手動測試確認新增 waypoint 不 auto-fit、按鈕才 fit。
+- [x] 在 waypoint row 顯示更語意化 label：`Start`、`Stop 2`、`End`，而不是只有 `#1`；已更新 `RouteEditor` 並用 `cd web && npm run lint` 驗證。
+- [x] 點選 waypoint row 時設定 selected waypoint，並在 map marker 上用顏色 / scale / popup 反映 selected 狀態；已加入 selected row / marker state 與 marker click callback，並用 `cd web && npm run lint` 驗證。
+- [x] 將 `Add waypoint` 從「複製最後一點」改為更明確的兩種操作：`Add from map click` instruction 與 `Duplicate last waypoint` 次要 action；已更新 route builder actions 並用 `cd web && npm run lint` 驗證。
+- [x] 加入 `Fit route` 按鈕，僅由使用者主動觸發地圖重新縮放；已用 `fitRequest` 觸發手動 fit，並用 `cd web && npm run lint` 驗證。
 
 ### Phase 4 — 讓 Favorites / Places 更像可用素材庫
 

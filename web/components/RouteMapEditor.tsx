@@ -7,8 +7,11 @@ import type { RouteWaypoint } from '@/lib/api';
 
 type Props = {
   className?: string;
+  fitRequest?: number;
   focusTarget?: RouteWaypoint | null;
   onChange: (waypoints: RouteWaypoint[]) => void;
+  onSelectWaypoint?: (index: number) => void;
+  selectedWaypointIndex?: number | null;
   waypoints: RouteWaypoint[];
 };
 
@@ -17,20 +20,27 @@ const LINE_LAYER_ID = 'route-line';
 
 export default function RouteMapEditor({
   className = 'map',
+  fitRequest = 0,
   focusTarget = null,
   onChange,
+  onSelectWaypoint,
+  selectedWaypointIndex = null,
   waypoints,
 }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const markersRef = useRef<Marker[]>([]);
   const onChangeRef = useRef(onChange);
+  const onSelectWaypointRef = useRef(onSelectWaypoint);
+  const selectedWaypointIndexRef = useRef(selectedWaypointIndex);
   const waypointsRef = useRef(waypoints);
 
   useEffect(() => {
     onChangeRef.current = onChange;
+    onSelectWaypointRef.current = onSelectWaypoint;
+    selectedWaypointIndexRef.current = selectedWaypointIndex;
     waypointsRef.current = waypoints;
-  }, [onChange, waypoints]);
+  }, [onChange, onSelectWaypoint, selectedWaypointIndex, waypoints]);
 
   useEffect(() => {
     if (containerRef.current == null || mapRef.current != null) {
@@ -67,7 +77,14 @@ export default function RouteMapEditor({
         source: LINE_SOURCE_ID,
         type: 'line',
       });
-      syncMarkers(map, markersRef.current, waypointsRef.current, onChangeRef.current);
+      syncMarkers({
+        existingMarkers: markersRef.current,
+        map,
+        onChange: onChangeRef.current,
+        onSelectWaypoint: onSelectWaypointRef.current,
+        selectedWaypointIndex: selectedWaypointIndexRef.current,
+        waypoints: waypointsRef.current,
+      });
       fitWaypoints(map, waypointsRef.current);
     });
     map.on('click', (event) => {
@@ -78,6 +95,7 @@ export default function RouteMapEditor({
           longitude: roundCoord(event.lngLat.lng),
         },
       ]);
+      onSelectWaypointRef.current?.(waypointsRef.current.length);
     });
 
     mapRef.current = map;
@@ -101,14 +119,28 @@ export default function RouteMapEditor({
 
     if (map.isStyleLoaded()) {
       updateLine(map, waypoints);
-      syncMarkers(map, markersRef.current, waypoints, onChange);
+      syncMarkers({
+        existingMarkers: markersRef.current,
+        map,
+        onChange,
+        onSelectWaypoint,
+        selectedWaypointIndex,
+        waypoints,
+      });
     } else {
       map.once('load', () => {
         updateLine(map, waypoints);
-        syncMarkers(map, markersRef.current, waypoints, onChange);
+        syncMarkers({
+          existingMarkers: markersRef.current,
+          map,
+          onChange,
+          onSelectWaypoint,
+          selectedWaypointIndex,
+          waypoints,
+        });
       });
     }
-  }, [onChange, waypoints]);
+  }, [onChange, onSelectWaypoint, selectedWaypointIndex, waypoints]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -124,15 +156,34 @@ export default function RouteMapEditor({
     });
   }, [focusTarget]);
 
+  useEffect(() => {
+    const map = mapRef.current;
+
+    if (map == null || fitRequest === 0) {
+      return;
+    }
+
+    fitWaypoints(map, waypointsRef.current);
+  }, [fitRequest]);
+
   return <div className={className} ref={containerRef} />;
 }
 
-function syncMarkers(
-  map: MapLibreMap,
-  existingMarkers: Marker[],
-  waypoints: RouteWaypoint[],
-  onChange: (waypoints: RouteWaypoint[]) => void,
-) {
+function syncMarkers({
+  existingMarkers,
+  map,
+  onChange,
+  onSelectWaypoint,
+  selectedWaypointIndex,
+  waypoints,
+}: {
+  existingMarkers: Marker[];
+  map: MapLibreMap;
+  onChange: (waypoints: RouteWaypoint[]) => void;
+  onSelectWaypoint?: (index: number) => void;
+  selectedWaypointIndex: number | null;
+  waypoints: RouteWaypoint[];
+}) {
   existingMarkers.forEach((marker) => {
     marker.remove();
   });
@@ -140,12 +191,23 @@ function syncMarkers(
 
   waypoints.forEach((waypoint, index) => {
     const marker = new maplibregl.Marker({
-      color: index === 0 ? '#76c945' : '#f9aecb',
       draggable: true,
+      element: createMarkerElement({
+        index,
+        isSelected: selectedWaypointIndex === index,
+        waypointCount: waypoints.length,
+      }),
     })
       .setLngLat([waypoint.longitude, waypoint.latitude])
       .addTo(map);
 
+    marker.getElement().addEventListener('click', (event) => {
+      event.stopPropagation();
+      onSelectWaypoint?.(index);
+    });
+    marker.on('dragstart', () => {
+      onSelectWaypoint?.(index);
+    });
     marker.on('dragend', () => {
       const lngLat = marker.getLngLat();
       onChange(
@@ -163,6 +225,35 @@ function syncMarkers(
 
     existingMarkers.push(marker);
   });
+}
+
+function createMarkerElement({
+  index,
+  isSelected,
+  waypointCount,
+}: {
+  index: number;
+  isSelected: boolean;
+  waypointCount: number;
+}) {
+  const element = document.createElement('button');
+  element.className = `route-marker ${isSelected ? 'selected' : ''}`;
+  element.textContent = getWaypointShortLabel(index, waypointCount);
+  element.type = 'button';
+
+  return element;
+}
+
+function getWaypointShortLabel(index: number, waypointCount: number): string {
+  if (index === 0) {
+    return 'S';
+  }
+
+  if (index === waypointCount - 1) {
+    return 'E';
+  }
+
+  return `${index + 1}`;
 }
 
 function fitWaypoints(map: MapLibreMap, waypoints: RouteWaypoint[]) {
