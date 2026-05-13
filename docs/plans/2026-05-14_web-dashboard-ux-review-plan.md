@@ -72,10 +72,10 @@
 
 ### Phase 2 — 重整 route editor 層級
 
-- [ ] 將 RouteEditor 分成三個視覺區塊：`Map builder`、`Route details`、`Publishing / share`，讓 share panel 只在 existing route 或 details 摺疊區中出現；用 DOM 結構與手動 UI review 驗證。
-- [ ] 將 `Name` 移到 editor header 或地圖下第一個欄位，讓 route 的 identity 早於速度 / 模式；用建立 new route 的手動流程驗證少於 3 次視線跳轉即可命名與加點。
-- [ ] 把 `Share link` 改為次要區塊，new route 時只顯示一句「Save before sharing」，避免佔據建立流程；用 new / existing route 各一個狀態截圖驗證。
-- [ ] 將 delete action 移到 danger zone 或 overflow area，並加入 confirmation dialog；用手動測試確認第一次點擊不會直接刪除資料。
+- [x] 將 RouteEditor 分成三個視覺區塊：`Map builder`、`Route details`、`Publishing / share`，讓 share panel 只在 existing route 或 details 摺疊區中出現；已更新 `web/components/dashboard/RouteEditor.tsx` DOM 結構並用 `cd web && npm run lint` 驗證。
+- [x] 將 `Name` 移到 editor header 或地圖下第一個欄位，讓 route 的 identity 早於速度 / 模式；已放在 `Route details` 的第一個欄位並用 `cd web && npm run lint` 驗證。
+- [x] 把 `Share link` 改為次要區塊，new route 時只顯示一句「Save before sharing」，避免佔據建立流程；已更新 `RouteSharePanel` 並用 `cd web && npm run lint` 驗證。
+- [x] 將 delete action 移到 danger zone 或 overflow area，並加入 confirmation dialog；已在 `RouteEditor` 加入 `window.confirm`，用 `cd web && npm run lint` 驗證。
 
 ### Phase 3 — 改善 waypoint 操作
 

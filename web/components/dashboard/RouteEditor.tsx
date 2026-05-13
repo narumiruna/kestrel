@@ -93,160 +93,189 @@ export default function RouteEditor({
     setFocusTarget(waypoint);
   }
 
+  function confirmDelete() {
+    if (window.confirm('Delete this route? This cannot be undone.')) {
+      onDelete?.();
+    }
+  }
+
   return (
-    <form className="panel stack" onSubmit={submit}>
-      <div className="row" style={{ justifyContent: 'space-between' }}>
-        <h2>{route == null ? 'New route' : 'Route editor'}</h2>
-        <div className="row">
+    <form className="panel route-editor" onSubmit={submit}>
+      <header className="route-editor-header">
+        <div className="stack">
+          <h2>{route == null ? 'New route' : 'Route editor'}</h2>
           {route?.currentRevision == null ? null : (
             <span className="chip">latest revision {route.currentRevision.revisionNumber}</span>
           )}
-          {onNew == null ? null : (
-            <button className="secondary" type="button" onClick={onNew}>
-              New route
-            </button>
-          )}
         </div>
-      </div>
-      {error == null ? null : <div className="error">{error}</div>}
-      <div className="route-builder-hint">{routeBuilderHint}</div>
-      {route == null && waypoints.length === 0 && places.length > 0 ? (
-        <label>
-          Start from favorite place
-          <select defaultValue="" onChange={(event) => startFromPlace(event.target.value)}>
-            <option disabled value="">
-              Select a saved place…
-            </option>
-            {places.map((place) => (
-              <option key={place.id} value={place.id}>
-                {place.name}
-              </option>
-            ))}
-          </select>
-        </label>
-      ) : null}
-      <div className="map-builder">
-        <RouteMapEditor focusTarget={focusTarget} waypoints={waypoints} onChange={setWaypoints} />
-        <div className="map-instruction">Click map to add waypoint · Drag markers to adjust</div>
-      </div>
-      <label>
-        Name
-        <input required value={name} onChange={(event) => setName(event.target.value)} />
-      </label>
-      <div className="split">
-        <label>
-          Default speed (km/h)
-          <input
-            required
-            inputMode="decimal"
-            value={defaultSpeedKmh}
-            onChange={(event) => setDefaultSpeedKmh(event.target.value)}
-          />
-        </label>
-        <label>
-          Playback mode
-          <select value={mode} onChange={(event) => setMode(event.target.value as RouteMode)}>
-            <option value="ONCE">Once</option>
-            <option value="LOOP">Loop</option>
-            <option value="PING_PONG">PingPong</option>
-          </select>
-        </label>
-      </div>
-      <label className="row">
-        <input
-          checked={isPublic}
-          style={{ width: 'auto' }}
-          type="checkbox"
-          onChange={(event) => setIsPublic(event.target.checked)}
-        />
-        Public route
-      </label>
-      <label>
-        Description
-        <textarea value={description} onChange={(event) => setDescription(event.target.value)} />
-      </label>
-      <RouteSharePanel route={route} />
-
-      <div className="stack">
-        <h3>Waypoints</h3>
-        {waypoints.map((waypoint, index) => (
-          // biome-ignore lint/suspicious/noArrayIndexKey: waypoint rows are edited by position until drag-and-drop adds stable row ids.
-          <div className="waypoint-row" key={`${index}-${waypoint.latitude}-${waypoint.longitude}`}>
-            <span className="chip">#{index + 1}</span>
-            <input
-              inputMode="decimal"
-              value={waypoint.latitude}
-              onChange={(event) =>
-                updateWaypoint(waypoints, setWaypoints, index, 'latitude', event.target.value)
-              }
-            />
-            <input
-              inputMode="decimal"
-              value={waypoint.longitude}
-              onChange={(event) =>
-                updateWaypoint(waypoints, setWaypoints, index, 'longitude', event.target.value)
-              }
-            />
-            <div className="row">
-              <button
-                className="secondary"
-                disabled={index === 0}
-                type="button"
-                onClick={() => moveWaypoint(waypoints, setWaypoints, index, index - 1)}
-              >
-                ↑
-              </button>
-              <button
-                className="secondary"
-                disabled={index === waypoints.length - 1}
-                type="button"
-                onClick={() => moveWaypoint(waypoints, setWaypoints, index, index + 1)}
-              >
-                ↓
-              </button>
-              <button
-                className="danger"
-                type="button"
-                onClick={() =>
-                  setWaypoints(waypoints.filter((_, currentIndex) => currentIndex !== index))
-                }
-              >
-                ×
-              </button>
-            </div>
-          </div>
-        ))}
-        <button
-          className="secondary"
-          type="button"
-          onClick={() =>
-            setWaypoints([
-              ...waypoints,
-              waypoints.at(-1) ?? { latitude: 25.033, longitude: 121.5654 },
-            ])
-          }
-        >
-          Add waypoint
-        </button>
-      </div>
-
-      <div className="stack">
-        {saveDisabledReason == null ? null : (
-          <p className="muted" style={{ margin: 0 }}>
-            {saveDisabledReason}
-          </p>
-        )}
-        <div className="row">
-          <button disabled={isSaving || saveDisabledReason != null} type="submit">
-            {isSaving ? 'Saving…' : 'Save route'}
+        {onNew == null ? null : (
+          <button className="secondary" type="button" onClick={onNew}>
+            New route
           </button>
-          {onDelete == null ? null : (
-            <button className="danger" disabled={isSaving} type="button" onClick={onDelete}>
-              Delete
-            </button>
-          )}
+        )}
+      </header>
+      {error == null ? null : <div className="error">{error}</div>}
+
+      <section className="route-editor-section">
+        <div>
+          <h3>Map builder</h3>
+          <p className="muted">Build the route shape from favorites or direct map clicks.</p>
         </div>
-      </div>
+        <div className="route-builder-hint">{routeBuilderHint}</div>
+        {route == null && waypoints.length === 0 && places.length > 0 ? (
+          <label>
+            Start from favorite place
+            <select defaultValue="" onChange={(event) => startFromPlace(event.target.value)}>
+              <option disabled value="">
+                Select a saved place…
+              </option>
+              {places.map((place) => (
+                <option key={place.id} value={place.id}>
+                  {place.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
+        <div className="map-builder">
+          <RouteMapEditor focusTarget={focusTarget} waypoints={waypoints} onChange={setWaypoints} />
+          <div className="map-instruction">Click map to add waypoint · Drag markers to adjust</div>
+        </div>
+
+        <div className="stack">
+          <h3>Waypoints</h3>
+          {waypoints.map((waypoint, index) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: waypoint rows are edited by position until drag-and-drop adds stable row ids.
+            <div className="waypoint-row" key={`${index}-${waypoint.latitude}-${waypoint.longitude}`}>
+              <span className="chip">#{index + 1}</span>
+              <input
+                inputMode="decimal"
+                value={waypoint.latitude}
+                onChange={(event) =>
+                  updateWaypoint(waypoints, setWaypoints, index, 'latitude', event.target.value)
+                }
+              />
+              <input
+                inputMode="decimal"
+                value={waypoint.longitude}
+                onChange={(event) =>
+                  updateWaypoint(waypoints, setWaypoints, index, 'longitude', event.target.value)
+                }
+              />
+              <div className="row">
+                <button
+                  className="secondary"
+                  disabled={index === 0}
+                  type="button"
+                  onClick={() => moveWaypoint(waypoints, setWaypoints, index, index - 1)}
+                >
+                  ↑
+                </button>
+                <button
+                  className="secondary"
+                  disabled={index === waypoints.length - 1}
+                  type="button"
+                  onClick={() => moveWaypoint(waypoints, setWaypoints, index, index + 1)}
+                >
+                  ↓
+                </button>
+                <button
+                  className="danger"
+                  type="button"
+                  onClick={() =>
+                    setWaypoints(waypoints.filter((_, currentIndex) => currentIndex !== index))
+                  }
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+          ))}
+          <button
+            className="secondary"
+            type="button"
+            onClick={() =>
+              setWaypoints([
+                ...waypoints,
+                waypoints.at(-1) ?? { latitude: 25.033, longitude: 121.5654 },
+              ])
+            }
+          >
+            Add waypoint
+          </button>
+        </div>
+      </section>
+
+      <section className="route-editor-section">
+        <div>
+          <h3>Route details</h3>
+          <p className="muted">Name the route and set how it should play back.</p>
+        </div>
+        <label className="route-title-field">
+          Name
+          <input required value={name} onChange={(event) => setName(event.target.value)} />
+        </label>
+        <div className="split">
+          <label>
+            Default speed (km/h)
+            <input
+              required
+              inputMode="decimal"
+              value={defaultSpeedKmh}
+              onChange={(event) => setDefaultSpeedKmh(event.target.value)}
+            />
+          </label>
+          <label>
+            Playback mode
+            <select value={mode} onChange={(event) => setMode(event.target.value as RouteMode)}>
+              <option value="ONCE">Once</option>
+              <option value="LOOP">Loop</option>
+              <option value="PING_PONG">PingPong</option>
+            </select>
+          </label>
+        </div>
+        <label>
+          Description
+          <textarea value={description} onChange={(event) => setDescription(event.target.value)} />
+        </label>
+      </section>
+
+      <section className="route-editor-section route-editor-secondary-section">
+        <div>
+          <h3>Publishing / share</h3>
+          <p className="muted">Keep the route private, or create a public link after saving.</p>
+        </div>
+        <label className="row">
+          <input
+            checked={isPublic}
+            style={{ width: 'auto' }}
+            type="checkbox"
+            onChange={(event) => setIsPublic(event.target.checked)}
+          />
+          Public route
+        </label>
+        <RouteSharePanel route={route} />
+      </section>
+
+      <footer className="route-editor-footer">
+        <div className="stack">
+          {saveDisabledReason == null ? null : (
+            <p className="muted" style={{ margin: 0 }}>
+              {saveDisabledReason}
+            </p>
+          )}
+          <div className="row">
+            <button disabled={isSaving || saveDisabledReason != null} type="submit">
+              {isSaving ? 'Saving…' : 'Save route'}
+            </button>
+            {onDelete == null ? null : (
+              <button className="danger" disabled={isSaving} type="button" onClick={confirmDelete}>
+                Delete route
+              </button>
+            )}
+          </div>
+        </div>
+      </footer>
     </form>
   );
 }
@@ -377,70 +406,67 @@ function RouteSharePanel({ route }: { route: Route | null }) {
     }
   }
 
+  if (route == null) {
+    return (
+      <p className="muted" style={{ margin: 0 }}>
+        Save this route before creating a public latest-route link.
+      </p>
+    );
+  }
+
   return (
-    <section
-      className="stack"
-      style={{ borderTop: '1px solid var(--color-border)', paddingTop: '0.75rem' }}
-    >
+    <section className="stack">
       <div className="row" style={{ justifyContent: 'space-between' }}>
         <h3 style={{ margin: 0 }}>Share link</h3>
         {isLoading ? <span className="muted">Loading…</span> : null}
       </div>
-      {route == null ? (
-        <p className="muted" style={{ margin: 0 }}>
-          Save this route before creating a public latest-route link.
-        </p>
+      <p className="muted" style={{ margin: 0 }}>
+        Visitors can open the public page without login. Signed-in users can copy the visible route
+        snapshot into their own library.
+      </p>
+      {error == null ? null : <div className="error">{error}</div>}
+      {notice == null ? null : <div className="success">{notice}</div>}
+      {shareLink == null ? (
+        <div className="row">
+          <button disabled={isMutating} type="button" onClick={() => void createShareLink()}>
+            {isMutating ? 'Creating…' : 'Create public link'}
+          </button>
+        </div>
       ) : (
-        <>
-          <p className="muted" style={{ margin: 0 }}>
-            Visitors can open the public page without login. Signed-in users can copy the visible
-            route snapshot into their own library.
-          </p>
-          {error == null ? null : <div className="error">{error}</div>}
-          {notice == null ? null : <div className="success">{notice}</div>}
-          {shareLink == null ? (
-            <div className="row">
-              <button disabled={isMutating} type="button" onClick={() => void createShareLink()}>
-                {isMutating ? 'Creating…' : 'Create public link'}
-              </button>
-            </div>
-          ) : (
-            <div className="stack">
-              <label>
-                Public URL
-                <input readOnly value={toAbsolutePublicUrl(shareLink.publicUrl)} />
-              </label>
-              <div className="chip-row">
-                {shareLink.disabledAt == null ? (
-                  <span className="chip">active</span>
-                ) : (
-                  <span className="chip">disabled</span>
-                )}
-                <span className="chip">latest route</span>
-              </div>
-              <div className="row">
-                <button className="secondary" type="button" onClick={() => void copyPublicUrl()}>
-                  Copy URL
-                </button>
-                <a href={shareLink.publicUrl} rel="noreferrer" target="_blank">
-                  Open public page
-                </a>
-                <button
-                  className={shareLink.disabledAt == null ? 'danger' : 'secondary'}
-                  disabled={isMutating}
-                  type="button"
-                  onClick={() => void setDisabled(shareLink.disabledAt == null)}
-                >
-                  {isMutating
-                    ? 'Saving…'
-                    : shareLink.disabledAt == null
-                      ? 'Disable link'
-                      : 'Re-enable link'}
-                </button>
-              </div>
-            </div>
-          )}
-        </>
+        <div className="stack">
+          <label>
+            Public URL
+            <input readOnly value={toAbsolutePublicUrl(shareLink.publicUrl)} />
+          </label>
+          <div className="chip-row">
+            {shareLink.disabledAt == null ? (
+              <span className="chip">active</span>
+            ) : (
+              <span className="chip">disabled</span>
+            )}
+            <span className="chip">latest route</span>
+          </div>
+          <div className="row">
+            <button className="secondary" type="button" onClick={() => void copyPublicUrl()}>
+              Copy URL
+            </button>
+            <a href={shareLink.publicUrl} rel="noreferrer" target="_blank">
+              Open public page
+            </a>
+            <button
+              className={shareLink.disabledAt == null ? 'danger' : 'secondary'}
+              disabled={isMutating}
+              type="button"
+              onClick={() => void setDisabled(shareLink.disabledAt == null)}
+            >
+              {isMutating
+                ? 'Saving…'
+                : shareLink.disabledAt == null
+                  ? 'Disable link'
+                  : 'Re-enable link'}
+            </button>
+          </div>
+        </div>
       )}
     </section>
   );
