@@ -5,10 +5,11 @@ import DashboardShell from '@/components/dashboard/DashboardShell';
 import RouteEditor from '@/components/dashboard/RouteEditor';
 import { useDashboardAuth } from '@/components/dashboard/useDashboardAuth';
 import { formatError, formatMode } from '@/components/dashboard/utils';
-import type { Route, RouteInput } from '@/lib/api';
+import type { Place, Route, RouteInput } from '@/lib/api';
 
 export default function RoutesDashboardPage() {
   const auth = useDashboardAuth();
+  const [places, setPlaces] = useState<Place[]>([]);
   const [routes, setRoutes] = useState<Route[]>([]);
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -25,8 +26,12 @@ export default function RoutesDashboardPage() {
     setIsLoading(true);
 
     try {
-      const nextRoutes = await auth.apiRequest<Route[]>('/routes');
+      const [nextRoutes, nextPlaces] = await Promise.all([
+        auth.apiRequest<Route[]>('/routes'),
+        auth.apiRequest<Place[]>('/places'),
+      ]);
       setRoutes(nextRoutes);
+      setPlaces(nextPlaces);
       setSelectedRouteId((current) => current ?? nextRoutes[0]?.id ?? null);
     } catch (nextError) {
       setError(formatError(nextError));
@@ -106,7 +111,7 @@ export default function RoutesDashboardPage() {
                   type="button"
                   onClick={() => setSelectedRouteId(null)}
                 >
-                  New
+                  New route
                 </button>
               </div>
             </div>
@@ -141,7 +146,9 @@ export default function RoutesDashboardPage() {
           <RouteEditor
             key={selectedRoute?.id ?? 'new-route'}
             onDelete={selectedRoute == null ? undefined : () => void deleteRoute(selectedRoute.id)}
+            onNew={selectedRoute == null ? undefined : () => setSelectedRouteId(null)}
             onSave={(input) => void saveRoute(input)}
+            places={places}
             route={selectedRoute}
           />
         </section>

@@ -438,26 +438,27 @@ label {
    ========================================================================== */
 
 .dashboard-grid {
+  align-items: start;
   display: grid;
   gap: 1rem;
-  grid-template-columns: minmax(0, 1fr);
-  position: relative;
+  grid-template-columns: minmax(18rem, 22rem) minmax(0, 1fr);
+}
+
+.dashboard-grid:has(.dashboard-sidebar.collapsed) {
+  grid-template-columns: 3.6rem minmax(0, 1fr);
 }
 
 .dashboard-sidebar {
-  left: 1rem;
-  max-height: calc(100vh - 13rem);
+  max-height: calc(100vh - 2rem);
   overflow: auto;
-  position: absolute;
-  top: 5.4rem;
+  position: sticky;
+  top: 1rem;
   transition: width var(--transition);
-  width: min(22rem, calc(100% - 2rem));
-  z-index: 5;
+  width: 100%;
 }
 
 .dashboard-sidebar.collapsed {
   overflow: visible;
-  width: 3.6rem;
 }
 
 .dashboard-grid > section {
