@@ -833,6 +833,41 @@ label {
   padding: 0.75rem 0.9rem;
 }
 
+.favorite-picker {
+  background: rgb(255 255 255 / 42%);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 0.9rem;
+}
+
+.favorite-picker h3,
+.favorite-picker p {
+  margin: 0;
+}
+
+.favorite-place-list {
+  display: grid;
+  gap: 0.45rem;
+  max-height: 16rem;
+  overflow: auto;
+}
+
+.favorite-place-option {
+  background: rgb(255 255 255 / 58%);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text);
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.65rem 0.8rem;
+  text-align: left;
+}
+
+.favorite-place-option:hover:not(:disabled) {
+  background: rgb(118 201 69 / 10%);
+  transform: none;
+}
+
 .map-builder {
   position: relative;
 }
@@ -913,6 +948,8 @@ label {
 }
 
 @media (prefers-color-scheme: dark) {
+  .favorite-picker,
+  .favorite-place-option,
   .map-instruction {
     background: rgb(28 40 32 / 84%);
   }
