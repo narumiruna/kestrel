@@ -37,10 +37,24 @@ type MockPrismaService = {
     findMany: jest.Mock<Promise<MockLibraryItemRecord[]>, [unknown]>;
     findUniqueOrThrow: jest.Mock<Promise<MockLibraryItemRecord>, [unknown]>;
     update: jest.Mock<Promise<MockLibraryItemRecord>, [unknown]>;
+    updateMany: jest.Mock<Promise<{ count: number }>, [unknown]>;
   };
   place: {
     create: jest.Mock<Promise<{ id: string }>, [unknown]>;
-    findFirst: jest.Mock<Promise<{ id: string } | null>, [unknown]>;
+    findFirst: jest.Mock<
+      Promise<
+        | {
+            id: string;
+          }
+        | {
+            id: string;
+            libraryItem: { id: string } | null;
+          }
+        | MockPlaceRecord
+        | null
+      >,
+      [unknown]
+    >;
     findMany: jest.Mock<Promise<MockPlaceRecord[]>, [unknown]>;
     findUniqueOrThrow: jest.Mock<Promise<MockPlaceRecord>, [unknown]>;
     update: jest.Mock<Promise<{ id: string }>, [unknown]>;
@@ -166,6 +180,144 @@ describe('LibraryService', () => {
       name: 'Taipei',
       tags: ['city'],
     });
+  });
+
+  it('increments the library item version when updating a place', async () => {
+    prismaService.place.findFirst
+      .mockResolvedValueOnce({
+        id: 'place-1',
+      })
+      .mockResolvedValueOnce(
+        createPlaceRecord({
+          id: 'place-1',
+          libraryItemId: 'library-item-1',
+          sortOrder: 0,
+          version: 2,
+        }),
+      );
+    prismaService.place.update.mockResolvedValue({
+      id: 'place-1',
+    });
+    prismaService.libraryItem.updateMany.mockResolvedValue({
+      count: 1,
+    });
+
+    const result = await libraryService.updatePlace('user-1', 'place-1', {
+      description: 'Updated place',
+      latitude: 25.04,
+      longitude: 121.57,
+      name: 'New Taipei',
+      tags: ['metro'],
+    });
+
+    expect(prismaService.place.update).toHaveBeenCalledWith({
+      data: {
+        description: 'Updated place',
+        latitude: 25.04,
+        longitude: 121.57,
+        name: 'New Taipei',
+        tags: ['metro'],
+      },
+      where: {
+        id: 'place-1',
+      },
+    });
+    expect(prismaService.libraryItem.updateMany).toHaveBeenCalledWith({
+      data: {
+        version: {
+          increment: 1,
+        },
+      },
+      where: {
+        deletedAt: null,
+        placeId: 'place-1',
+        userId: 'user-1',
+      },
+    });
+    expectSyncEvents(prismaService.syncEvent.create, [
+      {
+        entityId: 'place-1',
+        entityType: SyncEntityType.PLACE,
+        operation: SyncOperation.UPSERT,
+        userId: 'user-1',
+      },
+    ]);
+    expect(result).toMatchObject({
+      id: 'place-1',
+      libraryItem: {
+        id: 'library-item-1',
+        version: 2,
+      },
+      name: 'Taipei',
+    });
+  });
+
+  it('soft deletes a place and bumps the library item version', async () => {
+    prismaService.place.findFirst.mockResolvedValue({
+      id: 'place-1',
+      libraryItem: {
+        id: 'library-item-1',
+      },
+    });
+    prismaService.place.update.mockResolvedValue({
+      id: 'place-1',
+    });
+    prismaService.libraryItem.update.mockResolvedValue({
+      ...createLibraryItemRecord({
+        id: 'library-item-1',
+        sortOrder: 0,
+        version: 2,
+      }),
+      kind: LibraryItemKind.PLACE,
+      placeId: 'place-1',
+      routeId: null,
+    });
+
+    const result = await libraryService.deletePlace('user-1', 'place-1');
+    const placeUpdateArgs = prismaService.place.update.mock.calls[0]?.[0] as {
+      data: { deletedAt: Date };
+      where: { id: string };
+    };
+    const libraryItemUpdateArgs = prismaService.libraryItem.update.mock
+      .calls[0]?.[0] as {
+      data: { deletedAt: Date; version: { increment: number } };
+      where: { id: string };
+    };
+
+    expect(placeUpdateArgs.where).toEqual({
+      id: 'place-1',
+    });
+    expect(placeUpdateArgs.data.deletedAt).toBeInstanceOf(Date);
+    expect(libraryItemUpdateArgs).toMatchObject({
+      data: {
+        version: {
+          increment: 1,
+        },
+      },
+      where: {
+        id: 'library-item-1',
+      },
+    });
+    expect(libraryItemUpdateArgs.data.deletedAt).toBeInstanceOf(Date);
+    expect(result).toMatchObject({
+      id: 'place-1',
+      kind: LibraryItemKind.PLACE,
+      libraryItemId: 'library-item-1',
+    });
+    expectSyncEvents(prismaService.syncEvent.create, [
+      {
+        entityId: 'library-item-1',
+        entityType: SyncEntityType.LIBRARY_ITEM,
+        operation: SyncOperation.DELETE,
+        userId: 'user-1',
+      },
+      {
+        entityId: 'place-1',
+        entityType: SyncEntityType.PLACE,
+        operation: SyncOperation.DELETE,
+        userId: 'user-1',
+      },
+    ]);
   });
 
   it('creates a route with its initial immutable revision', async () => {
@@ -599,10 +751,24 @@ function createMockPrismaService(): MockPrismaService {
         [unknown]
       >(),
       update: createMock<Promise<MockLibraryItemRecord>, [unknown]>(),
+      updateMany: createMock<Promise<{ count: number }>, [unknown]>(),
     },
     place: {
       create: createMock<Promise<{ id: string }>, [unknown]>(),
-      findFirst: createMock<Promise<{ id: string } | null>, [unknown]>(),
+      findFirst: createMock<
+        Promise<
+          | {
+              id: string;
+            }
+          | {
+              id: string;
+              libraryItem: { id: string } | null;
+            }
+          | MockPlaceRecord
+          | null
+        >,
+        [unknown]
+      >(),
       findMany: createMock<Promise<MockPlaceRecord[]>, [unknown]>(),
       findUniqueOrThrow: createMock<Promise<MockPlaceRecord>, [unknown]>(),
       update: createMock<Promise<{ id: string }>, [unknown]>(),
@@ -643,6 +809,7 @@ function createLibraryItemRecord(input: {
   id: string;
   lastUsedAt?: Date | null;
   sortOrder: number;
+  version?: number;
 }) {
   return {
     createdAt: new Date('2026-05-09T17:00:00.000Z'),
@@ -655,6 +822,7 @@ function createLibraryItemRecord(input: {
     routeId: 'route-1',
     sortOrder: input.sortOrder,
     updatedAt: new Date('2026-05-09T17:00:00.000Z'),
+    version: input.version ?? 1,
   };
 }
 
@@ -662,6 +830,7 @@ function createPlaceRecord(input: {
   id: string;
   libraryItemId: string;
   sortOrder: number;
+  version?: number;
 }) {
   return {
     createdAt: new Date('2026-05-09T17:00:00.000Z'),
@@ -673,6 +842,7 @@ function createPlaceRecord(input: {
       ...createLibraryItemRecord({
         id: input.libraryItemId,
         sortOrder: input.sortOrder,
+        version: input.version,
       }),
       kind: LibraryItemKind.PLACE,
       placeId: input.id,
