@@ -1,0 +1,65 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing git tag to release (for example v1.1.0)
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: "release-${{ inputs.tag || github.ref_name }}"
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: "${{ inputs.tag || github.ref }}"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Resolve release metadata
+        id: meta
+        run: |
+          scripts/resolve-release-metadata.sh "${{ inputs.tag || github.ref_name }}"
+
+      - name: Build release APK
+        run: ./gradlew :app:assembleRelease
+
+      - name: Rename release artifact
+        run: |
+          cp \
+            app/build/outputs/apk/release/app-release-unsigned.apk \
+            app/build/outputs/apk/release/${{ steps.meta.outputs.apk_name }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: "app-release-${{ steps.meta.outputs.version_name }}"
+          path: "app/build/outputs/apk/release/${{ steps.meta.outputs.apk_name }}"
+          if-no-files-found: error
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: "${{ steps.meta.outputs.tag }}"
+          name: "Kestrel ${{ steps.meta.outputs.tag }}"
+          generate_release_notes: true
+          prerelease: ${{ contains(steps.meta.outputs.version_name, '-') }}
+          files: "app/build/outputs/apk/release/${{ steps.meta.outputs.apk_name }}"

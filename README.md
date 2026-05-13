@@ -69,6 +69,7 @@ web/                 # Next.js cloud console
 | Task | Command |
 |---|---|
 | Build debug APK | `just build` |
+| Build release APK | `just release` |
 | Build → install → launch | `just` (or `just br`) |
 | Run unit tests | `just test` |
 | Auto-format (Spotless + ktlint + Biome) | `just format` |
@@ -139,11 +140,17 @@ Use `just cloud-down` to stop the stack.
 
 | Lane | What it runs | Triggers on |
 |---|---|---|
-| `android` | `spotlessCheck`, `detekt`, `:app:assembleDebug`, unit tests (non-blocking), uploads `app-debug.apk` artifact | changes under `app/`, top-level Gradle files, `detekt*`, `justfile`, or `.github/workflows/ci.yml` |
-| `backend` | `npm ci`, `prisma generate`, `lint`, `test`, `test:e2e`, `typecheck`, `build` | changes under `backend/` or `.github/workflows/ci.yml` |
-| `web` | `npm ci`, `lint`, `typecheck`, `build` | changes under `web/` or `.github/workflows/ci.yml` |
+| `android` | `spotlessCheck`, `detekt`, `:app:assembleDebug`, unit tests (non-blocking), uploads `app-debug.apk` artifact | changes under `app/`, top-level Gradle files, `detekt*`, `justfile`, or `.github/workflows/**` |
+| `backend` | `npm ci`, `prisma generate`, `lint`, `test`, `test:e2e`, `typecheck`, `build` | changes under `backend/` or `.github/workflows/**` |
+| `web` | `npm ci`, `lint`, `typecheck`, `build` | changes under `web/` or `.github/workflows/**` |
 
 A leading `changes` job uses `dorny/paths-filter` to gate each lane, so a PR touching only one workspace skips the others. Push events to `main` always run all three.
+
+## 🚀 Releases
+
+- `just release` runs `:app:assembleRelease` and produces `app/build/outputs/apk/release/app-release-unsigned.apk`.
+- `.github/workflows/bump-version.yml` calls `scripts/bump-version.py` to bump `appVersionName` / `appVersionCode` in `gradle.properties`, then opens a PR using repository secret `PAT_TOKEN` so the resulting PR can trigger downstream CI workflows.
+- `.github/workflows/release.yml` calls `scripts/resolve-release-metadata.sh`, then publishes a GitHub Release when a matching `v*` tag is pushed (or when manually dispatched against an existing tag) and uploads the unsigned release APK as a release asset.
 
 ---
 

@@ -13,6 +13,10 @@ default: br
 build:
     JAVA_HOME="{{java_home}}" PATH="{{java_home}}/bin:$PATH" ./gradlew :app:assembleDebug
 
+# build release APK (unsigned unless signing config is added)
+release:
+    JAVA_HOME="{{java_home}}" PATH="{{java_home}}/bin:$PATH" ./gradlew :app:assembleRelease
+
 # clean gradle outputs
 clean:
     JAVA_HOME="{{java_home}}" PATH="{{java_home}}/bin:$PATH" ./gradlew clean

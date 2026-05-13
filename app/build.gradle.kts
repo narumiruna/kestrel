@@ -5,6 +5,9 @@ plugins {
     alias(libs.plugins.ksp)
 }
 
+val appVersionCode = providers.gradleProperty("appVersionCode").get().toInt()
+val appVersionName = providers.gradleProperty("appVersionName").get()
+
 android {
     namespace = "dev.narumi.kestrel"
     compileSdk {
@@ -18,8 +21,8 @@ android {
         applicationId = "dev.narumi.kestrel"
         minSdk = 29
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = appVersionCode
+        versionName = appVersionName
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
