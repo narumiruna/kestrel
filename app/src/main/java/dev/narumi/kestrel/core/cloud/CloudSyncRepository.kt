@@ -301,8 +301,17 @@ class CloudSyncRepository internal constructor(
         uploaded: CloudSyncUploadUploadedResult,
     ) {
         val pendingChange = pendingChanges.firstOrNull { it.clientMutationId == uploaded.clientMutationId } ?: return
-        val place = uploaded.place ?: return
-        val libraryItem = uploaded.libraryItem ?: return
+        val place = uploaded.place
+        val libraryItem = uploaded.libraryItem
+
+        if (place == null || libraryItem == null) {
+            if (pendingChange.type == CloudSyncUploadChangeType.PLACE_DELETE.name) {
+                dao.deletePendingSyncChangesForItem(pendingChange.libraryItemId)
+                dao.deleteSyncConflictsForItem(pendingChange.libraryItemId)
+            }
+            return
+        }
+
         val localItemId = dao.findLibraryItemIdByRemoteId(libraryItem.id) ?: pendingChange.libraryItemId
         val localPlaceId = dao.findPlaceIdByRemoteId(place.id) ?: dao.getLibraryItem(localItemId)?.item?.placeId
         if (localPlaceId == null) {
