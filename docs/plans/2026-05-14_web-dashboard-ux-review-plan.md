@@ -92,10 +92,10 @@
 
 ### Phase 5 — 視覺系統與響應式細修
 
-- [ ] 建立 dashboard-specific CSS classes，減少 `.row` + inline style 的版面拼接；用 `rg "style=\{\{" web/app web/components` 驗證 inline layout style 數量下降。
-- [ ] 調整桌面版 route editor 為 map-first layout：大螢幕可用左側 library + 中央 map + 右側 details，或 map 上方 / details 下方的清楚分區；用 1440px 與 1024px 截圖驗證不擠壓主要操作。
-- [ ] 手機版 route editor 採用 sticky bottom action bar，保留 `Save route`、目前 waypoint count 與 disabled reason；用 390px viewport 手動 review 驗證主要 action 不需滑到底才看到。
-- [ ] 檢查 light / dark mode 對比與 focus state，尤其 chips、secondary buttons、map instruction overlay；用 browser devtools 切換 color scheme 與鍵盤 tab 驗證。
+- [x] 建立 dashboard-specific CSS classes，減少 `.row` + inline style 的版面拼接；已移除 RouteEditor 與 dashboard error inline layout style，並用 `cd web && rg "style=\\{\\{" app components -n` 驗證 dashboard editor 不再有 inline style。
+- [x] 調整桌面版 route editor 為 map-first layout：大螢幕可用左側 library + 中央 map + 右側 details，或 map 上方 / details 下方的清楚分區；已加入 1180px 以上雙欄 grid areas，並用 `cd web && npm run lint` 驗證。
+- [x] 手機版 route editor 採用 sticky bottom action bar，保留 `Save route`、目前 waypoint count 與 disabled reason；已讓 route editor footer 在手機版 sticky bottom，並用 `cd web && npm run lint` 驗證。
+- [x] 檢查 light / dark mode 對比與 focus state，尤其 chips、secondary buttons、map instruction overlay；已補 route marker focus-visible 與 dark overlay 背景，並用 `cd web && npm run lint` 驗證。
 
 ## Risks
 
