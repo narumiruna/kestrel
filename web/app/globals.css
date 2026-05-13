@@ -853,6 +853,51 @@ label {
   z-index: 2;
 }
 
+.map-action-row {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.route-marker {
+  align-items: center;
+  background: var(--color-secondary);
+  border: 2px solid white;
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-sm);
+  color: var(--color-text);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 0.72rem;
+  font-weight: 800;
+  height: 2rem;
+  justify-content: center;
+  min-width: 2rem;
+  padding: 0;
+  transition:
+    background var(--transition-fast),
+    box-shadow var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.route-marker:first-letter {
+  text-transform: uppercase;
+}
+
+.route-marker:hover:not(:disabled) {
+  background: var(--color-secondary);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+.route-marker.selected,
+.route-marker.selected:hover:not(:disabled) {
+  background: var(--color-primary);
+  box-shadow: 0 0 0 4px rgb(118 201 69 / 28%), var(--shadow-md);
+  transform: scale(1.16);
+}
+
 .map {
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-xs);
@@ -879,9 +924,17 @@ label {
 
 .waypoint-row {
   align-items: center;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
   display: grid;
   gap: 0.5rem;
-  grid-template-columns: auto 1fr 1fr auto;
+  grid-template-columns: minmax(4.5rem, auto) 1fr 1fr auto;
+  padding: 0.35rem;
+}
+
+.waypoint-row.selected {
+  background: rgb(118 201 69 / 8%);
+  border-color: rgb(118 201 69 / 25%);
 }
 
 /* ==========================================================================
