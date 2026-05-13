@@ -384,6 +384,10 @@ label {
   justify-content: flex-end;
 }
 
+.dashboard-error {
+  margin-bottom: 1rem;
+}
+
 .dashboard-tabs {
   backdrop-filter: blur(12px);
   background: var(--color-surface);
@@ -779,6 +783,14 @@ label {
   gap: 1rem;
 }
 
+.inline-control {
+  width: auto;
+}
+
+.no-margin {
+  margin: 0;
+}
+
 .route-editor-header,
 .route-editor-footer,
 .route-editor-section {
@@ -810,14 +822,65 @@ label {
   padding: 1rem;
 }
 
+.route-editor-error {
+  grid-area: error;
+}
+
+.route-editor-map-section {
+  grid-area: map-builder;
+}
+
+.route-editor-details-section {
+  grid-area: details;
+}
+
+.route-editor-share-section {
+  grid-area: share;
+}
+
 .route-editor-footer {
   border-bottom: 0;
+  grid-area: actions;
   padding-bottom: 0;
+}
+
+.route-share-header {
+  align-items: center;
+  display: flex;
+  gap: 0.6rem;
+  justify-content: space-between;
+}
+
+.route-share-header h3 {
+  margin: 0;
 }
 
 .route-title-field input {
   font-size: 1.05rem;
   font-weight: 600;
+}
+
+@media (min-width: 1180px) {
+  .route-editor {
+    align-items: start;
+    grid-template-areas:
+      "header header"
+      "error error"
+      "map-builder details"
+      "map-builder share"
+      "map-builder actions";
+    grid-template-columns: minmax(0, 1.45fr) minmax(22rem, 0.75fr);
+  }
+
+  .route-editor-header {
+    grid-area: header;
+  }
+
+  .route-editor-details-section,
+  .route-editor-share-section,
+  .route-editor-footer {
+    align-self: start;
+  }
 }
 
 /* ==========================================================================
@@ -920,14 +983,21 @@ label {
   text-transform: uppercase;
 }
 
-.route-marker:hover:not(:disabled) {
+.route-marker:hover:not(:disabled),
+.route-marker:focus-visible {
   background: var(--color-secondary);
   box-shadow: var(--shadow-md);
   transform: translateY(-1px);
 }
 
+.route-marker:focus-visible {
+  outline: 2px solid var(--color-primary-dark);
+  outline-offset: 2px;
+}
+
 .route-marker.selected,
-.route-marker.selected:hover:not(:disabled) {
+.route-marker.selected:hover:not(:disabled),
+.route-marker.selected:focus-visible {
   background: var(--color-primary);
   box-shadow: 0 0 0 4px rgb(118 201 69 / 28%), var(--shadow-md);
   transform: scale(1.16);
@@ -1009,6 +1079,18 @@ label {
 
   .map {
     height: 24rem;
+  }
+
+  .route-editor-footer {
+    backdrop-filter: blur(12px);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    bottom: 0.75rem;
+    box-shadow: var(--shadow-md);
+    padding: 0.85rem;
+    position: sticky;
+    z-index: 10;
   }
 
   .topbar {
