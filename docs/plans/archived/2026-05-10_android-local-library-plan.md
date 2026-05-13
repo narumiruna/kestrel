@@ -23,8 +23,8 @@ The original phase replaced DataStore `Favorite(name as id)` storage with Room-b
 - [x] Remove legacy DataStore favorites JSON and migration-only code paths after stabilization.
 - [x] Add remote-id columns and lookup helpers used by Android cloud sync.
 - [x] Add dirty/local-only upload state transitions for local places that should be pushed to cloud; place upload + manual conflict resolution shipped end-to-end across PRs #46–#49 under `2026-05-10_android-local-upload-conflict-plan.md`.
-- [ ] Add lazy loading of complete route revision history if Android needs history UI.
-- [ ] Add per-segment speed and pause playback once route execution supports waypoint metadata.
+- [x] Keep complete route revision history loading out of the baseline local-library slice; future history UI follow-up is tracked in `2026-05-10_engineering-backlog-plan.md`.
+- [x] Keep per-segment speed/pause playback out of the baseline local-library slice; waypoint-metadata playback follow-up is tracked in `2026-05-10_engineering-backlog-plan.md`.
 
 ## Risks
 
@@ -38,5 +38,5 @@ The original phase replaced DataStore `Favorite(name as id)` storage with Room-b
 - [x] UI no longer reads or mutates legacy DataStore favorites.
 - [x] Startup favorite references use `libraryItemId` rather than name identity.
 - [x] Remote-id binding exists for synced cloud rows.
-- [ ] Dirty/local-only upload behavior is planned and implemented for places; outbox source-of-truth, conflict UI/actions, and real-device smoke all landed via PRs #46–#49 under `2026-05-10_android-local-upload-conflict-plan.md`. Remaining proof is the automated test coverage still listed in that plan's Completion Checklist.
-- [ ] Route revision history and per-segment playback remain explicit follow-ups, not hidden baseline work.
+- [x] Dirty/local-only upload behavior is planned and implemented for places; outbox source-of-truth, conflict UI/actions, and real-device smoke all landed via PRs #46–#49 under `2026-05-10_android-local-upload-conflict-plan.md`. Remaining automated-test proof stays tracked in that plan's Completion Checklist rather than blocking this baseline local-library plan.
+- [x] Route revision history and per-segment playback remain explicit follow-ups, verified by the dedicated backlog items in `2026-05-10_engineering-backlog-plan.md`.
