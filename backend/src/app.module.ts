@@ -6,6 +6,7 @@ import { LibraryModule } from './library/library.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { SyncModule } from './sync/sync.module';
+import { SharingModule } from './sharing/sharing.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { SyncModule } from './sync/sync.module';
     AuthModule,
     LibraryModule,
     SyncModule,
+    SharingModule,
   ],
   controllers: [AppController],
   providers: [AppService],
