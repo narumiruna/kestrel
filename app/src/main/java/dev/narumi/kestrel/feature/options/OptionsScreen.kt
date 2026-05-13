@@ -381,8 +381,8 @@ private fun CloudSignedOutCardContent(
         onValueChange = { onLoginFormChange(loginForm.copy(username = it)) },
         label = { Text("Username") },
         singleLine = true,
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
-        modifier = Modifier.autofillText(ContentType.Username),
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+        modifier = Modifier.autofillText(ContentType.Username + ContentType.EmailAddress),
     )
     OutlinedTextField(
         value = loginForm.password,
