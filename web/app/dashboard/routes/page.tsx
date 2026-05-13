@@ -13,6 +13,7 @@ export default function RoutesDashboardPage() {
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   const selectedRoute = useMemo(
     () => routes.find((route) => route.id === selectedRouteId) ?? null,
@@ -86,35 +87,52 @@ export default function RoutesDashboardPage() {
       )}
 
       <section className="dashboard-grid">
-        <aside className="grid">
+        <aside className={`dashboard-sidebar${isSidebarOpen ? '' : ' collapsed'}`}>
           <div className="card stack">
-            <div className="row" style={{ justifyContent: 'space-between' }}>
-              <h2>Routes</h2>
-              <button className="secondary" type="button" onClick={() => setSelectedRouteId(null)}>
-                New
-              </button>
-            </div>
-            {isLoading ? <p className="muted">Loading…</p> : null}
-            <div className="list">
-              {routes.map((route) => (
+            <div className="dashboard-sidebar-header">
+              <h2 className="dashboard-sidebar-title">Routes</h2>
+              <div className="row dashboard-sidebar-actions">
                 <button
-                  className={`list-item ${selectedRouteId === route.id ? 'active' : ''}`}
-                  key={route.id}
+                  aria-expanded={isSidebarOpen}
+                  aria-label={isSidebarOpen ? 'Collapse routes sidebar' : 'Expand routes sidebar'}
+                  className="secondary dashboard-sidebar-toggle"
                   type="button"
-                  onClick={() => setSelectedRouteId(route.id)}
+                  onClick={() => setIsSidebarOpen((current) => !current)}
                 >
-                  <strong>{route.name}</strong>
-                  <span className="muted">
-                    {route.currentRevision?.waypoints.length ?? 0} waypoints ·{' '}
-                    {route.defaultSpeedKmh} km/h · {formatMode(route.mode)}
-                  </span>
-                  <span className="chip-row">
-                    <span className="chip">rev {route.currentRevision?.revisionNumber ?? '—'}</span>
-                    {route.isPublic ? <span className="chip">public</span> : null}
-                  </span>
+                  {isSidebarOpen ? '‹' : '›'}
                 </button>
-              ))}
-              {routes.length === 0 && !isLoading ? <p className="muted">No routes yet.</p> : null}
+                <button
+                  className="secondary dashboard-sidebar-new"
+                  type="button"
+                  onClick={() => setSelectedRouteId(null)}
+                >
+                  New
+                </button>
+              </div>
+            </div>
+            <div className="dashboard-sidebar-content">
+              {isLoading ? <p className="muted">Loading…</p> : null}
+              <div className="list">
+                {routes.map((route) => (
+                  <button
+                    className={`list-item ${selectedRouteId === route.id ? 'active' : ''}`}
+                    key={route.id}
+                    type="button"
+                    onClick={() => setSelectedRouteId(route.id)}
+                  >
+                    <strong>{route.name}</strong>
+                    <span className="muted">
+                      {route.currentRevision?.waypoints.length ?? 0} waypoints ·{' '}
+                      {route.defaultSpeedKmh} km/h · {formatMode(route.mode)}
+                    </span>
+                    <span className="chip-row">
+                      <span className="chip">rev {route.currentRevision?.revisionNumber ?? '—'}</span>
+                      {route.isPublic ? <span className="chip">public</span> : null}
+                    </span>
+                  </button>
+                ))}
+                {routes.length === 0 && !isLoading ? <p className="muted">No routes yet.</p> : null}
+              </div>
             </div>
           </div>
         </aside>

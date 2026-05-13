@@ -444,14 +444,20 @@ label {
   position: relative;
 }
 
-.dashboard-grid > aside {
+.dashboard-sidebar {
   left: 1rem;
   max-height: calc(100vh - 13rem);
   overflow: auto;
   position: absolute;
   top: 5.4rem;
+  transition: width var(--transition);
   width: min(22rem, calc(100% - 2rem));
   z-index: 5;
+}
+
+.dashboard-sidebar.collapsed {
+  overflow: visible;
+  width: 3.6rem;
 }
 
 .dashboard-grid > section {
@@ -487,14 +493,44 @@ label {
   font-size: 1.1rem;
 }
 
-.dashboard-grid > aside .card {
+.dashboard-sidebar .card {
   backdrop-filter: blur(16px);
   background: rgb(255 255 255 / 86%);
   box-shadow: var(--shadow-md);
 }
 
+.dashboard-sidebar.collapsed .card {
+  padding: 0.55rem;
+}
+
+.dashboard-sidebar-header {
+  align-items: center;
+  display: flex;
+  gap: 0.6rem;
+  justify-content: space-between;
+}
+
+.dashboard-sidebar-title {
+  margin: 0;
+}
+
+.dashboard-sidebar-actions {
+  flex-shrink: 0;
+}
+
+.dashboard-sidebar-toggle {
+  min-width: 2.4rem;
+  padding-inline: 0.8rem;
+}
+
+.dashboard-sidebar.collapsed .dashboard-sidebar-content,
+.dashboard-sidebar.collapsed .dashboard-sidebar-new,
+.dashboard-sidebar.collapsed .dashboard-sidebar-title {
+  display: none;
+}
+
 @media (prefers-color-scheme: dark) {
-  .dashboard-grid > aside .card {
+  .dashboard-sidebar .card {
     background: rgb(28 40 32 / 88%);
   }
 }
@@ -760,13 +796,27 @@ label {
     grid-template-columns: 1fr;
   }
 
-  .dashboard-grid > aside {
+  .dashboard-sidebar,
+  .dashboard-sidebar.collapsed {
     left: auto;
     max-height: none;
     overflow: visible;
     position: static;
     top: auto;
     width: auto;
+  }
+
+  .dashboard-sidebar.collapsed .card {
+    padding: 1.1rem;
+  }
+
+  .dashboard-sidebar.collapsed .dashboard-sidebar-content {
+    display: block;
+  }
+
+  .dashboard-sidebar.collapsed .dashboard-sidebar-new,
+  .dashboard-sidebar.collapsed .dashboard-sidebar-title {
+    display: revert;
   }
 
   .map {
