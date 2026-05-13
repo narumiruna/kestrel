@@ -826,21 +826,8 @@ label {
   grid-area: error;
 }
 
-.route-editor-map-section {
-  grid-area: map-builder;
-}
-
-.route-editor-details-section {
-  grid-area: details;
-}
-
-.route-editor-share-section {
-  grid-area: share;
-}
-
 .route-editor-footer {
   border-bottom: 0;
-  grid-area: actions;
   padding-bottom: 0;
 }
 
@@ -860,27 +847,48 @@ label {
   font-weight: 600;
 }
 
-@media (min-width: 1180px) {
-  .route-editor {
-    align-items: start;
-    grid-template-areas:
-      "header header"
-      "error error"
-      "map-builder details"
-      "map-builder share"
-      "map-builder actions";
-    grid-template-columns: minmax(0, 1.45fr) minmax(22rem, 0.75fr);
-  }
+.route-editor-collapsible {
+  background: rgb(255 255 255 / 38%);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 0;
+}
 
-  .route-editor-header {
-    grid-area: header;
-  }
+.route-editor-collapsible summary {
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+  list-style: none;
+  padding: 0.9rem 1rem;
+}
 
-  .route-editor-details-section,
-  .route-editor-share-section,
-  .route-editor-footer {
-    align-self: start;
-  }
+.route-editor-collapsible summary::-webkit-details-marker {
+  display: none;
+}
+
+.route-editor-collapsible summary::after {
+  color: var(--color-text-secondary);
+  content: "▾";
+  font-size: 0.85rem;
+  transition: transform var(--transition-fast);
+}
+
+.route-editor-collapsible:not([open]) summary::after {
+  transform: rotate(-90deg);
+}
+
+.route-editor-collapsible summary > span:first-child {
+  color: var(--color-text);
+  font-weight: 700;
+}
+
+.route-editor-collapsible-content {
+  border-top: 1px solid var(--color-border);
+  display: grid;
+  gap: 0.85rem;
+  padding: 0 1rem 1rem;
 }
 
 /* ==========================================================================
@@ -1020,7 +1028,8 @@ label {
 @media (prefers-color-scheme: dark) {
   .favorite-picker,
   .favorite-place-option,
-  .map-instruction {
+  .map-instruction,
+  .route-editor-collapsible {
     background: rgb(28 40 32 / 84%);
   }
 }
