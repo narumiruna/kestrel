@@ -29,7 +29,7 @@ Ordered; steps 1–4 are merge-blockers for #58, step 5 is post-merge backlog gr
 - [x] **Added explicit `prisma generate` step** in the `backend` job of `.github/workflows/ci.yml` after `npm ci`. Verified by `gh run view --job 75413868903 --log | grep "Generate Prisma client"` showing `Prisma schema loaded from prisma/schema.prisma` and the step succeeding.
 - [x] **Restored `npm run build` in `backend/README.md`** alongside `npm run typecheck`. Verified by `grep -E 'typecheck|build' backend/README.md` showing both `npm run typecheck` and `npm run build` in the validation block.
 - [x] **Tightened pre-commit `biome` hook `files:` pattern** in `.pre-commit-config.yaml` to `^web/.*\.(ts|tsx|js|jsx|json|jsonc|css)$`. Verified by `prek run biome --files web/README.md` → `Skipped (no files to check)` and `prek run biome --files web/app/layout.tsx` → `Passed`.
-- [x] **Filed three backlog entries** in `docs/plans/engineering-backlog-plan.md` for: (a) per-workspace `paths:` filter on CI jobs, (b) optional `nest build` step in backend CI, (c) policy for promoting backend `test:e2e` into CI. Verified by `grep -c 'Surfaced by PR #58 review' docs/plans/engineering-backlog-plan.md` → `3`.
+- [x] **Filed three backlog entries** in `docs/plans/2026-05-10_engineering-backlog-plan.md` for: (a) per-workspace `paths:` filter on CI jobs, (b) optional `nest build` step in backend CI, (c) policy for promoting backend `test:e2e` into CI. Verified by `grep -c 'Surfaced by PR #58 review' docs/plans/2026-05-10_engineering-backlog-plan.md` → `3`.
 
 ## Risks
 
@@ -47,6 +47,6 @@ Ordered; steps 1–4 are merge-blockers for #58, step 5 is post-merge backlog gr
 - [x] Not applicable: `main` has no branch protection (`gh api repos/narumiruna/kestrel/branches/main/protection/required_status_checks/contexts` → `Branch not protected`), so there is no required-check list to align.
 - [x] `backend/README.md` lists both `npm run typecheck` and `npm run build` in the validation block (`grep -E 'typecheck|build' backend/README.md`).
 - [x] `.pre-commit-config.yaml` `biome` hook `files:` pattern excludes `web/README.md` and includes `web/app/**/*.tsx`, verified by `prek run biome --files web/README.md` (Skipped) and `prek run biome --files web/app/layout.tsx` (Passed).
-- [x] `docs/plans/engineering-backlog-plan.md` contains three new `- [ ]` items tagged `Surfaced by PR #58 review` (paths filter, `nest build` in CI, e2e-in-CI policy), verified by `grep -c 'Surfaced by PR #58 review' docs/plans/engineering-backlog-plan.md` → `3`.
+- [x] `docs/plans/2026-05-10_engineering-backlog-plan.md` contains three new `- [ ]` items tagged `Surfaced by PR #58 review` (paths filter, `nest build` in CI, e2e-in-CI policy), verified by `grep -c 'Surfaced by PR #58 review' docs/plans/2026-05-10_engineering-backlog-plan.md` → `3`.
 - [x] PR #58 is merged to `main` (`gh pr view 58 --json state -q .state` → `MERGED`, merge commit `92aa04f`).
 - [ ] PR #59 is merged to `main` (verified by `gh pr view 59 --json state -q .state` returning `MERGED`).
