@@ -50,6 +50,8 @@ export default function RouteEditor({
   const [focusTarget, setFocusTarget] = useState<RouteWaypoint | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const routeBuilderHint = getRouteBuilderHint(waypoints.length, places.length);
+  const saveDisabledReason = getSaveDisabledReason(waypoints.length);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -107,9 +109,10 @@ export default function RouteEditor({
         </div>
       </div>
       {error == null ? null : <div className="error">{error}</div>}
+      <div className="route-builder-hint">{routeBuilderHint}</div>
       {route == null && waypoints.length === 0 && places.length > 0 ? (
         <label>
-          Start from place
+          Start from favorite place
           <select defaultValue="" onChange={(event) => startFromPlace(event.target.value)}>
             <option disabled value="">
               Select a saved place…
@@ -122,7 +125,10 @@ export default function RouteEditor({
           </select>
         </label>
       ) : null}
-      <RouteMapEditor focusTarget={focusTarget} waypoints={waypoints} onChange={setWaypoints} />
+      <div className="map-builder">
+        <RouteMapEditor focusTarget={focusTarget} waypoints={waypoints} onChange={setWaypoints} />
+        <div className="map-instruction">Click map to add waypoint · Drag markers to adjust</div>
+      </div>
       <label>
         Name
         <input required value={name} onChange={(event) => setName(event.target.value)} />
@@ -200,7 +206,6 @@ export default function RouteEditor({
               </button>
               <button
                 className="danger"
-                disabled={waypoints.length <= 2}
                 type="button"
                 onClick={() =>
                   setWaypoints(waypoints.filter((_, currentIndex) => currentIndex !== index))
@@ -225,18 +230,51 @@ export default function RouteEditor({
         </button>
       </div>
 
-      <div className="row">
-        <button disabled={isSaving || waypoints.length < 2} type="submit">
-          {isSaving ? 'Saving…' : 'Save route'}
-        </button>
-        {onDelete == null ? null : (
-          <button className="danger" disabled={isSaving} type="button" onClick={onDelete}>
-            Delete
-          </button>
+      <div className="stack">
+        {saveDisabledReason == null ? null : (
+          <p className="muted" style={{ margin: 0 }}>
+            {saveDisabledReason}
+          </p>
         )}
+        <div className="row">
+          <button disabled={isSaving || saveDisabledReason != null} type="submit">
+            {isSaving ? 'Saving…' : 'Save route'}
+          </button>
+          {onDelete == null ? null : (
+            <button className="danger" disabled={isSaving} type="button" onClick={onDelete}>
+              Delete
+            </button>
+          )}
+        </div>
       </div>
     </form>
   );
+}
+
+function getRouteBuilderHint(waypointCount: number, placeCount: number): string {
+  if (waypointCount === 0) {
+    return placeCount === 0
+      ? 'Start by clicking the map to add your first waypoint.'
+      : 'Choose a favorite place as the start, or click the map to add your first waypoint.';
+  }
+
+  if (waypointCount === 1) {
+    return 'Add at least one more waypoint to save this route.';
+  }
+
+  return 'Add more waypoints from the map, or drag markers to refine the route.';
+}
+
+function getSaveDisabledReason(waypointCount: number): string | null {
+  if (waypointCount === 0) {
+    return 'Add at least 2 waypoints before saving.';
+  }
+
+  if (waypointCount === 1) {
+    return 'Add 1 more waypoint before saving.';
+  }
+
+  return null;
 }
 
 function RouteSharePanel({ route }: { route: Route | null }) {
