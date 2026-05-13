@@ -235,56 +235,60 @@ export default function RouteEditor({
         </div>
       </section>
 
-      <section className="route-editor-section route-editor-details-section">
-        <div>
-          <h3>Route details</h3>
-          <p className="muted">Name the route and set how it should play back.</p>
-        </div>
-        <label className="route-title-field">
-          Name
-          <input required value={name} onChange={(event) => setName(event.target.value)} />
-        </label>
-        <div className="split">
-          <label>
-            Default speed (km/h)
-            <input
-              required
-              inputMode="decimal"
-              value={defaultSpeedKmh}
-              onChange={(event) => setDefaultSpeedKmh(event.target.value)}
-            />
+      <details className="route-editor-section route-editor-collapsible route-editor-details-section" open>
+        <summary>
+          <span>Route details</span>
+          <span className="muted">Name, speed, and playback</span>
+        </summary>
+        <div className="route-editor-collapsible-content">
+          <label className="route-title-field">
+            Name
+            <input required value={name} onChange={(event) => setName(event.target.value)} />
           </label>
+          <div className="split">
+            <label>
+              Default speed (km/h)
+              <input
+                required
+                inputMode="decimal"
+                value={defaultSpeedKmh}
+                onChange={(event) => setDefaultSpeedKmh(event.target.value)}
+              />
+            </label>
+            <label>
+              Playback mode
+              <select value={mode} onChange={(event) => setMode(event.target.value as RouteMode)}>
+                <option value="ONCE">Once</option>
+                <option value="LOOP">Loop</option>
+                <option value="PING_PONG">PingPong</option>
+              </select>
+            </label>
+          </div>
           <label>
-            Playback mode
-            <select value={mode} onChange={(event) => setMode(event.target.value as RouteMode)}>
-              <option value="ONCE">Once</option>
-              <option value="LOOP">Loop</option>
-              <option value="PING_PONG">PingPong</option>
-            </select>
+            Description
+            <textarea value={description} onChange={(event) => setDescription(event.target.value)} />
           </label>
         </div>
-        <label>
-          Description
-          <textarea value={description} onChange={(event) => setDescription(event.target.value)} />
-        </label>
-      </section>
+      </details>
 
-      <section className="route-editor-section route-editor-secondary-section route-editor-share-section">
-        <div>
-          <h3>Publishing / share</h3>
-          <p className="muted">Keep the route private, or create a public link after saving.</p>
+      <details className="route-editor-section route-editor-collapsible route-editor-secondary-section route-editor-share-section">
+        <summary>
+          <span>Publishing / share</span>
+          <span className="muted">Privacy and public link</span>
+        </summary>
+        <div className="route-editor-collapsible-content">
+          <label className="row">
+            <input
+              checked={isPublic}
+              className="inline-control"
+              type="checkbox"
+              onChange={(event) => setIsPublic(event.target.checked)}
+            />
+            Public route
+          </label>
+          <RouteSharePanel route={route} />
         </div>
-        <label className="row">
-          <input
-            checked={isPublic}
-            className="inline-control"
-            type="checkbox"
-            onChange={(event) => setIsPublic(event.target.checked)}
-          />
-          Public route
-        </label>
-        <RouteSharePanel route={route} />
-      </section>
+      </details>
 
       <footer className="route-editor-footer">
         <div className="stack">
