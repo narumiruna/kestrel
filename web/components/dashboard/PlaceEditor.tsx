@@ -11,20 +11,22 @@ const PlaceMapEditor = dynamic(() => import('@/components/PlaceMapEditor'), {
 });
 
 export default function PlaceEditor({
+  draftCoords,
   onDelete,
   onSave,
   place,
 }: {
+  draftCoords?: { latitude: number; longitude: number };
   onDelete?: () => void;
   onSave: (input: PlaceInput) => void;
   place: Place | null;
 }) {
   const [name, setName] = useState(place?.name ?? '');
   const [latitude, setLatitude] = useState(
-    place?.latitude.toString() ?? `${DEFAULT_MAP_CENTER.latitude}`,
+    place?.latitude.toString() ?? `${draftCoords?.latitude ?? DEFAULT_MAP_CENTER.latitude}`,
   );
   const [longitude, setLongitude] = useState(
-    place?.longitude.toString() ?? `${DEFAULT_MAP_CENTER.longitude}`,
+    place?.longitude.toString() ?? `${draftCoords?.longitude ?? DEFAULT_MAP_CENTER.longitude}`,
   );
   const [description, setDescription] = useState(place?.description ?? '');
   const [tags, setTags] = useState(place?.tags.join(', ') ?? '');
@@ -33,13 +35,16 @@ export default function PlaceEditor({
 
   const mapCoords = useMemo(
     () => ({
-      latitude: parseCoordinateOrFallback(latitude, place?.latitude ?? DEFAULT_MAP_CENTER.latitude),
+      latitude: parseCoordinateOrFallback(
+        latitude,
+        place?.latitude ?? draftCoords?.latitude ?? DEFAULT_MAP_CENTER.latitude,
+      ),
       longitude: parseCoordinateOrFallback(
         longitude,
-        place?.longitude ?? DEFAULT_MAP_CENTER.longitude,
+        place?.longitude ?? draftCoords?.longitude ?? DEFAULT_MAP_CENTER.longitude,
       ),
     }),
-    [latitude, longitude, place],
+    [draftCoords, latitude, longitude, place],
   );
 
   async function submit(event: FormEvent<HTMLFormElement>) {

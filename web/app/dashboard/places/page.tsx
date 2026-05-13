@@ -11,6 +11,10 @@ export default function PlacesDashboardPage() {
   const auth = useDashboardAuth();
   const [places, setPlaces] = useState<Place[]>([]);
   const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
+  const [draftPlaceCoords, setDraftPlaceCoords] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -73,6 +77,17 @@ export default function PlacesDashboardPage() {
     setSelectedPlaceId(null);
   }
 
+  function createNewPlace() {
+    if (selectedPlace != null) {
+      setDraftPlaceCoords({
+        latitude: selectedPlace.latitude,
+        longitude: selectedPlace.longitude,
+      });
+    }
+
+    setSelectedPlaceId(null);
+  }
+
   return (
     <DashboardShell
       activeSection="places"
@@ -80,11 +95,7 @@ export default function PlacesDashboardPage() {
       onRefresh={() => void loadPlaces()}
       username={auth.session.user.username}
     >
-      {error == null ? null : (
-        <div className="error" style={{ marginBottom: '1rem' }}>
-          {error}
-        </div>
-      )}
+      {error == null ? null : <div className="error dashboard-error">{error}</div>}
 
       <section className="dashboard-grid">
         <aside className={`dashboard-sidebar${isSidebarOpen ? '' : ' collapsed'}`}>
@@ -104,7 +115,7 @@ export default function PlacesDashboardPage() {
                 <button
                   className="secondary dashboard-sidebar-new"
                   type="button"
-                  onClick={() => setSelectedPlaceId(null)}
+                  onClick={createNewPlace}
                 >
                   New
                 </button>
@@ -130,7 +141,7 @@ export default function PlacesDashboardPage() {
                 {places.length === 0 && !isLoading ? (
                   <div className="empty-state">
                     <p className="muted">No favorite places yet.</p>
-                    <button className="secondary" type="button" onClick={() => setSelectedPlaceId(null)}>
+                    <button className="secondary" type="button" onClick={createNewPlace}>
                       Create your first favorite place
                     </button>
                   </div>
@@ -142,6 +153,7 @@ export default function PlacesDashboardPage() {
 
         <section className="grid">
           <PlaceEditor
+            draftCoords={draftPlaceCoords ?? undefined}
             key={selectedPlace?.id ?? 'new-place'}
             onDelete={selectedPlace == null ? undefined : () => void deletePlace(selectedPlace.id)}
             onSave={(input) => void savePlace(input)}
