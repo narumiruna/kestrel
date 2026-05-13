@@ -79,8 +79,8 @@ export default function SharedRoutePage() {
           <span className="muted">Public latest-route link</span>
         </div>
         <div className="row">
-          <Link href={auth.isAuthenticated ? '/dashboard' : '/login'}>
-            {auth.isAuthenticated ? 'Back to dashboard' : 'Sign in'}
+          <Link href={auth.isAuthenticated ? '/dashboard/routes' : '/login'}>
+            {auth.isAuthenticated ? 'Back to routes' : 'Sign in'}
           </Link>
         </div>
       </header>
@@ -123,7 +123,7 @@ export default function SharedRoutePage() {
             {copiedRoute == null ? null : (
               <div className="success">
                 Copied as <strong>{copiedRoute.name}</strong>.{' '}
-                <Link href="/dashboard">Open dashboard</Link>
+                <Link href="/dashboard/routes">Open routes</Link>
               </div>
             )}
             <div className="row">

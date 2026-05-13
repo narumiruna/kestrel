@@ -1,0 +1,133 @@
+'use client';
+
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import DashboardShell from '@/components/dashboard/DashboardShell';
+import RouteEditor from '@/components/dashboard/RouteEditor';
+import { useDashboardAuth } from '@/components/dashboard/useDashboardAuth';
+import { formatError, formatMode } from '@/components/dashboard/utils';
+import type { Route, RouteInput } from '@/lib/api';
+
+export default function RoutesDashboardPage() {
+  const auth = useDashboardAuth();
+  const [routes, setRoutes] = useState<Route[]>([]);
+  const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const selectedRoute = useMemo(
+    () => routes.find((route) => route.id === selectedRouteId) ?? null,
+    [routes, selectedRouteId],
+  );
+
+  const loadRoutes = useCallback(async () => {
+    setError(null);
+    setIsLoading(true);
+
+    try {
+      const nextRoutes = await auth.apiRequest<Route[]>('/routes');
+      setRoutes(nextRoutes);
+      setSelectedRouteId((current) => current ?? nextRoutes[0]?.id ?? null);
+    } catch (nextError) {
+      setError(formatError(nextError));
+    } finally {
+      setIsLoading(false);
+    }
+  }, [auth]);
+
+  useEffect(() => {
+    if (!auth.isHydrated || !auth.isAuthenticated) {
+      return;
+    }
+
+    void loadRoutes();
+  }, [auth.isAuthenticated, auth.isHydrated, loadRoutes]);
+
+  if (!auth.isHydrated || !auth.isAuthenticated || auth.session == null) {
+    return (
+      <main className="shell">
+        <p className="muted">Loading session…</p>
+      </main>
+    );
+  }
+
+  async function saveRoute(input: RouteInput) {
+    const savedRoute =
+      selectedRoute == null
+        ? await auth.apiRequest<Route>('/routes', {
+            body: JSON.stringify(input),
+            method: 'POST',
+          })
+        : await auth.apiRequest<Route>(`/routes/${selectedRoute.id}`, {
+            body: JSON.stringify(input),
+            method: 'PATCH',
+          });
+
+    await loadRoutes();
+    setSelectedRouteId(savedRoute.id);
+  }
+
+  async function deleteRoute(routeId: string) {
+    await auth.apiRequest(`/routes/${routeId}`, { method: 'DELETE' });
+    await loadRoutes();
+    setSelectedRouteId(null);
+  }
+
+  return (
+    <DashboardShell
+      activeSection="routes"
+      onLogout={auth.logout}
+      onRefresh={() => void loadRoutes()}
+      username={auth.session.user.username}
+    >
+      {error == null ? null : (
+        <div className="error" style={{ marginBottom: '1rem' }}>
+          {error}
+        </div>
+      )}
+
+      <section className="dashboard-grid">
+        <aside className="grid">
+          <div className="card stack">
+            <div className="row" style={{ justifyContent: 'space-between' }}>
+              <h2>Routes</h2>
+              <button className="secondary" type="button" onClick={() => setSelectedRouteId(null)}>
+                New
+              </button>
+            </div>
+            {isLoading ? <p className="muted">Loading…</p> : null}
+            <div className="list">
+              {routes.map((route) => (
+                <button
+                  className={`list-item ${selectedRouteId === route.id ? 'active' : ''}`}
+                  key={route.id}
+                  type="button"
+                  onClick={() => setSelectedRouteId(route.id)}
+                >
+                  <strong>{route.name}</strong>
+                  <span className="muted">
+                    {route.currentRevision?.waypoints.length ?? 0} waypoints ·{' '}
+                    {route.defaultSpeedKmh} km/h · {formatMode(route.mode)}
+                  </span>
+                  <span className="chip-row">
+                    <span className="chip">rev {route.currentRevision?.revisionNumber ?? '—'}</span>
+                    {route.isPublic ? <span className="chip">public</span> : null}
+                  </span>
+                </button>
+              ))}
+              {routes.length === 0 && !isLoading ? <p className="muted">No routes yet.</p> : null}
+            </div>
+          </div>
+        </aside>
+
+        <section className="grid">
+          <RouteEditor
+            key={selectedRoute?.id ?? 'new-route'}
+            onDelete={selectedRoute == null ? undefined : () => void deleteRoute(selectedRoute.id)}
+            onSave={(input) => void saveRoute(input)}
+            route={selectedRoute}
+          />
+        </section>
+      </section>
+    </DashboardShell>
+  );
+}
