@@ -82,9 +82,9 @@ export default function RouteMapEditor({
         map,
         onChange: onChangeRef.current,
         onSelectWaypoint: onSelectWaypointRef.current,
-        selectedWaypointIndex: selectedWaypointIndexRef.current,
         waypoints: waypointsRef.current,
       });
+      updateMarkerSelection(markersRef.current, selectedWaypointIndexRef.current);
       fitWaypoints(map, waypointsRef.current);
     });
     map.on('click', (event) => {
@@ -124,9 +124,9 @@ export default function RouteMapEditor({
         map,
         onChange,
         onSelectWaypoint,
-        selectedWaypointIndex,
         waypoints,
       });
+      updateMarkerSelection(markersRef.current, selectedWaypointIndexRef.current);
     } else {
       map.once('load', () => {
         updateLine(map, waypoints);
@@ -135,12 +135,16 @@ export default function RouteMapEditor({
           map,
           onChange,
           onSelectWaypoint,
-          selectedWaypointIndex,
           waypoints,
         });
+        updateMarkerSelection(markersRef.current, selectedWaypointIndexRef.current);
       });
     }
-  }, [onChange, onSelectWaypoint, selectedWaypointIndex, waypoints]);
+  }, [onChange, onSelectWaypoint, waypoints]);
+
+  useEffect(() => {
+    updateMarkerSelection(markersRef.current, selectedWaypointIndex);
+  }, [selectedWaypointIndex]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -174,14 +178,12 @@ function syncMarkers({
   map,
   onChange,
   onSelectWaypoint,
-  selectedWaypointIndex,
   waypoints,
 }: {
   existingMarkers: Marker[];
   map: MapLibreMap;
   onChange: (waypoints: RouteWaypoint[]) => void;
   onSelectWaypoint?: (index: number) => void;
-  selectedWaypointIndex: number | null;
   waypoints: RouteWaypoint[];
 }) {
   existingMarkers.forEach((marker) => {
@@ -194,7 +196,6 @@ function syncMarkers({
       draggable: true,
       element: createMarkerElement({
         index,
-        isSelected: selectedWaypointIndex === index,
         waypointCount: waypoints.length,
       }),
     })
@@ -229,19 +230,23 @@ function syncMarkers({
 
 function createMarkerElement({
   index,
-  isSelected,
   waypointCount,
 }: {
   index: number;
-  isSelected: boolean;
   waypointCount: number;
 }) {
   const element = document.createElement('button');
-  element.className = `route-marker ${isSelected ? 'selected' : ''}`;
+  element.className = 'route-marker';
   element.textContent = getWaypointShortLabel(index, waypointCount);
   element.type = 'button';
 
   return element;
+}
+
+function updateMarkerSelection(markers: Marker[], selectedWaypointIndex: number | null) {
+  markers.forEach((marker, index) => {
+    marker.getElement().classList.toggle('selected', selectedWaypointIndex === index);
+  });
 }
 
 function getWaypointShortLabel(index: number, waypointCount: number): string {

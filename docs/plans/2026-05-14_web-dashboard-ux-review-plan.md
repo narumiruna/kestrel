@@ -86,9 +86,9 @@
 
 ### Phase 4 — 讓 Favorites / Places 更像可用素材庫
 
-- [ ] 將 Routes editor 中的 `Start from place` 改成可搜尋 combobox 或 filtered list，顯示 place name、tags、座標摘要；用 20 筆 places 的手動資料驗證搜尋效率。
-- [ ] 統一 Web 文案：navigation 可保留 `Places`，但 route editor 內使用 `Favorite place` / `Saved place`，並在空狀態提供前往 Places 的 link；用全文搜尋 `Places` / `place` 文案驗證一致性。
-- [ ] 在 route editor 支援 `Add favorite as waypoint`（已有 waypoint 時），但以次要 action 呈現，避免和 0 點時 `Start from place` 混淆；用 0 點與已有點兩種狀態手動驗證文案不同。
+- [x] 將 Routes editor 中的 `Start from place` 改成可搜尋 combobox 或 filtered list，顯示 place name、tags、座標摘要；已加入 filtered favorite place list 並用 `cd web && npm run lint` 驗證。
+- [x] 統一 Web 文案：navigation 可保留 `Places`，但 route editor 內使用 `Favorite place` / `Saved place`，並在空狀態提供前往 Places 的 link；已在 RouteEditor 使用 favorite place 文案與 `/dashboard/places` link，並用 `cd web && npm run lint` 驗證。
+- [x] 在 route editor 支援 `Add favorite as waypoint`（已有 waypoint 時），但以次要 action 呈現，避免和 0 點時 `Start from place` 混淆；已依 0 點 / 已有點切換文案與 append 行為，並用 `cd web && npm run lint` 驗證。
 
 ### Phase 5 — 視覺系統與響應式細修
 
