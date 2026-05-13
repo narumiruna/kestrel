@@ -150,6 +150,7 @@ A leading `changes` job uses `dorny/paths-filter` to gate each lane, so a PR tou
 
 - `just release` runs `:app:assembleRelease` and produces `app/build/outputs/apk/release/app-release-unsigned.apk`.
 - `.github/workflows/bump-version.yml` takes a `major` / `minor` / `patch` choice, calls `scripts/bump-version.py`, and bumps the shared Android/backend/web version plus Android `appVersionCode`, then opens a PR using repository secret `PAT_TOKEN` so the resulting PR can trigger downstream CI workflows.
+- `.github/workflows/tag-release.yml` watches version-file merges to `main`, resolves the shared Android/backend/web version, and pushes the matching `v*` tag with `PAT_TOKEN` if it does not already exist.
 - `.github/workflows/release.yml` calls `scripts/resolve-release-metadata.sh`, then publishes a GitHub Release when a matching `v*` tag is pushed (or when manually dispatched against an existing tag) and uploads the unsigned release APK as a release asset.
 
 ---
