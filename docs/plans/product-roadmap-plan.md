@@ -29,7 +29,7 @@ The remaining roadmap should not reopen completed local-library or cloud-sync fo
 - [x] Build cloud auth and library APIs with TOTP, refresh sessions, owner-scoped CRUD, immutable route revisions, and sync events.
 - [x] Build web console login and place/route editing workflows.
 - [x] Build Android cloud login, sync bootstrap/changes, cursor recovery, and current-revision route execution.
-- [ ] Implement route sharing as the next product slice: public latest route links and copy-to-library.
+- [ ] Implement route sharing as the next product slice: backend/web implementation for public latest route links and copy-to-library landed under `sharing-plan.md` on 2026-05-13, including share-link CRUD, public route page, authenticated copy-to-library, and a successful dev-DB migration run for `20260513110000_sharing_links`. Remaining proof is end-to-end web/Android verification still listed in that plan's Completion Checklist.
 - [ ] Implement sync/upload strengthening: local-only place upload, remote-id binding after upload, item-level manual conflict resolution, and `Use Cloud` / `Use Local` / `Keep Both` actions all shipped end-to-end and verified on a real-device smoke run (`2026-05-10_android-local-upload-conflict-plan.md`, PRs #46–#49). Remaining work is automated test coverage (backend `LibraryItem.version` bump tests, `/sync/upload` partial-success + idempotency reuse tests, conflict variants, and Android `CloudSyncRepository` local-only upload tests); route upload/conflict is still deferred.
 - [ ] Implement device/session management: device state reporting, session/device list, and revoke controls.
 - [ ] Design remote command model only after device/session management exists and has an explicit threat model.
@@ -44,7 +44,7 @@ The remaining roadmap should not reopen completed local-library or cloud-sync fo
 ## Completion Checklist
 
 - [x] Product roadmap reflects the implemented Android, backend, web, and sync baseline from the consolidated legacy planning docs.
-- [ ] `sharing-plan.md` is completed and merged for public latest route links and copy-to-library.
+- [ ] `sharing-plan.md` implementation is landed locally for public latest route links and copy-to-library, with backend/web validation and the dev-DB migration run recorded on 2026-05-13. Remaining completion is end-to-end web and Android verification tracked in that plan.
 - [ ] Local-only upload/conflict policy has an accepted plan and implementation PRs; place-first work is in `2026-05-10_android-local-upload-conflict-plan.md`, with implementation shipped across PRs #46–#48, smoke closed by PR #49, and remaining completion pending the backend / Android automated tests listed in that plan's Completion Checklist.
 - [ ] Device/session management has an accepted plan before remote commands are designed.
 - [ ] Operations checklist has CI, logging, health, backup, and API documentation coverage.

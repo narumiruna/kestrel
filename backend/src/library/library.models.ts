@@ -138,7 +138,7 @@ export function mapLibraryItem(libraryItem: LibraryItemRecord) {
   };
 }
 
-function mapRouteRevision(revision: {
+export function mapRouteRevision(revision: {
   createdAt: Date;
   createdBy: string;
   id: string;

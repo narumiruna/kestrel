@@ -19,6 +19,7 @@ model User {
   devices             Device[]
   libraryItems        LibraryItem[]
   places              Place[]
+  shareLinks          ShareLink[]
   syncUploadMutations SyncUploadMutation[]
   recoveryCodes       RecoveryCode[]
   routeRevisions      RouteRevision[] @relation("RouteRevisionCreator")
@@ -109,22 +110,23 @@ model Place {
 }
 
 model Route {
-  id                String         @id @default(uuid()) @db.Uuid
-  userId            String         @map("user_id") @db.Uuid
-  name              String         @db.VarChar(128)
-  description       String?        @db.VarChar(1024)
-  defaultSpeedKmh   Float          @map("default_speed_kmh")
+  id                String          @id @default(uuid()) @db.Uuid
+  userId            String          @map("user_id") @db.Uuid
+  name              String          @db.VarChar(128)
+  description       String?         @db.VarChar(1024)
+  defaultSpeedKmh   Float           @map("default_speed_kmh")
   mode              RouteMode
-  currentRevisionId String?        @unique @map("current_revision_id") @db.Uuid
-  isPublic          Boolean        @default(false) @map("is_public")
-  createdAt         DateTime       @default(now()) @map("created_at")
-  updatedAt         DateTime       @updatedAt @map("updated_at")
-  deletedAt         DateTime?      @map("deleted_at")
-  user              User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  currentRevision   RouteRevision? @relation("RouteCurrentRevision", fields: [currentRevisionId], references: [id], onDelete: SetNull)
+  currentRevisionId String?         @unique @map("current_revision_id") @db.Uuid
+  isPublic          Boolean         @default(false) @map("is_public")
+  createdAt         DateTime        @default(now()) @map("created_at")
+  updatedAt         DateTime        @updatedAt @map("updated_at")
+  deletedAt         DateTime?       @map("deleted_at")
+  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  currentRevision   RouteRevision?  @relation("RouteCurrentRevision", fields: [currentRevisionId], references: [id], onDelete: SetNull)
   revisions         RouteRevision[] @relation("RouteRevisions")
+  shareLinks        ShareLink[]
   libraryItem       LibraryItem?
-  deviceStates      DeviceState[]  @relation("DeviceSelectedRoute")
+  deviceStates      DeviceState[]   @relation("DeviceSelectedRoute")
 
   @@index([userId])
   @@index([userId, deletedAt])
@@ -141,6 +143,7 @@ model RouteRevision {
   route             Route          @relation("RouteRevisions", fields: [routeId], references: [id], onDelete: Cascade)
   creator           User           @relation("RouteRevisionCreator", fields: [createdBy], references: [id], onDelete: Cascade)
   currentForRoute   Route?         @relation("RouteCurrentRevision")
+  shareLinks        ShareLink[]
   deviceStates      DeviceState[]  @relation("DeviceSelectedRouteRevision")
 
   @@unique([routeId, revisionNumber])
@@ -205,6 +208,27 @@ model DeviceState {
   @@map("device_states")
 }
 
+model ShareLink {
+  id              String          @id @default(uuid()) @db.Uuid
+  ownerId         String          @map("owner_id") @db.Uuid
+  routeId         String          @map("route_id") @db.Uuid
+  routeRevisionId String?         @map("route_revision_id") @db.Uuid
+  token           String          @unique @db.VarChar(128)
+  permission      SharePermission @default(PUBLIC_READ)
+  disabledAt      DateTime?       @map("disabled_at")
+  expiresAt       DateTime?       @map("expires_at")
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
+  owner           User            @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  route           Route           @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  routeRevision   RouteRevision?  @relation(fields: [routeRevisionId], references: [id], onDelete: SetNull)
+
+  @@index([ownerId])
+  @@index([routeId])
+  @@index([routeRevisionId])
+  @@map("share_links")
+}
+
 model SyncUploadMutation {
   id               String   @id @default(uuid()) @db.Uuid
   userId           String   @map("user_id") @db.Uuid
@@ -251,6 +275,10 @@ enum PlaybackState {
   SINGLE
   ROUTE
   PAUSED
+}
+
+enum SharePermission {
+  PUBLIC_READ
 }
 
 enum RouteMode {

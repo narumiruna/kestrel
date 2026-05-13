@@ -38,6 +38,34 @@ export type RouteWaypoint = {
   speedKmh?: number | null;
 };
 
+export type RouteShareLink = {
+  createdAt: string;
+  disabledAt: string | null;
+  expiresAt: string | null;
+  id: string;
+  permission: 'PUBLIC_READ';
+  publicUrl: string;
+  routeId: string;
+  routeRevisionId: string | null;
+  token: string;
+  updatedAt: string;
+};
+
+export type SharedRouteSnapshot = {
+  route: {
+    description: string | null;
+    name: string;
+    revision: {
+      createdAt: string;
+      defaultSpeedKmh: number;
+      mode: RouteMode;
+      revisionNumber: number;
+      waypoints: RouteWaypoint[];
+    };
+  };
+  shareLink: RouteShareLink;
+};
+
 export type Route = {
   createdAt: string;
   currentRevision: {
