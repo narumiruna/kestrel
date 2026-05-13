@@ -246,7 +246,7 @@ class CloudSyncRepositoryTest {
             assertEquals("local-item-1", conflict.libraryItemId)
             assertEquals(1, conflict.baseVersion)
             assertEquals(2, conflict.remoteVersion)
-            assertEquals("mutation-2", conflict.pendingChangeId)
+            assertEquals("local-item-1", conflict.pendingChangeId)
             assertNotNull(database.libraryDao().getPendingSyncChangeForItem("local-item-1"))
             val uploadedChange =
                 api.uploadRequests
