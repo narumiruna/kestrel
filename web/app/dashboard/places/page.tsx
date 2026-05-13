@@ -127,7 +127,14 @@ export default function PlacesDashboardPage() {
                     <TagRow tags={place.tags} />
                   </button>
                 ))}
-                {places.length === 0 && !isLoading ? <p className="muted">No places yet.</p> : null}
+                {places.length === 0 && !isLoading ? (
+                  <div className="empty-state">
+                    <p className="muted">No favorite places yet.</p>
+                    <button className="secondary" type="button" onClick={() => setSelectedPlaceId(null)}>
+                      Create your first favorite place
+                    </button>
+                  </div>
+                ) : null}
               </div>
             </div>
           </div>
