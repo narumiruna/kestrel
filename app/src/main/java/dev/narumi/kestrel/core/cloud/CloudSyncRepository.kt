@@ -53,15 +53,13 @@ data class CloudPlaceConflict(
 )
 
 @Suppress("TooManyFunctions")
-class CloudSyncRepository private constructor(
-    context: Context,
+class CloudSyncRepository internal constructor(
+    private val database: KestrelDatabase,
+    private val authRepository: CloudSyncSessionProvider,
+    private val apiClient: CloudSyncApi,
+    private val uuidFactory: () -> String = ::randomUuid,
 ) {
-    private val applicationContext = context.applicationContext
-    private val database = KestrelDatabase.getInstance(applicationContext)
     private val dao: LibraryDao = database.libraryDao()
-    private val prefs = KestrelPrefs(applicationContext)
-    private val authRepository = CloudAuthRepository.getInstance(applicationContext)
-    private val apiClient = CloudApiClient(baseUrlProvider = { prefs.cloudSettingsValue().apiBaseUrl })
     private val json = Json { ignoreUnknownKeys = true }
     private val syncMutex = Mutex()
 
@@ -107,7 +105,7 @@ class CloudSyncRepository private constructor(
             dao.upsertPendingSyncChanges(
                 listOf(
                     pendingChange.copy(
-                        clientMutationId = randomUuid(),
+                        clientMutationId = uuidFactory(),
                         baseVersion = conflict.remoteVersion,
                         updatedAt = System.currentTimeMillis(),
                     ),
@@ -156,7 +154,7 @@ class CloudSyncRepository private constructor(
 
             val placeEntities =
                 response.places.map { place ->
-                    val localId = dao.findPlaceIdByRemoteId(place.id) ?: randomUuid()
+                    val localId = dao.findPlaceIdByRemoteId(place.id) ?: uuidFactory()
                     resolvedPlaceIds[place.id] = localId
                     place.toPlaceEntity(localId)
                 }
@@ -166,21 +164,21 @@ class CloudSyncRepository private constructor(
 
             response.routes.forEach { route ->
                 val currentRevision = route.currentRevision ?: return@forEach
-                val localRouteId = dao.findRouteIdByRemoteId(route.id) ?: randomUuid()
-                val localRevisionId = dao.findRouteRevisionIdByRemoteId(currentRevision.id) ?: randomUuid()
+                val localRouteId = dao.findRouteIdByRemoteId(route.id) ?: uuidFactory()
+                val localRevisionId = dao.findRouteRevisionIdByRemoteId(currentRevision.id) ?: uuidFactory()
                 resolvedRouteIds[route.id] = localRouteId
                 routeRows +=
                     route.toRouteSyncRows(
                         routeId = localRouteId,
                         revisionId = localRevisionId,
-                        waypointIdFactory = ::randomUuid,
+                        waypointIdFactory = uuidFactory,
                     )
             }
             upsertRouteRows(routeRows)
 
             val libraryItemEntities =
                 response.libraryItems.map { item ->
-                    val localId = dao.findLibraryItemIdByRemoteId(item.id) ?: randomUuid()
+                    val localId = dao.findLibraryItemIdByRemoteId(item.id) ?: uuidFactory()
                     item.toLibraryItemEntity(
                         localId = localId,
                         localPlaceId = resolveLocalPlaceId(item.placeId, resolvedPlaceIds),
@@ -215,7 +213,7 @@ class CloudSyncRepository private constructor(
 
                 val placeEntities =
                     response.places.map { place ->
-                        val localId = dao.findPlaceIdByRemoteId(place.id) ?: randomUuid()
+                        val localId = dao.findPlaceIdByRemoteId(place.id) ?: uuidFactory()
                         resolvedPlaceIds[place.id] = localId
                         place.toPlaceEntity(localId)
                     }
@@ -226,21 +224,21 @@ class CloudSyncRepository private constructor(
                 val routeRows = mutableListOf<CloudRouteSyncRows>()
                 response.routes.forEach { route ->
                     val currentRevision = route.currentRevision ?: return@forEach
-                    val localRouteId = dao.findRouteIdByRemoteId(route.id) ?: randomUuid()
-                    val localRevisionId = dao.findRouteRevisionIdByRemoteId(currentRevision.id) ?: randomUuid()
+                    val localRouteId = dao.findRouteIdByRemoteId(route.id) ?: uuidFactory()
+                    val localRevisionId = dao.findRouteRevisionIdByRemoteId(currentRevision.id) ?: uuidFactory()
                     resolvedRouteIds[route.id] = localRouteId
                     routeRows +=
                         route.toRouteSyncRows(
                             routeId = localRouteId,
                             revisionId = localRevisionId,
-                            waypointIdFactory = ::randomUuid,
+                            waypointIdFactory = uuidFactory,
                         )
                 }
                 upsertRouteRows(routeRows)
 
                 val libraryItemEntities =
                     response.libraryItems.map { item ->
-                        val localId = dao.findLibraryItemIdByRemoteId(item.id) ?: randomUuid()
+                        val localId = dao.findLibraryItemIdByRemoteId(item.id) ?: uuidFactory()
                         item.toLibraryItemEntity(
                             localId = localId,
                             localPlaceId = resolveLocalPlaceId(item.placeId, resolvedPlaceIds),
@@ -381,7 +379,7 @@ class CloudSyncRepository private constructor(
                 tags = localSnapshot.tags,
                 sortOrder = (dao.getMaxSortOrder() ?: -1) + 1,
                 now = now,
-                uuidFactory = ::randomUuid,
+                uuidFactory = uuidFactory,
             )
         dao.insertPlaceWithLibraryItem(rows.place, rows.item)
         val record = dao.getLibraryItem(rows.item.id) ?: return
@@ -391,7 +389,7 @@ class CloudSyncRepository private constructor(
                 PendingSyncChangeEntity(
                     id = rows.item.id,
                     libraryItemId = rows.item.id,
-                    clientMutationId = randomUuid(),
+                    clientMutationId = uuidFactory(),
                     type = CloudSyncUploadChangeType.PLACE_CREATE.name,
                     payloadJson = json.encodeToString(payload),
                     createdAt = now,
@@ -597,10 +595,22 @@ class CloudSyncRepository private constructor(
     companion object {
         @Volatile private var instance: CloudSyncRepository? = null
 
-        fun getInstance(context: Context): CloudSyncRepository =
-            instance ?: synchronized(this) {
-                instance ?: CloudSyncRepository(context.applicationContext).also { instance = it }
+        fun getInstance(context: Context): CloudSyncRepository {
+            val applicationContext = context.applicationContext
+            return instance ?: synchronized(this) {
+                instance
+                    ?: CloudSyncRepository(
+                        database = KestrelDatabase.getInstance(applicationContext),
+                        authRepository = CloudAuthRepository.getInstance(applicationContext),
+                        apiClient =
+                            CloudApiClient(
+                                baseUrlProvider = {
+                                    KestrelPrefs(applicationContext).cloudSettingsValue().apiBaseUrl
+                                },
+                            ),
+                    ).also { instance = it }
             }
+        }
     }
 }
 
