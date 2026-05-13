@@ -176,7 +176,7 @@ internal class CloudApiClient(
             }
         }
 
-    private suspend fun normalizedBaseUrl(): String = baseUrlProvider().trim().trimEnd('/')
+    private suspend fun normalizedBaseUrl(): String = normalizeCloudApiBaseUrl(baseUrlProvider())
 
     private fun AuthSessionResponse.toSession(): CloudSession =
         CloudSession(
