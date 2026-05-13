@@ -2,6 +2,7 @@
 
 import maplibregl, { type GeoJSONSource, type Map as MapLibreMap, type Marker } from 'maplibre-gl';
 import { useEffect, useRef } from 'react';
+import { createRasterMapStyle } from '@/components/mapStyle';
 import type { RouteWaypoint } from '@/lib/api';
 
 type Props = {
@@ -37,25 +38,7 @@ export default function RouteMapEditor({ className = 'map', onChange, waypoints 
           ? [121.5654, 25.033]
           : [firstWaypoint.longitude, firstWaypoint.latitude],
       container: containerRef.current,
-      style: {
-        glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
-        layers: [
-          {
-            id: 'osm',
-            source: 'osm',
-            type: 'raster',
-          },
-        ],
-        sources: {
-          osm: {
-            attribution: '© OpenStreetMap contributors',
-            tileSize: 256,
-            tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
-            type: 'raster',
-          },
-        },
-        version: 8,
-      },
+      style: createRasterMapStyle(),
       zoom: firstWaypoint == null ? 11 : 14,
     });
 

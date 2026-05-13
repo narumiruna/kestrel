@@ -372,6 +372,68 @@ label {
 }
 
 /* ==========================================================================
+   DASHBOARD NAV
+   ========================================================================== */
+
+.dashboard-topbar {
+  margin-bottom: 0.85rem;
+}
+
+.dashboard-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.dashboard-tabs {
+  backdrop-filter: blur(12px);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  display: inline-flex;
+  gap: 0.35rem;
+  margin-bottom: 1.1rem;
+  padding: 0.35rem;
+}
+
+.dashboard-tab {
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  color: var(--color-text-secondary);
+  font-weight: 600;
+  padding: 0.55rem 0.95rem;
+  transition:
+    background var(--transition),
+    border-color var(--transition-fast),
+    color var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.dashboard-tab:hover {
+  background: rgb(118 201 69 / 10%);
+  color: var(--color-text);
+}
+
+.dashboard-tab.active {
+  background: rgb(118 201 69 / 14%);
+  border-color: rgb(118 201 69 / 25%);
+  box-shadow: inset 0 0 0 1px rgb(118 201 69 / 18%);
+  color: var(--color-text);
+}
+
+@media (prefers-color-scheme: dark) {
+  .dashboard-tab:hover {
+    background: rgb(141 220 90 / 12%);
+  }
+
+  .dashboard-tab.active {
+    background: rgb(141 220 90 / 14%);
+    border-color: rgb(141 220 90 / 22%);
+    box-shadow: inset 0 0 0 1px rgb(141 220 90 / 14%);
+  }
+}
+
+/* ==========================================================================
    DASHBOARD GRID
    ========================================================================== */
 
@@ -670,6 +732,29 @@ label {
   .dashboard-grid,
   .split {
     grid-template-columns: 1fr;
+  }
+
+  .topbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .dashboard-actions {
+    justify-content: stretch;
+  }
+
+  .dashboard-actions > * {
+    flex: 1 1 auto;
+  }
+
+  .dashboard-tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    width: 100%;
+  }
+
+  .dashboard-tab {
+    text-align: center;
   }
 
   .shell {
