@@ -3,7 +3,8 @@
 讓 Android app 的 Options → Cloud sync 登入與 API URL 設定更順手：
 
 1. 使用 1Password 自動填入時，username / password / TOTP 欄位能被正確辨識與帶入。
-2. Production cloud endpoint 可輸入 `https://kestrel.narumi.dev` 或 `https://kestrel.narumi.dev/api`，app 會自動使用實際 backend proxy `https://kestrel.narumi.dev/api/backend`；已輸入完整 `/api/backend` 以及本機 direct backend URL 不被破壞。
+2. 新安裝或未設定過 cloud endpoint 時，預設顯示並使用 `https://kestrel.narumi.dev`。
+3. Production cloud endpoint 可輸入 `https://kestrel.narumi.dev` 或 `https://kestrel.narumi.dev/api`，app 會自動使用實際 backend proxy `https://kestrel.narumi.dev/api/backend`；已輸入完整 `/api/backend` 以及本機 direct backend URL 不被破壞。
 
 ## Context
 
@@ -11,6 +12,7 @@
 - 目前 `CloudApiClient` 會將 `KestrelPrefs.CloudSettings.apiBaseUrl` 做 `trim().trimEnd('/')` 後直接接 `/auth/login`、`/sync/*` 等 backend path。
 - Web console 已有 runtime proxy `web/app/api/backend/[...path]/route.ts`，production/domain 對外應走 `/api/backend/*`；直接輸入 `https://kestrel.narumi.dev` 會打到 web root 下的 `/auth/login` 而非 backend。
 - DataStore 的 `CloudSettings.apiBaseUrl` 只有單一字串欄位，適合保持相容並在 client 端正規化。
+- 目前 `CloudSettings.DEFAULT_API_BASE_URL` 是 emulator/local backend `http://10.0.2.2:3000`；production-friendly 預設值需要改為 `https://kestrel.narumi.dev`，本機開發者仍可手動覆寫。
 
 ## Non-Goals
 
@@ -27,7 +29,8 @@
 
 - [ ] 調查目前 AndroidX Compose BOM 對 Autofill 的推薦 API，決定使用 `Modifier.semantics { contentType = ... }`、`keyboardOptions`、或仍需 `AutofillTree`；驗證方式是在 `OptionsScreen.kt` 中可編譯引用對應 API，並以 `just check` 確認無 unresolved reference。
 - [ ] 更新 `CloudSignedOutCardContent` 的 username、password、TOTP/recovery-code 欄位語意，讓 1Password 能辨識帳號、密碼與 one-time code；驗證方式為 `just check`，並以實機 1Password smoke：點選 Username 欄位後可帶入 username，Password 欄位可帶入 password，TOTP 欄位可帶入 OTP 或不阻塞手動輸入。
-- [ ] 新增 `core/cloud` 或 `core/data` 的純 Kotlin URL 正規化 helper，將 `https://kestrel.narumi.dev` 與 `https://kestrel.narumi.dev/api` 解析成 `https://kestrel.narumi.dev/api/backend`，保留已完整的 `/api/backend`，並保留 direct backend URL（例如 `http://10.0.2.2:3000`、`http://localhost:3300`）不補 path；驗證方式為新增/更新 `app/src/test/...` 單元測試並跑 `JAVA_HOME=… ./gradlew :app:testDebugUnitTest`。
+- [ ] 將 `CloudSettings.DEFAULT_API_BASE_URL` 改為 `https://kestrel.narumi.dev`，讓新安裝與未設定過 cloud endpoint 的使用者預設走 production web origin；驗證方式為 `Preferences.kt` 中預設值、Options UI 初始值、以及單元測試/preview 證據。
+- [ ] 新增 `core/cloud` 或 `core/data` 的純 Kotlin URL 正規化 helper，將預設值 `https://kestrel.narumi.dev`、`https://kestrel.narumi.dev/api` 解析成 `https://kestrel.narumi.dev/api/backend`，保留已完整的 `/api/backend`，並保留 direct backend URL（例如 `http://10.0.2.2:3000`、`http://localhost:3300`）不補 path；驗證方式為新增/更新 `app/src/test/...` 單元測試並跑 `JAVA_HOME=… ./gradlew :app:testDebugUnitTest`。
 - [ ] 將 helper 接到儲存或 request 建 URL 的單一路徑，避免 UI 顯示值與實際 request endpoint 分裂；驗證方式為讀碼確認 `CloudApiClient.normalizedBaseUrl()` 或 `KestrelPrefs.setCloudApiBaseUrl()` 只有一個 endpoint 正規化來源，且單元測試覆蓋 trailing slash、空白與 `/api/` cases。
 - [ ] 更新 Options UI helper text / label，說明 production 可輸入 `https://kestrel.narumi.dev`，app 會使用 backend proxy；驗證方式為 `OptionsScreen` preview/編譯通過，且 UI 文案不再要求手動輸入 `/api/backend`。
 - [ ] 做 cloud login smoke test：輸入或儲存 `https://kestrel.narumi.dev` 後登入一次並執行 `Sync now`，確認 request 成功或錯誤訊息來自 backend auth/sync 而不是 web 404；驗證方式為實機畫面結果與必要時 `just logf` 中的 Cloud/API 錯誤紀錄。
@@ -42,6 +45,7 @@
 ## Completion Checklist
 
 - [ ] 1Password username/password/TOTP 欄位辨識改善已由 `OptionsScreen.kt` 程式碼與實機 1Password smoke 結果驗證。
+- [ ] `CloudSettings.DEFAULT_API_BASE_URL` 預設為 `https://kestrel.narumi.dev`，且新安裝 Options UI 初始值已由程式碼或 preview/smoke 證據驗證。
 - [ ] `https://kestrel.narumi.dev`、`https://kestrel.narumi.dev/api`、`https://kestrel.narumi.dev/api/backend`、`http://10.0.2.2:3000` 的 URL 正規化行為已由 Android unit tests 驗證。
 - [ ] Production URL alias 登入與 `Sync now` 已在實機或 emulator 上驗證不再需要手動輸入 `/api/backend`。
 - [ ] Android quality gates 通過：`just check && just lint`，以及若有新增 unit tests 則 `JAVA_HOME=… ./gradlew :app:testDebugUnitTest` 通過。
