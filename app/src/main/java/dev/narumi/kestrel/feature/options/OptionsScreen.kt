@@ -379,13 +379,6 @@ private fun CloudSignedOutCardContent(
         visualTransformation = PasswordVisualTransformation(),
         modifier = Modifier.fillMaxWidth(),
     )
-    OutlinedTextField(
-        value = loginForm.oneTimeCode,
-        onValueChange = { onLoginFormChange(loginForm.copy(oneTimeCode = it)) },
-        label = { Text(if (loginForm.useRecoveryCode) "Recovery code" else "TOTP code") },
-        singleLine = true,
-        modifier = Modifier.fillMaxWidth(),
-    )
     StartupRadioRow(
         label = "Use recovery code instead of TOTP",
         selected = loginForm.useRecoveryCode,
@@ -393,6 +386,21 @@ private fun CloudSignedOutCardContent(
             onLoginFormChange(loginForm.copy(useRecoveryCode = !loginForm.useRecoveryCode))
         },
     )
+    if (loginForm.username.isNotBlank() && loginForm.password.isNotBlank()) {
+        OutlinedTextField(
+            value = loginForm.oneTimeCode,
+            onValueChange = { onLoginFormChange(loginForm.copy(oneTimeCode = it)) },
+            label = { Text(if (loginForm.useRecoveryCode) "Recovery code" else "TOTP code") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+    } else {
+        Text(
+            text = "Fill username and password first; the TOTP/recovery code field appears next.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
     Button(
         onClick = onLogin,
         enabled =
