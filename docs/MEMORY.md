@@ -1,5 +1,6 @@
 ## GOTCHA
 
+- Android `:app:assembleRelease` currently produces `app/build/outputs/apk/release/app-release-unsigned.apk` because there is no signing config yet. Any workflow or release docs must call the artifact unsigned until keystore-based signing is added.
 - Backend Prisma schema edits are not visible to TypeScript/Nest until `cd backend && npm run prisma:generate` refreshes `node_modules/@prisma/client`; if `shareLink` or other new model types seem to be missing during `npm run typecheck`/`npm run build`, regenerate the client first.
 - Any command that can uninstall/reinstall the app, clear app data, or otherwise wipe app-private state on a phone (for example `connectedDebugAndroidTest`, `pm clear`, uninstall/reinstall flows, or similar instrumentation/install paths) must be called out explicitly before running. Treat favorites / prefs / mock state loss as destructive, operator-visible risk; do not suggest or run such commands on a primary device unless the user has clearly accepted the risk or taken an adb/run-as backup first.
 - During manual smoke guidance, give exactly one next test step at a time. Do not dump a multi-step checklist unless the user explicitly asks for the full list.
