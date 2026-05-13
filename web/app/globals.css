@@ -320,7 +320,7 @@ label {
 
 .shell {
   margin: 0 auto;
-  max-width: 1180px;
+  max-width: 1440px;
   padding: 2rem;
 }
 
@@ -438,10 +438,24 @@ label {
    ========================================================================== */
 
 .dashboard-grid {
-  align-items: start;
   display: grid;
   gap: 1rem;
-  grid-template-columns: minmax(18rem, 0.9fr) minmax(24rem, 1.4fr);
+  grid-template-columns: minmax(0, 1fr);
+  position: relative;
+}
+
+.dashboard-grid > aside {
+  left: 1rem;
+  max-height: calc(100vh - 13rem);
+  overflow: auto;
+  position: absolute;
+  top: 5.4rem;
+  width: min(22rem, calc(100% - 2rem));
+  z-index: 5;
+}
+
+.dashboard-grid > section {
+  min-width: 0;
 }
 
 /* ==========================================================================
@@ -471,6 +485,18 @@ label {
 .card h2,
 .panel h2 {
   font-size: 1.1rem;
+}
+
+.dashboard-grid > aside .card {
+  backdrop-filter: blur(16px);
+  background: rgb(255 255 255 / 86%);
+  box-shadow: var(--shadow-md);
+}
+
+@media (prefers-color-scheme: dark) {
+  .dashboard-grid > aside .card {
+    background: rgb(28 40 32 / 88%);
+  }
 }
 
 /* ==========================================================================
@@ -702,7 +728,7 @@ label {
 .map {
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-xs);
-  height: 24rem;
+  height: clamp(30rem, 68vh, 46rem);
   overflow: hidden;
 }
 
@@ -732,6 +758,19 @@ label {
   .dashboard-grid,
   .split {
     grid-template-columns: 1fr;
+  }
+
+  .dashboard-grid > aside {
+    left: auto;
+    max-height: none;
+    overflow: visible;
+    position: static;
+    top: auto;
+    width: auto;
+  }
+
+  .map {
+    height: 24rem;
   }
 
   .topbar {
