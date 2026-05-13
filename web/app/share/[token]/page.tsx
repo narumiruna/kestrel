@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/components/AuthProvider';
-import { ApiError, type Route, type SharedRouteSnapshot, apiFetch } from '@/lib/api';
+import { ApiError, apiFetch, type Route, type SharedRouteSnapshot } from '@/lib/api';
 
 const RouteMapPreview = dynamic(() => import('@/components/RouteMapPreview'), {
   ssr: false,
@@ -50,11 +50,17 @@ export default function SharedRoutePage() {
       return;
     }
 
+    if (sharedRoute == null) {
+      setCopyError('Shared route is not loaded yet');
+      return;
+    }
+
     setCopyError(null);
     setIsCopying(true);
 
     try {
       const result = await auth.apiRequest<Route>(`/shares/${token}/copy`, {
+        body: JSON.stringify({ routeRevisionId: sharedRoute.route.revision.id }),
         method: 'POST',
       });
       setCopiedRoute(result);
@@ -89,8 +95,9 @@ export default function SharedRoutePage() {
               <div>
                 <h1 style={{ marginBottom: '0.25rem' }}>{sharedRoute.route.name}</h1>
                 <p className="muted" style={{ margin: 0 }}>
-                  rev {sharedRoute.route.revision.revisionNumber} · {sharedRoute.route.revision.defaultSpeedKmh}{' '}
-                  km/h · {formatMode(sharedRoute.route.revision.mode)}
+                  rev {sharedRoute.route.revision.revisionNumber} ·{' '}
+                  {sharedRoute.route.revision.defaultSpeedKmh} km/h ·{' '}
+                  {formatMode(sharedRoute.route.revision.mode)}
                 </p>
               </div>
               <span className="chip">public link</span>

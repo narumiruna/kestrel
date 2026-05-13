@@ -58,6 +58,7 @@ export type SharedRouteSnapshot = {
     revision: {
       createdAt: string;
       defaultSpeedKmh: number;
+      id: string;
       mode: RouteMode;
       revisionNumber: number;
       waypoints: RouteWaypoint[];
