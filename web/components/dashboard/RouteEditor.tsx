@@ -11,6 +11,7 @@ import {
 } from '@/components/dashboard/utils';
 import {
   ApiError,
+  type Place,
   type Route,
   type RouteInput,
   type RouteMode,
@@ -24,11 +25,15 @@ const RouteMapEditor = dynamic(() => import('@/components/RouteMapEditor'), {
 
 export default function RouteEditor({
   onDelete,
+  onNew,
   onSave,
+  places = [],
   route,
 }: {
   onDelete?: () => void;
+  onNew?: () => void;
   onSave: (input: RouteInput) => void;
+  places?: Place[];
   route: Route | null;
 }) {
   const [name, setName] = useState(route?.name ?? '');
@@ -40,11 +45,9 @@ export default function RouteEditor({
     route?.currentRevision?.waypoints.map((waypoint) => ({
       latitude: waypoint.latitude,
       longitude: waypoint.longitude,
-    })) ?? [
-      { latitude: 25.033, longitude: 121.5654 },
-      { latitude: 25.0375, longitude: 121.5637 },
-    ],
+    })) ?? [],
   );
+  const [focusTarget, setFocusTarget] = useState<RouteWaypoint | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -72,16 +75,54 @@ export default function RouteEditor({
     }
   }
 
+  function startFromPlace(placeId: string) {
+    const place = places.find((currentPlace) => currentPlace.id === placeId);
+
+    if (place == null) {
+      return;
+    }
+
+    const waypoint = {
+      latitude: place.latitude,
+      longitude: place.longitude,
+    };
+
+    setWaypoints([waypoint]);
+    setFocusTarget(waypoint);
+  }
+
   return (
     <form className="panel stack" onSubmit={submit}>
       <div className="row" style={{ justifyContent: 'space-between' }}>
         <h2>{route == null ? 'New route' : 'Route editor'}</h2>
-        {route?.currentRevision == null ? null : (
-          <span className="chip">latest revision {route.currentRevision.revisionNumber}</span>
-        )}
+        <div className="row">
+          {route?.currentRevision == null ? null : (
+            <span className="chip">latest revision {route.currentRevision.revisionNumber}</span>
+          )}
+          {onNew == null ? null : (
+            <button className="secondary" type="button" onClick={onNew}>
+              New route
+            </button>
+          )}
+        </div>
       </div>
       {error == null ? null : <div className="error">{error}</div>}
-      <RouteMapEditor waypoints={waypoints} onChange={setWaypoints} />
+      {route == null && waypoints.length === 0 && places.length > 0 ? (
+        <label>
+          Start from place
+          <select defaultValue="" onChange={(event) => startFromPlace(event.target.value)}>
+            <option disabled value="">
+              Select a saved place…
+            </option>
+            {places.map((place) => (
+              <option key={place.id} value={place.id}>
+                {place.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : null}
+      <RouteMapEditor focusTarget={focusTarget} waypoints={waypoints} onChange={setWaypoints} />
       <label>
         Name
         <input required value={name} onChange={(event) => setName(event.target.value)} />

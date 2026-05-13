@@ -7,6 +7,7 @@ import type { RouteWaypoint } from '@/lib/api';
 
 type Props = {
   className?: string;
+  focusTarget?: RouteWaypoint | null;
   onChange: (waypoints: RouteWaypoint[]) => void;
   waypoints: RouteWaypoint[];
 };
@@ -14,7 +15,12 @@ type Props = {
 const LINE_SOURCE_ID = 'route-line';
 const LINE_LAYER_ID = 'route-line';
 
-export default function RouteMapEditor({ className = 'map', onChange, waypoints }: Props) {
+export default function RouteMapEditor({
+  className = 'map',
+  focusTarget = null,
+  onChange,
+  waypoints,
+}: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const markersRef = useRef<Marker[]>([]);
@@ -96,15 +102,27 @@ export default function RouteMapEditor({ className = 'map', onChange, waypoints 
     if (map.isStyleLoaded()) {
       updateLine(map, waypoints);
       syncMarkers(map, markersRef.current, waypoints, onChange);
-      fitWaypoints(map, waypoints);
     } else {
       map.once('load', () => {
         updateLine(map, waypoints);
         syncMarkers(map, markersRef.current, waypoints, onChange);
-        fitWaypoints(map, waypoints);
       });
     }
   }, [onChange, waypoints]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+
+    if (map == null || focusTarget == null) {
+      return;
+    }
+
+    map.easeTo({
+      center: [focusTarget.longitude, focusTarget.latitude],
+      duration: 350,
+      zoom: Math.max(map.getZoom(), 14),
+    });
+  }, [focusTarget]);
 
   return <div className={className} ref={containerRef} />;
 }
