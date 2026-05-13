@@ -13,9 +13,9 @@ import java.net.URL
 import java.nio.charset.StandardCharsets
 import java.time.Instant
 
-class CloudApiClient(
+internal class CloudApiClient(
     private val baseUrlProvider: suspend () -> String,
-) {
+) : CloudSyncApi {
     private val json = Json { ignoreUnknownKeys = true }
 
     suspend fun loginWithTotp(
@@ -56,13 +56,13 @@ class CloudApiClient(
         )
     }
 
-    internal suspend fun bootstrap(accessToken: String): CloudBootstrapResponse =
+    override suspend fun bootstrap(accessToken: String): CloudBootstrapResponse =
         getJson(
             path = "/sync/bootstrap",
             accessToken = accessToken,
         )
 
-    internal suspend fun getChanges(
+    override suspend fun getChanges(
         accessToken: String,
         since: String,
     ): CloudChangesResponse =
@@ -71,7 +71,7 @@ class CloudApiClient(
             accessToken = accessToken,
         )
 
-    internal suspend fun upload(
+    override suspend fun upload(
         accessToken: String,
         request: CloudSyncUploadRequest,
     ): CloudSyncUploadResponse =

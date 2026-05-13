@@ -3,15 +3,15 @@ package dev.narumi.kestrel.core.cloud
 import android.content.Context
 import dev.narumi.kestrel.core.data.KestrelPrefs
 
-class CloudAuthRepository private constructor(
+internal class CloudAuthRepository private constructor(
     context: Context,
-) {
+) : CloudSyncSessionProvider {
     private val applicationContext = context.applicationContext
     private val prefs = KestrelPrefs(applicationContext)
     private val sessionStore = CloudSessionStore(applicationContext)
     private val apiClient = CloudApiClient(baseUrlProvider = { prefs.cloudSettingsValue().apiBaseUrl })
 
-    fun currentSession(): CloudSession? = sessionStore.load()
+    override fun currentSession(): CloudSession? = sessionStore.load()
 
     suspend fun loginWithTotp(
         username: String,
@@ -38,7 +38,7 @@ class CloudAuthRepository private constructor(
         return session
     }
 
-    suspend fun refreshSession(): CloudSession? {
+    override suspend fun refreshSession(): CloudSession? {
         val currentSession = sessionStore.load() ?: return null
         return runCatching {
             apiClient.refresh(currentSession.refreshToken)
