@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION")
+
 package dev.narumi.kestrel.feature.options
 
 import androidx.compose.foundation.layout.Arrangement
@@ -20,17 +22,23 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.autofill.ContentType
+import androidx.compose.ui.autofill.AutofillNode
+import androidx.compose.ui.autofill.AutofillType
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalAutofill
+import androidx.compose.ui.platform.LocalAutofillTree
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.semantics.contentType
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
@@ -69,7 +77,37 @@ private data class CloudSettingsUiState(
     val syncState: CloudSyncState,
 )
 
-private fun Modifier.autofillContent(contentType: ContentType): Modifier = fillMaxWidth().semantics { this.contentType = contentType }
+@Composable
+private fun Modifier.cloudAutofill(
+    autofillTypes: List<AutofillType>,
+    onFill: (String) -> Unit,
+): Modifier {
+    val autofill = LocalAutofill.current
+    val autofillTree = LocalAutofillTree.current
+    val currentOnFill = rememberUpdatedState(onFill)
+    val autofillNode =
+        remember(autofillTypes) {
+            AutofillNode(
+                autofillTypes = autofillTypes,
+                onFill = { currentOnFill.value(it) },
+            )
+        }
+
+    DisposableEffect(autofillTree, autofillNode) {
+        autofillTree += autofillNode
+        onDispose { autofillTree.children.remove(autofillNode.id) }
+    }
+
+    return onGloballyPositioned { coordinates ->
+        autofillNode.boundingBox = coordinates.boundsInWindow()
+    }.onFocusChanged { focusState ->
+        if (focusState.isFocused) {
+            autofill?.requestAutofillForNode(autofillNode)
+        } else {
+            autofill?.cancelAutofillForNode(autofillNode)
+        }
+    }
+}
 
 @Composable
 fun OptionsScreen(modifier: Modifier = Modifier) {
@@ -378,7 +416,13 @@ private fun CloudSignedOutCardContent(
         label = { Text("Username") },
         singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
-        modifier = Modifier.autofillContent(ContentType.Username),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .cloudAutofill(
+                    autofillTypes = listOf(AutofillType.Username, AutofillType.EmailAddress),
+                    onFill = { onLoginFormChange(loginForm.copy(username = it)) },
+                ),
     )
     OutlinedTextField(
         value = loginForm.password,
@@ -387,7 +431,13 @@ private fun CloudSignedOutCardContent(
         singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
         visualTransformation = PasswordVisualTransformation(),
-        modifier = Modifier.autofillContent(ContentType.Password),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .cloudAutofill(
+                    autofillTypes = listOf(AutofillType.Password),
+                    onFill = { onLoginFormChange(loginForm.copy(password = it)) },
+                ),
     )
     OutlinedTextField(
         value = loginForm.oneTimeCode,
@@ -395,7 +445,13 @@ private fun CloudSignedOutCardContent(
         label = { Text(if (loginForm.useRecoveryCode) "Recovery code" else "TOTP code") },
         singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-        modifier = Modifier.autofillContent(ContentType.SmsOtpCode),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .cloudAutofill(
+                    autofillTypes = listOf(AutofillType.SmsOtpCode),
+                    onFill = { onLoginFormChange(loginForm.copy(oneTimeCode = it)) },
+                ),
     )
     StartupRadioRow(
         label = "Use recovery code instead of TOTP",
