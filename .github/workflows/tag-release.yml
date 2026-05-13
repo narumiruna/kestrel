@@ -1,0 +1,67 @@
+name: Tag release
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'gradle.properties'
+      - 'backend/package.json'
+      - 'backend/package-lock.json'
+      - 'web/package.json'
+      - 'web/package-lock.json'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tag-release
+  cancel-in-progress: false
+
+jobs:
+  tag-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Require PAT token
+        env:
+          PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
+        run: |
+          if [ -z "$PAT_TOKEN" ]; then
+            echo "Repository secret PAT_TOKEN is required to push tags that trigger release.yml" >&2
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.PAT_TOKEN }}
+
+      - name: Resolve shared version metadata
+        id: meta
+        run: |
+          scripts/resolve-release-metadata.sh --current
+
+      - name: Skip when release tag already exists
+        id: existing-tag
+        env:
+          RELEASE_TAG: ${{ steps.meta.outputs.tag }}
+        run: |
+          if git ls-remote --tags origin "refs/tags/${RELEASE_TAG}" | grep -q .; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Tag ${RELEASE_TAG} already exists; skipping"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create and push release tag
+        if: steps.existing-tag.outputs.exists == 'false'
+        env:
+          RELEASE_TAG: ${{ steps.meta.outputs.tag }}
+          RELEASE_VERSION: ${{ steps.meta.outputs.version_name }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$RELEASE_TAG" -m "Release $RELEASE_VERSION"
+          git push origin "$RELEASE_TAG"
