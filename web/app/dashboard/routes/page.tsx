@@ -85,11 +85,7 @@ export default function RoutesDashboardPage() {
       onRefresh={() => void loadRoutes()}
       username={auth.session.user.username}
     >
-      {error == null ? null : (
-        <div className="error" style={{ marginBottom: '1rem' }}>
-          {error}
-        </div>
-      )}
+      {error == null ? null : <div className="error dashboard-error">{error}</div>}
 
       <section className="dashboard-grid">
         <aside className={`dashboard-sidebar${isSidebarOpen ? '' : ' collapsed'}`}>

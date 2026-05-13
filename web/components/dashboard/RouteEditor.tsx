@@ -142,9 +142,9 @@ export default function RouteEditor({
           </button>
         )}
       </header>
-      {error == null ? null : <div className="error">{error}</div>}
+      {error == null ? null : <div className="error route-editor-error">{error}</div>}
 
-      <section className="route-editor-section">
+      <section className="route-editor-section route-editor-map-section">
         <div>
           <h3>Map builder</h3>
           <p className="muted">Build the route shape from favorites or direct map clicks.</p>
@@ -235,7 +235,7 @@ export default function RouteEditor({
         </div>
       </section>
 
-      <section className="route-editor-section">
+      <section className="route-editor-section route-editor-details-section">
         <div>
           <h3>Route details</h3>
           <p className="muted">Name the route and set how it should play back.</p>
@@ -269,7 +269,7 @@ export default function RouteEditor({
         </label>
       </section>
 
-      <section className="route-editor-section route-editor-secondary-section">
+      <section className="route-editor-section route-editor-secondary-section route-editor-share-section">
         <div>
           <h3>Publishing / share</h3>
           <p className="muted">Keep the route private, or create a public link after saving.</p>
@@ -277,7 +277,7 @@ export default function RouteEditor({
         <label className="row">
           <input
             checked={isPublic}
-            style={{ width: 'auto' }}
+            className="inline-control"
             type="checkbox"
             onChange={(event) => setIsPublic(event.target.checked)}
           />
@@ -289,7 +289,7 @@ export default function RouteEditor({
       <footer className="route-editor-footer">
         <div className="stack">
           {saveDisabledReason == null ? null : (
-            <p className="muted" style={{ margin: 0 }}>
+            <p className="muted no-margin">
               {saveDisabledReason}
             </p>
           )}
@@ -535,19 +535,17 @@ function RouteSharePanel({ route }: { route: Route | null }) {
 
   if (route == null) {
     return (
-      <p className="muted" style={{ margin: 0 }}>
-        Save this route before creating a public latest-route link.
-      </p>
+      <p className="muted no-margin">Save this route before creating a public latest-route link.</p>
     );
   }
 
   return (
     <section className="stack">
-      <div className="row" style={{ justifyContent: 'space-between' }}>
-        <h3 style={{ margin: 0 }}>Share link</h3>
+      <div className="route-share-header">
+        <h3>Share link</h3>
         {isLoading ? <span className="muted">Loading…</span> : null}
       </div>
-      <p className="muted" style={{ margin: 0 }}>
+      <p className="muted no-margin">
         Visitors can open the public page without login. Signed-in users can copy the visible route
         snapshot into their own library.
       </p>
