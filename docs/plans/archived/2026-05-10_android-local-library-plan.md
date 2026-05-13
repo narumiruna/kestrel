@@ -22,7 +22,7 @@ The original phase replaced DataStore `Favorite(name as id)` storage with Room-b
 - [x] Preserve current UX: Points/Routes tabs, recent/manual sorting, rename/edit/delete/apply-now, and route playback from current revision waypoints.
 - [x] Remove legacy DataStore favorites JSON and migration-only code paths after stabilization.
 - [x] Add remote-id columns and lookup helpers used by Android cloud sync.
-- [x] Add dirty/local-only upload state transitions for local places that should be pushed to cloud; place upload + manual conflict resolution shipped end-to-end across PRs #46–#49 under `2026-05-10_android-local-upload-conflict-plan.md`.
+- [x] Add dirty/local-only upload state transitions for local places that should be pushed to cloud; place upload + manual conflict resolution shipped end-to-end across PRs #46–#49 under `docs/plans/archived/2026-05-10_android-local-upload-conflict-plan.md`.
 - [x] Keep complete route revision history loading out of the baseline local-library slice; future history UI follow-up is tracked in `2026-05-10_engineering-backlog-plan.md`.
 - [x] Keep per-segment speed/pause playback out of the baseline local-library slice; waypoint-metadata playback follow-up is tracked in `2026-05-10_engineering-backlog-plan.md`.
 
@@ -38,5 +38,5 @@ The original phase replaced DataStore `Favorite(name as id)` storage with Room-b
 - [x] UI no longer reads or mutates legacy DataStore favorites.
 - [x] Startup favorite references use `libraryItemId` rather than name identity.
 - [x] Remote-id binding exists for synced cloud rows.
-- [x] Dirty/local-only upload behavior is planned and implemented for places; outbox source-of-truth, conflict UI/actions, and real-device smoke all landed via PRs #46–#49 under `2026-05-10_android-local-upload-conflict-plan.md`. Remaining automated-test proof stays tracked in that plan's Completion Checklist rather than blocking this baseline local-library plan.
+- [x] Dirty/local-only upload behavior is planned and implemented for places; outbox source-of-truth, conflict UI/actions, real-device smoke, and later backend/Android automated coverage all landed under `docs/plans/archived/2026-05-10_android-local-upload-conflict-plan.md`, so this baseline local-library plan stays closed without depending on a separate active upload/conflict plan.
 - [x] Route revision history and per-segment playback remain explicit follow-ups, verified by the dedicated backlog items in `2026-05-10_engineering-backlog-plan.md`.
