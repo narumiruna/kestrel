@@ -29,6 +29,8 @@ KESTREL_API_BASE_URL=http://localhost:3300 npm run dev
 - Route list/create/edit/delete.
 - MapLibre route editor: click map to add waypoints, drag markers to adjust coordinates, delete/reorder waypoint rows.
 - Route default speed/mode/public flag and latest revision display.
+- Route latest-share-link controls in the dashboard: create, disable/re-enable, copy URL, and open the public page.
+- Public share page for latest route snapshots with map preview and signed-in copy-to-library action.
 
 ## Validation
 
