@@ -136,7 +136,14 @@ export default function RoutesDashboardPage() {
                     </span>
                   </button>
                 ))}
-                {routes.length === 0 && !isLoading ? <p className="muted">No routes yet.</p> : null}
+                {routes.length === 0 && !isLoading ? (
+                  <div className="empty-state">
+                    <p className="muted">No routes yet.</p>
+                    <button className="secondary" type="button" onClick={() => setSelectedRouteId(null)}>
+                      Create your first route
+                    </button>
+                  </div>
+                ) : null}
               </div>
             </div>
           </div>
