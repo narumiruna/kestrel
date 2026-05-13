@@ -13,6 +13,7 @@ export default function PlacesDashboardPage() {
   const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   const selectedPlace = useMemo(
     () => places.find((place) => place.id === selectedPlaceId) ?? null,
@@ -86,31 +87,48 @@ export default function PlacesDashboardPage() {
       )}
 
       <section className="dashboard-grid">
-        <aside className="grid">
+        <aside className={`dashboard-sidebar${isSidebarOpen ? '' : ' collapsed'}`}>
           <div className="card stack">
-            <div className="row" style={{ justifyContent: 'space-between' }}>
-              <h2>Places</h2>
-              <button className="secondary" type="button" onClick={() => setSelectedPlaceId(null)}>
-                New
-              </button>
-            </div>
-            {isLoading ? <p className="muted">Loading…</p> : null}
-            <div className="list">
-              {places.map((place) => (
+            <div className="dashboard-sidebar-header">
+              <h2 className="dashboard-sidebar-title">Places</h2>
+              <div className="row dashboard-sidebar-actions">
                 <button
-                  className={`list-item ${selectedPlaceId === place.id ? 'active' : ''}`}
-                  key={place.id}
+                  aria-expanded={isSidebarOpen}
+                  aria-label={isSidebarOpen ? 'Collapse places sidebar' : 'Expand places sidebar'}
+                  className="secondary dashboard-sidebar-toggle"
                   type="button"
-                  onClick={() => setSelectedPlaceId(place.id)}
+                  onClick={() => setIsSidebarOpen((current) => !current)}
                 >
-                  <strong>{place.name}</strong>
-                  <span className="muted">
-                    {formatCoord(place.latitude)}, {formatCoord(place.longitude)}
-                  </span>
-                  <TagRow tags={place.tags} />
+                  {isSidebarOpen ? '‹' : '›'}
                 </button>
-              ))}
-              {places.length === 0 && !isLoading ? <p className="muted">No places yet.</p> : null}
+                <button
+                  className="secondary dashboard-sidebar-new"
+                  type="button"
+                  onClick={() => setSelectedPlaceId(null)}
+                >
+                  New
+                </button>
+              </div>
+            </div>
+            <div className="dashboard-sidebar-content">
+              {isLoading ? <p className="muted">Loading…</p> : null}
+              <div className="list">
+                {places.map((place) => (
+                  <button
+                    className={`list-item ${selectedPlaceId === place.id ? 'active' : ''}`}
+                    key={place.id}
+                    type="button"
+                    onClick={() => setSelectedPlaceId(place.id)}
+                  >
+                    <strong>{place.name}</strong>
+                    <span className="muted">
+                      {formatCoord(place.latitude)}, {formatCoord(place.longitude)}
+                    </span>
+                    <TagRow tags={place.tags} />
+                  </button>
+                ))}
+                {places.length === 0 && !isLoading ? <p className="muted">No places yet.</p> : null}
+              </div>
             </div>
           </div>
         </aside>
