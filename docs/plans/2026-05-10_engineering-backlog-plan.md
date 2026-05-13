@@ -26,6 +26,8 @@ This backlog comes from the general TODO and the operations/DX sections of the c
 - [ ] Improve foreground notification title/text and channel description.
 - [ ] Replace default Android Studio app icon with Kestrel adaptive icon assets.
 - [ ] Add Generate route advanced parameters: starting bearing, turn variance, and optional seed.
+- [ ] Add Android route revision history UI only if a concrete product need appears; keep current-revision-only storage/load behavior as the default until that slice is planned.
+- [ ] Add per-segment waypoint speed/pause playback once route execution supports waypoint metadata end-to-end, with dedicated `MovementEngine`/service tests.
 - [ ] Split `MapScreen` and `KestrelMap` long composables enough to remove corresponding detekt baseline entries.
 - [ ] Establish release build/proguard flow: first signed release with minify off, then staged R8 enablement.
 - [ ] Add map style toggle for OSM raster and project light/dark styles.
