@@ -22,14 +22,23 @@ The original phase added coordinate paste parsing, Google Maps URL parsing, Go t
 - [x] Add Favorites tabs, sort menu, overflow actions, rename, edit coordinates, edit route speed/mode, delete, and Apply.
 - [x] Update `lastUsedAt` when applying from Go to, Favorites, or startup favorite.
 - [x] Persist manual ordering using Move up / Move down controls.
-- [ ] Decide whether true drag-and-drop reorder is still required now that Move up / Move down exists; if yes, implement Compose drag reorder with stable `libraryItemId` keys.
-- [ ] Run and record current verification: `just check`, `just lint`, and one real-device smoke test for Go to/Favorites apply behavior.
-- [ ] Decide whether `Favorite detail + Apply now` remains useful now that row-level Apply exists; either implement a detail page or mark not applicable.
+- [x] Accept Move up / Move down as the long-term manual ordering UX for this slice and keep drag-and-drop out of scope; row actions already support stable `libraryItemId` reordering without adding Compose gesture complexity.
+- [x] Record current command validation for this cleanup pass with `just check` and `just lint`; a fresh real-device Go to/Favorites smoke is moved to `2026-05-10_engineering-backlog-plan.md` because no Android device is attached in this docs-closing pass.
+- [x] Mark `Favorite detail + Apply now` not applicable for this slice because row-level Apply already covers the primary action without introducing another detail screen.
 
 ## Risks
 
 - True drag-and-drop in Compose can add gesture complexity and conflict with scrollable lists; Move up / Move down may be the lower-risk permanent UX.
 - Manual verification depends on mock-location app settings and cannot be fully replaced by unit tests.
+
+## Validation
+
+- 2026-05-13 command validation in repo workspace:
+  - `just check` ✅
+  - `just lint` ✅
+  - `just devices` showed no attached Android device, so a fresh real-device Go to/Favorites smoke was not rerun during this docs-closing pass.
+- Follow-up moved out of this baseline plan:
+  - `2026-05-10_engineering-backlog-plan.md` now tracks rerunning a fresh real-device Go to/Favorites apply smoke after the next substantial map/favorites refactor.
 
 ## Completion Checklist
 
@@ -38,5 +47,5 @@ The original phase added coordinate paste parsing, Google Maps URL parsing, Go t
 - [x] Applying during active mock stops the previous mock before replacing state.
 - [x] Favorites actions work with stable library item ids.
 - [x] Recent sorting reflects `lastUsedAt` updates.
-- [ ] Drag reorder is either implemented or explicitly marked not applicable because Move up / Move down is accepted.
-- [ ] Latest `just check` and `just lint` results are recorded after Java/Gradle environment is available.
+- [x] Drag reorder is explicitly marked not applicable because Move up / Move down is accepted for this slice.
+- [x] Latest `just check` and `just lint` results are recorded after Java/Gradle environment is available.

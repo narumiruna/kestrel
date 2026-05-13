@@ -34,6 +34,7 @@ This backlog comes from the general TODO and the operations/DX sections of the c
 - [ ] Plan on-road movement using OSRM/GraphHopper public API without offline routing.
 - [ ] Add zh-TW and ja string resources after UI strings stabilize.
 - [ ] Add instrumented CI tests for emulator service lifecycle and startup mode apply behavior.
+- [ ] Run a fresh real-device smoke for Go to/Favorites apply behavior after the next substantial map/favorites refactor, since the baseline quick-jump/favorites slice is otherwise complete and current cleanup was verified only by `just check` / `just lint`.
 - [ ] Show current mode + speed numerically in `MapScreen` status row while a route is playing; today it only shows `Route playing` + waypoint count, so operators can't tell at a glance which mode/speed the restored route is in. Surfaced by `2026-05-11_route-ui-state-restore-plan.md` smoke results.
 - [ ] Run an Android `Sync now` smoke after copying a shared route from the public web page, and confirm the copied route appears/behaves as a normal owned route on device. Moved out of `docs/plans/archived/2026-05-13_sharing-plan.md` so the shipped sharing slice can close while keeping one Android end-to-end proof item tracked.
 - [ ] Make `ChipChoice` with `enabled = false && selected = true` visually distinct (reduced-alpha `primaryContainer` or outline); today `AssistChip` disabled colors mask the selected state so running-route mode/speed chips all look identical grey. Surfaced by `2026-05-11_route-ui-state-restore-plan.md` smoke results.
