@@ -65,10 +65,12 @@ export class SharingController {
   copySharedRoute(
     @Req() request: AuthenticatedRequest,
     @Param('token') token: string,
+    @Body() body: unknown,
   ) {
     return this.sharingService.copySharedRoute(
       getAuthenticatedUserId(request),
       token,
+      body,
     );
   }
 }

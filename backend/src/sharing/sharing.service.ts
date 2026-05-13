@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import {
+  BadRequestException,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
@@ -7,9 +8,9 @@ import {
 import {
   LibraryItemKind,
   RouteMode,
+  Prisma,
   SyncEntityType,
   SyncOperation,
-  type Prisma,
 } from '@prisma/client';
 import {
   mapRoute,
@@ -19,11 +20,15 @@ import {
 } from '../library/library.models';
 import { PrismaService } from '../prisma/prisma.service';
 import { mapShareLink, shareLinkSelect } from './sharing.models';
-import { parseShareLinkUpdateInput } from './sharing.validation';
+import {
+  parseCopySharedRouteInput,
+  parseShareLinkUpdateInput,
+} from './sharing.validation';
 
 type SharedRouteRevision = {
   createdAt: Date;
   defaultSpeedKmh: number;
+  id: string;
   mode: RouteMode;
   revisionNumber: number;
   waypoints: Array<{
@@ -97,16 +102,32 @@ export class SharingService {
       return mapShareLink(existingShareLink);
     }
 
-    const shareLink = await this.prismaService.shareLink.create({
-      data: {
-        ownerId: userId,
-        routeId,
-        token: createShareToken(),
-      },
-      select: shareLinkSelect,
-    });
+    try {
+      const shareLink = await this.prismaService.shareLink.create({
+        data: {
+          ownerId: userId,
+          routeId,
+          token: createShareToken(),
+        },
+        select: shareLinkSelect,
+      });
 
-    return mapShareLink(shareLink);
+      return mapShareLink(shareLink);
+    } catch (error) {
+      if (isUniqueConstraintError(error)) {
+        const racedShareLink = await findLatestShareLink(
+          this.prismaService,
+          userId,
+          routeId,
+        );
+
+        if (racedShareLink != null) {
+          return mapShareLink(racedShareLink);
+        }
+      }
+
+      throw error;
+    }
   }
 
   async updateRouteShareLink(userId: string, routeId: string, input: unknown) {
@@ -162,10 +183,16 @@ export class SharingService {
     };
   }
 
-  async copySharedRoute(userId: string, token: string) {
+  async copySharedRoute(userId: string, token: string, input: unknown) {
+    const { routeRevisionId } = parseCopySharedRouteInput(input);
+
     return this.prismaService.$transaction(async (tx) => {
       const shareLink = await this.getActiveShareLinkByToken(tx, token);
-      const revision = selectVisibleRevision(shareLink);
+      const revision = await getRequestedSharedRouteRevision(
+        tx,
+        shareLink,
+        routeRevisionId,
+      );
       const sortOrder = await getNextSortOrder(tx, userId);
       const createdRoute = await tx.route.create({
         data: {
@@ -364,16 +391,54 @@ function selectVisibleRevision(
   return {
     createdAt: mappedRevision.createdAt,
     defaultSpeedKmh: mappedRevision.defaultSpeedKmh,
+    id: mappedRevision.id,
     mode: mappedRevision.mode,
     revisionNumber: mappedRevision.revisionNumber,
     waypoints: mappedRevision.waypoints,
   };
 }
 
+async function getRequestedSharedRouteRevision(
+  prisma: Prisma.TransactionClient,
+  shareLink: PublicShareRecord,
+  routeRevisionId: string,
+): Promise<SharedRouteRevision> {
+  if (shareLink.routeRevisionId != null) {
+    if (shareLink.routeRevisionId !== routeRevisionId) {
+      throw new BadRequestException(
+        'routeRevisionId does not match the visible shared snapshot',
+      );
+    }
+
+    return selectVisibleRevision(shareLink);
+  }
+
+  const revision = await prisma.routeRevision.findFirst({
+    select: routeRevisionSelect,
+    where: {
+      id: routeRevisionId,
+      routeId: shareLink.routeId,
+    },
+  });
+
+  if (revision == null) {
+    throw new BadRequestException(
+      'routeRevisionId does not match the visible shared snapshot',
+    );
+  }
+
+  return selectVisibleRevision({
+    ...shareLink,
+    routeRevision: revision,
+    routeRevisionId: revision.id,
+  });
+}
+
 function sanitizePublicRouteRevision(revision: SharedRouteRevision) {
   return {
     createdAt: revision.createdAt,
     defaultSpeedKmh: revision.defaultSpeedKmh,
+    id: revision.id,
     mode: revision.mode,
     revisionNumber: revision.revisionNumber,
     waypoints: revision.waypoints.map((waypoint) => ({
@@ -443,4 +508,11 @@ async function recordSyncEvent(
 
 function createShareToken(): string {
   return randomBytes(18).toString('base64url');
+}
+
+function isUniqueConstraintError(error: unknown): boolean {
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === 'P2002'
+  );
 }

@@ -539,9 +539,12 @@ function RouteSharePanel({ route }: { route: Route | null }) {
     setIsMutating(true);
 
     try {
-      const nextShareLink = await auth.apiRequest<RouteShareLink>(`/routes/${route.id}/share-link`, {
-        method: 'POST',
-      });
+      const nextShareLink = await auth.apiRequest<RouteShareLink>(
+        `/routes/${route.id}/share-link`,
+        {
+          method: 'POST',
+        },
+      );
       setShareLink(nextShareLink);
     } catch (nextError) {
       setError(formatError(nextError));
@@ -560,10 +563,13 @@ function RouteSharePanel({ route }: { route: Route | null }) {
     setIsMutating(true);
 
     try {
-      const nextShareLink = await auth.apiRequest<RouteShareLink>(`/routes/${route.id}/share-link`, {
-        body: JSON.stringify({ disabled }),
-        method: 'PATCH',
-      });
+      const nextShareLink = await auth.apiRequest<RouteShareLink>(
+        `/routes/${route.id}/share-link`,
+        {
+          body: JSON.stringify({ disabled }),
+          method: 'PATCH',
+        },
+      );
       setShareLink(nextShareLink);
     } catch (nextError) {
       setError(formatError(nextError));
@@ -586,7 +592,10 @@ function RouteSharePanel({ route }: { route: Route | null }) {
   }
 
   return (
-    <section className="stack" style={{ borderTop: '1px solid var(--color-border)', paddingTop: '0.75rem' }}>
+    <section
+      className="stack"
+      style={{ borderTop: '1px solid var(--color-border)', paddingTop: '0.75rem' }}
+    >
       <div className="row" style={{ justifyContent: 'space-between' }}>
         <h3 style={{ margin: 0 }}>Share link</h3>
         {isLoading ? <span className="muted">Loading…</span> : null}
@@ -616,7 +625,11 @@ function RouteSharePanel({ route }: { route: Route | null }) {
                 <input readOnly value={toAbsolutePublicUrl(shareLink.publicUrl)} />
               </label>
               <div className="chip-row">
-                {shareLink.disabledAt == null ? <span className="chip">active</span> : <span className="chip">disabled</span>}
+                {shareLink.disabledAt == null ? (
+                  <span className="chip">active</span>
+                ) : (
+                  <span className="chip">disabled</span>
+                )}
                 <span className="chip">latest route</span>
               </div>
               <div className="row">
