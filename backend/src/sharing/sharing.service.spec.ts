@@ -4,10 +4,12 @@ import {
 } from '@nestjs/common';
 import {
   LibraryItemKind,
+  Prisma,
   RouteMode,
   SyncEntityType,
   SyncOperation,
 } from '@prisma/client';
+import { routeRevisionSelect } from '../library/library.models';
 import { SharingService } from './sharing.service';
 
 describe('SharingService', () => {
@@ -78,6 +80,40 @@ describe('SharingService', () => {
       token: 'share-token-1',
     });
     expect(prismaService.shareLink.create).toHaveBeenCalledTimes(1);
+  });
+
+  it('reuses the active share link when concurrent create hits the unique index', async () => {
+    prismaService.route.findFirst.mockResolvedValue({
+      currentRevisionId: 'revision-1',
+      id: 'route-1',
+    });
+    prismaService.shareLink.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(
+        createShareLinkRecord({
+          disabledAt: null,
+          routeId: 'route-1',
+          token: 'share-token-1',
+        }),
+      );
+    prismaService.shareLink.create.mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError('duplicate active share link', {
+        clientVersion: 'test',
+        code: 'P2002',
+      }),
+    );
+
+    const result = await sharingService.createRouteShareLink(
+      'user-1',
+      'route-1',
+    );
+
+    expect(result).toMatchObject({
+      publicUrl: '/share/share-token-1',
+      routeId: 'route-1',
+      token: 'share-token-1',
+    });
+    expect(prismaService.shareLink.findFirst).toHaveBeenCalledTimes(2);
   });
 
   it('disables and re-enables an existing share link', async () => {
@@ -163,6 +199,7 @@ describe('SharingService', () => {
         name: 'River ride',
         revision: {
           defaultSpeedKmh: 24,
+          id: 'revision-3',
           mode: RouteMode.LOOP,
           revisionNumber: 3,
         },
@@ -183,9 +220,17 @@ describe('SharingService', () => {
     expect(result.route).not.toHaveProperty('id');
   });
 
-  it('copies the currently visible shared snapshot into the caller library', async () => {
+  it('copies the requested shared snapshot into the caller library', async () => {
     prismaService.shareLink.findUnique.mockResolvedValue(
       createPublicShareRecord({}),
+    );
+    prismaService.routeRevision.findFirst.mockResolvedValue(
+      createRouteRevisionRecord({
+        defaultSpeedKmh: 24,
+        id: 'revision-3',
+        mode: RouteMode.LOOP,
+        revisionNumber: 3,
+      }),
     );
     prismaService.libraryItem.findFirst.mockResolvedValue({
       sortOrder: 4,
@@ -216,8 +261,18 @@ describe('SharingService', () => {
     const copiedRoute = await sharingService.copySharedRoute(
       'user-2',
       'share-token-1',
+      {
+        routeRevisionId: 'revision-3',
+      },
     );
 
+    expect(prismaService.routeRevision.findFirst).toHaveBeenCalledWith({
+      select: routeRevisionSelect,
+      where: {
+        id: 'revision-3',
+        routeId: 'route-1',
+      },
+    });
     expect(prismaService.route.create).toHaveBeenCalledWith({
       data: {
         defaultSpeedKmh: 24,
@@ -300,6 +355,101 @@ describe('SharingService', () => {
     });
   });
 
+  it('copies the originally viewed snapshot even after the route gets a newer revision', async () => {
+    prismaService.shareLink.findUnique.mockResolvedValue(
+      createPublicShareRecord({
+        currentRevision: createRouteRevisionRecord({
+          defaultSpeedKmh: 30,
+          id: 'revision-4',
+          mode: RouteMode.ONCE,
+          revisionNumber: 4,
+          waypoints: [
+            {
+              latitude: 25.05,
+              longitude: 121.58,
+              pauseSeconds: null,
+              sequence: 0,
+              speedKmh: null,
+            },
+            {
+              latitude: 25.06,
+              longitude: 121.59,
+              pauseSeconds: null,
+              sequence: 1,
+              speedKmh: null,
+            },
+          ],
+        }),
+      }),
+    );
+    prismaService.routeRevision.findFirst.mockResolvedValue(
+      createRouteRevisionRecord({
+        defaultSpeedKmh: 24,
+        id: 'revision-3',
+        mode: RouteMode.LOOP,
+        revisionNumber: 3,
+      }),
+    );
+    prismaService.libraryItem.findFirst.mockResolvedValue({
+      sortOrder: 1,
+    });
+    prismaService.route.create.mockResolvedValue({
+      id: 'copied-route-2',
+    });
+    prismaService.routeRevision.create.mockResolvedValue({
+      id: 'copied-revision-2',
+    });
+    prismaService.route.update.mockResolvedValue({
+      id: 'copied-route-2',
+    });
+    prismaService.libraryItem.create.mockResolvedValue({
+      id: 'library-item-10',
+    });
+    prismaService.route.findUniqueOrThrow.mockResolvedValue(
+      createRouteRecord({
+        defaultSpeedKmh: 24,
+        id: 'copied-route-2',
+        libraryItemId: 'library-item-10',
+        mode: RouteMode.LOOP,
+        revisionId: 'copied-revision-2',
+        revisionNumber: 1,
+      }),
+    );
+
+    await sharingService.copySharedRoute('user-2', 'share-token-1', {
+      routeRevisionId: 'revision-3',
+    });
+
+    expect(prismaService.route.create).toHaveBeenCalledWith({
+      data: {
+        defaultSpeedKmh: 24,
+        description: 'Morning commute',
+        isPublic: false,
+        mode: RouteMode.LOOP,
+        name: 'River ride',
+        userId: 'user-2',
+      },
+      select: {
+        id: true,
+      },
+    });
+  });
+
+  it('rejects copying a revision outside the shared route snapshot', async () => {
+    prismaService.shareLink.findUnique.mockResolvedValue(
+      createPublicShareRecord({}),
+    );
+    prismaService.routeRevision.findFirst.mockResolvedValue(null);
+
+    await expect(
+      sharingService.copySharedRoute('user-2', 'share-token-1', {
+        routeRevisionId: 'revision-other-route',
+      }),
+    ).rejects.toThrow(
+      'routeRevisionId does not match the visible shared snapshot',
+    );
+  });
+
   it('rejects creating a share link for a route missing its current revision', async () => {
     prismaService.route.findFirst.mockResolvedValue({
       currentRevisionId: null,
@@ -343,6 +493,10 @@ function createMockPrismaService() {
             };
             routeRevision: {
               create: jest.Mock<Promise<{ id: string }>, [unknown]>;
+              findFirst: jest.Mock<
+                Promise<ReturnType<typeof createRouteRevisionRecord> | null>,
+                [unknown]
+              >;
             };
             shareLink: {
               create: jest.Mock<
@@ -387,6 +541,10 @@ function createMockPrismaService() {
     },
     routeRevision: {
       create: createMock<Promise<{ id: string }>, [unknown]>(),
+      findFirst: createMock<
+        Promise<ReturnType<typeof createRouteRevisionRecord> | null>,
+        [unknown]
+      >(),
     },
     shareLink: {
       create: createMock<
@@ -432,8 +590,11 @@ function createShareLinkRecord(input: {
 }
 
 function createPublicShareRecord(input: {
+  currentRevision?: ReturnType<typeof createRouteRevisionRecord>;
   disabledAt?: Date | null;
   expiresAt?: Date | null;
+  routeRevision?: ReturnType<typeof createRouteRevisionRecord> | null;
+  routeRevisionId?: string | null;
 }) {
   return {
     createdAt: new Date('2026-05-13T10:00:00.000Z'),
@@ -442,41 +603,64 @@ function createPublicShareRecord(input: {
     id: 'share-link-1',
     permission: 'PUBLIC_READ' as const,
     route: {
-      currentRevision: {
-        createdAt: new Date('2026-05-13T09:00:00.000Z'),
-        createdBy: 'user-1',
-        id: 'revision-3',
-        payload: {
+      currentRevision:
+        input.currentRevision ??
+        createRouteRevisionRecord({
           defaultSpeedKmh: 24,
+          id: 'revision-3',
           mode: RouteMode.LOOP,
-          waypoints: [
-            {
-              latitude: 25.03,
-              longitude: 121.56,
-              pauseSeconds: null,
-              sequence: 0,
-              speedKmh: null,
-            },
-            {
-              latitude: 25.04,
-              longitude: 121.57,
-              pauseSeconds: null,
-              sequence: 1,
-              speedKmh: null,
-            },
-          ],
-        },
-        revisionNumber: 3,
-      },
+          revisionNumber: 3,
+        }),
       deletedAt: null,
       description: 'Morning commute',
       name: 'River ride',
     },
     routeId: 'route-1',
-    routeRevision: null,
-    routeRevisionId: null,
+    routeRevision: input.routeRevision ?? null,
+    routeRevisionId: input.routeRevisionId ?? null,
     token: 'share-token-1',
     updatedAt: new Date('2026-05-13T10:00:00.000Z'),
+  };
+}
+
+function createRouteRevisionRecord(input: {
+  defaultSpeedKmh: number;
+  id: string;
+  mode: RouteMode;
+  revisionNumber: number;
+  waypoints?: Array<{
+    latitude: number;
+    longitude: number;
+    pauseSeconds: number | null;
+    sequence: number;
+    speedKmh: number | null;
+  }>;
+}) {
+  return {
+    createdAt: new Date('2026-05-13T09:00:00.000Z'),
+    createdBy: 'user-1',
+    id: input.id,
+    payload: {
+      defaultSpeedKmh: input.defaultSpeedKmh,
+      mode: input.mode,
+      waypoints: input.waypoints ?? [
+        {
+          latitude: 25.03,
+          longitude: 121.56,
+          pauseSeconds: null,
+          sequence: 0,
+          speedKmh: null,
+        },
+        {
+          latitude: 25.04,
+          longitude: 121.57,
+          pauseSeconds: null,
+          sequence: 1,
+          speedKmh: null,
+        },
+      ],
+    },
+    revisionNumber: input.revisionNumber,
   };
 }
 

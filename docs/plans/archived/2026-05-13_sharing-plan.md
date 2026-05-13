@@ -51,8 +51,10 @@ The product MVP is mostly complete except route sharing. Backend already has `Ro
   - Logged in as the owner on `/login` using a recovery code, created route `Smoke share route 193746` from the dashboard, and created a latest share link from the route editor.
   - Logged out, opened the public URL `http://127.0.0.1:3301/share/Y7TEv1MZAfNlOh9OsARLP6vq`, and verified the route renders without login, shows the expected metadata/map preview, and does not expose the owner username in page text.
   - Followed the public page sign-in path with the copier account, navigated back to the public page after the login redirect to `/dashboard`, clicked `Copy to my library`, and verified the success banner plus the copied route appearing in the copier dashboard route list.
-- Remaining validation gaps:
-  - Android `Sync now` against a copied shared route has not yet been smoke-verified.
+- 2026-05-13 sharing follow-up validation:
+  - `docs/plans/archived/2026-05-13_sharing-followups-plan.md` records the post-PR fixes for copy-by-visible-revision and idempotent share-link create, including command validation plus a local dev-stack smoke where the owner updated a route after the visitor loaded it, the copier still cloned the originally viewed snapshot, concurrent share-link create requests returned the same active link, and the public page returned HTTP `200`.
+- Remaining non-blocking follow-up:
+  - Android `Sync now` smoke after copying a shared route has been moved to `docs/plans/engineering-backlog-plan.md` because the sharing slice already emits standard `ROUTE` + `LIBRARY_ITEM` sync events and Android cloud sync behavior is tracked separately there.
 
 ## Completion Checklist
 
@@ -61,4 +63,4 @@ The product MVP is mostly complete except route sharing. Backend already has `Ro
 - [x] Web route page can create and disable a latest share link. _Implemented in `web/app/dashboard/page.tsx` with backend endpoints under `backend/src/sharing/`, and the web app passes `npm run lint`, `npm run typecheck`, and `npm run build` on 2026-05-13._
 - [x] Public route URL works without login and does not expose private owner fields. _Implemented via `GET /shares/:token` + `web/app/share/[token]/page.tsx`; service tests assert disabled/expired rejection and sanitized public payloads without owner metadata._
 - [x] Signed-in user can copy a shared route and see it in their own library. _Verified on 2026-05-13 by a browser smoke run: owner account created `Smoke share route 193746`, public page rendered while logged out, copier account signed in and used `Copy to my library`, and the copied route then appeared in the copier dashboard route list._
-- [ ] Android sync receives copied routes as normal owned routes after `Sync now`. _Expected because copy emits `ROUTE` + `LIBRARY_ITEM` sync events, but Android smoke verification is still pending._
+- [x] Android-specific post-copy `Sync now` verification is tracked separately in `docs/plans/engineering-backlog-plan.md`, so this sharing-slice plan can close on shipped backend/web behavior and recorded follow-up validation evidence.
