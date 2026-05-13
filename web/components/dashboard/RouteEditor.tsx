@@ -1,7 +1,8 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { type FormEvent, useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
+import { type FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import {
   formatError,
@@ -54,6 +55,7 @@ export default function RouteEditor({
   const [isSaving, setIsSaving] = useState(false);
   const routeBuilderHint = getRouteBuilderHint(waypoints.length, places.length);
   const saveDisabledReason = getSaveDisabledReason(waypoints.length);
+  const favoritePickerMode = waypoints.length === 0 ? 'start' : 'append';
 
   useEffect(() => {
     if (selectedWaypointIndex != null && selectedWaypointIndex >= waypoints.length) {
@@ -85,21 +87,16 @@ export default function RouteEditor({
     }
   }
 
-  function startFromPlace(placeId: string) {
-    const place = places.find((currentPlace) => currentPlace.id === placeId);
-
-    if (place == null) {
-      return;
-    }
-
+  function addFavoriteWaypoint(place: Place) {
     const waypoint = {
       latitude: place.latitude,
       longitude: place.longitude,
     };
+    const nextWaypoints = waypoints.length === 0 ? [waypoint] : [...waypoints, waypoint];
 
-    setWaypoints([waypoint]);
+    setWaypoints(nextWaypoints);
     setFocusTarget(waypoint);
-    setSelectedWaypointIndex(0);
+    setSelectedWaypointIndex(nextWaypoints.length - 1);
   }
 
   function duplicateLastWaypoint() {
@@ -153,21 +150,11 @@ export default function RouteEditor({
           <p className="muted">Build the route shape from favorites or direct map clicks.</p>
         </div>
         <div className="route-builder-hint">{routeBuilderHint}</div>
-        {route == null && waypoints.length === 0 && places.length > 0 ? (
-          <label>
-            Start from favorite place
-            <select defaultValue="" onChange={(event) => startFromPlace(event.target.value)}>
-              <option disabled value="">
-                Select a saved place…
-              </option>
-              {places.map((place) => (
-                <option key={place.id} value={place.id}>
-                  {place.name}
-                </option>
-              ))}
-            </select>
-          </label>
-        ) : null}
+        <FavoriteWaypointPicker
+          mode={favoritePickerMode}
+          places={places}
+          onSelect={addFavoriteWaypoint}
+        />
         <div className="map-builder">
           <RouteMapEditor
             fitRequest={fitRequest}
@@ -320,6 +307,88 @@ export default function RouteEditor({
       </footer>
     </form>
   );
+}
+
+function FavoriteWaypointPicker({
+  mode,
+  onSelect,
+  places,
+}: {
+  mode: 'append' | 'start';
+  onSelect: (place: Place) => void;
+  places: Place[];
+}) {
+  const [query, setQuery] = useState('');
+  const filteredPlaces = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+
+    if (normalizedQuery.length === 0) {
+      return places;
+    }
+
+    return places.filter((place) => {
+      const haystack = [place.name, place.description ?? '', ...place.tags].join(' ').toLowerCase();
+
+      return haystack.includes(normalizedQuery);
+    });
+  }, [places, query]);
+
+  if (places.length === 0) {
+    return (
+      <div className="favorite-picker empty-state">
+        <p className="muted">No favorite places yet.</p>
+        <Link href="/dashboard/places">Create a favorite place first</Link>
+      </div>
+    );
+  }
+
+  return (
+    <section className="favorite-picker stack">
+      <div>
+        <h3>{mode === 'start' ? 'Start from favorite place' : 'Add favorite as waypoint'}</h3>
+        <p className="muted">
+          {mode === 'start'
+            ? 'Pick a saved place as the first waypoint, or click the map to start manually.'
+            : 'Append a saved place to the end of this route.'}
+        </p>
+      </div>
+      <label>
+        Search favorite places
+        <input
+          placeholder="Search by name, tag, or description…"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+        />
+      </label>
+      <div className="favorite-place-list">
+        {filteredPlaces.map((place) => (
+          <button
+            className="favorite-place-option"
+            key={place.id}
+            type="button"
+            onClick={() => onSelect(place)}
+          >
+            <strong>{place.name}</strong>
+            <span className="muted">{formatFavoritePlaceCoords(place)}</span>
+            {place.tags.length === 0 ? null : (
+              <span className="chip-row">
+                {place.tags.map((tag) => (
+                  <span className="chip" key={tag}>
+                    {tag}
+                  </span>
+                ))}
+              </span>
+            )}
+          </button>
+        ))}
+        {filteredPlaces.length === 0 ? <p className="muted">No favorite places match.</p> : null}
+      </div>
+    </section>
+  );
+}
+
+function formatFavoritePlaceCoords(place: Place): string {
+  return `${place.latitude.toFixed(6)}, ${place.longitude.toFixed(6)}`;
 }
 
 function getWaypointKey(waypoint: RouteWaypoint, index: number): string {
