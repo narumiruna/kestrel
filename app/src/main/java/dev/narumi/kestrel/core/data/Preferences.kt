@@ -88,7 +88,7 @@ data class CloudSettings(
     val apiBaseUrl: String = DEFAULT_API_BASE_URL,
 ) {
     companion object {
-        const val DEFAULT_API_BASE_URL = "http://10.0.2.2:3000"
+        const val DEFAULT_API_BASE_URL = "https://kestrel.narumi.dev"
     }
 }
 

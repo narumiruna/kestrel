@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -26,7 +27,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.autofill.ContentDataType
+import androidx.compose.ui.autofill.ContentType
+import androidx.compose.ui.autofill.contentType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDataType
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -63,6 +70,11 @@ private data class CloudSettingsUiState(
     val session: CloudSession?,
     val syncState: CloudSyncState,
 )
+
+private fun Modifier.autofillText(contentType: ContentType): Modifier =
+    fillMaxWidth()
+        .contentType(contentType)
+        .semantics { contentDataType = ContentDataType.Text }
 
 @Composable
 fun OptionsScreen(modifier: Modifier = Modifier) {
@@ -324,6 +336,11 @@ private fun CloudSettingsCard(
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
+            Text(
+                text = "Production default is https://kestrel.narumi.dev; /api/backend is added automatically.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             OutlinedButton(onClick = onSaveApiBaseUrl) { Text("Save API URL") }
 
             if (uiState.session == null) {
@@ -364,22 +381,25 @@ private fun CloudSignedOutCardContent(
         onValueChange = { onLoginFormChange(loginForm.copy(username = it)) },
         label = { Text("Username") },
         singleLine = true,
-        modifier = Modifier.fillMaxWidth(),
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+        modifier = Modifier.autofillText(ContentType.Username),
     )
     OutlinedTextField(
         value = loginForm.password,
         onValueChange = { onLoginFormChange(loginForm.copy(password = it)) },
         label = { Text("Password") },
         singleLine = true,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
         visualTransformation = PasswordVisualTransformation(),
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.autofillText(ContentType.Password),
     )
     OutlinedTextField(
         value = loginForm.oneTimeCode,
         onValueChange = { onLoginFormChange(loginForm.copy(oneTimeCode = it)) },
         label = { Text(if (loginForm.useRecoveryCode) "Recovery code" else "TOTP code") },
         singleLine = true,
-        modifier = Modifier.fillMaxWidth(),
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+        modifier = Modifier.autofillText(ContentType.SmsOtpCode),
     )
     StartupRadioRow(
         label = "Use recovery code instead of TOTP",
