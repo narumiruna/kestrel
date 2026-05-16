@@ -146,8 +146,8 @@ export default function RouteEditor({
 
       <section className="route-editor-section route-editor-map-section">
         <div>
-          <h3>Map builder</h3>
-          <p className="muted">Build the route shape from favorites or direct map clicks.</p>
+          <h3>Route editor</h3>
+          <p className="muted">Edit your route, manage waypoints, and configure playback settings.</p>
         </div>
         <div className="route-builder-hint">{routeBuilderHint}</div>
         <FavoriteWaypointPicker
@@ -230,7 +230,7 @@ export default function RouteEditor({
             type="button"
             onClick={duplicateLastWaypoint}
           >
-            Duplicate last waypoint
+            + Add waypoint
           </button>
         </div>
       </section>
@@ -268,7 +268,7 @@ export default function RouteEditor({
             </label>
           </div>
           <label>
-            Description
+            Description (optional)
             <textarea
               value={description}
               onChange={(event) => setDescription(event.target.value)}
@@ -280,7 +280,7 @@ export default function RouteEditor({
       <details className="route-editor-section route-editor-collapsible route-editor-secondary-section route-editor-share-section">
         <summary>
           <span>Publishing / share</span>
-          <span className="muted">Privacy and public link</span>
+          <span className="muted">Privacy and public link settings</span>
         </summary>
         <div className="route-editor-collapsible-content">
           <label className="row">
@@ -353,7 +353,7 @@ function FavoriteWaypointPicker({
   return (
     <section className="favorite-picker stack">
       <div>
-        <h3>{mode === 'start' ? 'Start from favorite place' : 'Add favorite as waypoint'}</h3>
+        <h3>{mode === 'start' ? 'Add from favorites' : 'Add from favorites'}</h3>
         <p className="muted">
           {mode === 'start'
             ? 'Pick a saved place as the first waypoint, or click the map to start manually.'
@@ -361,9 +361,9 @@ function FavoriteWaypointPicker({
         </p>
       </div>
       <label>
-        Search favorite places
+        Search favorites...
         <input
-          placeholder="Search by name, tag, or description…"
+          placeholder="Search favorites..."
           value={query}
           onChange={(event) => setQuery(event.target.value)}
         />
