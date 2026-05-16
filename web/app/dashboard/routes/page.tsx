@@ -127,7 +127,9 @@ export default function RoutesDashboardPage() {
                       {route.defaultSpeedKmh} km/h · {formatMode(route.mode)}
                     </span>
                     <span className="chip-row">
-                      <span className="chip">rev {route.currentRevision?.revisionNumber ?? '—'}</span>
+                      <span className="chip">
+                        rev {route.currentRevision?.revisionNumber ?? '—'}
+                      </span>
                       {route.isPublic ? <span className="chip">public</span> : null}
                     </span>
                   </button>
@@ -135,7 +137,11 @@ export default function RoutesDashboardPage() {
                 {routes.length === 0 && !isLoading ? (
                   <div className="empty-state">
                     <p className="muted">No routes yet.</p>
-                    <button className="secondary" type="button" onClick={() => setSelectedRouteId(null)}>
+                    <button
+                      className="secondary"
+                      type="button"
+                      onClick={() => setSelectedRouteId(null)}
+                    >
                       Create your first route
                     </button>
                   </div>
