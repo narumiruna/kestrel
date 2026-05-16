@@ -1,6 +1,6 @@
 set shell := ["bash", "-cu"]
 
-java_home := "/Applications/Android Studio.app/Contents/jbr/Contents/Home"
+java_home := env_var_or_default("JAVA_HOME", "/Applications/Android Studio.app/Contents/jbr/Contents/Home")
 adb := "$HOME/Library/Android/sdk/platform-tools/adb"
 package := "dev.narumi.kestrel"
 activity := package + "/.MainActivity"
@@ -11,6 +11,10 @@ default: br
 
 # build debug APK
 build:
+    just android-build
+
+# build debug APK (Android only)
+android-build:
     JAVA_HOME="{{java_home}}" PATH="{{java_home}}/bin:$PATH" ./gradlew :app:assembleDebug
 
 # build release APK (unsigned unless signing config is added)
@@ -28,13 +32,21 @@ format:
 
 # verify Android + web formatting/lint without changing files
 check:
-    JAVA_HOME="{{java_home}}" PATH="{{java_home}}/bin:$PATH" ./gradlew spotlessCheck
+    just android-check
     just web-check
+
+# verify Android formatting without changing files
+android-check:
+    JAVA_HOME="{{java_home}}" PATH="{{java_home}}/bin:$PATH" ./gradlew spotlessCheck
 
 # run Android detekt + web linter
 lint:
-    JAVA_HOME="{{java_home}}" PATH="{{java_home}}/bin:$PATH" ./gradlew detekt
+    just android-lint
     just web-lint
+
+# run Android detekt only
+android-lint:
+    JAVA_HOME="{{java_home}}" PATH="{{java_home}}/bin:$PATH" ./gradlew detekt
 
 # auto-format web code with Biome, including safe fixes and import sorting
 web-format:
@@ -50,6 +62,10 @@ web-lint:
 
 # run JVM unit tests (debug variant)
 test:
+    just android-test
+
+# run Android JVM unit tests (debug variant)
+android-test:
     JAVA_HOME="{{java_home}}" PATH="{{java_home}}/bin:$PATH" ./gradlew :app:testDebugUnitTest
 
 # start the web + backend + postgres dev stack with Docker Compose

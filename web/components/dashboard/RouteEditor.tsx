@@ -235,7 +235,10 @@ export default function RouteEditor({
         </div>
       </section>
 
-      <details className="route-editor-section route-editor-collapsible route-editor-details-section" open>
+      <details
+        className="route-editor-section route-editor-collapsible route-editor-details-section"
+        open
+      >
         <summary>
           <span>Route details</span>
           <span className="muted">Name, speed, and playback</span>
@@ -266,7 +269,10 @@ export default function RouteEditor({
           </div>
           <label>
             Description
-            <textarea value={description} onChange={(event) => setDescription(event.target.value)} />
+            <textarea
+              value={description}
+              onChange={(event) => setDescription(event.target.value)}
+            />
           </label>
         </div>
       </details>
@@ -293,9 +299,7 @@ export default function RouteEditor({
       <footer className="route-editor-footer">
         <div className="stack">
           {saveDisabledReason == null ? null : (
-            <p className="muted no-margin">
-              {saveDisabledReason}
-            </p>
+            <p className="muted no-margin">{saveDisabledReason}</p>
           )}
           <div className="row">
             <button disabled={isSaving || saveDisabledReason != null} type="submit">

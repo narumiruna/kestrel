@@ -46,6 +46,7 @@ import dev.narumi.kestrel.core.cloud.CloudSyncRepository
 import dev.narumi.kestrel.core.cloud.CloudSyncState
 import dev.narumi.kestrel.core.data.CloudSettings
 import dev.narumi.kestrel.core.data.KestrelPrefs
+import dev.narumi.kestrel.core.data.MockPlaybackSettings
 import dev.narumi.kestrel.core.data.RandomRoutePreference
 import dev.narumi.kestrel.core.data.StartupPreference
 import dev.narumi.kestrel.core.library.LibraryItemWithContent
@@ -86,6 +87,7 @@ fun OptionsScreen(modifier: Modifier = Modifier) {
     val items by libraryRepository.items.collectAsStateWithLifecycle(emptyList())
     val startup by prefs.startupPreference.collectAsStateWithLifecycle(StartupPreference())
     val randomRoute by prefs.randomRoutePreference.collectAsStateWithLifecycle(RandomRoutePreference())
+    val mockPlayback by prefs.mockPlaybackSettings.collectAsStateWithLifecycle(MockPlaybackSettings())
 
     var defaultPointCount by remember { mutableStateOf("") }
     var defaultSpacingMeters by remember { mutableStateOf("") }
@@ -108,6 +110,13 @@ fun OptionsScreen(modifier: Modifier = Modifier) {
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         CloudSettingsSection()
+
+        MockPlaybackSettingsCard(
+            settings = mockPlayback,
+            onProgressWriteIntervalChange = { seconds ->
+                scope.launch { prefs.setProgressWriteIntervalSeconds(seconds) }
+            },
+        )
 
         StartupPreferenceCard(
             items = items,
@@ -625,6 +634,54 @@ private fun FavoriteStartupPicker(
 }
 
 @Composable
+private fun MockPlaybackSettingsCard(
+    settings: MockPlaybackSettings,
+    onProgressWriteIntervalChange: (Int) -> Unit,
+) {
+    val seconds = settings.progressWriteIntervalSeconds
+    Text(
+        text = "Mock playback",
+        style = MaterialTheme.typography.titleMedium,
+    )
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(
+                text = "Route progress write interval (1–60 s): $seconds s",
+                style = MaterialTheme.typography.titleSmall,
+            )
+            Text(
+                text =
+                    "Higher values reduce DataStore writes but widen rollback after Android " +
+                        "kills the service. Applies to the next route start or restore.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(
+                    onClick = { onProgressWriteIntervalChange(seconds - 1) },
+                    enabled = seconds > MockPlaybackSettings.MIN_PROGRESS_WRITE_INTERVAL_SECONDS,
+                ) { Text("− 1 s") }
+                Button(
+                    onClick = {
+                        onProgressWriteIntervalChange(
+                            MockPlaybackSettings.DEFAULT_PROGRESS_WRITE_INTERVAL_SECONDS,
+                        )
+                    },
+                    enabled = seconds != MockPlaybackSettings.DEFAULT_PROGRESS_WRITE_INTERVAL_SECONDS,
+                ) { Text("Reset to 5 s") }
+                OutlinedButton(
+                    onClick = { onProgressWriteIntervalChange(seconds + 1) },
+                    enabled = seconds < MockPlaybackSettings.MAX_PROGRESS_WRITE_INTERVAL_SECONDS,
+                ) { Text("+ 1 s") }
+            }
+        }
+    }
+}
+
+@Composable
 private fun RandomRouteDefaultsCard(
     pointCount: String,
     spacingMeters: String,
@@ -778,6 +835,18 @@ private suspend fun runCloudAction(
 }
 
 private fun Throwable.toCloudErrorMessage(): String = message ?: "Unexpected cloud error"
+
+@Suppress("UnusedPrivateMember")
+@Preview(showBackground = true)
+@Composable
+private fun MockPlaybackSettingsCardPreview() {
+    MaterialTheme {
+        MockPlaybackSettingsCard(
+            settings = MockPlaybackSettings(progressWriteIntervalSeconds = 10),
+            onProgressWriteIntervalChange = {},
+        )
+    }
+}
 
 @Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
