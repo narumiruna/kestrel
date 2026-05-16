@@ -84,6 +84,29 @@ data class RandomRoutePreference(
 }
 
 @Serializable
+data class MockPlaybackSettings(
+    val progressWriteIntervalSeconds: Int = DEFAULT_PROGRESS_WRITE_INTERVAL_SECONDS,
+) {
+    fun normalized(): MockPlaybackSettings =
+        copy(
+            progressWriteIntervalSeconds =
+                clampProgressWriteIntervalSeconds(progressWriteIntervalSeconds),
+        )
+
+    companion object {
+        const val MIN_PROGRESS_WRITE_INTERVAL_SECONDS = 1
+        const val MAX_PROGRESS_WRITE_INTERVAL_SECONDS = 60
+        const val DEFAULT_PROGRESS_WRITE_INTERVAL_SECONDS = 5
+
+        fun clampProgressWriteIntervalSeconds(seconds: Int): Int =
+            seconds.coerceIn(
+                MIN_PROGRESS_WRITE_INTERVAL_SECONDS,
+                MAX_PROGRESS_WRITE_INTERVAL_SECONDS,
+            )
+    }
+}
+
+@Serializable
 data class CloudSettings(
     val apiBaseUrl: String = DEFAULT_API_BASE_URL,
 ) {
@@ -102,6 +125,7 @@ private object Keys {
     val MOCK_STATE = stringPreferencesKey("mock_state_json")
     val STARTUP_PREF = stringPreferencesKey("startup_pref_json")
     val RANDOM_ROUTE_PREF = stringPreferencesKey("random_route_pref_json")
+    val MOCK_PLAYBACK_SETTINGS = stringPreferencesKey("mock_playback_settings_json")
     val CLOUD_SETTINGS = stringPreferencesKey("cloud_settings_json")
 }
 
@@ -118,6 +142,8 @@ class KestrelPrefs(
     val startupPreference: Flow<StartupPreference> = store.data.map { it.toStartupPref(json) }
     val randomRoutePreference: Flow<RandomRoutePreference> =
         store.data.map { it.toRandomRoutePref(json) }
+    val mockPlaybackSettings: Flow<MockPlaybackSettings> =
+        store.data.map { it.toMockPlaybackSettings(json) }
     val cloudSettings: Flow<CloudSettings> = store.data.map { it.toCloudSettings(json) }
 
     suspend fun setLastCamera(snap: CameraSnapshot) {
@@ -179,6 +205,20 @@ class KestrelPrefs(
         store.edit { it.remove(Keys.RANDOM_ROUTE_PREF) }
     }
 
+    suspend fun setProgressWriteIntervalSeconds(seconds: Int) {
+        store.edit { prefs ->
+            val current = prefs.toMockPlaybackSettings(json)
+            prefs[Keys.MOCK_PLAYBACK_SETTINGS] =
+                json.encodeToString(
+                    MockPlaybackSettings.serializer(),
+                    current.copy(
+                        progressWriteIntervalSeconds =
+                            MockPlaybackSettings.clampProgressWriteIntervalSeconds(seconds),
+                    ),
+                )
+        }
+    }
+
     suspend fun setMockState(state: MockState?) {
         store.edit {
             if (state == null) {
@@ -237,6 +277,13 @@ class KestrelPrefs(
         return runCatching {
             json.decodeFromString(RandomRoutePreference.serializer(), raw)
         }.getOrDefault(RandomRoutePreference())
+    }
+
+    private fun Preferences.toMockPlaybackSettings(json: Json): MockPlaybackSettings {
+        val raw = this[Keys.MOCK_PLAYBACK_SETTINGS] ?: return MockPlaybackSettings()
+        return runCatching {
+            json.decodeFromString(MockPlaybackSettings.serializer(), raw).normalized()
+        }.getOrDefault(MockPlaybackSettings())
     }
 
     private fun Preferences.toCloudSettings(json: Json): CloudSettings {
