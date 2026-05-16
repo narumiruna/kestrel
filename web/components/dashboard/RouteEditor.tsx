@@ -53,6 +53,7 @@ export default function RouteEditor({
   const [selectedWaypointIndex, setSelectedWaypointIndex] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saved'>('idle');
   const routeBuilderHint = getRouteBuilderHint(waypoints.length, places.length);
   const saveDisabledReason = getSaveDisabledReason(waypoints.length);
   const favoritePickerMode = waypoints.length === 0 ? 'start' : 'append';
@@ -67,6 +68,7 @@ export default function RouteEditor({
     event.preventDefault();
     setError(null);
     setIsSaving(true);
+    setSaveStatus('idle');
 
     try {
       await onSave({
@@ -80,6 +82,7 @@ export default function RouteEditor({
           longitude: waypoint.longitude,
         })),
       });
+      setSaveStatus('saved');
     } catch (nextError) {
       setError(formatError(nextError));
     } finally {
@@ -130,120 +133,148 @@ export default function RouteEditor({
   return (
     <form className="panel route-editor" onSubmit={submit}>
       <header className="route-editor-header">
-        <div className="stack">
-          <h2>{route == null ? 'New route' : 'Route editor'}</h2>
-          {route?.currentRevision == null ? null : (
-            <span className="chip">latest revision {route.currentRevision.revisionNumber}</span>
-          )}
+        <div className="route-editor-header-meta">
+          <div className="row">
+            <h2>{route == null ? 'New route' : 'Route editor'}</h2>
+            {route?.currentRevision == null ? null : (
+              <span className="chip chip-success">
+                <svg
+                  aria-hidden="true"
+                  fill="none"
+                  height="11"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  viewBox="0 0 24 24"
+                  width="11"
+                >
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                latest revision {route.currentRevision.revisionNumber}
+              </span>
+            )}
+          </div>
+          <p className="muted">Edit your route, manage waypoints, and configure playback settings.</p>
         </div>
-        {onNew == null ? null : (
-          <button className="secondary" type="button" onClick={onNew}>
-            New route
+        <div className="row route-editor-actions">
+          {onNew == null ? null : (
+            <button className="secondary" type="button" onClick={onNew}>
+              + New route
+            </button>
+          )}
+          <button disabled={isSaving || saveDisabledReason != null} type="submit">
+            {isSaving ? 'Saving…' : 'Save route'}
           </button>
-        )}
+        </div>
       </header>
+
       {error == null ? null : <div className="error route-editor-error">{error}</div>}
 
-      <section className="route-editor-section route-editor-map-section">
-        <div>
-          <h3>Map builder</h3>
-          <p className="muted">Build the route shape from favorites or direct map clicks.</p>
-        </div>
+      {/* Full-width map */}
+      <div>
         <div className="route-builder-hint">{routeBuilderHint}</div>
-        <FavoriteWaypointPicker
-          mode={favoritePickerMode}
-          places={places}
-          onSelect={addFavoriteWaypoint}
+      </div>
+      <div className="map-builder">
+        <RouteMapEditor
+          fitRequest={fitRequest}
+          focusTarget={focusTarget}
+          selectedWaypointIndex={selectedWaypointIndex}
+          waypoints={waypoints}
+          onChange={setWaypoints}
+          onSelectWaypoint={setSelectedWaypointIndex}
         />
-        <div className="map-builder">
-          <RouteMapEditor
-            fitRequest={fitRequest}
-            focusTarget={focusTarget}
-            selectedWaypointIndex={selectedWaypointIndex}
-            waypoints={waypoints}
-            onChange={setWaypoints}
-            onSelectWaypoint={setSelectedWaypointIndex}
-          />
-          <div className="map-instruction">Click map to add waypoint · Drag markers to adjust</div>
-        </div>
-        <div className="map-action-row">
-          <button
-            className="secondary"
-            disabled={waypoints.length === 0}
-            type="button"
-            onClick={() => setFitRequest((currentRequest) => currentRequest + 1)}
-          >
-            Fit route
-          </button>
-          <span className="muted">Add from map click, then use rows for exact coordinates.</span>
-        </div>
+        <div className="map-instruction">Click map to add waypoint · Drag markers to adjust</div>
+      </div>
+      <div className="map-action-row">
+        <button
+          className="secondary"
+          disabled={waypoints.length === 0}
+          type="button"
+          onClick={() => setFitRequest((currentRequest) => currentRequest + 1)}
+        >
+          Fit route
+        </button>
+        <span className="muted">Add from map click, then use rows below for exact coordinates.</span>
+      </div>
 
-        <div className="stack">
-          <h3>Waypoints</h3>
-          {waypoints.map((waypoint, index) => (
-            <div
-              className={`waypoint-row ${selectedWaypointIndex === index ? 'selected' : ''}`}
-              key={getWaypointKey(waypoint, index)}
-              onPointerDown={() => setSelectedWaypointIndex(index)}
-            >
-              <span className="chip">{getWaypointLabel(index, waypoints.length)}</span>
-              <input
-                inputMode="decimal"
-                value={waypoint.latitude}
-                onChange={(event) =>
-                  updateWaypoint(waypoints, setWaypoints, index, 'latitude', event.target.value)
-                }
-              />
-              <input
-                inputMode="decimal"
-                value={waypoint.longitude}
-                onChange={(event) =>
-                  updateWaypoint(waypoints, setWaypoints, index, 'longitude', event.target.value)
-                }
-              />
-              <div className="row">
-                <button
-                  className="secondary"
-                  disabled={index === 0}
-                  type="button"
-                  onClick={() => moveWaypoint(waypoints, setWaypoints, index, index - 1)}
-                >
-                  ↑
-                </button>
-                <button
-                  className="secondary"
-                  disabled={index === waypoints.length - 1}
-                  type="button"
-                  onClick={() => moveWaypoint(waypoints, setWaypoints, index, index + 1)}
-                >
-                  ↓
-                </button>
-                <button className="danger" type="button" onClick={() => removeWaypoint(index)}>
-                  ×
-                </button>
+      {/* 3-panel layout */}
+      <div className="route-editor-panels">
+        {/* Panel 1: Add from favorites */}
+        <section className="route-editor-panel">
+          <FavoriteWaypointPicker
+            mode={favoritePickerMode}
+            places={places}
+            onSelect={addFavoriteWaypoint}
+          />
+        </section>
+
+        {/* Panel 2: Waypoints */}
+        <section className="route-editor-panel">
+          <div className="row" style={{ justifyContent: 'space-between' }}>
+            <h3>Waypoints</h3>
+            {waypoints.length > 0 ? (
+              <span className="chip">{waypoints.length} waypoints</span>
+            ) : null}
+          </div>
+          <p className="muted">Reorder stops or edit coordinates.</p>
+          <div className="stack">
+            {waypoints.map((waypoint, index) => (
+              <div
+                className={`waypoint-row ${selectedWaypointIndex === index ? 'selected' : ''}`}
+                key={getWaypointKey(waypoint, index)}
+                onPointerDown={() => setSelectedWaypointIndex(index)}
+              >
+                <span className="chip">{getWaypointLabel(index, waypoints.length)}</span>
+                <input
+                  inputMode="decimal"
+                  value={waypoint.latitude}
+                  onChange={(event) =>
+                    updateWaypoint(waypoints, setWaypoints, index, 'latitude', event.target.value)
+                  }
+                />
+                <input
+                  inputMode="decimal"
+                  value={waypoint.longitude}
+                  onChange={(event) =>
+                    updateWaypoint(waypoints, setWaypoints, index, 'longitude', event.target.value)
+                  }
+                />
+                <div className="row">
+                  <button
+                    className="secondary"
+                    disabled={index === 0}
+                    type="button"
+                    onClick={() => moveWaypoint(waypoints, setWaypoints, index, index - 1)}
+                  >
+                    ↑
+                  </button>
+                  <button
+                    className="secondary"
+                    disabled={index === waypoints.length - 1}
+                    type="button"
+                    onClick={() => moveWaypoint(waypoints, setWaypoints, index, index + 1)}
+                  >
+                    ↓
+                  </button>
+                  <button className="danger" type="button" onClick={() => removeWaypoint(index)}>
+                    ×
+                  </button>
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
           <button
             className="secondary"
             disabled={waypoints.length === 0}
             type="button"
             onClick={duplicateLastWaypoint}
           >
-            Duplicate last waypoint
+            + Duplicate last waypoint
           </button>
-        </div>
-      </section>
+        </section>
 
-      <details
-        className="route-editor-section route-editor-collapsible route-editor-details-section"
-        open
-      >
-        <summary>
-          <span>Route details</span>
-          <span className="muted">Name, speed, and playback</span>
-        </summary>
-        <div className="route-editor-collapsible-content">
+        {/* Panel 3: Route details + Publishing */}
+        <section className="route-editor-panel">
+          <h3>Route details</h3>
           <label className="route-title-field">
             Name
             <input required value={name} onChange={(event) => setName(event.target.value)} />
@@ -268,21 +299,19 @@ export default function RouteEditor({
             </label>
           </div>
           <label>
-            Description
+            Description (optional)
             <textarea
               value={description}
               onChange={(event) => setDescription(event.target.value)}
             />
           </label>
-        </div>
-      </details>
 
-      <details className="route-editor-section route-editor-collapsible route-editor-secondary-section route-editor-share-section">
-        <summary>
-          <span>Publishing / share</span>
-          <span className="muted">Privacy and public link</span>
-        </summary>
-        <div className="route-editor-collapsible-content">
+          <hr className="route-editor-panel-divider" />
+
+          <div className="route-share-header">
+            <h3>Publishing / share</h3>
+          </div>
+          <p className="muted">Privacy and public link settings.</p>
           <label className="row">
             <input
               checked={isPublic}
@@ -293,23 +322,41 @@ export default function RouteEditor({
             Public route
           </label>
           <RouteSharePanel route={route} />
-        </div>
-      </details>
+        </section>
+      </div>
 
       <footer className="route-editor-footer">
-        <div className="stack">
-          {saveDisabledReason == null ? null : (
-            <p className="muted no-margin">{saveDisabledReason}</p>
-          )}
+        <div className="route-editor-footer-row">
           <div className="row">
-            <button disabled={isSaving || saveDisabledReason != null} type="submit">
-              {isSaving ? 'Saving…' : 'Save route'}
-            </button>
+            {saveStatus === 'saved' ? (
+              <span className="save-status">
+                <svg
+                  aria-hidden="true"
+                  fill="none"
+                  height="14"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  viewBox="0 0 24 24"
+                  width="14"
+                >
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                All changes saved
+              </span>
+            ) : null}
+            {saveDisabledReason == null ? null : (
+              <p className="muted no-margin">{saveDisabledReason}</p>
+            )}
+          </div>
+          <div className="row">
             {onDelete == null ? null : (
               <button className="danger" disabled={isSaving} type="button" onClick={confirmDelete}>
                 Delete route
               </button>
             )}
+            <button disabled={isSaving || saveDisabledReason != null} type="submit">
+              {isSaving ? 'Saving…' : 'Save route'}
+            </button>
           </div>
         </div>
       </footer>
@@ -343,25 +390,28 @@ function FavoriteWaypointPicker({
 
   if (places.length === 0) {
     return (
-      <div className="favorite-picker empty-state">
-        <p className="muted">No favorite places yet.</p>
-        <Link href="/dashboard/places">Create a favorite place first</Link>
-      </div>
+      <>
+        <h3>Add from favorites</h3>
+        <div className="empty-state">
+          <p className="muted">No favorite places yet.</p>
+          <Link href="/dashboard/places">Create a favorite place first</Link>
+        </div>
+      </>
     );
   }
 
   return (
-    <section className="favorite-picker stack">
-      <div>
-        <h3>{mode === 'start' ? 'Start from favorite place' : 'Add favorite as waypoint'}</h3>
-        <p className="muted">
-          {mode === 'start'
-            ? 'Pick a saved place as the first waypoint, or click the map to start manually.'
-            : 'Append a saved place to the end of this route.'}
-        </p>
+    <>
+      <div className="row" style={{ justifyContent: 'space-between' }}>
+        <h3>Add from favorites</h3>
       </div>
+      <p className="muted">
+        {mode === 'start'
+          ? 'Pick a saved place as the first waypoint, or click the map.'
+          : 'Append a saved place to the end of this route.'}
+      </p>
       <label>
-        Search favorite places
+        Search favorites
         <input
           placeholder="Search by name, tag, or description…"
           value={query}
@@ -391,7 +441,7 @@ function FavoriteWaypointPicker({
         ))}
         {filteredPlaces.length === 0 ? <p className="muted">No favorite places match.</p> : null}
       </div>
-    </section>
+    </>
   );
 }
 
