@@ -102,6 +102,7 @@ model Place {
   deletedAt    DateTime?      @map("deleted_at")
   user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   libraryItem  LibraryItem?
+  shareLinks   ShareLink[]
   deviceStates DeviceState[]  @relation("DeviceSelectedPlace")
 
   @@index([userId])
@@ -211,7 +212,8 @@ model DeviceState {
 model ShareLink {
   id              String          @id @default(uuid()) @db.Uuid
   ownerId         String          @map("owner_id") @db.Uuid
-  routeId         String          @map("route_id") @db.Uuid
+  placeId         String?         @map("place_id") @db.Uuid
+  routeId         String?         @map("route_id") @db.Uuid
   routeRevisionId String?         @map("route_revision_id") @db.Uuid
   token           String          @unique @db.VarChar(128)
   permission      SharePermission @default(PUBLIC_READ)
@@ -220,10 +222,12 @@ model ShareLink {
   createdAt       DateTime        @default(now()) @map("created_at")
   updatedAt       DateTime        @updatedAt @map("updated_at")
   owner           User            @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  route           Route           @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  place           Place?          @relation(fields: [placeId], references: [id], onDelete: Cascade)
+  route           Route?          @relation(fields: [routeId], references: [id], onDelete: Cascade)
   routeRevision   RouteRevision?  @relation(fields: [routeRevisionId], references: [id], onDelete: SetNull)
 
   @@index([ownerId])
+  @@index([placeId])
   @@index([routeId])
   @@index([routeRevisionId])
   @@map("share_links")
