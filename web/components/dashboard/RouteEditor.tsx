@@ -147,7 +147,9 @@ export default function RouteEditor({
       <section className="route-editor-section route-editor-map-section">
         <div>
           <h3>Route editor</h3>
-          <p className="muted">Edit your route, manage waypoints, and configure playback settings.</p>
+          <p className="muted">
+            Edit your route, manage waypoints, and configure playback settings.
+          </p>
         </div>
         <div className="route-builder-hint">{routeBuilderHint}</div>
         <FavoriteWaypointPicker
@@ -175,64 +177,70 @@ export default function RouteEditor({
           >
             Fit route
           </button>
-          <span className="muted">Add from map click, then use rows for exact coordinates.</span>
+          <span className="muted">
+            Add from map click, then expand Waypoints for exact coordinates.
+          </span>
         </div>
 
-        <div className="stack">
-          <h3>Waypoints</h3>
-          {waypoints.map((waypoint, index) => (
-            <div
-              className={`waypoint-row ${selectedWaypointIndex === index ? 'selected' : ''}`}
-              key={getWaypointKey(waypoint, index)}
-              onPointerDown={() => setSelectedWaypointIndex(index)}
-            >
-              <span className="chip">{getWaypointLabel(index, waypoints.length)}</span>
-              <input
-                inputMode="decimal"
-                value={waypoint.latitude}
-                onChange={(event) =>
-                  updateWaypoint(waypoints, setWaypoints, index, 'latitude', event.target.value)
-                }
-              />
-              <input
-                inputMode="decimal"
-                value={waypoint.longitude}
-                onChange={(event) =>
-                  updateWaypoint(waypoints, setWaypoints, index, 'longitude', event.target.value)
-                }
-              />
-              <div className="row">
-                <button
-                  className="secondary"
-                  disabled={index === 0}
-                  type="button"
-                  onClick={() => moveWaypoint(waypoints, setWaypoints, index, index - 1)}
-                >
-                  ↑
-                </button>
-                <button
-                  className="secondary"
-                  disabled={index === waypoints.length - 1}
-                  type="button"
-                  onClick={() => moveWaypoint(waypoints, setWaypoints, index, index + 1)}
-                >
-                  ↓
-                </button>
-                <button className="danger" type="button" onClick={() => removeWaypoint(index)}>
-                  ×
-                </button>
+        <details className="route-editor-collapsible route-editor-waypoints-section">
+          <summary>
+            <span>Waypoints ({waypoints.length})</span>
+          </summary>
+          <div className="route-editor-collapsible-content">
+            {waypoints.map((waypoint, index) => (
+              <div
+                className={`waypoint-row ${selectedWaypointIndex === index ? 'selected' : ''}`}
+                key={getWaypointKey(waypoint, index)}
+                onPointerDown={() => setSelectedWaypointIndex(index)}
+              >
+                <span className="chip">{getWaypointLabel(index, waypoints.length)}</span>
+                <input
+                  inputMode="decimal"
+                  value={waypoint.latitude}
+                  onChange={(event) =>
+                    updateWaypoint(waypoints, setWaypoints, index, 'latitude', event.target.value)
+                  }
+                />
+                <input
+                  inputMode="decimal"
+                  value={waypoint.longitude}
+                  onChange={(event) =>
+                    updateWaypoint(waypoints, setWaypoints, index, 'longitude', event.target.value)
+                  }
+                />
+                <div className="row">
+                  <button
+                    className="secondary"
+                    disabled={index === 0}
+                    type="button"
+                    onClick={() => moveWaypoint(waypoints, setWaypoints, index, index - 1)}
+                  >
+                    ↑
+                  </button>
+                  <button
+                    className="secondary"
+                    disabled={index === waypoints.length - 1}
+                    type="button"
+                    onClick={() => moveWaypoint(waypoints, setWaypoints, index, index + 1)}
+                  >
+                    ↓
+                  </button>
+                  <button className="danger" type="button" onClick={() => removeWaypoint(index)}>
+                    ×
+                  </button>
+                </div>
               </div>
-            </div>
-          ))}
-          <button
-            className="secondary"
-            disabled={waypoints.length === 0}
-            type="button"
-            onClick={duplicateLastWaypoint}
-          >
-            + Add waypoint
-          </button>
-        </div>
+            ))}
+            <button
+              className="secondary"
+              disabled={waypoints.length === 0}
+              type="button"
+              onClick={duplicateLastWaypoint}
+            >
+              + Add waypoint
+            </button>
+          </div>
+        </details>
       </section>
 
       <details
