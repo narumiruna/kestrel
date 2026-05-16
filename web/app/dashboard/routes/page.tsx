@@ -87,7 +87,7 @@ export default function RoutesDashboardPage() {
     >
       {error == null ? null : <div className="error dashboard-error">{error}</div>}
 
-      <section className="dashboard-grid">
+      <section className="dashboard-grid kc-workspace">
         <aside className={`dashboard-sidebar${isSidebarOpen ? '' : ' collapsed'}`}>
           <div className="card stack">
             <div className="dashboard-sidebar-header">
@@ -107,7 +107,7 @@ export default function RoutesDashboardPage() {
                   type="button"
                   onClick={() => setSelectedRouteId(null)}
                 >
-                  New route
+                  + New route
                 </button>
               </div>
             </div>
