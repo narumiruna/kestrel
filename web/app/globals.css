@@ -1133,25 +1133,132 @@ label {
 }
 
 /* Kestrel Cloud routes redesign */
-.kc-shell{max-width:1440px;margin:0 auto;padding:16px 20px 28px;background:#f7fafc;color:#102a43}
-.kc-topbar{height:68px;background:#063846;border-radius:16px;display:flex;justify-content:space-between;align-items:center;padding:0 20px;color:#fff}
-.kc-brand{display:flex;gap:16px;align-items:center;font-weight:700}
-.kc-signed-in{font-size:14px;font-weight:500;opacity:.9}
-.kc-topbar-actions{display:flex;gap:10px}.kc-topbar-actions button.secondary{background:rgba(255,255,255,.06);color:#fff;border:1px solid rgba(255,255,255,.25);border-radius:8px;padding:9px 16px}
-.kc-tabs{display:flex;gap:12px;padding:14px 0 10px}.kc-tab{background:#fff;border:1px solid #e6edf3;border-radius:12px;padding:14px 18px;font-weight:600;color:#486581}.kc-tab.active{border:1.5px solid #0e8c88;color:#075e68;font-weight:700}
-.kc-workspace{display:grid;grid-template-columns:335px 1fr;gap:18px}
-.kc-sidebar .card{background:#fff;border:1px solid #e6edf3;border-radius:14px;padding:18px;box-shadow:0 4px 12px rgba(16,42,67,.04)}
-.dashboard-sidebar-title{font-size:20px}.dashboard-sidebar-new{width:100%}
-.list-item{border-radius:12px;border:1px solid #e6edf3}.list-item.active{background:linear-gradient(180deg,#f0fbfa,#fff);border:1.5px solid #159e9a;box-shadow:0 8px 24px rgba(8,122,120,.1)}
-.route-editor{background:#fff;border:1px solid #e6edf3;border-radius:16px;box-shadow:0 10px 30px rgba(16,42,67,.06);padding:28px}
-.route-editor-header h2{font-size:28px}.chip{border-radius:999px}
-.route-editor-section h3{font-size:18px}
-.map-builder{border-radius:14px;overflow:hidden}
-.route-editor-footer{position:sticky;bottom:0;background:#fff;padding-top:16px;border-top:1px solid #e6edf3}
-.route-editor-footer .row{justify-content:flex-end}
-button{border-radius:8px}
-.route-editor button[type='submit']{background:linear-gradient(180deg,#0e8c88,#087a78);color:#fff}
-.route-editor .danger{background:#fff;border:1px solid #f3b7b9;color:#e5484d}
+.kc-shell {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 16px 20px 28px;
+  background: #f7fafc;
+  color: #102a43;
+}
+.kc-topbar {
+  height: 68px;
+  background: #063846;
+  border-radius: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 20px;
+  color: #fff;
+}
+.kc-brand {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  font-weight: 700;
+}
+.kc-signed-in {
+  font-size: 14px;
+  font-weight: 500;
+  opacity: 0.9;
+}
+.kc-topbar-actions {
+  display: flex;
+  gap: 10px;
+}
+.kc-topbar-actions button.secondary {
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 8px;
+  padding: 9px 16px;
+}
+.kc-tabs {
+  display: flex;
+  gap: 12px;
+  padding: 14px 0 10px;
+}
+.kc-tab {
+  background: #fff;
+  border: 1px solid #e6edf3;
+  border-radius: 12px;
+  padding: 14px 18px;
+  font-weight: 600;
+  color: #486581;
+}
+.kc-tab.active {
+  border: 1.5px solid #0e8c88;
+  color: #075e68;
+  font-weight: 700;
+}
+.kc-workspace {
+  display: grid;
+  grid-template-columns: 335px 1fr;
+  gap: 18px;
+}
+.kc-sidebar .card {
+  background: #fff;
+  border: 1px solid #e6edf3;
+  border-radius: 14px;
+  padding: 18px;
+  box-shadow: 0 4px 12px rgba(16, 42, 67, 0.04);
+}
+.dashboard-sidebar-title {
+  font-size: 20px;
+}
+.dashboard-sidebar-new {
+  width: 100%;
+}
+.list-item {
+  border-radius: 12px;
+  border: 1px solid #e6edf3;
+}
+.list-item.active {
+  background: linear-gradient(180deg, #f0fbfa, #fff);
+  border: 1.5px solid #159e9a;
+  box-shadow: 0 8px 24px rgba(8, 122, 120, 0.1);
+}
+.route-editor {
+  background: #fff;
+  border: 1px solid #e6edf3;
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(16, 42, 67, 0.06);
+  padding: 28px;
+}
+.route-editor-header h2 {
+  font-size: 28px;
+}
+.chip {
+  border-radius: 999px;
+}
+.route-editor-section h3 {
+  font-size: 18px;
+}
+.map-builder {
+  border-radius: 14px;
+  overflow: hidden;
+}
+.route-editor-footer {
+  position: sticky;
+  bottom: 0;
+  background: #fff;
+  padding-top: 16px;
+  border-top: 1px solid #e6edf3;
+}
+.route-editor-footer .row {
+  justify-content: flex-end;
+}
+button {
+  border-radius: 8px;
+}
+.route-editor button[type="submit"] {
+  background: linear-gradient(180deg, #0e8c88, #087a78);
+  color: #fff;
+}
+.route-editor .danger {
+  background: #fff;
+  border: 1px solid #f3b7b9;
+  color: #e5484d;
+}
 
 @media (max-width: 860px) {
   .kc-workspace,

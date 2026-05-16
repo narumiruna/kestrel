@@ -13,17 +13,28 @@ import {
   SyncOperation,
 } from '@prisma/client';
 import {
+  mapPlace,
   mapRoute,
   mapRouteRevision,
+  placeSelect,
   routeRevisionSelect,
   routeSelect,
 } from '../library/library.models';
 import { PrismaService } from '../prisma/prisma.service';
 import { mapShareLink, shareLinkSelect } from './sharing.models';
 import {
-  parseCopySharedRouteInput,
+  parseCopySharedItemInput,
   parseShareLinkUpdateInput,
 } from './sharing.validation';
+
+const publicPlaceSelect = {
+  deletedAt: true,
+  description: true,
+  latitude: true,
+  longitude: true,
+  name: true,
+  tags: true,
+} satisfies Prisma.PlaceSelect;
 
 type SharedRouteRevision = {
   createdAt: Date;
@@ -44,6 +55,10 @@ type ShareLinkLookup = Prisma.ShareLinkGetPayload<{
   select: typeof shareLinkSelect;
 }>;
 
+type PublicPlaceRecord = Prisma.PlaceGetPayload<{
+  select: typeof publicPlaceSelect;
+}>;
+
 type PublicShareRecord = Prisma.ShareLinkGetPayload<{
   select: {
     createdAt: true;
@@ -51,6 +66,10 @@ type PublicShareRecord = Prisma.ShareLinkGetPayload<{
     expiresAt: true;
     id: true;
     permission: true;
+    place: {
+      select: typeof publicPlaceSelect;
+    };
+    placeId: true;
     route: {
       select: {
         deletedAt: true;
@@ -75,9 +94,90 @@ type PublicShareRecord = Prisma.ShareLinkGetPayload<{
 export class SharingService {
   constructor(private readonly prismaService: PrismaService) {}
 
+  async getPlaceShareLink(userId: string, placeId: string) {
+    await this.assertOwnedPlaceExists(userId, placeId);
+    const shareLink = await findLatestPlaceShareLink(
+      this.prismaService,
+      userId,
+      placeId,
+    );
+
+    if (shareLink == null) {
+      throw new NotFoundException('share link not found');
+    }
+
+    return mapShareLink(shareLink);
+  }
+
+  async createPlaceShareLink(userId: string, placeId: string) {
+    await this.assertOwnedPlaceExists(userId, placeId);
+    const existingShareLink = await findLatestPlaceShareLink(
+      this.prismaService,
+      userId,
+      placeId,
+    );
+
+    if (existingShareLink != null) {
+      return mapShareLink(existingShareLink);
+    }
+
+    try {
+      const shareLink = await this.prismaService.shareLink.create({
+        data: {
+          ownerId: userId,
+          placeId,
+          token: createShareToken(),
+        },
+        select: shareLinkSelect,
+      });
+
+      return mapShareLink(shareLink);
+    } catch (error) {
+      if (isUniqueConstraintError(error)) {
+        const racedShareLink = await findLatestPlaceShareLink(
+          this.prismaService,
+          userId,
+          placeId,
+        );
+
+        if (racedShareLink != null) {
+          return mapShareLink(racedShareLink);
+        }
+      }
+
+      throw error;
+    }
+  }
+
+  async updatePlaceShareLink(userId: string, placeId: string, input: unknown) {
+    await this.assertOwnedPlaceExists(userId, placeId);
+    const { disabled } = parseShareLinkUpdateInput(input);
+    const existingShareLink = await findLatestPlaceShareLink(
+      this.prismaService,
+      userId,
+      placeId,
+    );
+
+    if (existingShareLink == null) {
+      throw new NotFoundException('share link not found');
+    }
+
+    const updatedShareLink = await this.prismaService.shareLink.update({
+      data: {
+        disabledAt: disabled ? new Date() : null,
+      },
+      select: shareLinkSelect,
+      where: {
+        id: existingShareLink.id,
+      },
+    });
+
+    return mapShareLink(updatedShareLink);
+  }
+
   async getRouteShareLink(userId: string, routeId: string) {
     await this.assertOwnedRouteExists(userId, routeId);
-    const shareLink = await findLatestShareLink(
+    const shareLink = await findLatestRouteShareLink(
       this.prismaService,
       userId,
       routeId,
@@ -92,7 +192,7 @@ export class SharingService {
 
   async createRouteShareLink(userId: string, routeId: string) {
     await this.assertOwnedRouteReadyForSharing(userId, routeId);
-    const existingShareLink = await findLatestShareLink(
+    const existingShareLink = await findLatestRouteShareLink(
       this.prismaService,
       userId,
       routeId,
@@ -115,7 +215,7 @@ export class SharingService {
       return mapShareLink(shareLink);
     } catch (error) {
       if (isUniqueConstraintError(error)) {
-        const racedShareLink = await findLatestShareLink(
+        const racedShareLink = await findLatestRouteShareLink(
           this.prismaService,
           userId,
           routeId,
@@ -133,7 +233,7 @@ export class SharingService {
   async updateRouteShareLink(userId: string, routeId: string, input: unknown) {
     await this.assertOwnedRouteExists(userId, routeId);
     const { disabled } = parseShareLinkUpdateInput(input);
-    const existingShareLink = await findLatestShareLink(
+    const existingShareLink = await findLatestRouteShareLink(
       this.prismaService,
       userId,
       routeId,
@@ -157,109 +257,76 @@ export class SharingService {
   }
 
   async getSharedRoute(token: string) {
+    return this.getSharedItem(token);
+  }
+
+  async getSharedItem(token: string) {
     const shareLink = await this.getActiveShareLinkByToken(
       this.prismaService,
       token,
     );
+
+    if (shareLink.placeId != null) {
+      return {
+        kind: LibraryItemKind.PLACE,
+        place: sanitizePublicPlace(selectVisiblePlace(shareLink)),
+        shareLink: mapShareLink(toShareLinkLookup(shareLink)),
+      };
+    }
+
     const revision = selectVisibleRevision(shareLink);
+    const route = selectVisibleRoute(shareLink);
 
     return {
+      kind: LibraryItemKind.ROUTE,
       route: {
-        description: shareLink.route.description,
-        name: shareLink.route.name,
+        description: route.description,
+        name: route.name,
         revision: sanitizePublicRouteRevision(revision),
       },
-      shareLink: mapShareLink({
-        createdAt: shareLink.createdAt,
-        disabledAt: shareLink.disabledAt,
-        expiresAt: shareLink.expiresAt,
-        id: shareLink.id,
-        permission: shareLink.permission,
-        routeId: shareLink.routeId,
-        routeRevisionId: shareLink.routeRevisionId,
-        token: shareLink.token,
-        updatedAt: shareLink.updatedAt,
-      }),
+      shareLink: mapShareLink(toShareLinkLookup(shareLink)),
     };
   }
 
   async copySharedRoute(userId: string, token: string, input: unknown) {
-    const { routeRevisionId } = parseCopySharedRouteInput(input);
+    return this.copySharedItem(userId, token, input);
+  }
+
+  async copySharedItem(userId: string, token: string, input: unknown) {
+    const copyInput = parseCopySharedItemInput(input);
 
     return this.prismaService.$transaction(async (tx) => {
       const shareLink = await this.getActiveShareLinkByToken(tx, token);
-      const revision = await getRequestedSharedRouteRevision(
-        tx,
-        shareLink,
-        routeRevisionId,
-      );
-      const sortOrder = await getNextSortOrder(tx, userId);
-      const createdRoute = await tx.route.create({
-        data: {
-          defaultSpeedKmh: revision.defaultSpeedKmh,
-          description: shareLink.route.description,
-          isPublic: false,
-          mode: revision.mode,
-          name: shareLink.route.name,
-          userId,
-        },
-        select: {
-          id: true,
-        },
-      });
-      const routeRevision = await tx.routeRevision.create({
-        data: {
-          createdBy: userId,
-          payload: createRouteRevisionPayload(revision),
-          revisionNumber: 1,
-          routeId: createdRoute.id,
-        },
-        select: {
-          id: true,
-        },
-      });
 
-      await tx.route.update({
-        data: {
-          currentRevisionId: routeRevision.id,
-        },
-        where: {
-          id: createdRoute.id,
-        },
-      });
-      const libraryItem = await tx.libraryItem.create({
-        data: {
-          kind: LibraryItemKind.ROUTE,
-          routeId: createdRoute.id,
-          sortOrder,
-          userId,
-        },
-        select: {
-          id: true,
-        },
-      });
-      await recordSyncEvent(tx, {
-        entityId: createdRoute.id,
-        entityType: SyncEntityType.ROUTE,
-        operation: SyncOperation.UPSERT,
-        userId,
-      });
-      await recordSyncEvent(tx, {
-        entityId: libraryItem.id,
-        entityType: SyncEntityType.LIBRARY_ITEM,
-        operation: SyncOperation.UPSERT,
-        userId,
-      });
+      if (shareLink.placeId != null) {
+        return copySharedPlace(tx, userId, shareLink);
+      }
 
-      const copiedRoute = await tx.route.findUniqueOrThrow({
-        select: routeSelect,
-        where: {
-          id: createdRoute.id,
-        },
-      });
+      if (copyInput.routeRevisionId == null) {
+        throw new BadRequestException(
+          'routeRevisionId must be a non-empty string',
+        );
+      }
 
-      return mapRoute(copiedRoute);
+      return copySharedRoute(tx, userId, shareLink, copyInput.routeRevisionId);
     });
+  }
+
+  private async assertOwnedPlaceExists(userId: string, placeId: string) {
+    const place = await this.prismaService.place.findFirst({
+      select: {
+        id: true,
+      },
+      where: {
+        deletedAt: null,
+        id: placeId,
+        userId,
+      },
+    });
+
+    if (place == null) {
+      throw new NotFoundException('place not found');
+    }
   }
 
   private async assertOwnedRouteExists(userId: string, routeId: string) {
@@ -317,6 +384,10 @@ export class SharingService {
         expiresAt: true,
         id: true,
         permission: true,
+        place: {
+          select: publicPlaceSelect,
+        },
+        placeId: true,
         route: {
           select: {
             deletedAt: true,
@@ -344,15 +415,166 @@ export class SharingService {
       throw new NotFoundException('share link not found');
     }
 
-    if (shareLink.route.deletedAt != null) {
-      throw new NotFoundException('share link not found');
-    }
+    assertShareLinkTargetIsVisible(shareLink);
 
     return shareLink;
   }
 }
 
-async function findLatestShareLink(
+async function copySharedPlace(
+  tx: Prisma.TransactionClient,
+  userId: string,
+  shareLink: PublicShareRecord,
+) {
+  const sharedPlace = sanitizePublicPlace(selectVisiblePlace(shareLink));
+  const sortOrder = await getNextSortOrder(tx, userId);
+  const createdPlace = await tx.place.create({
+    data: {
+      description: sharedPlace.description,
+      latitude: sharedPlace.latitude,
+      longitude: sharedPlace.longitude,
+      name: sharedPlace.name,
+      tags: sharedPlace.tags,
+      userId,
+    },
+    select: {
+      id: true,
+    },
+  });
+  const libraryItem = await tx.libraryItem.create({
+    data: {
+      kind: LibraryItemKind.PLACE,
+      placeId: createdPlace.id,
+      sortOrder,
+      userId,
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  await recordSyncEvent(tx, {
+    entityId: createdPlace.id,
+    entityType: SyncEntityType.PLACE,
+    operation: SyncOperation.UPSERT,
+    userId,
+  });
+  await recordSyncEvent(tx, {
+    entityId: libraryItem.id,
+    entityType: SyncEntityType.LIBRARY_ITEM,
+    operation: SyncOperation.UPSERT,
+    userId,
+  });
+
+  const copiedPlace = await tx.place.findUniqueOrThrow({
+    select: placeSelect,
+    where: {
+      id: createdPlace.id,
+    },
+  });
+
+  return mapPlace(copiedPlace);
+}
+
+async function copySharedRoute(
+  tx: Prisma.TransactionClient,
+  userId: string,
+  shareLink: PublicShareRecord,
+  routeRevisionId: string,
+) {
+  const revision = await getRequestedSharedRouteRevision(
+    tx,
+    shareLink,
+    routeRevisionId,
+  );
+  const route = selectVisibleRoute(shareLink);
+  const sortOrder = await getNextSortOrder(tx, userId);
+  const createdRoute = await tx.route.create({
+    data: {
+      defaultSpeedKmh: revision.defaultSpeedKmh,
+      description: route.description,
+      isPublic: false,
+      mode: revision.mode,
+      name: route.name,
+      userId,
+    },
+    select: {
+      id: true,
+    },
+  });
+  const routeRevision = await tx.routeRevision.create({
+    data: {
+      createdBy: userId,
+      payload: createRouteRevisionPayload(revision),
+      revisionNumber: 1,
+      routeId: createdRoute.id,
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  await tx.route.update({
+    data: {
+      currentRevisionId: routeRevision.id,
+    },
+    where: {
+      id: createdRoute.id,
+    },
+  });
+  const libraryItem = await tx.libraryItem.create({
+    data: {
+      kind: LibraryItemKind.ROUTE,
+      routeId: createdRoute.id,
+      sortOrder,
+      userId,
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  await recordSyncEvent(tx, {
+    entityId: createdRoute.id,
+    entityType: SyncEntityType.ROUTE,
+    operation: SyncOperation.UPSERT,
+    userId,
+  });
+  await recordSyncEvent(tx, {
+    entityId: libraryItem.id,
+    entityType: SyncEntityType.LIBRARY_ITEM,
+    operation: SyncOperation.UPSERT,
+    userId,
+  });
+
+  const copiedRoute = await tx.route.findUniqueOrThrow({
+    select: routeSelect,
+    where: {
+      id: createdRoute.id,
+    },
+  });
+
+  return mapRoute(copiedRoute);
+}
+
+async function findLatestPlaceShareLink(
+  prisma: PrismaService | Prisma.TransactionClient,
+  ownerId: string,
+  placeId: string,
+): Promise<ShareLinkLookup | null> {
+  return prisma.shareLink.findFirst({
+    orderBy: [{ createdAt: 'desc' }],
+    select: shareLinkSelect,
+    where: {
+      ownerId,
+      placeId,
+      routeId: null,
+      routeRevisionId: null,
+    },
+  });
+}
+
+async function findLatestRouteShareLink(
   prisma: PrismaService | Prisma.TransactionClient,
   ownerId: string,
   routeId: string,
@@ -362,6 +584,7 @@ async function findLatestShareLink(
     select: shareLinkSelect,
     where: {
       ownerId,
+      placeId: null,
       routeId,
       routeRevisionId: null,
     },
@@ -377,10 +600,43 @@ function isShareLinkActive(
   );
 }
 
+function assertShareLinkTargetIsVisible(shareLink: PublicShareRecord) {
+  if (shareLink.placeId != null) {
+    selectVisiblePlace(shareLink);
+    return;
+  }
+
+  if (shareLink.routeId != null) {
+    selectVisibleRoute(shareLink);
+    return;
+  }
+
+  throw new NotFoundException('share link not found');
+}
+
+function selectVisiblePlace(shareLink: PublicShareRecord): PublicPlaceRecord {
+  if (shareLink.place == null || shareLink.place.deletedAt != null) {
+    throw new NotFoundException('share link not found');
+  }
+
+  return shareLink.place;
+}
+
+function selectVisibleRoute(
+  shareLink: PublicShareRecord,
+): NonNullable<PublicShareRecord['route']> {
+  if (shareLink.route == null || shareLink.route.deletedAt != null) {
+    throw new NotFoundException('share link not found');
+  }
+
+  return shareLink.route;
+}
+
 function selectVisibleRevision(
   shareLink: PublicShareRecord,
 ): SharedRouteRevision {
-  const revision = shareLink.routeRevision ?? shareLink.route.currentRevision;
+  const route = selectVisibleRoute(shareLink);
+  const revision = shareLink.routeRevision ?? route.currentRevision;
 
   if (revision == null) {
     throw new NotFoundException('share link not found');
@@ -413,6 +669,12 @@ async function getRequestedSharedRouteRevision(
     return selectVisibleRevision(shareLink);
   }
 
+  if (shareLink.routeId == null) {
+    throw new BadRequestException(
+      'routeRevisionId does not match the visible shared snapshot',
+    );
+  }
+
   const revision = await prisma.routeRevision.findFirst({
     select: routeRevisionSelect,
     where: {
@@ -434,6 +696,16 @@ async function getRequestedSharedRouteRevision(
   });
 }
 
+function sanitizePublicPlace(place: PublicPlaceRecord) {
+  return {
+    description: place.description,
+    latitude: place.latitude,
+    longitude: place.longitude,
+    name: place.name,
+    tags: parseStoredTags(place.tags),
+  };
+}
+
 function sanitizePublicRouteRevision(revision: SharedRouteRevision) {
   return {
     createdAt: revision.createdAt,
@@ -449,6 +721,14 @@ function sanitizePublicRouteRevision(revision: SharedRouteRevision) {
       speedKmh: waypoint.speedKmh,
     })),
   };
+}
+
+function parseStoredTags(tags: Prisma.JsonValue): string[] {
+  if (!Array.isArray(tags) || !tags.every((tag) => typeof tag === 'string')) {
+    throw new InternalServerErrorException('stored place tags are invalid');
+  }
+
+  return tags;
 }
 
 async function getNextSortOrder(
@@ -504,6 +784,21 @@ async function recordSyncEvent(
       userId: input.userId,
     },
   });
+}
+
+function toShareLinkLookup(shareLink: PublicShareRecord): ShareLinkLookup {
+  return {
+    createdAt: shareLink.createdAt,
+    disabledAt: shareLink.disabledAt,
+    expiresAt: shareLink.expiresAt,
+    id: shareLink.id,
+    permission: shareLink.permission,
+    placeId: shareLink.placeId,
+    routeId: shareLink.routeId,
+    routeRevisionId: shareLink.routeRevisionId,
+    token: shareLink.token,
+    updatedAt: shareLink.updatedAt,
+  };
 }
 
 function createShareToken(): string {

@@ -5,19 +5,29 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/components/AuthProvider';
-import { ApiError, apiFetch, type Route, type SharedRouteSnapshot } from '@/lib/api';
+import {
+  ApiError,
+  apiFetch,
+  type Place,
+  type Route,
+  type SharedRouteSnapshot,
+  type SharedSnapshot,
+} from '@/lib/api';
 
+const PlaceMapPreview = dynamic(() => import('@/components/PlaceMapPreview'), {
+  ssr: false,
+});
 const RouteMapPreview = dynamic(() => import('@/components/RouteMapPreview'), {
   ssr: false,
 });
 
-export default function SharedRoutePage() {
+export default function SharedItemPage() {
   const auth = useAuth();
   const router = useRouter();
   const params = useParams<{ token: string }>();
   const token = typeof params.token === 'string' ? params.token : '';
-  const [sharedRoute, setSharedRoute] = useState<SharedRouteSnapshot | null>(null);
-  const [copiedRoute, setCopiedRoute] = useState<Route | null>(null);
+  const [sharedItem, setSharedItem] = useState<SharedSnapshot | null>(null);
+  const [copiedItem, setCopiedItem] = useState<Place | Route | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copyError, setCopyError] = useState<string | null>(null);
   const [isCopying, setIsCopying] = useState(false);
@@ -32,9 +42,9 @@ export default function SharedRoutePage() {
 
     setError(null);
     setIsLoading(true);
-    void apiFetch<SharedRouteSnapshot>(`/shares/${token}`)
+    void apiFetch<SharedSnapshot>(`/shares/${token}`)
       .then((result) => {
-        setSharedRoute(result);
+        setSharedItem(result);
       })
       .catch((nextError: unknown) => {
         setError(formatError(nextError));
@@ -50,8 +60,8 @@ export default function SharedRoutePage() {
       return;
     }
 
-    if (sharedRoute == null) {
-      setCopyError('Shared route is not loaded yet');
+    if (sharedItem == null) {
+      setCopyError('Shared item is not loaded yet');
       return;
     }
 
@@ -59,11 +69,11 @@ export default function SharedRoutePage() {
     setIsCopying(true);
 
     try {
-      const result = await auth.apiRequest<Route>(`/shares/${token}/copy`, {
-        body: JSON.stringify({ routeRevisionId: sharedRoute.route.revision.id }),
+      const result = await auth.apiRequest<Place | Route>(`/shares/${token}/copy`, {
+        body: JSON.stringify(getCopyBody(sharedItem)),
         method: 'POST',
       });
-      setCopiedRoute(result);
+      setCopiedItem(result);
     } catch (nextError) {
       setCopyError(formatError(nextError));
     } finally {
@@ -71,59 +81,43 @@ export default function SharedRoutePage() {
     }
   }
 
+  const dashboardHref = getDashboardHref(sharedItem);
+  const itemLabel = sharedItem?.kind === 'PLACE' ? 'place' : 'route';
+
   return (
     <main className="shell stack">
       <header className="topbar">
         <div className="brand">
           <strong>Kestrel Share</strong>
-          <span className="muted">Public latest-route link</span>
+          <span className="muted">Public {itemLabel} link</span>
         </div>
         <div className="row">
-          <Link href={auth.isAuthenticated ? '/dashboard/routes' : '/login'}>
-            {auth.isAuthenticated ? 'Back to routes' : 'Sign in'}
+          <Link href={auth.isAuthenticated ? dashboardHref : '/login'}>
+            {auth.isAuthenticated ? `Back to ${itemLabel}s` : 'Sign in'}
           </Link>
         </div>
       </header>
 
-      {isLoading ? <p className="muted">Loading shared route…</p> : null}
+      {isLoading ? <p className="muted">Loading shared item…</p> : null}
       {error == null ? null : <div className="error">{error}</div>}
 
-      {sharedRoute == null || isLoading ? null : (
+      {sharedItem == null || isLoading ? null : (
         <section className="grid">
-          <article className="panel stack">
-            <div className="row" style={{ justifyContent: 'space-between' }}>
-              <div>
-                <h1 style={{ marginBottom: '0.25rem' }}>{sharedRoute.route.name}</h1>
-                <p className="muted" style={{ margin: 0 }}>
-                  rev {sharedRoute.route.revision.revisionNumber} ·{' '}
-                  {sharedRoute.route.revision.defaultSpeedKmh} km/h ·{' '}
-                  {formatMode(sharedRoute.route.revision.mode)}
-                </p>
-              </div>
-              <span className="chip">public link</span>
-            </div>
-            {sharedRoute.route.description == null ? null : <p>{sharedRoute.route.description}</p>}
-            <RouteMapPreview waypoints={sharedRoute.route.revision.waypoints} />
-            <div className="chip-row">
-              <span className="chip">
-                {sharedRoute.route.revision.waypoints.length} waypoint
-                {sharedRoute.route.revision.waypoints.length === 1 ? '' : 's'}
-              </span>
-              <span className="chip">{formatMode(sharedRoute.route.revision.mode)}</span>
-              <span className="chip">{sharedRoute.route.revision.defaultSpeedKmh} km/h</span>
-            </div>
-          </article>
+          {sharedItem.kind === 'PLACE' ? (
+            <SharedPlaceCard sharedItem={sharedItem} />
+          ) : (
+            <SharedRouteCard sharedItem={sharedItem} />
+          )}
 
           <article className="panel stack">
             <h2>Copy to your library</h2>
             <p className="muted" style={{ margin: 0 }}>
-              This copies the currently visible snapshot into your own cloud library as a new route.
+              This copies the visible {itemLabel} into your own cloud library.
             </p>
             {copyError == null ? null : <div className="error">{copyError}</div>}
-            {copiedRoute == null ? null : (
+            {copiedItem == null ? null : (
               <div className="success">
-                Copied as <strong>{copiedRoute.name}</strong>.{' '}
-                <Link href="/dashboard/routes">Open routes</Link>
+                Copied as <strong>{copiedItem.name}</strong>. <Link href={dashboardHref}>Open</Link>
               </div>
             )}
             <div className="row">
@@ -142,8 +136,90 @@ export default function SharedRoutePage() {
   );
 }
 
+function SharedPlaceCard({
+  sharedItem,
+}: {
+  sharedItem: Extract<SharedSnapshot, { kind: 'PLACE' }>;
+}) {
+  return (
+    <article className="panel stack">
+      <div className="row" style={{ justifyContent: 'space-between' }}>
+        <div>
+          <h1 style={{ marginBottom: '0.25rem' }}>{sharedItem.place.name}</h1>
+          <p className="muted" style={{ margin: 0 }}>
+            {formatCoord(sharedItem.place.latitude)}, {formatCoord(sharedItem.place.longitude)}
+          </p>
+        </div>
+        <span className="chip">public place</span>
+      </div>
+      {sharedItem.place.description == null ? null : <p>{sharedItem.place.description}</p>}
+      <PlaceMapPreview
+        latitude={sharedItem.place.latitude}
+        longitude={sharedItem.place.longitude}
+      />
+      <div className="chip-row">
+        {sharedItem.place.tags.length === 0 ? (
+          <span className="chip">place</span>
+        ) : (
+          sharedItem.place.tags.map((tag) => (
+            <span className="chip" key={tag}>
+              {tag}
+            </span>
+          ))
+        )}
+      </div>
+    </article>
+  );
+}
+
+function SharedRouteCard({ sharedItem }: { sharedItem: SharedRouteSnapshot }) {
+  return (
+    <article className="panel stack">
+      <div className="row" style={{ justifyContent: 'space-between' }}>
+        <div>
+          <h1 style={{ marginBottom: '0.25rem' }}>{sharedItem.route.name}</h1>
+          <p className="muted" style={{ margin: 0 }}>
+            rev {sharedItem.route.revision.revisionNumber} ·{' '}
+            {sharedItem.route.revision.defaultSpeedKmh} km/h ·{' '}
+            {formatMode(sharedItem.route.revision.mode)}
+          </p>
+        </div>
+        <span className="chip">public route</span>
+      </div>
+      {sharedItem.route.description == null ? null : <p>{sharedItem.route.description}</p>}
+      <RouteMapPreview waypoints={sharedItem.route.revision.waypoints} />
+      <div className="chip-row">
+        <span className="chip">
+          {sharedItem.route.revision.waypoints.length} waypoint
+          {sharedItem.route.revision.waypoints.length === 1 ? '' : 's'}
+        </span>
+        <span className="chip">{formatMode(sharedItem.route.revision.mode)}</span>
+        <span className="chip">{sharedItem.route.revision.defaultSpeedKmh} km/h</span>
+      </div>
+    </article>
+  );
+}
+
+function getCopyBody(sharedItem: SharedSnapshot) {
+  if (sharedItem.kind === 'PLACE') {
+    return {};
+  }
+
+  return {
+    routeRevisionId: sharedItem.route.revision.id,
+  };
+}
+
+function getDashboardHref(sharedItem: SharedSnapshot | null) {
+  return sharedItem?.kind === 'PLACE' ? '/dashboard/places' : '/dashboard/routes';
+}
+
 function formatMode(mode: SharedRouteSnapshot['route']['revision']['mode']) {
   return mode === 'PING_PONG' ? 'PingPong' : mode[0] + mode.slice(1).toLowerCase();
+}
+
+function formatCoord(value: number) {
+  return value.toFixed(6);
 }
 
 function formatError(error: unknown): string {

@@ -1,10 +1,16 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { type FormEvent, useMemo, useState } from 'react';
-import { formatError, normalizeNullable, parseNumber } from '@/components/dashboard/utils';
+import { type FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { useAuth } from '@/components/AuthProvider';
+import {
+  formatError,
+  normalizeNullable,
+  parseNumber,
+  toAbsolutePublicUrl,
+} from '@/components/dashboard/utils';
 import { DEFAULT_MAP_CENTER } from '@/components/mapStyle';
-import type { Place, PlaceInput } from '@/lib/api';
+import { ApiError, type Place, type PlaceInput, type PlaceShareLink } from '@/lib/api';
 
 const PlaceMapEditor = dynamic(() => import('@/components/PlaceMapEditor'), {
   ssr: false,
@@ -114,6 +120,7 @@ export default function PlaceEditor({
         Description
         <textarea value={description} onChange={(event) => setDescription(event.target.value)} />
       </label>
+      <PlaceSharePanel place={place} />
       <div className="row">
         <button disabled={isSaving} type="submit">
           {isSaving ? 'Saving…' : 'Save place'}
@@ -125,6 +132,168 @@ export default function PlaceEditor({
         )}
       </div>
     </form>
+  );
+}
+
+function PlaceSharePanel({ place }: { place: Place | null }) {
+  const auth = useAuth();
+  const [shareLink, setShareLink] = useState<PlaceShareLink | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isMutating, setIsMutating] = useState(false);
+
+  const loadShareLink = useCallback(async () => {
+    if (place == null) {
+      setShareLink(null);
+      setError(null);
+      return;
+    }
+
+    setError(null);
+    setIsLoading(true);
+
+    try {
+      const nextShareLink = await auth.apiRequest<PlaceShareLink>(`/places/${place.id}/share-link`);
+      setShareLink(nextShareLink);
+    } catch (nextError) {
+      if (nextError instanceof ApiError && nextError.status === 404) {
+        setShareLink(null);
+        return;
+      }
+
+      setError(formatError(nextError));
+    } finally {
+      setIsLoading(false);
+    }
+  }, [auth, place]);
+
+  useEffect(() => {
+    setNotice(null);
+    void loadShareLink();
+  }, [loadShareLink]);
+
+  async function createShareLink() {
+    if (place == null) {
+      return;
+    }
+
+    setNotice(null);
+    setError(null);
+    setIsMutating(true);
+
+    try {
+      const nextShareLink = await auth.apiRequest<PlaceShareLink>(
+        `/places/${place.id}/share-link`,
+        {
+          method: 'POST',
+        },
+      );
+      setShareLink(nextShareLink);
+    } catch (nextError) {
+      setError(formatError(nextError));
+    } finally {
+      setIsMutating(false);
+    }
+  }
+
+  async function setDisabled(disabled: boolean) {
+    if (place == null) {
+      return;
+    }
+
+    setNotice(null);
+    setError(null);
+    setIsMutating(true);
+
+    try {
+      const nextShareLink = await auth.apiRequest<PlaceShareLink>(
+        `/places/${place.id}/share-link`,
+        {
+          body: JSON.stringify({ disabled }),
+          method: 'PATCH',
+        },
+      );
+      setShareLink(nextShareLink);
+    } catch (nextError) {
+      setError(formatError(nextError));
+    } finally {
+      setIsMutating(false);
+    }
+  }
+
+  async function copyPublicUrl() {
+    if (shareLink == null) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(toAbsolutePublicUrl(shareLink.publicUrl));
+      setNotice('Share URL copied.');
+    } catch {
+      setNotice('Copy failed; select the URL manually.');
+    }
+  }
+
+  if (place == null) {
+    return <p className="muted no-margin">Save this place before creating a public place link.</p>;
+  }
+
+  return (
+    <section className="stack">
+      <div className="route-share-header">
+        <h3>Share link</h3>
+        {isLoading ? <span className="muted">Loading…</span> : null}
+      </div>
+      <p className="muted no-margin">
+        Visitors can open the public page without login. Signed-in users can copy this place into
+        their own library.
+      </p>
+      {error == null ? null : <div className="error">{error}</div>}
+      {notice == null ? null : <div className="success">{notice}</div>}
+      {shareLink == null ? (
+        <div className="row">
+          <button disabled={isMutating} type="button" onClick={() => void createShareLink()}>
+            {isMutating ? 'Creating…' : 'Create public link'}
+          </button>
+        </div>
+      ) : (
+        <div className="stack">
+          <label>
+            Public URL
+            <input readOnly value={toAbsolutePublicUrl(shareLink.publicUrl)} />
+          </label>
+          <div className="chip-row">
+            {shareLink.disabledAt == null ? (
+              <span className="chip">active</span>
+            ) : (
+              <span className="chip">disabled</span>
+            )}
+            <span className="chip">place</span>
+          </div>
+          <div className="row">
+            <button className="secondary" type="button" onClick={() => void copyPublicUrl()}>
+              Copy URL
+            </button>
+            <a href={shareLink.publicUrl} rel="noreferrer" target="_blank">
+              Open public page
+            </a>
+            <button
+              className={shareLink.disabledAt == null ? 'danger' : 'secondary'}
+              disabled={isMutating}
+              type="button"
+              onClick={() => void setDisabled(shareLink.disabledAt == null)}
+            >
+              {isMutating
+                ? 'Saving…'
+                : shareLink.disabledAt == null
+                  ? 'Disable link'
+                  : 'Re-enable link'}
+            </button>
+          </div>
+        </div>
+      )}
+    </section>
   );
 }
 
