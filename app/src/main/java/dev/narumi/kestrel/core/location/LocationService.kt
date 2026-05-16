@@ -79,7 +79,10 @@ class LocationService : Service() {
                 _runtimeState.value = RuntimeState.Idle
                 scope.launch { prefs.setMockState(null) }
                 stopForegroundCompat()
-                stopSelf()
+                // A new SET_LOCATION / START_ROUTE may already be queued by a UI "replace mock"
+                // action. Do not let this older STOP tear down the service before the newer
+                // foreground-start command gets its chance to call startForeground().
+                stopSelfResult(startId)
                 return START_NOT_STICKY
             }
             ACTION_SET_LOCATION -> {
@@ -533,11 +536,11 @@ class LocationService : Service() {
         }
 
         fun pause(context: Context) {
-            sendIntent(context, ACTION_PAUSE, foreground = true)
+            sendIntent(context, ACTION_PAUSE, foreground = false)
         }
 
         fun resume(context: Context) {
-            sendIntent(context, ACTION_RESUME, foreground = true)
+            sendIntent(context, ACTION_RESUME, foreground = false)
         }
 
         fun stop(context: Context) {
