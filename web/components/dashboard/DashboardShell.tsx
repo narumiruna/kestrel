@@ -18,37 +18,23 @@ const sections: Array<{ href: string; key: DashboardSection; label: string }> = 
   { href: '/dashboard/routes', key: 'routes', label: 'Routes' },
 ];
 
-export default function DashboardShell({
-  activeSection,
-  children,
-  onLogout,
-  onRefresh,
-  username,
-}: Props) {
+export default function DashboardShell({ activeSection, children, onLogout, onRefresh, username }: Props) {
   return (
-    <main className="shell">
-      <header className="topbar dashboard-topbar">
-        <div className="brand">
+    <main className="shell kc-shell">
+      <header className="kc-topbar">
+        <div className="kc-brand">
           <strong>Kestrel Cloud</strong>
-          <span className="muted">Signed in as {username}</span>
+          <span className="kc-signed-in">Signed in as {username}</span>
         </div>
-        <div className="row dashboard-actions">
-          <button className="secondary" type="button" onClick={onRefresh}>
-            Refresh
-          </button>
-          <button className="secondary" type="button" onClick={onLogout}>
-            Logout
-          </button>
+        <div className="kc-topbar-actions">
+          <button className="secondary" type="button" onClick={onRefresh}>Refresh</button>
+          <button className="secondary" type="button" onClick={onLogout}>Logout</button>
         </div>
       </header>
 
-      <nav aria-label="Dashboard sections" className="dashboard-tabs">
+      <nav aria-label="Dashboard sections" className="kc-tabs">
         {sections.map((section) => (
-          <Link
-            className={`dashboard-tab ${activeSection === section.key ? 'active' : ''}`}
-            href={section.href}
-            key={section.key}
-          >
+          <Link className={`kc-tab ${activeSection === section.key ? 'active' : ''}`} href={section.href} key={section.key}>
             {section.label}
           </Link>
         ))}
