@@ -1152,3 +1152,10 @@ label {
 button{border-radius:8px}
 .route-editor button[type='submit']{background:linear-gradient(180deg,#0e8c88,#087a78);color:#fff}
 .route-editor .danger{background:#fff;border:1px solid #f3b7b9;color:#e5484d}
+
+@media (max-width: 860px) {
+  .kc-workspace,
+  .kc-workspace:has(.dashboard-sidebar.collapsed) {
+    grid-template-columns: 1fr;
+  }
+}
