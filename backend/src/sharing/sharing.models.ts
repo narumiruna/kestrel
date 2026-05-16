@@ -32,3 +32,18 @@ export function mapShareLink(shareLink: ShareLinkRecord) {
     updatedAt: shareLink.updatedAt,
   };
 }
+
+export function mapPublicShareLink(
+  shareLink: Pick<
+    ShareLinkRecord,
+    'createdAt' | 'expiresAt' | 'permission' | 'token'
+  >,
+) {
+  return {
+    createdAt: shareLink.createdAt,
+    expiresAt: shareLink.expiresAt,
+    permission: shareLink.permission,
+    publicUrl: `/share/${shareLink.token}`,
+    token: shareLink.token,
+  };
+}

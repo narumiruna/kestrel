@@ -299,6 +299,12 @@ describe('SharingService', () => {
       },
     });
     expect(result.place).not.toHaveProperty('id');
+    expect(result.shareLink).not.toHaveProperty('id');
+    expect(result.shareLink).not.toHaveProperty('placeId');
+    expect(result.shareLink).not.toHaveProperty('routeId');
+    expect(result.shareLink).not.toHaveProperty('routeRevisionId');
+    expect(result.shareLink).not.toHaveProperty('disabledAt');
+    expect(result.shareLink).not.toHaveProperty('updatedAt');
   });
 
   it('returns a sanitized public route snapshot without owner metadata', async () => {
@@ -333,6 +339,12 @@ describe('SharingService', () => {
     });
     expect(result.route.revision).not.toHaveProperty('createdBy');
     expect(result.route).not.toHaveProperty('id');
+    expect(result.shareLink).not.toHaveProperty('id');
+    expect(result.shareLink).not.toHaveProperty('placeId');
+    expect(result.shareLink).not.toHaveProperty('routeId');
+    expect(result.shareLink).not.toHaveProperty('routeRevisionId');
+    expect(result.shareLink).not.toHaveProperty('disabledAt');
+    expect(result.shareLink).not.toHaveProperty('updatedAt');
   });
 
   it('copies a shared place into the caller library', async () => {
