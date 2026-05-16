@@ -52,6 +52,11 @@ export type ShareLink = {
   updatedAt: string;
 };
 
+export type PublicShareLink = Pick<
+  ShareLink,
+  'createdAt' | 'expiresAt' | 'permission' | 'publicUrl' | 'token'
+>;
+
 export type PlaceShareLink = ShareLink & {
   placeId: string;
   routeId: null;
@@ -72,7 +77,7 @@ export type SharedPlaceSnapshot = {
     name: string;
     tags: string[];
   };
-  shareLink: ShareLink;
+  shareLink: PublicShareLink;
 };
 
 export type SharedRouteSnapshot = {
@@ -89,7 +94,7 @@ export type SharedRouteSnapshot = {
       waypoints: RouteWaypoint[];
     };
   };
-  shareLink: ShareLink;
+  shareLink: PublicShareLink;
 };
 
 export type SharedSnapshot = SharedPlaceSnapshot | SharedRouteSnapshot;

@@ -21,7 +21,11 @@ import {
   routeSelect,
 } from '../library/library.models';
 import { PrismaService } from '../prisma/prisma.service';
-import { mapShareLink, shareLinkSelect } from './sharing.models';
+import {
+  mapPublicShareLink,
+  mapShareLink,
+  shareLinkSelect,
+} from './sharing.models';
 import {
   parseCopySharedItemInput,
   parseShareLinkUpdateInput,
@@ -270,7 +274,7 @@ export class SharingService {
       return {
         kind: LibraryItemKind.PLACE,
         place: sanitizePublicPlace(selectVisiblePlace(shareLink)),
-        shareLink: mapShareLink(toShareLinkLookup(shareLink)),
+        shareLink: mapPublicShareLink(shareLink),
       };
     }
 
@@ -284,7 +288,7 @@ export class SharingService {
         name: route.name,
         revision: sanitizePublicRouteRevision(revision),
       },
-      shareLink: mapShareLink(toShareLinkLookup(shareLink)),
+      shareLink: mapPublicShareLink(shareLink),
     };
   }
 
@@ -784,21 +788,6 @@ async function recordSyncEvent(
       userId: input.userId,
     },
   });
-}
-
-function toShareLinkLookup(shareLink: PublicShareRecord): ShareLinkLookup {
-  return {
-    createdAt: shareLink.createdAt,
-    disabledAt: shareLink.disabledAt,
-    expiresAt: shareLink.expiresAt,
-    id: shareLink.id,
-    permission: shareLink.permission,
-    placeId: shareLink.placeId,
-    routeId: shareLink.routeId,
-    routeRevisionId: shareLink.routeRevisionId,
-    token: shareLink.token,
-    updatedAt: shareLink.updatedAt,
-  };
 }
 
 function createShareToken(): string {
