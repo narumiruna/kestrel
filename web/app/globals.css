@@ -1007,7 +1007,9 @@ label {
 .route-marker.selected:hover:not(:disabled),
 .route-marker.selected:focus-visible {
   background: var(--color-primary);
-  box-shadow: 0 0 0 4px rgb(118 201 69 / 28%), var(--shadow-md);
+  box-shadow:
+    0 0 0 4px rgb(118 201 69 / 28%),
+    var(--shadow-md);
   transform: scale(1.16);
 }
 

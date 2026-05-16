@@ -228,13 +228,7 @@ function syncMarkers({
   });
 }
 
-function createMarkerElement({
-  index,
-  waypointCount,
-}: {
-  index: number;
-  waypointCount: number;
-}) {
+function createMarkerElement({ index, waypointCount }: { index: number; waypointCount: number }) {
   const element = document.createElement('button');
   element.className = 'route-marker';
   element.textContent = getWaypointShortLabel(index, waypointCount);

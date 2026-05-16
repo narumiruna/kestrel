@@ -254,14 +254,20 @@ class LocationService : Service() {
         activeRouteMode = mode
         routeJob =
             scope.launch {
+                // Read once per route job so Options changes apply to the next route start or
+                // restore, not mid-flight.
+                val progressWriteIntervalTicks =
+                    progressWriteIntervalTicksFor(
+                        prefs.mockPlaybackSettings.first().progressWriteIntervalSeconds,
+                    )
                 var tickCounter = 0
                 while (isActive && !engine.isFinished()) {
-                    delay(TICK_MILLIS)
+                    delay(LOCATION_SERVICE_TICK_MILLIS)
                     if (paused) continue
-                    val sample = engine.advance(TICK_MILLIS / 1000.0)
+                    val sample = engine.advance(LOCATION_SERVICE_TICK_MILLIS / 1000.0)
                     pushSample(sample)
                     tickCounter++
-                    if (tickCounter >= PROGRESS_WRITE_INTERVAL_TICKS) {
+                    if (tickCounter >= progressWriteIntervalTicks) {
                         tickCounter = 0
                         // Snapshot progress + direction in the same write so they can't disagree
                         // across a process restart.
@@ -324,7 +330,7 @@ class LocationService : Service() {
             scope.launch {
                 while (isActive) {
                     pushLocation(point)
-                    delay(TICK_MILLIS)
+                    delay(LOCATION_SERVICE_TICK_MILLIS)
                 }
             }
     }
@@ -469,11 +475,6 @@ class LocationService : Service() {
         const val EXTRA_MODE = "route_mode"
         private const val CHANNEL_ID = "kestrel_location"
         private const val NOTIFICATION_ID = 1001
-        private const val TICK_MILLIS = 1000L
-
-        // Write progress every PROGRESS_WRITE_INTERVAL_TICKS ticks (= 5 s at the current tick rate).
-        // Matches the plan's accepted jump-back budget of <= 5 s * speed after a kill.
-        private const val PROGRESS_WRITE_INTERVAL_TICKS = 5
         private const val TAG = "LocationService"
         private const val REQ_CONTENT = 0
         private const val REQ_PAUSE = 1

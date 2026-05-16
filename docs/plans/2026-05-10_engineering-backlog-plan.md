@@ -10,7 +10,7 @@ This backlog comes from the general TODO and the operations/DX sections of the c
 
 ## Plan
 
-- [ ] Add Android GitHub Actions CI for PRs: `just check`, `just lint`, and `:app:assembleDebug`, with Gradle cache.
+- [x] Add Android GitHub Actions CI for PRs: Android job now runs `just android-check`, `just android-lint`, `:app:assembleDebug`, and unit tests with Gradle cache.
 - [x] Add backend CI for test, lint, and typecheck.
 - [x] Add web CI for lint/typecheck/build.
 - [x] Add `paths:` filter (or `dorny/paths-filter`) to `.github/workflows/ci.yml` so `android`, `backend`, and `web` jobs only run when their respective workspace files change. Surfaced by PR #58 review.
@@ -48,7 +48,7 @@ This backlog comes from the general TODO and the operations/DX sections of the c
 
 ## Completion Checklist
 
-- [ ] Android, backend, and web CI run on PRs and block broken formatting/lint/builds.
+- [x] Android, backend, and web CI run on PRs and block broken formatting/lint/builds.
 - [ ] Production deploy has documented secrets, health checks, and DB backup/rollback procedures.
 - [ ] API documentation/client strategy is implemented or explicitly accepted as hand-written.
 - [ ] App polish items that affect first impressions are done: notification wording and app icon.
