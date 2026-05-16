@@ -57,11 +57,18 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
-      - name: Validate and build
-        run: ./gradlew spotlessCheck detekt :app:assembleDebug
+      - uses: extractions/setup-just@v2
 
-      - name: Run unit tests (non-blocking)
-        continue-on-error: true
+      - name: Check Android formatting
+        run: just android-check
+
+      - name: Lint Android
+        run: just android-lint
+
+      - name: Build debug APK
+        run: ./gradlew :app:assembleDebug
+
+      - name: Run Android unit tests
         run: ./gradlew :app:testDebugUnitTest
 
       - uses: actions/upload-artifact@v4
