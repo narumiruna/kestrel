@@ -52,6 +52,25 @@ data class CloudPlaceConflict(
     val cloudLongitude: Double,
 )
 
+internal fun CloudSyncState.requiresBootstrapFor(
+    sessionUserId: String,
+    hasSyncedContentMissingLibraryItems: Boolean = false,
+): Boolean = cursor == null || userId != sessionUserId || hasSyncedContentMissingLibraryItems
+
+internal fun collectCloudLibraryItems(
+    places: List<CloudPlacePayload>,
+    routes: List<CloudRoutePayload>,
+    libraryItems: List<CloudLibraryItemPayload>,
+): List<CloudLibraryItemPayload> =
+    buildMap {
+        libraryItems.forEach { item -> put(item.id, item) }
+        places.mapNotNull(CloudPlacePayload::libraryItem).forEach { item -> putIfAbsent(item.id, item) }
+        routes
+            .filter { route -> route.currentRevision != null }
+            .mapNotNull(CloudRoutePayload::libraryItem)
+            .forEach { item -> putIfAbsent(item.id, item) }
+    }.values.toList()
+
 @Suppress("TooManyFunctions")
 class CloudSyncRepository internal constructor(
     private val database: KestrelDatabase,
@@ -129,11 +148,13 @@ class CloudSyncRepository internal constructor(
     }
 
     private suspend fun syncInternal() {
+        val session = requireSession()
         val state = loadSyncState()
-        if (state.cursor == null) {
+        val hasSyncedContentMissingLibraryItems = dao.countSyncedContentMissingLibraryItems() > 0
+        if (state.requiresBootstrapFor(session.userId, hasSyncedContentMissingLibraryItems)) {
             bootstrap()
         } else {
-            changes(state.cursor)
+            changes(checkNotNull(state.cursor))
         }
         uploadPendingPlaceChanges()
         loadSyncState().cursor?.let { changes(it) }
@@ -177,14 +198,13 @@ class CloudSyncRepository internal constructor(
             upsertRouteRows(routeRows)
 
             val libraryItemEntities =
-                response.libraryItems.map { item ->
-                    val localId = dao.findLibraryItemIdByRemoteId(item.id) ?: uuidFactory()
-                    item.toLibraryItemEntity(
-                        localId = localId,
-                        localPlaceId = resolveLocalPlaceId(item.placeId, resolvedPlaceIds),
-                        localRouteId = resolveLocalRouteId(item.routeId, resolvedRouteIds),
-                    )
-                }
+                buildLibraryItemEntities(
+                    places = response.places,
+                    routes = response.routes,
+                    libraryItems = response.libraryItems,
+                    resolvedPlaceIds = resolvedPlaceIds,
+                    resolvedRouteIds = resolvedRouteIds,
+                )
             if (libraryItemEntities.isNotEmpty()) {
                 dao.upsertLibraryItems(libraryItemEntities)
             }
@@ -237,14 +257,13 @@ class CloudSyncRepository internal constructor(
                 upsertRouteRows(routeRows)
 
                 val libraryItemEntities =
-                    response.libraryItems.map { item ->
-                        val localId = dao.findLibraryItemIdByRemoteId(item.id) ?: uuidFactory()
-                        item.toLibraryItemEntity(
-                            localId = localId,
-                            localPlaceId = resolveLocalPlaceId(item.placeId, resolvedPlaceIds),
-                            localRouteId = resolveLocalRouteId(item.routeId, resolvedRouteIds),
-                        )
-                    }
+                    buildLibraryItemEntities(
+                        places = response.places,
+                        routes = response.routes,
+                        libraryItems = response.libraryItems,
+                        resolvedPlaceIds = resolvedPlaceIds,
+                        resolvedRouteIds = resolvedRouteIds,
+                    )
                 if (libraryItemEntities.isNotEmpty()) {
                     dao.upsertLibraryItems(libraryItemEntities)
                 }
@@ -470,6 +489,21 @@ class CloudSyncRepository internal constructor(
     }
 
     private fun String.toCloudSyncUploadChangeTypeOrNull(): CloudSyncUploadChangeType? = runCatching { CloudSyncUploadChangeType.valueOf(this) }.getOrNull()
+
+    private suspend fun buildLibraryItemEntities(
+        places: List<CloudPlacePayload>,
+        routes: List<CloudRoutePayload>,
+        libraryItems: List<CloudLibraryItemPayload>,
+        resolvedPlaceIds: Map<String, String>,
+        resolvedRouteIds: Map<String, String>,
+    ) = collectCloudLibraryItems(places, routes, libraryItems).map { item ->
+        val localId = dao.findLibraryItemIdByRemoteId(item.id) ?: uuidFactory()
+        item.toLibraryItemEntity(
+            localId = localId,
+            localPlaceId = resolveLocalPlaceId(item.placeId, resolvedPlaceIds),
+            localRouteId = resolveLocalRouteId(item.routeId, resolvedRouteIds),
+        )
+    }
 
     private suspend fun upsertRouteRows(routeRows: List<CloudRouteSyncRows>) {
         if (routeRows.isEmpty()) {

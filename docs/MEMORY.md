@@ -12,6 +12,8 @@
 - Next rewrites in `next.config.ts` bake the backend URL at `next build`; deploy images built without `KESTREL_API_BASE_URL` proxy to `localhost:3300`. Use the runtime `/api/backend/[...path]` route proxy instead.
 - Compose autofill attempts on Options cloud login were worse with 1Password: semantics `ContentType` prevented even password fill, while legacy `AutofillTree` / `AutofillNode` only filled OTP. A safer workaround is not rendering the OTP field until username/password are filled, so 1Password first sees a credential-only form.
 - `web/public/.well-known/assetlinks.json` currently contains the local Android debug signing fingerprint for `dev.narumi.kestrel` so credential-sharing can be tested before release signing exists. Replace/add the release certificate fingerprint when a release signing config is introduced.
+- Android cloud sync cursors are scoped to the signed-in backend user. If the saved cursor belongs to another user/backend and sync uses `/sync/changes` instead of bootstrap, the UI can show `Sync complete` with no Places/Routes imported.
+- Android library UI only shows rows with `library_items`; synced cloud `places`/`routes` can exist locally but stay invisible if their matching library item was not imported. Sync repair should re-bootstrap when synced content is missing library items and consume embedded `place.libraryItem` / `route.libraryItem` payloads.
 
 ## TASTE
 
