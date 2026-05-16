@@ -76,6 +76,28 @@ abstract class LibraryDao {
     @Query("SELECT * FROM sync_conflicts WHERE id = :conflictId LIMIT 1")
     abstract suspend fun getSyncConflict(conflictId: String): SyncConflictEntity?
 
+    @Query(
+        """
+        SELECT
+            (
+                SELECT COUNT(*)
+                FROM places
+                WHERE sync_status = 'Synced'
+                    AND NOT EXISTS (
+                        SELECT 1 FROM library_items WHERE library_items.place_id = places.id
+                    )
+            ) + (
+                SELECT COUNT(*)
+                FROM routes
+                WHERE sync_status = 'Synced'
+                    AND NOT EXISTS (
+                        SELECT 1 FROM library_items WHERE library_items.route_id = routes.id
+                    )
+            )
+        """,
+    )
+    abstract suspend fun countSyncedContentMissingLibraryItems(): Int
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     abstract suspend fun upsertPlaces(places: List<PlaceEntity>)
 
