@@ -6,6 +6,7 @@ export const shareLinkSelect = {
   expiresAt: true,
   id: true,
   permission: true,
+  placeId: true,
   routeId: true,
   routeRevisionId: true,
   token: true,
@@ -23,10 +24,26 @@ export function mapShareLink(shareLink: ShareLinkRecord) {
     expiresAt: shareLink.expiresAt,
     id: shareLink.id,
     permission: shareLink.permission,
+    placeId: shareLink.placeId,
     publicUrl: `/share/${shareLink.token}`,
     routeId: shareLink.routeId,
     routeRevisionId: shareLink.routeRevisionId,
     token: shareLink.token,
     updatedAt: shareLink.updatedAt,
+  };
+}
+
+export function mapPublicShareLink(
+  shareLink: Pick<
+    ShareLinkRecord,
+    'createdAt' | 'expiresAt' | 'permission' | 'token'
+  >,
+) {
+  return {
+    createdAt: shareLink.createdAt,
+    expiresAt: shareLink.expiresAt,
+    permission: shareLink.permission,
+    publicUrl: `/share/${shareLink.token}`,
+    token: shareLink.token,
   };
 }

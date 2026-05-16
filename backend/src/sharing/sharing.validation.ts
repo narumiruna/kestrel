@@ -4,8 +4,8 @@ export type ShareLinkUpdateInput = {
   disabled: boolean;
 };
 
-export type CopySharedRouteInput = {
-  routeRevisionId: string;
+export type CopySharedItemInput = {
+  routeRevisionId?: string;
 };
 
 export function parseShareLinkUpdateInput(
@@ -26,14 +26,20 @@ export function parseShareLinkUpdateInput(
   };
 }
 
-export function parseCopySharedRouteInput(
-  input: unknown,
-): CopySharedRouteInput {
-  if (input == null || typeof input !== 'object' || Array.isArray(input)) {
+export function parseCopySharedItemInput(input: unknown): CopySharedItemInput {
+  if (input == null) {
+    return {};
+  }
+
+  if (typeof input !== 'object' || Array.isArray(input)) {
     throw new BadRequestException('request body must be an object');
   }
 
   const routeRevisionId = (input as Record<string, unknown>).routeRevisionId;
+
+  if (routeRevisionId == null) {
+    return {};
+  }
 
   if (typeof routeRevisionId !== 'string' || routeRevisionId.length === 0) {
     throw new BadRequestException('routeRevisionId must be a non-empty string');

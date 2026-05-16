@@ -38,20 +38,50 @@ export type RouteWaypoint = {
   speedKmh?: number | null;
 };
 
-export type RouteShareLink = {
+export type ShareLink = {
   createdAt: string;
   disabledAt: string | null;
   expiresAt: string | null;
   id: string;
   permission: 'PUBLIC_READ';
+  placeId: string | null;
   publicUrl: string;
-  routeId: string;
+  routeId: string | null;
   routeRevisionId: string | null;
   token: string;
   updatedAt: string;
 };
 
+export type PublicShareLink = Pick<
+  ShareLink,
+  'createdAt' | 'expiresAt' | 'permission' | 'publicUrl' | 'token'
+>;
+
+export type PlaceShareLink = ShareLink & {
+  placeId: string;
+  routeId: null;
+  routeRevisionId: null;
+};
+
+export type RouteShareLink = ShareLink & {
+  placeId: null;
+  routeId: string;
+};
+
+export type SharedPlaceSnapshot = {
+  kind: 'PLACE';
+  place: {
+    description: string | null;
+    latitude: number;
+    longitude: number;
+    name: string;
+    tags: string[];
+  };
+  shareLink: PublicShareLink;
+};
+
 export type SharedRouteSnapshot = {
+  kind: 'ROUTE';
   route: {
     description: string | null;
     name: string;
@@ -64,8 +94,10 @@ export type SharedRouteSnapshot = {
       waypoints: RouteWaypoint[];
     };
   };
-  shareLink: RouteShareLink;
+  shareLink: PublicShareLink;
 };
+
+export type SharedSnapshot = SharedPlaceSnapshot | SharedRouteSnapshot;
 
 export type Route = {
   createdAt: string;

@@ -21,6 +21,7 @@ describe('SharingService', () => {
     prismaService.$transaction.mockImplementation((callback) =>
       callback({
         libraryItem: prismaService.libraryItem,
+        place: prismaService.place,
         route: prismaService.route,
         routeRevision: prismaService.routeRevision,
         shareLink: prismaService.shareLink,
@@ -36,6 +37,50 @@ describe('SharingService', () => {
     await expect(
       sharingService.getRouteShareLink('user-1', 'route-1'),
     ).rejects.toThrow(NotFoundException);
+  });
+
+  it('creates one latest share link per owner place and reuses it later', async () => {
+    prismaService.place.findFirst
+      .mockResolvedValueOnce({
+        id: 'place-1',
+      })
+      .mockResolvedValueOnce({
+        id: 'place-1',
+      });
+    prismaService.shareLink.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(
+        createShareLinkRecord({
+          disabledAt: null,
+          placeId: 'place-1',
+          token: 'share-token-place',
+        }),
+      );
+    prismaService.shareLink.create.mockResolvedValue(
+      createShareLinkRecord({
+        disabledAt: null,
+        placeId: 'place-1',
+        token: 'share-token-place',
+      }),
+    );
+
+    const created = await sharingService.createPlaceShareLink(
+      'user-1',
+      'place-1',
+    );
+    const fetched = await sharingService.getPlaceShareLink('user-1', 'place-1');
+
+    expect(created).toMatchObject({
+      placeId: 'place-1',
+      publicUrl: '/share/share-token-place',
+      token: 'share-token-place',
+    });
+    expect(fetched).toMatchObject({
+      placeId: 'place-1',
+      publicUrl: '/share/share-token-place',
+      token: 'share-token-place',
+    });
+    expect(prismaService.shareLink.create).toHaveBeenCalledTimes(1);
   });
 
   it('creates one latest share link per owner route and reuses it later', async () => {
@@ -116,7 +161,53 @@ describe('SharingService', () => {
     expect(prismaService.shareLink.findFirst).toHaveBeenCalledTimes(2);
   });
 
-  it('disables and re-enables an existing share link', async () => {
+  it('disables and re-enables an existing place share link', async () => {
+    prismaService.place.findFirst.mockResolvedValue({
+      id: 'place-1',
+    });
+    prismaService.shareLink.findFirst.mockResolvedValue(
+      createShareLinkRecord({
+        disabledAt: null,
+        placeId: 'place-1',
+        token: 'share-token-place',
+      }),
+    );
+    prismaService.shareLink.update
+      .mockResolvedValueOnce(
+        createShareLinkRecord({
+          disabledAt: new Date('2026-05-13T12:00:00.000Z'),
+          placeId: 'place-1',
+          token: 'share-token-place',
+        }),
+      )
+      .mockResolvedValueOnce(
+        createShareLinkRecord({
+          disabledAt: null,
+          placeId: 'place-1',
+          token: 'share-token-place',
+        }),
+      );
+
+    const disabled = await sharingService.updatePlaceShareLink(
+      'user-1',
+      'place-1',
+      {
+        disabled: true,
+      },
+    );
+    const enabled = await sharingService.updatePlaceShareLink(
+      'user-1',
+      'place-1',
+      {
+        disabled: false,
+      },
+    );
+
+    expect(disabled.disabledAt).toEqual(new Date('2026-05-13T12:00:00.000Z'));
+    expect(enabled.disabledAt).toBeNull();
+  });
+
+  it('disables and re-enables an existing route share link', async () => {
     prismaService.route.findFirst.mockResolvedValue({
       id: 'route-1',
     });
@@ -186,6 +277,36 @@ describe('SharingService', () => {
     ).rejects.toThrow(NotFoundException);
   });
 
+  it('returns a sanitized public place snapshot without owner metadata', async () => {
+    prismaService.shareLink.findUnique.mockResolvedValue(
+      createPublicPlaceShareRecord({}),
+    );
+
+    const result = await sharingService.getSharedItem('share-token-place');
+
+    expect(result).toMatchObject({
+      kind: LibraryItemKind.PLACE,
+      place: {
+        description: 'Meet at the main entrance',
+        latitude: 25.033,
+        longitude: 121.5654,
+        name: 'Taipei 101',
+        tags: ['landmark'],
+      },
+      shareLink: {
+        publicUrl: '/share/share-token-place',
+        token: 'share-token-place',
+      },
+    });
+    expect(result.place).not.toHaveProperty('id');
+    expect(result.shareLink).not.toHaveProperty('id');
+    expect(result.shareLink).not.toHaveProperty('placeId');
+    expect(result.shareLink).not.toHaveProperty('routeId');
+    expect(result.shareLink).not.toHaveProperty('routeRevisionId');
+    expect(result.shareLink).not.toHaveProperty('disabledAt');
+    expect(result.shareLink).not.toHaveProperty('updatedAt');
+  });
+
   it('returns a sanitized public route snapshot without owner metadata', async () => {
     prismaService.shareLink.findUnique.mockResolvedValue(
       createPublicShareRecord({}),
@@ -218,6 +339,85 @@ describe('SharingService', () => {
     });
     expect(result.route.revision).not.toHaveProperty('createdBy');
     expect(result.route).not.toHaveProperty('id');
+    expect(result.shareLink).not.toHaveProperty('id');
+    expect(result.shareLink).not.toHaveProperty('placeId');
+    expect(result.shareLink).not.toHaveProperty('routeId');
+    expect(result.shareLink).not.toHaveProperty('routeRevisionId');
+    expect(result.shareLink).not.toHaveProperty('disabledAt');
+    expect(result.shareLink).not.toHaveProperty('updatedAt');
+  });
+
+  it('copies a shared place into the caller library', async () => {
+    prismaService.shareLink.findUnique.mockResolvedValue(
+      createPublicPlaceShareRecord({}),
+    );
+    prismaService.libraryItem.findFirst.mockResolvedValue({
+      sortOrder: 2,
+    });
+    prismaService.place.create.mockResolvedValue({
+      id: 'copied-place-1',
+    });
+    prismaService.libraryItem.create.mockResolvedValue({
+      id: 'library-item-place-9',
+    });
+    prismaService.place.findUniqueOrThrow.mockResolvedValue(
+      createPlaceRecord({
+        id: 'copied-place-1',
+        libraryItemId: 'library-item-place-9',
+      }),
+    );
+
+    const copiedPlace = await sharingService.copySharedItem(
+      'user-2',
+      'share-token-place',
+      {},
+    );
+
+    expect(prismaService.place.create).toHaveBeenCalledWith({
+      data: {
+        description: 'Meet at the main entrance',
+        latitude: 25.033,
+        longitude: 121.5654,
+        name: 'Taipei 101',
+        tags: ['landmark'],
+        userId: 'user-2',
+      },
+      select: {
+        id: true,
+      },
+    });
+    expect(prismaService.libraryItem.create).toHaveBeenCalledWith({
+      data: {
+        kind: LibraryItemKind.PLACE,
+        placeId: 'copied-place-1',
+        sortOrder: 3,
+        userId: 'user-2',
+      },
+      select: {
+        id: true,
+      },
+    });
+    expectSyncEvents(prismaService.syncEvent.create, [
+      {
+        entityId: 'copied-place-1',
+        entityType: SyncEntityType.PLACE,
+        operation: SyncOperation.UPSERT,
+        userId: 'user-2',
+      },
+      {
+        entityId: 'library-item-place-9',
+        entityType: SyncEntityType.LIBRARY_ITEM,
+        operation: SyncOperation.UPSERT,
+        userId: 'user-2',
+      },
+    ]);
+    expect(copiedPlace).toMatchObject({
+      id: 'copied-place-1',
+      libraryItem: {
+        id: 'library-item-place-9',
+      },
+      name: 'Taipei 101',
+    });
   });
 
   it('copies the requested shared snapshot into the caller library', async () => {
@@ -479,6 +679,17 @@ function createMockPrismaService() {
                 [unknown]
               >;
             };
+            place: {
+              create: jest.Mock<Promise<{ id: string }>, [unknown]>;
+              findFirst: jest.Mock<
+                Promise<Record<string, unknown> | null>,
+                [unknown]
+              >;
+              findUniqueOrThrow: jest.Mock<
+                Promise<ReturnType<typeof createPlaceRecord>>,
+                [unknown]
+              >;
+            };
             route: {
               create: jest.Mock<Promise<{ id: string }>, [unknown]>;
               findFirst: jest.Mock<
@@ -508,7 +719,7 @@ function createMockPrismaService() {
                 [unknown]
               >;
               findUnique: jest.Mock<
-                Promise<ReturnType<typeof createPublicShareRecord> | null>,
+                Promise<PublicShareTestRecord | null>,
                 [unknown]
               >;
               update: jest.Mock<
@@ -526,6 +737,17 @@ function createMockPrismaService() {
     libraryItem: {
       create: createMock<Promise<{ id: string }>, [unknown]>(),
       findFirst: createMock<Promise<{ sortOrder: number } | null>, [unknown]>(),
+    },
+    place: {
+      create: createMock<Promise<{ id: string }>, [unknown]>(),
+      findFirst: createMock<
+        Promise<Record<string, unknown> | null>,
+        [unknown]
+      >(),
+      findUniqueOrThrow: createMock<
+        Promise<ReturnType<typeof createPlaceRecord>>,
+        [unknown]
+      >(),
     },
     route: {
       create: createMock<Promise<{ id: string }>, [unknown]>(),
@@ -556,7 +778,7 @@ function createMockPrismaService() {
         [unknown]
       >(),
       findUnique: createMock<
-        Promise<ReturnType<typeof createPublicShareRecord> | null>,
+        Promise<PublicShareTestRecord | null>,
         [unknown]
       >(),
       update: createMock<
@@ -570,10 +792,15 @@ function createMockPrismaService() {
   };
 }
 
+type PublicShareTestRecord =
+  | ReturnType<typeof createPublicShareRecord>
+  | ReturnType<typeof createPublicPlaceShareRecord>;
+
 function createShareLinkRecord(input: {
   disabledAt: Date | null;
   expiresAt?: Date | null;
-  routeId: string;
+  placeId?: string | null;
+  routeId?: string | null;
   token: string;
 }) {
   return {
@@ -582,7 +809,8 @@ function createShareLinkRecord(input: {
     expiresAt: input.expiresAt ?? null,
     id: 'share-link-1',
     permission: 'PUBLIC_READ' as const,
-    routeId: input.routeId,
+    placeId: input.placeId ?? null,
+    routeId: input.routeId ?? null,
     routeRevisionId: null,
     token: input.token,
     updatedAt: new Date('2026-05-13T10:00:00.000Z'),
@@ -602,6 +830,8 @@ function createPublicShareRecord(input: {
     expiresAt: input.expiresAt ?? null,
     id: 'share-link-1',
     permission: 'PUBLIC_READ' as const,
+    place: null,
+    placeId: null,
     route: {
       currentRevision:
         input.currentRevision ??
@@ -619,6 +849,34 @@ function createPublicShareRecord(input: {
     routeRevision: input.routeRevision ?? null,
     routeRevisionId: input.routeRevisionId ?? null,
     token: 'share-token-1',
+    updatedAt: new Date('2026-05-13T10:00:00.000Z'),
+  };
+}
+
+function createPublicPlaceShareRecord(input: {
+  disabledAt?: Date | null;
+  expiresAt?: Date | null;
+}) {
+  return {
+    createdAt: new Date('2026-05-13T10:00:00.000Z'),
+    disabledAt: input.disabledAt ?? null,
+    expiresAt: input.expiresAt ?? null,
+    id: 'share-link-place-1',
+    permission: 'PUBLIC_READ' as const,
+    place: {
+      deletedAt: null,
+      description: 'Meet at the main entrance',
+      latitude: 25.033,
+      longitude: 121.5654,
+      name: 'Taipei 101',
+      tags: ['landmark'],
+    },
+    placeId: 'place-1',
+    route: null,
+    routeId: null,
+    routeRevision: null,
+    routeRevisionId: null,
+    token: 'share-token-place',
     updatedAt: new Date('2026-05-13T10:00:00.000Z'),
   };
 }
@@ -661,6 +919,33 @@ function createRouteRevisionRecord(input: {
       ],
     },
     revisionNumber: input.revisionNumber,
+  };
+}
+
+function createPlaceRecord(input: { id: string; libraryItemId: string }) {
+  return {
+    createdAt: new Date('2026-05-13T10:00:00.000Z'),
+    deletedAt: null,
+    description: 'Meet at the main entrance',
+    id: input.id,
+    latitude: 25.033,
+    libraryItem: {
+      createdAt: new Date('2026-05-13T10:00:00.000Z'),
+      deletedAt: null,
+      id: input.libraryItemId,
+      kind: LibraryItemKind.PLACE,
+      lastUsedAt: null,
+      pinned: false,
+      placeId: input.id,
+      routeId: null,
+      sortOrder: 3,
+      updatedAt: new Date('2026-05-13T10:00:00.000Z'),
+      version: 1,
+    },
+    longitude: 121.5654,
+    name: 'Taipei 101',
+    tags: ['landmark'],
+    updatedAt: new Date('2026-05-13T10:00:00.000Z'),
   };
 }
 
