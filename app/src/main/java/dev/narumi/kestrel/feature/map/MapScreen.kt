@@ -310,10 +310,13 @@ fun MapScreen(
     val scaffoldState = rememberBottomSheetScaffoldState(bottomSheetState = sheetState)
     val goToSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    fun applyPoint(point: LatLng) {
+    fun applyPoint(
+        point: LatLng,
+        stopRunningMock: Boolean = true,
+    ) {
         // The service emits RuntimeState.Idle from ACTION_STOP, so the derived runState catches
         // up automatically; no manual reset needed here.
-        if (runState != RunState.Idle) {
+        if (stopRunningMock && runState != RunState.Idle) {
             LocationService.stop(context)
         }
         waypoints = listOf(point)
@@ -427,7 +430,9 @@ fun MapScreen(
                 pendingLongPressPoint = null
             },
             onMockPoint = {
-                applyPoint(point)
+                // SET_LOCATION already replaces an active route/single mock atomically. Sending
+                // STOP immediately before it can race the foreground service start timeout.
+                applyPoint(point, stopRunningMock = false)
                 LocationService.setLocation(context, point)
                 pendingLongPressPoint = null
             },
