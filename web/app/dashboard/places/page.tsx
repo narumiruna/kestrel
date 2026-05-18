@@ -18,6 +18,7 @@ export default function PlacesDashboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [lastLoadedAt, setLastLoadedAt] = useState<Date | null>(null);
 
   const selectedPlace = useMemo(
     () => places.find((place) => place.id === selectedPlaceId) ?? null,
@@ -32,6 +33,7 @@ export default function PlacesDashboardPage() {
       const nextPlaces = await auth.apiRequest<Place[]>('/places');
       setPlaces(nextPlaces);
       setSelectedPlaceId((current) => current ?? nextPlaces[0]?.id ?? null);
+      setLastLoadedAt(new Date());
     } catch (nextError) {
       setError(formatError(nextError));
     } finally {
@@ -93,6 +95,8 @@ export default function PlacesDashboardPage() {
       activeSection="places"
       onLogout={auth.logout}
       onRefresh={() => void loadPlaces()}
+      isRefreshing={isLoading}
+      lastUpdatedLabel={lastLoadedAt?.toLocaleTimeString() ?? null}
       username={auth.session.user.username}
     >
       {error == null ? null : <div className="error dashboard-error">{error}</div>}
@@ -122,7 +126,7 @@ export default function PlacesDashboardPage() {
               </div>
             </div>
             <div className="dashboard-sidebar-content">
-              {isLoading ? <p className="muted">Loading…</p> : null}
+              {isLoading ? <p className="muted">Loading places…</p> : null}
               <div className="list">
                 {places.map((place) => (
                   <button
@@ -151,7 +155,8 @@ export default function PlacesDashboardPage() {
           </div>
         </aside>
 
-        <section className="grid">
+        <section aria-busy={isLoading} className="grid">
+          {isLoading ? <div className="loading-shimmer" /> : null}
           <PlaceEditor
             draftCoords={draftPlaceCoords ?? undefined}
             key={selectedPlace?.id ?? 'new-place'}
