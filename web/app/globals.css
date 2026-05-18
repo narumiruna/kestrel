@@ -3,57 +3,57 @@
    ========================================================================== */
 
 :root {
-  /* Primary / Sprout Green */
-  --color-primary: #76c945;
-  --color-primary-dark: #4f9a2f;
-  --color-primary-text: #1a3a0a;
+  /* Brand */
+  --color-topbar: #0a2e3c;
 
-  /* Secondary / Petal Pink */
-  --color-secondary: #f9aecb;
+  /* Primary / Teal-Blue */
+  --color-primary: #0a7ea4;
+  --color-primary-dark: #086b8c;
+  --color-primary-text: #ffffff;
 
-  /* Accent / Sunny Yellow */
-  --color-accent: #ffd54f;
+  /* Secondary — soft teal tint for subtle surfaces */
+  --color-secondary: #e0f4f8;
 
-  /* Backgrounds */
-  --color-bg: #eaf7ff;
-  --color-surface-bg: #f7fbf2;
-  --color-surface: rgb(255 255 255 / 82%);
+  /* Backgrounds — iOS system colours */
+  --color-bg: #f2f2f7;
+  --color-surface-bg: #f2f2f7;
+  --color-surface: #ffffff;
 
   /* Text */
-  --color-text: #263238;
-  --color-text-secondary: #607d8b;
+  --color-text: #1c1c1e;
+  --color-text-secondary: #6c6c70;
 
   /* Borders */
-  --color-border: rgb(55 71 79 / 12%);
-  --color-border-focus: #76c945;
+  --color-border: rgb(60 60 67 / 18%);
+  --color-border-focus: #0a7ea4;
 
   /* Status — danger */
-  --color-danger: #c0392b;
-  --color-danger-bg: rgb(192 57 43 / 8%);
-  --color-danger-border: rgb(192 57 43 / 25%);
-  --color-danger-text: #7b1a13;
+  --color-danger: #ff3b30;
+  --color-danger-bg: rgb(255 59 48 / 8%);
+  --color-danger-border: rgb(255 59 48 / 25%);
+  --color-danger-text: #c0392b;
 
   /* Status — success */
-  --color-success: #2e7d32;
-  --color-success-bg: rgb(46 125 50 / 8%);
-  --color-success-border: rgb(46 125 50 / 25%);
-  --color-success-text: #1b5120;
+  --color-success: #34c759;
+  --color-success-bg: rgb(52 199 89 / 8%);
+  --color-success-border: rgb(52 199 89 / 25%);
+  --color-success-text: #248a3d;
 
   /* Radii */
-  --radius-xs: 0.5rem;
-  --radius-sm: 0.75rem;
-  --radius-md: 1rem;
-  --radius-lg: 1.4rem;
+  --radius-xs: 0.375rem;
+  --radius-sm: 0.625rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
   --radius-pill: 999px;
 
-  /* Shadows */
-  --shadow-xs: 0 1px 4px rgb(38 50 56 / 6%);
-  --shadow-sm: 0 2px 10px rgb(38 50 56 / 8%);
-  --shadow-md: 0 4px 20px rgb(38 50 56 / 10%);
-  --shadow-lg: 0 8px 40px rgb(38 50 56 / 12%);
+  /* Shadows — soft, Apple-like */
+  --shadow-xs: 0 1px 3px rgb(0 0 0 / 6%), 0 1px 2px rgb(0 0 0 / 4%);
+  --shadow-sm: 0 2px 8px rgb(0 0 0 / 8%), 0 1px 3px rgb(0 0 0 / 4%);
+  --shadow-md: 0 4px 16px rgb(0 0 0 / 10%), 0 2px 6px rgb(0 0 0 / 6%);
+  --shadow-lg: 0 8px 32px rgb(0 0 0 / 12%), 0 4px 12px rgb(0 0 0 / 8%);
 
   /* Focus ring */
-  --focus-ring: 0 0 0 3px rgb(118 201 69 / 35%);
+  --focus-ring: 0 0 0 3px rgb(10 126 164 / 30%);
 
   /* Transitions */
   --transition-fast: 0.15s ease;
@@ -66,39 +66,38 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --color-primary: #8ddc5a;
-    --color-primary-dark: #6bbf3a;
-    --color-primary-text: #0d1f08;
+    --color-primary: #40c8e0;
+    --color-primary-dark: #30b8d0;
+    --color-primary-text: #000000;
 
-    --color-secondary: #f6a6c8;
-    --color-accent: #ffd76a;
+    --color-secondary: #1a3a42;
 
-    --color-bg: #101a14;
-    --color-surface-bg: #141f18;
-    --color-surface: rgb(28 40 32 / 82%);
+    --color-bg: #000000;
+    --color-surface-bg: #1c1c1e;
+    --color-surface: #2c2c2e;
 
-    --color-text: #f2f7f3;
-    --color-text-secondary: #b8c7bc;
+    --color-text: #ffffff;
+    --color-text-secondary: rgb(235 235 245 / 60%);
 
-    --color-border: rgb(255 255 255 / 12%);
-    --color-border-focus: #8ddc5a;
+    --color-border: rgb(84 84 88 / 65%);
+    --color-border-focus: #40c8e0;
 
-    --color-danger: #ff7a7a;
-    --color-danger-bg: rgb(255 122 122 / 10%);
-    --color-danger-border: rgb(255 122 122 / 30%);
-    --color-danger-text: #ffd9de;
+    --color-danger: #ff453a;
+    --color-danger-bg: rgb(255 69 58 / 15%);
+    --color-danger-border: rgb(255 69 58 / 35%);
+    --color-danger-text: #ff6961;
 
-    --color-success: #70e3a4;
-    --color-success-bg: rgb(112 227 164 / 10%);
-    --color-success-border: rgb(112 227 164 / 25%);
-    --color-success-text: #ddffeb;
+    --color-success: #32d74b;
+    --color-success-bg: rgb(50 215 75 / 12%);
+    --color-success-border: rgb(50 215 75 / 30%);
+    --color-success-text: #57dc67;
 
-    --shadow-xs: 0 1px 4px rgb(0 0 0 / 25%);
-    --shadow-sm: 0 2px 10px rgb(0 0 0 / 35%);
-    --shadow-md: 0 4px 20px rgb(0 0 0 / 45%);
-    --shadow-lg: 0 8px 40px rgb(0 0 0 / 55%);
+    --shadow-xs: 0 1px 3px rgb(0 0 0 / 25%);
+    --shadow-sm: 0 2px 8px rgb(0 0 0 / 35%);
+    --shadow-md: 0 4px 16px rgb(0 0 0 / 45%);
+    --shadow-lg: 0 8px 32px rgb(0 0 0 / 55%);
 
-    --focus-ring: 0 0 0 3px rgb(141 220 90 / 40%);
+    --focus-ring: 0 0 0 3px rgb(64 200 224 / 35%);
   }
 }
 
@@ -119,9 +118,7 @@ body {
 }
 
 body {
-  background:
-    radial-gradient(ellipse at 18% 0%, rgb(118 201 69 / 12%), transparent 45%),
-    radial-gradient(ellipse at 85% 6%, rgb(249 174 203 / 10%), transparent 40%), var(--color-bg);
+  background: var(--color-bg);
   color: var(--color-text);
   font-family:
     -apple-system, BlinkMacSystemFont, "SF Pro", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
@@ -131,20 +128,18 @@ body {
 
 @media (prefers-color-scheme: dark) {
   body {
-    background:
-      radial-gradient(circle at 20% 10%, rgb(28 80 40 / 45%), transparent 32rem),
-      radial-gradient(circle at 80% 0%, rgb(15 55 28 / 30%), transparent 28rem), var(--color-bg);
+    background: var(--color-bg);
   }
 }
 
 a {
-  color: var(--color-primary-dark);
+  color: var(--color-primary);
   text-decoration: none;
   transition: color var(--transition-fast);
 }
 
 a:hover {
-  color: var(--color-primary);
+  color: var(--color-primary-dark);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -175,7 +170,7 @@ textarea {
 button {
   background: var(--color-primary);
   border: 1.5px solid transparent;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-md);
   color: var(--color-primary-text);
   cursor: pointer;
   font-weight: 600;
@@ -223,11 +218,11 @@ button.secondary:hover:not(:disabled) {
 
 @media (prefers-color-scheme: dark) {
   button.secondary {
-    background: rgb(28 40 32 / 70%);
+    background: rgb(44 44 46 / 70%);
   }
 
   button.secondary:hover:not(:disabled) {
-    background: rgb(40 58 44 / 90%);
+    background: rgb(58 58 60 / 90%);
     border-color: var(--color-primary);
   }
 }
@@ -240,14 +235,14 @@ button.danger {
 }
 
 button.danger:hover:not(:disabled) {
-  background: rgb(192 57 43 / 14%);
-  box-shadow: 0 2px 8px rgb(192 57 43 / 15%);
+  background: rgb(255 59 48 / 14%);
+  box-shadow: 0 2px 8px rgb(255 59 48 / 15%);
 }
 
 @media (prefers-color-scheme: dark) {
   button.danger:hover:not(:disabled) {
-    background: rgb(255 122 122 / 16%);
-    box-shadow: 0 2px 8px rgb(255 122 122 / 15%);
+    background: rgb(255 69 58 / 18%);
+    box-shadow: 0 2px 8px rgb(255 69 58 / 15%);
   }
 }
 
@@ -298,7 +293,7 @@ input[type="radio"] {
   input,
   select,
   textarea {
-    background: rgb(20 30 24 / 80%);
+    background: rgb(44 44 46 / 80%);
   }
 }
 
@@ -418,26 +413,26 @@ label {
 }
 
 .dashboard-tab:hover {
-  background: rgb(118 201 69 / 10%);
+  background: rgb(10 126 164 / 10%);
   color: var(--color-text);
 }
 
 .dashboard-tab.active {
-  background: rgb(118 201 69 / 14%);
-  border-color: rgb(118 201 69 / 25%);
-  box-shadow: inset 0 0 0 1px rgb(118 201 69 / 18%);
-  color: var(--color-text);
+  background: rgb(10 126 164 / 12%);
+  border-color: rgb(10 126 164 / 30%);
+  box-shadow: inset 0 0 0 1px rgb(10 126 164 / 18%);
+  color: var(--color-primary);
 }
 
 @media (prefers-color-scheme: dark) {
   .dashboard-tab:hover {
-    background: rgb(141 220 90 / 12%);
+    background: rgb(64 200 224 / 12%);
   }
 
   .dashboard-tab.active {
-    background: rgb(141 220 90 / 14%);
-    border-color: rgb(141 220 90 / 22%);
-    box-shadow: inset 0 0 0 1px rgb(141 220 90 / 14%);
+    background: rgb(64 200 224 / 14%);
+    border-color: rgb(64 200 224 / 25%);
+    box-shadow: inset 0 0 0 1px rgb(64 200 224 / 16%);
   }
 }
 
@@ -532,7 +527,7 @@ label {
 
 .dashboard-sidebar .card {
   backdrop-filter: blur(16px);
-  background: rgb(255 255 255 / 86%);
+  background: var(--color-surface);
   box-shadow: var(--shadow-md);
 }
 
@@ -568,7 +563,7 @@ label {
 
 @media (prefers-color-scheme: dark) {
   .dashboard-sidebar .card {
-    background: rgb(28 40 32 / 88%);
+    background: var(--color-surface);
   }
 }
 
@@ -619,7 +614,7 @@ label {
 }
 
 .list-item {
-  background: rgb(255 255 255 / 50%);
+  background: var(--color-surface);
   border: 1.5px solid var(--color-border);
   border-radius: var(--radius-md);
   cursor: pointer;
@@ -635,8 +630,7 @@ label {
 }
 
 .list-item:hover:not(:disabled) {
-  background: rgb(255 255 255 / 80%);
-  border-color: rgb(118 201 69 / 40%);
+  border-color: rgb(10 126 164 / 35%);
   box-shadow: var(--shadow-xs);
   transform: translateY(-1px);
 }
@@ -648,32 +642,32 @@ label {
 }
 
 .list-item.active {
-  background: rgb(118 201 69 / 8%);
+  background: rgb(10 126 164 / 8%);
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 2px rgb(118 201 69 / 20%);
+  box-shadow: 0 0 0 2px rgb(10 126 164 / 18%);
 }
 
 .list-item.active:hover {
-  background: rgb(118 201 69 / 12%);
+  background: rgb(10 126 164 / 12%);
 }
 
 @media (prefers-color-scheme: dark) {
   .list-item {
-    background: rgb(28 40 32 / 50%);
+    background: rgb(44 44 46 / 60%);
   }
 
   .list-item:hover:not(:disabled) {
-    background: rgb(40 58 44 / 80%);
+    background: rgb(58 58 60 / 80%);
   }
 
   .list-item.active {
-    background: rgb(141 220 90 / 10%);
+    background: rgb(64 200 224 / 10%);
     border-color: var(--color-primary);
-    box-shadow: 0 0 0 2px rgb(141 220 90 / 20%);
+    box-shadow: 0 0 0 2px rgb(64 200 224 / 18%);
   }
 
   .list-item.active:hover {
-    background: rgb(141 220 90 / 14%);
+    background: rgb(64 200 224 / 14%);
   }
 }
 
@@ -688,8 +682,8 @@ label {
 }
 
 .chip {
-  background: rgb(118 201 69 / 12%);
-  border: 1px solid rgb(118 201 69 / 25%);
+  background: rgb(10 126 164 / 10%);
+  border: 1px solid rgb(10 126 164 / 22%);
   border-radius: var(--radius-pill);
   color: var(--color-primary-dark);
   font-size: 0.75rem;
@@ -699,8 +693,8 @@ label {
 
 @media (prefers-color-scheme: dark) {
   .chip {
-    background: rgb(141 220 90 / 12%);
-    border-color: rgb(141 220 90 / 25%);
+    background: rgb(64 200 224 / 12%);
+    border-color: rgb(64 200 224 / 25%);
     color: var(--color-primary);
   }
 }
@@ -748,8 +742,8 @@ label {
    ========================================================================== */
 
 .tabs {
-  background: rgb(118 201 69 / 8%);
-  border: 1px solid rgb(118 201 69 / 15%);
+  background: rgb(10 126 164 / 8%);
+  border: 1px solid rgb(10 126 164 / 15%);
   border-radius: var(--radius-pill);
   display: grid;
   gap: 0.25rem;
@@ -760,6 +754,7 @@ label {
 .tabs button {
   background: transparent;
   border: none;
+  border-radius: var(--radius-pill);
   color: var(--color-text-secondary);
   font-weight: 500;
   transition:
@@ -768,7 +763,7 @@ label {
 }
 
 .tabs button:hover:not(:disabled) {
-  background: rgb(118 201 69 / 12%);
+  background: rgb(10 126 164 / 12%);
   box-shadow: none;
   transform: none;
 }
@@ -785,12 +780,12 @@ label {
 
 @media (prefers-color-scheme: dark) {
   .tabs {
-    background: rgb(141 220 90 / 8%);
-    border-color: rgb(141 220 90 / 15%);
+    background: rgb(64 200 224 / 8%);
+    border-color: rgb(64 200 224 / 15%);
   }
 
   .tabs button:hover:not(:disabled) {
-    background: rgb(141 220 90 / 12%);
+    background: rgb(64 200 224 / 12%);
   }
 }
 
@@ -848,7 +843,7 @@ label {
 }
 
 .route-editor-secondary-section {
-  background: rgb(118 201 69 / 5%);
+  background: rgb(10 126 164 / 5%);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   padding: 1rem;
@@ -928,8 +923,8 @@ label {
    ========================================================================== */
 
 .route-builder-hint {
-  background: rgb(118 201 69 / 10%);
-  border: 1px solid rgb(118 201 69 / 18%);
+  background: rgb(10 126 164 / 8%);
+  border: 1px solid rgb(10 126 164 / 18%);
   border-radius: var(--radius-md);
   color: var(--color-text-secondary);
   font-size: 0.9rem;
@@ -937,7 +932,7 @@ label {
 }
 
 .favorite-picker {
-  background: rgb(255 255 255 / 42%);
+  background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   padding: 0.9rem;
@@ -956,7 +951,7 @@ label {
 }
 
 .favorite-place-option {
-  background: rgb(255 255 255 / 58%);
+  background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   color: var(--color-text);
@@ -967,7 +962,7 @@ label {
 }
 
 .favorite-place-option:hover:not(:disabled) {
-  background: rgb(118 201 69 / 10%);
+  background: rgb(10 126 164 / 8%);
   transform: none;
 }
 
@@ -977,7 +972,7 @@ label {
 
 .map-instruction {
   backdrop-filter: blur(10px);
-  background: rgb(255 255 255 / 82%);
+  background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-pill);
   box-shadow: var(--shadow-xs);
@@ -1031,7 +1026,7 @@ label {
 }
 
 .route-marker:focus-visible {
-  outline: 2px solid var(--color-primary-dark);
+  outline: 2px solid var(--color-primary);
   outline-offset: 2px;
 }
 
@@ -1040,8 +1035,9 @@ label {
 .route-marker.selected:focus-visible {
   background: var(--color-primary);
   box-shadow:
-    0 0 0 4px rgb(118 201 69 / 28%),
+    0 0 0 4px rgb(10 126 164 / 28%),
     var(--shadow-md);
+  color: var(--color-primary-text);
   transform: scale(1.16);
 }
 
@@ -1064,7 +1060,7 @@ label {
   .favorite-place-option,
   .map-instruction,
   .route-editor-collapsible {
-    background: rgb(28 40 32 / 84%);
+    background: rgb(44 44 46 / 84%);
   }
 }
 
@@ -1083,8 +1079,8 @@ label {
 }
 
 .waypoint-row.selected {
-  background: rgb(118 201 69 / 8%);
-  border-color: rgb(118 201 69 / 25%);
+  background: rgb(10 126 164 / 8%);
+  border-color: rgb(10 126 164 / 25%);
 }
 
 /* ==========================================================================
@@ -1164,132 +1160,155 @@ label {
   }
 }
 
-/* Kestrel Cloud routes redesign */
+/* Kestrel Cloud dashboard layout */
 .kc-shell {
   max-width: 1440px;
   margin: 0 auto;
   padding: 16px 20px 28px;
-  background: #f7fafc;
-  color: #102a43;
 }
+
 .kc-topbar {
   height: 68px;
-  background: #063846;
-  border-radius: 16px;
+  background: var(--color-topbar);
+  border-radius: var(--radius-lg);
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 0 20px;
-  color: #fff;
+  color: #ffffff;
 }
+
 .kc-brand {
   display: flex;
   gap: 16px;
   align-items: center;
   font-weight: 700;
 }
+
 .kc-signed-in {
   font-size: 14px;
   font-weight: 500;
-  opacity: 0.9;
+  opacity: 0.75;
 }
+
 .kc-topbar-actions {
   display: flex;
   gap: 10px;
 }
+
 .kc-topbar-actions button.secondary {
-  background: rgba(255, 255, 255, 0.06);
-  color: #fff;
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  border-radius: 8px;
+  background: rgb(255 255 255 / 8%);
+  border: 1px solid rgb(255 255 255 / 25%);
+  border-radius: var(--radius-sm);
+  color: #ffffff;
   padding: 9px 16px;
 }
+
+.kc-topbar-actions button.secondary:hover:not(:disabled) {
+  background: rgb(255 255 255 / 15%);
+  border-color: rgb(255 255 255 / 40%);
+  box-shadow: none;
+  transform: none;
+}
+
 .kc-tabs {
   display: flex;
-  gap: 12px;
+  gap: 8px;
   padding: 14px 0 10px;
 }
+
 .kc-tab {
-  background: #fff;
-  border: 1px solid #e6edf3;
-  border-radius: 12px;
-  padding: 14px 18px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
   font-weight: 600;
-  color: #486581;
+  padding: 10px 18px;
+  transition:
+    border-color var(--transition-fast),
+    color var(--transition-fast);
 }
+
+.kc-tab:hover {
+  border-color: rgb(10 126 164 / 40%);
+  color: var(--color-text);
+}
+
 .kc-tab.active {
-  border: 1.5px solid #0e8c88;
-  color: #075e68;
-  font-weight: 700;
+  border: 1.5px solid var(--color-primary);
+  color: var(--color-primary);
 }
+
+@media (prefers-color-scheme: dark) {
+  .kc-tab {
+    background: var(--color-surface);
+  }
+
+  .kc-tab:hover {
+    border-color: rgb(64 200 224 / 40%);
+  }
+}
+
 .kc-workspace {
   display: grid;
   grid-template-columns: 335px 1fr;
   gap: 18px;
 }
-.kc-sidebar .card {
-  background: #fff;
-  border: 1px solid #e6edf3;
-  border-radius: 14px;
-  padding: 18px;
-  box-shadow: 0 4px 12px rgba(16, 42, 67, 0.04);
-}
+
 .dashboard-sidebar-title {
   font-size: 20px;
 }
+
 .dashboard-sidebar-new {
   width: 100%;
 }
-.list-item {
-  border-radius: 12px;
-  border: 1px solid #e6edf3;
-}
-.list-item.active {
-  background: linear-gradient(180deg, #f0fbfa, #fff);
-  border: 1.5px solid #159e9a;
-  box-shadow: 0 8px 24px rgba(8, 122, 120, 0.1);
-}
+
 .route-editor {
-  background: #fff;
-  border: 1px solid #e6edf3;
-  border-radius: 16px;
-  box-shadow: 0 10px 30px rgba(16, 42, 67, 0.06);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
   padding: 28px;
 }
+
 .route-editor-header h2 {
   font-size: 28px;
 }
-.chip {
-  border-radius: 999px;
-}
+
 .route-editor-section h3 {
   font-size: 18px;
 }
+
 .map-builder {
-  border-radius: 14px;
+  border-radius: var(--radius-md);
   overflow: hidden;
 }
+
 .route-editor-footer {
   position: sticky;
   bottom: 0;
-  background: #fff;
+  background: var(--color-surface);
   padding-top: 16px;
-  border-top: 1px solid #e6edf3;
+  border-top: 1px solid var(--color-border);
 }
+
 .route-editor-footer .row {
   justify-content: flex-end;
 }
-button {
-  border-radius: 8px;
-}
+
 .route-editor button[type="submit"] {
-  background: linear-gradient(180deg, #0e8c88, #087a78);
-  color: #fff;
+  background: var(--color-primary);
+  color: var(--color-primary-text);
 }
+
+.route-editor button[type="submit"]:hover:not(:disabled) {
+  background: var(--color-primary-dark);
+}
+
 .route-editor .danger {
-  background: #fff;
-  border: 1px solid #f3b7b9;
-  color: #e5484d;
+  background: var(--color-danger-bg);
+  border: 1px solid var(--color-danger-border);
+  color: var(--color-danger);
 }
 
 @media (max-width: 860px) {
