@@ -617,6 +617,7 @@ label {
   background: var(--color-surface);
   border: 1.5px solid var(--color-border);
   border-radius: var(--radius-md);
+  color: var(--color-text);
   cursor: pointer;
   display: grid;
   gap: 0.3rem;
