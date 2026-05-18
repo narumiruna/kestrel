@@ -76,7 +76,7 @@
     --color-surface-bg: #1c1c1e;
     --color-surface: #2c2c2e;
 
-    --color-text: #ffffff;
+    --color-text: rgb(235 235 245 / 92%);
     --color-text-secondary: rgb(235 235 245 / 60%);
 
     --color-border: rgb(84 84 88 / 65%);
@@ -617,6 +617,7 @@ label {
   background: var(--color-surface);
   border: 1.5px solid var(--color-border);
   border-radius: var(--radius-md);
+  color: var(--color-text);
   cursor: pointer;
   display: grid;
   gap: 0.3rem;
