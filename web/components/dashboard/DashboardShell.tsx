@@ -8,6 +8,8 @@ type DashboardSection = 'places' | 'routes';
 type Props = {
   activeSection: DashboardSection;
   children: ReactNode;
+  isRefreshing?: boolean;
+  lastUpdatedLabel?: string | null;
   onLogout: () => void;
   onRefresh: () => void;
   username: string;
@@ -21,6 +23,8 @@ const sections: Array<{ href: string; key: DashboardSection; label: string }> = 
 export default function DashboardShell({
   activeSection,
   children,
+  isRefreshing = false,
+  lastUpdatedLabel = null,
   onLogout,
   onRefresh,
   username,
@@ -33,18 +37,28 @@ export default function DashboardShell({
           <span className="kc-signed-in">Signed in as {username}</span>
         </div>
         <div className="kc-topbar-actions">
-          <button className="secondary" type="button" onClick={onRefresh}>
-            Refresh
+          <button
+            aria-busy={isRefreshing}
+            className="secondary"
+            disabled={isRefreshing}
+            type="button"
+            onClick={onRefresh}
+          >
+            {isRefreshing ? 'Refreshing…' : 'Refresh'}
           </button>
           <button className="secondary" type="button" onClick={onLogout}>
             Logout
           </button>
         </div>
       </header>
+      {lastUpdatedLabel == null ? null : (
+        <p className="muted dashboard-last-updated">Updated {lastUpdatedLabel}</p>
+      )}
 
       <nav aria-label="Dashboard sections" className="kc-tabs">
         {sections.map((section) => (
           <Link
+            aria-current={activeSection === section.key ? 'page' : undefined}
             className={`kc-tab ${activeSection === section.key ? 'active' : ''}`}
             href={section.href}
             key={section.key}

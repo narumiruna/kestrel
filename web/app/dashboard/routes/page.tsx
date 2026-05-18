@@ -15,6 +15,7 @@ export default function RoutesDashboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [lastLoadedAt, setLastLoadedAt] = useState<Date | null>(null);
 
   const selectedRoute = useMemo(
     () => routes.find((route) => route.id === selectedRouteId) ?? null,
@@ -33,6 +34,7 @@ export default function RoutesDashboardPage() {
       setRoutes(nextRoutes);
       setPlaces(nextPlaces);
       setSelectedRouteId((current) => current ?? nextRoutes[0]?.id ?? null);
+      setLastLoadedAt(new Date());
     } catch (nextError) {
       setError(formatError(nextError));
     } finally {
@@ -83,6 +85,8 @@ export default function RoutesDashboardPage() {
       activeSection="routes"
       onLogout={auth.logout}
       onRefresh={() => void loadRoutes()}
+      isRefreshing={isLoading}
+      lastUpdatedLabel={lastLoadedAt?.toLocaleTimeString() ?? null}
       username={auth.session.user.username}
     >
       {error == null ? null : <div className="error dashboard-error">{error}</div>}
@@ -112,7 +116,7 @@ export default function RoutesDashboardPage() {
               </div>
             </div>
             <div className="dashboard-sidebar-content">
-              {isLoading ? <p className="muted">Loading…</p> : null}
+              {isLoading ? <p className="muted">Loading routes…</p> : null}
               <div className="list">
                 {routes.map((route) => (
                   <button
@@ -151,7 +155,8 @@ export default function RoutesDashboardPage() {
           </div>
         </aside>
 
-        <section className="grid">
+        <section aria-busy={isLoading} className="grid">
+          {isLoading ? <div className="loading-shimmer" /> : null}
           <RouteEditor
             key={selectedRoute?.id ?? 'new-route'}
             onDelete={selectedRoute == null ? undefined : () => void deleteRoute(selectedRoute.id)}
