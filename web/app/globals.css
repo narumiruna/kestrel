@@ -482,6 +482,8 @@ label {
     rgb(255 255 255 / 30%) 45%,
     rgb(255 255 255 / 5%) 100%
   );
+  background-position: 100% 0;
+  background-size: 200% 100%;
   border-radius: var(--radius-lg);
   inset: 0;
   pointer-events: none;
@@ -491,11 +493,11 @@ label {
 
 @keyframes dashboard-shimmer {
   0% {
-    transform: translateX(-35%);
+    background-position: 100% 0;
   }
 
   100% {
-    transform: translateX(35%);
+    background-position: -100% 0;
   }
 }
 
