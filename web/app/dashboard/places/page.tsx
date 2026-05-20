@@ -117,10 +117,11 @@ export default function PlacesDashboardPage() {
                   {isSidebarOpen ? '‹' : '›'}
                 </button>
                 <button
-                  className="secondary dashboard-sidebar-new"
+                  className="secondary dashboard-sidebar-new button-icon-label"
                   type="button"
                   onClick={createNewPlace}
                 >
+                  <PlusIcon />
                   New
                 </button>
               </div>
@@ -136,7 +137,7 @@ export default function PlacesDashboardPage() {
                     onClick={() => setSelectedPlaceId(place.id)}
                   >
                     <strong>{place.name}</strong>
-                    <span className="muted">
+                    <span className="place-card-coordinates">
                       {formatCoord(place.latitude)}, {formatCoord(place.longitude)}
                     </span>
                     <TagRow tags={place.tags} />
@@ -177,6 +178,15 @@ function SidebarSkeleton() {
       <span className="skeleton-line" />
       <span className="skeleton-line short" />
     </div>
+  );
+}
+
+function PlusIcon() {
+  return (
+    <svg aria-hidden="true" className="lucide-icon" fill="none" viewBox="0 0 24 24">
+      <path d="M12 5v14" />
+      <path d="M5 12h14" />
+    </svg>
   );
 }
 

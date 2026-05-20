@@ -2517,3 +2517,341 @@ button.is-loading {
     max-width: calc(100% - 1.6rem);
   }
 }
+
+/* Dashboard hierarchy and consistency refinement */
+.kc-topbar {
+  background: var(--bg-subtle);
+  border: 0.5px solid var(--border);
+}
+
+.dashboard-last-updated {
+  color: var(--text-muted);
+  font-size: 11px;
+  margin-left: auto;
+  text-align: right;
+}
+
+@media (min-width: 640px) {
+  .kc-topbar-actions button.secondary,
+  .kc-user-button.secondary {
+    background: var(--bg-surface);
+    border: 0.5px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-secondary);
+    min-height: 32px;
+  }
+
+  .kc-icon-button {
+    height: 32px;
+    width: 32px;
+  }
+
+  .kc-user-button {
+    height: 32px;
+    padding: 0 8px 0 4px;
+  }
+
+  .kc-avatar {
+    font-size: 0.75rem;
+    height: 24px;
+    width: 24px;
+  }
+}
+
+.kc-tabs {
+  background: var(--bg-subtle);
+  border: 0;
+  border-radius: 10px;
+  box-shadow: none;
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+}
+
+.kc-tab {
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  color: var(--text-secondary);
+  min-height: 36px;
+  padding: 8px 12px;
+}
+
+.kc-tab:hover {
+  background: var(--bg-canvas);
+  border: 0;
+  color: var(--text-primary);
+}
+
+.kc-tab.active,
+.kc-tab.active:hover {
+  background: var(--bg-surface);
+  border: 0;
+  box-shadow: none;
+  color: var(--accent);
+}
+
+.kc-shell .card,
+.kc-shell .panel,
+.kc-shell .route-editor,
+.kc-shell .favorite-picker,
+.kc-shell .route-editor-collapsible {
+  border-radius: 12px;
+}
+
+.kc-shell button,
+.kc-shell .kc-user-button,
+.kc-shell .kc-icon-button,
+.kc-shell input:not([type="checkbox"]):not([type="radio"]),
+.kc-shell select,
+.kc-shell textarea {
+  border-radius: 8px;
+}
+
+.kc-shell label {
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  gap: 6px;
+}
+
+.kc-shell input:not([type="checkbox"]):not([type="radio"]),
+.kc-shell select,
+.kc-shell textarea {
+  border: 0.5px solid var(--border);
+}
+
+.kc-shell input:not([type="checkbox"]):not([type="radio"]):focus,
+.kc-shell select:focus,
+.kc-shell textarea:focus {
+  border: 1px solid var(--accent);
+  box-shadow: none;
+  outline: 3px solid var(--accent-soft);
+  outline-offset: 0;
+}
+
+.kc-shell .chip,
+.kc-shell .rev-chip,
+.kc-shell .route-mode-chip,
+.kc-shell .route-card-rev,
+.kc-shell .route-card-status {
+  border-radius: 4px;
+}
+
+.button-icon-label {
+  align-items: center;
+  display: inline-flex;
+  gap: 6px;
+  justify-content: center;
+}
+
+.button-icon-label .lucide-icon {
+  stroke-width: 1.5;
+}
+
+.dashboard-sidebar .list {
+  gap: 4px;
+}
+
+.dashboard-sidebar .list-item:not(.route-list-item) {
+  gap: 4px;
+  padding: 12px 14px;
+}
+
+.place-card-coordinates {
+  color: var(--text-muted);
+  font-family: "JetBrains Mono", "Geist Mono", ui-monospace, monospace;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.list-item.route-list-item {
+  gap: 8px;
+  padding: 12px;
+}
+
+.route-card-title-row,
+.route-card-meta-row {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+}
+
+.route-card-title-row {
+  justify-content: flex-start;
+}
+
+.route-card-meta-row {
+  justify-content: space-between;
+}
+
+.route-card-title {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kc-shell .route-card-rev,
+.kc-shell .route-card-status {
+  color: var(--text-muted);
+  flex: 0 0 auto;
+  font-family: "JetBrains Mono", "Geist Mono", ui-monospace, monospace;
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+
+.kc-shell .route-card-status {
+  color: var(--text-secondary);
+}
+
+.route-card-metrics {
+  color: var(--text-muted);
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kc-shell .route-mode-chip {
+  background: var(--bg-subtle);
+  color: var(--text-secondary);
+  flex: 0 0 auto;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.2;
+  padding: 2px 6px;
+}
+
+.route-card-badges {
+  position: static;
+}
+
+.breadcrumb {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.breadcrumb span {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.place-editor-header {
+  border-bottom: 0.5px solid var(--border);
+  display: grid;
+  gap: 8px;
+  padding-bottom: 24px;
+}
+
+.place-editor-header h2 {
+  color: var(--text-primary);
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  margin: 0;
+}
+
+.place-editor .split,
+.route-editor-details-section .split {
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.map,
+.map-mini,
+.map-builder {
+  border-radius: 12px;
+}
+
+.map,
+.map-mini {
+  border: 0.5px solid var(--border);
+}
+
+.maplibregl-ctrl-attrib,
+.maplibregl-ctrl-attrib a {
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.maplibregl-ctrl-attrib {
+  background: color-mix(in srgb, var(--bg-canvas) 80%, transparent);
+}
+
+.route-marker {
+  background: var(--accent);
+  border-color: var(--bg-surface);
+  border-radius: var(--radius-pill);
+  color: #ffffff;
+}
+
+.route-marker:hover:not(:disabled),
+.route-marker:focus-visible,
+.route-marker.selected,
+.route-marker.selected:hover:not(:disabled),
+.route-marker.selected:focus-visible {
+  background: var(--accent-hover);
+  color: #ffffff;
+}
+
+.route-editor-footer {
+  background: var(--bg-surface);
+  border: 0;
+  border-radius: 0 0 12px 12px;
+  border-top: 0.5px solid var(--border);
+  bottom: 0;
+  box-shadow: none;
+  margin: 0 -20px -20px;
+  padding: 12px 20px;
+}
+
+.route-editor-footer > .stack {
+  gap: 8px;
+}
+
+.route-editor-footer .row {
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+@media (max-width: 639px) {
+  .kc-tabs {
+    width: 100%;
+  }
+
+  .kc-tab {
+    height: 44px;
+    min-height: 44px;
+  }
+
+  .kc-avatar {
+    height: 32px;
+    width: 32px;
+  }
+
+  .mobile-route-sheet-trigger {
+    border-radius: var(--radius-pill);
+  }
+
+  .kc-workspace .list-item.route-list-item {
+    padding: 16px 14px 16px 12px;
+  }
+
+  .place-editor-header h2,
+  .route-editor-header h2 {
+    font-size: 22px;
+  }
+
+  .route-editor-footer {
+    border-radius: 12px 12px 0 0;
+    margin: 0 -14px -14px;
+    padding: 12px 14px calc(12px + env(safe-area-inset-bottom));
+  }
+}

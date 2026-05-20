@@ -47,7 +47,7 @@ export default function RouteMapPreview({ className = 'map-mini', waypoints }: P
           'line-join': 'round',
         },
         paint: {
-          'line-color': '#76c945',
+          'line-color': '#d97644',
           'line-width': 4,
         },
         source: LINE_SOURCE_ID,
@@ -100,7 +100,7 @@ function syncMarkers(map: MapLibreMap, existingMarkers: Marker[], waypoints: Rou
 
   waypoints.forEach((waypoint, index) => {
     const marker = new maplibregl.Marker({
-      color: index === 0 ? '#76c945' : '#f9aecb',
+      color: index === 0 ? '#d97644' : '#c5612f',
     })
       .setLngLat([waypoint.longitude, waypoint.latitude])
       .addTo(map);
