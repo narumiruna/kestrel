@@ -198,6 +198,14 @@ export class AuthService {
       );
       userId = user.id;
 
+      if (
+        user.totpEnabledAt != null &&
+        loginRequest.totpCode == null &&
+        loginRequest.recoveryCode == null
+      ) {
+        throw new UnauthorizedException('one-time code required');
+      }
+
       const authenticatedAt = new Date();
       const refreshToken = createRefreshToken();
       const refreshTokenHash = hashRefreshToken(refreshToken);

@@ -87,7 +87,7 @@ export default function LoginPage() {
     setIsSubmitting(true);
 
     try {
-      await register({ password, username });
+      await ensureAccountForTotpSetup();
       const setup = await setupTotp({ password, username });
       setTotpSetup({
         qrCodeDataUrl: setup.qrCodeDataUrl,
@@ -97,6 +97,18 @@ export default function LoginPage() {
       setError(formatError(nextError));
     } finally {
       setIsSubmitting(false);
+    }
+  }
+
+  async function ensureAccountForTotpSetup() {
+    try {
+      await register({ password, username });
+    } catch (nextError) {
+      if (nextError instanceof ApiError && nextError.status === 409) {
+        return;
+      }
+
+      throw nextError;
     }
   }
 
