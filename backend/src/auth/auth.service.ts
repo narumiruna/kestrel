@@ -63,7 +63,7 @@ export class AuthService {
       });
 
       return {
-        nextStep: 'totp_setup' as const,
+        nextStep: 'login' as const,
         user,
       };
     } catch (error) {
@@ -188,10 +188,7 @@ export class AuthService {
 
   async login(input: unknown, metadata: AuthAuditMetadata = {}) {
     const loginRequest = parseLoginRequest(input);
-    const authMethod =
-      loginRequest.totpCode != null
-        ? ('totp' as const)
-        : ('recovery_code' as const);
+    const authMethod = getLoginAuthMethod(loginRequest);
     let userId: string | undefined;
 
     try {
@@ -201,23 +198,32 @@ export class AuthService {
       );
       userId = user.id;
 
-      if (user.totpEnabledAt == null || user.totpSecretEncrypted == null) {
-        throw new UnauthorizedException('totp must be enabled before login');
+      if (
+        user.totpEnabledAt != null &&
+        loginRequest.totpCode == null &&
+        loginRequest.recoveryCode == null
+      ) {
+        throw new UnauthorizedException('one-time code required');
       }
 
       const authenticatedAt = new Date();
       const refreshToken = createRefreshToken();
       const refreshTokenHash = hashRefreshToken(refreshToken);
-      const totpSecretEncrypted = user.totpSecretEncrypted;
       const session = await this.prismaService.$transaction(
         async (transaction) => {
           if (loginRequest.totpCode != null) {
+            if (
+              user.totpEnabledAt == null ||
+              user.totpSecretEncrypted == null
+            ) {
+              throw new UnauthorizedException('totp is not enabled');
+            }
             await this.validateTotpCode(
               user.username,
-              totpSecretEncrypted,
+              user.totpSecretEncrypted,
               loginRequest.totpCode,
             );
-          } else {
+          } else if (loginRequest.recoveryCode != null) {
             await this.validateRecoveryCode(
               transaction,
               user.id,
@@ -385,6 +391,76 @@ export class AuthService {
         username: session.user.username,
       },
     };
+  }
+
+  async changePassword(
+    userId: string,
+    input: unknown,
+    metadata: AuthAuditMetadata = {},
+  ) {
+    const { currentPassword, newPassword } = parseChangePasswordRequest(input);
+    const user = await this.prismaService.user.findUnique({
+      select: {
+        id: true,
+        passwordHash: true,
+        username: true,
+      },
+      where: { id: userId },
+    });
+
+    if (user == null) {
+      throw new UnauthorizedException('missing authenticated user');
+    }
+
+    await this.authRateLimitService.assertAllowed(
+      AUTH_RATE_LIMIT_TYPE.PASSWORD,
+      user.username,
+    );
+
+    if (!(await verify(user.passwordHash, currentPassword))) {
+      await this.authRateLimitService.recordFailure(
+        AUTH_RATE_LIMIT_TYPE.PASSWORD,
+        user.username,
+      );
+      await this.safeAuditLog({
+        ...metadata,
+        authMethod: 'password',
+        event: 'password_change',
+        failureReason: 'invalid_current_password',
+        outcome: 'failure',
+        userId: user.id,
+        username: user.username,
+      });
+      throw new UnauthorizedException('invalid current password');
+    }
+
+    await this.authRateLimitService.reset(
+      AUTH_RATE_LIMIT_TYPE.PASSWORD,
+      user.username,
+    );
+    await this.prismaService.user.update({
+      data: {
+        passwordHash: await hash(newPassword, {
+          type: argon2id,
+        }),
+      },
+      select: {
+        id: true,
+      },
+      where: {
+        id: user.id,
+      },
+    });
+    await this.safeAuditLog({
+      ...metadata,
+      authMethod: 'password',
+      event: 'password_change',
+      outcome: 'success',
+      userId: user.id,
+      username: user.username,
+    });
+
+    return { ok: true as const };
   }
 
   async revokeSession(accessToken: string, metadata: AuthAuditMetadata = {}) {
@@ -617,42 +693,65 @@ function parseTotpVerifyRequest(input: unknown): {
   };
 }
 
-function parseLoginRequest(input: unknown):
-  | {
-      password: string;
-      recoveryCode: string;
-      totpCode?: never;
-      username: string;
-    }
-  | {
-      password: string;
-      recoveryCode?: never;
-      totpCode: string;
-      username: string;
-    } {
+function parseLoginRequest(input: unknown): {
+  password: string;
+  recoveryCode?: string;
+  totpCode?: string;
+  username: string;
+} {
   const inputRecord = parseUnknownRecord(input);
   const totpCode = inputRecord.totpCode;
   const recoveryCode = inputRecord.recoveryCode;
 
-  if (typeof totpCode === 'string' && recoveryCode == null) {
-    return {
-      password: validatePassword(inputRecord.password),
-      totpCode,
-      username: normalizeUsername(inputRecord.username),
-    };
+  if (totpCode != null && typeof totpCode !== 'string') {
+    throw new BadRequestException('totpCode must be a string');
   }
 
-  if (typeof recoveryCode === 'string' && totpCode == null) {
-    return {
-      password: validatePassword(inputRecord.password),
-      recoveryCode: normalizeRecoveryCode(recoveryCode),
-      username: normalizeUsername(inputRecord.username),
-    };
+  if (recoveryCode != null && typeof recoveryCode !== 'string') {
+    throw new BadRequestException('recoveryCode must be a string');
   }
 
-  throw new BadRequestException(
-    'exactly one of totpCode or recoveryCode must be provided',
-  );
+  if (totpCode != null && recoveryCode != null) {
+    throw new BadRequestException(
+      'use either totpCode or recoveryCode, not both',
+    );
+  }
+
+  return {
+    password: validatePassword(inputRecord.password),
+    ...(recoveryCode == null
+      ? {}
+      : { recoveryCode: normalizeRecoveryCode(recoveryCode) }),
+    ...(totpCode == null || totpCode.trim() === '' ? {} : { totpCode }),
+    username: normalizeUsername(inputRecord.username),
+  };
+}
+
+function parseChangePasswordRequest(input: unknown): {
+  currentPassword: string;
+  newPassword: string;
+} {
+  const inputRecord = parseUnknownRecord(input);
+
+  return {
+    currentPassword: validatePassword(inputRecord.currentPassword),
+    newPassword: validatePassword(inputRecord.newPassword),
+  };
+}
+
+function getLoginAuthMethod(loginRequest: {
+  recoveryCode?: string;
+  totpCode?: string;
+}): 'password' | 'recovery_code' | 'totp' {
+  if (loginRequest.totpCode != null) {
+    return 'totp';
+  }
+
+  if (loginRequest.recoveryCode != null) {
+    return 'recovery_code';
+  }
+
+  return 'password';
 }
 
 function parseRefreshRequest(input: unknown): {

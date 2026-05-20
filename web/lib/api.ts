@@ -15,6 +15,11 @@ export type LoginInput = {
   username: string;
 };
 
+export type ChangePasswordInput = {
+  currentPassword: string;
+  newPassword: string;
+};
+
 export type Place = {
   createdAt: string;
   deletedAt: string | null;
@@ -204,8 +209,16 @@ export function refreshSession(refreshToken: string) {
   });
 }
 
+export function changePassword(input: ChangePasswordInput, accessToken: string) {
+  return apiFetch<{ ok: true }>('/auth/password/change', {
+    accessToken,
+    body: JSON.stringify(input),
+    method: 'POST',
+  });
+}
+
 export function register(input: { password: string; username: string }) {
-  return apiFetch<{ nextStep: 'totp_setup'; user: { id: string; username: string } }>(
+  return apiFetch<{ nextStep: 'login' | 'totp_setup'; user: { id: string; username: string } }>(
     '/auth/register',
     {
       body: JSON.stringify(input),

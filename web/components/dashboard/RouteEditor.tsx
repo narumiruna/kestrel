@@ -52,6 +52,7 @@ export default function RouteEditor({
   const [focusTarget, setFocusTarget] = useState<RouteWaypoint | null>(null);
   const [selectedWaypointIndex, setSelectedWaypointIndex] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [saveNotice, setSaveNotice] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const routeBuilderHint = getRouteBuilderHint(waypoints.length, places.length);
   const saveDisabledReason = getSaveDisabledReason(waypoints.length);
@@ -66,6 +67,7 @@ export default function RouteEditor({
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
+    setSaveNotice(null);
     setIsSaving(true);
 
     try {
@@ -80,6 +82,7 @@ export default function RouteEditor({
           longitude: waypoint.longitude,
         })),
       });
+      setSaveNotice('Saved.');
     } catch (nextError) {
       setError(formatError(nextError));
     } finally {
@@ -131,9 +134,10 @@ export default function RouteEditor({
     <form className="panel route-editor" onSubmit={submit}>
       <header className="route-editor-header">
         <div className="stack">
-          <h2>{route == null ? 'New route' : 'Route editor'}</h2>
+          <div className="breadcrumb">Routes / {route?.name ?? 'New route'}</div>
+          <h2>{route == null ? 'New route' : route.name}</h2>
           {route?.currentRevision == null ? null : (
-            <span className="chip">latest revision {route.currentRevision.revisionNumber}</span>
+            <span className="chip rev-chip">latest revision {route.currentRevision.revisionNumber}</span>
           )}
         </div>
         {onNew == null ? null : (
@@ -143,6 +147,7 @@ export default function RouteEditor({
         )}
       </header>
       {error == null ? null : <div className="error route-editor-error">{error}</div>}
+      {saveNotice == null ? null : <div className="success route-editor-success">{saveNotice}</div>}
 
       <section className="route-editor-section route-editor-map-section">
         <div>
@@ -151,7 +156,7 @@ export default function RouteEditor({
             Edit your route, manage waypoints, and configure playback settings.
           </p>
         </div>
-        <div className="route-builder-hint">{routeBuilderHint}</div>
+        <div className="route-builder-hint"><span aria-hidden>ⓘ</span>{routeBuilderHint}</div>
         <FavoriteWaypointPicker
           mode={favoritePickerMode}
           places={places}
@@ -310,8 +315,8 @@ export default function RouteEditor({
             <p className="muted no-margin">{saveDisabledReason}</p>
           )}
           <div className="row">
-            <button disabled={isSaving || saveDisabledReason != null} type="submit">
-              {isSaving ? 'Saving…' : 'Save route'}
+            <button className={isSaving ? 'is-loading' : ''} disabled={isSaving || saveDisabledReason != null} type="submit">
+              {isSaving ? 'Saving…' : saveNotice == null ? 'Save route' : 'Saved ✓'}
             </button>
             {onDelete == null ? null : (
               <button className="danger" disabled={isSaving} type="button" onClick={confirmDelete}>
@@ -368,13 +373,17 @@ function FavoriteWaypointPicker({
             : 'Append a saved place to the end of this route.'}
         </p>
       </div>
-      <label>
-        Search favorites...
-        <input
-          placeholder="Search favorites..."
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-        />
+      <label className="favorite-search">
+        Search favorites
+        <span className="favorite-search-box">
+          <span aria-hidden>⌕</span>
+          <input
+            placeholder="Search favorites..."
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+          />
+          <kbd>⌘K</kbd>
+        </span>
       </label>
       <div className="favorite-place-list">
         {filteredPlaces.map((place) => (
@@ -384,8 +393,12 @@ function FavoriteWaypointPicker({
             type="button"
             onClick={() => onSelect(place)}
           >
-            <strong>{place.name}</strong>
-            <span className="muted">{formatFavoritePlaceCoords(place)}</span>
+            <span className="favorite-place-main">
+              <span aria-hidden>⌖</span>
+              <strong>{place.name}</strong>
+              <span className="favorite-add">+ Add</span>
+            </span>
+            <span className="muted mono">{formatFavoritePlaceCoords(place)}</span>
             {place.tags.length === 0 ? null : (
               <span className="chip-row">
                 {place.tags.map((tag) => (
