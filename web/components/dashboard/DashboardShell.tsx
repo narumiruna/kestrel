@@ -33,7 +33,15 @@ export default function DashboardShell({
   username,
 }: Props) {
   const [isAccountOpen, setIsAccountOpen] = useState(false);
+  const [isRefreshAnimating, setIsRefreshAnimating] = useState(false);
   const refreshLabel = formatRefreshLabel(lastUpdatedLabel);
+
+  function handleRefresh() {
+    setIsRefreshAnimating(false);
+    window.requestAnimationFrame(() => setIsRefreshAnimating(true));
+    window.setTimeout(() => setIsRefreshAnimating(false), 240);
+    onRefresh();
+  }
 
   return (
     <main className="shell kc-shell">
@@ -54,11 +62,11 @@ export default function DashboardShell({
           <button
             aria-busy={isRefreshing}
             aria-label={refreshLabel}
-            className="secondary kc-icon-button"
+            className={`secondary kc-icon-button ${isRefreshAnimating ? 'is-rotating' : ''}`}
             disabled={isRefreshing}
             title={refreshLabel}
             type="button"
-            onClick={onRefresh}
+            onClick={handleRefresh}
           >
             <RefreshCwIcon />
           </button>
@@ -184,20 +192,15 @@ function AccountMenu({ onLogout }: { onLogout: () => void }) {
 
 function KestrelIcon() {
   return (
-    <svg aria-hidden="true" fill="none" height="24" viewBox="0 0 24 24" width="24">
+    <svg aria-hidden="true" fill="none" height="28" viewBox="0 0 28 28" width="28">
       <path
-        d="M3 13.2C8.4 4.7 15.7 3.1 21 4.1c-4.1 1.5-5.6 4.6-6.9 8.1"
+        d="M4 16.5C9.8 8.2 17.3 5.4 24 6.3c-4.8 1.7-8 5.2-9.9 10.8"
         stroke="currentColor"
         strokeLinecap="round"
         strokeLinejoin="round"
-        strokeWidth="1.8"
+        strokeWidth="2"
       />
-      <path
-        d="M4.4 13.4c4.8-.5 8.2.5 10.8 3.2-4 .8-7.8-.1-10.8-3.2Z"
-        fill="currentColor"
-        opacity="0.25"
-      />
-      <path d="M13.9 12.1 21 20" stroke="currentColor" strokeLinecap="round" strokeWidth="1.8" />
+      <path d="M5.4 16.7c5.2-.4 9.1.9 12 4.1-4.7.8-8.6-.2-12-4.1Z" fill="currentColor" />
     </svg>
   );
 }
