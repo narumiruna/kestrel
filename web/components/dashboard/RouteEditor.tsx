@@ -26,13 +26,11 @@ const RouteMapEditor = dynamic(() => import('@/components/RouteMapEditor'), {
 
 export default function RouteEditor({
   onDelete,
-  onNew,
   onSave,
   places = [],
   route,
 }: {
   onDelete?: () => void;
-  onNew?: () => void;
   onSave: (input: RouteInput) => void;
   places?: Place[];
   route: Route | null;
@@ -144,11 +142,6 @@ export default function RouteEditor({
             </span>
           )}
         </div>
-        {onNew == null ? null : (
-          <button className="secondary" type="button" onClick={onNew}>
-            New route
-          </button>
-        )}
       </header>
       {error == null ? null : <div className="error route-editor-error">{error}</div>}
       {saveNotice == null ? null : <div className="success route-editor-success">{saveNotice}</div>}
@@ -242,12 +235,13 @@ export default function RouteEditor({
               </div>
             ))}
             <button
-              className="secondary"
+              className="secondary button-icon-label"
               disabled={waypoints.length === 0}
               type="button"
               onClick={duplicateLastWaypoint}
             >
-              + Add waypoint
+              <PlusIcon />
+              Add waypoint
             </button>
           </div>
         </details>
@@ -320,6 +314,11 @@ export default function RouteEditor({
             <p className="muted no-margin">{saveDisabledReason}</p>
           )}
           <div className="row">
+            {onDelete == null ? null : (
+              <button className="danger" disabled={isSaving} type="button" onClick={confirmDelete}>
+                Delete route
+              </button>
+            )}
             <button
               className={isSaving ? 'is-loading' : ''}
               disabled={isSaving || saveDisabledReason != null}
@@ -327,11 +326,6 @@ export default function RouteEditor({
             >
               {isSaving ? 'Saving…' : saveNotice == null ? 'Save route' : 'Saved ✓'}
             </button>
-            {onDelete == null ? null : (
-              <button className="danger" disabled={isSaving} type="button" onClick={confirmDelete}>
-                Delete route
-              </button>
-            )}
           </div>
         </div>
       </footer>
@@ -427,8 +421,13 @@ function FavoriteWaypointPicker({
             <span className="favorite-place-main">
               <MapPinIcon />
               <strong>{place.name}</strong>
-              <button className="favorite-add" type="button" onClick={() => onSelect(place)}>
-                + Add
+              <button
+                className="favorite-add button-icon-label"
+                type="button"
+                onClick={() => onSelect(place)}
+              >
+                <PlusIcon />
+                Add
               </button>
             </span>
             <button
@@ -684,6 +683,15 @@ function SearchIcon() {
     <svg aria-hidden="true" className="lucide-icon" fill="none" viewBox="0 0 24 24">
       <path d="m21 21-4.3-4.3" />
       <circle cx="11" cy="11" r="8" />
+    </svg>
+  );
+}
+
+function PlusIcon() {
+  return (
+    <svg aria-hidden="true" className="lucide-icon" fill="none" viewBox="0 0 24 24">
+      <path d="M12 5v14" />
+      <path d="M5 12h14" />
     </svg>
   );
 }

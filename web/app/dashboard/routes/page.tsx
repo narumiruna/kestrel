@@ -118,11 +118,12 @@ export default function RoutesDashboardPage() {
                   {isSidebarOpen ? '‹' : '›'}
                 </button>
                 <button
-                  className="secondary dashboard-sidebar-new dashboard-sidebar-new-card"
+                  className="secondary dashboard-sidebar-new dashboard-sidebar-new-card button-icon-label"
                   type="button"
                   onClick={() => selectRoute(null)}
                 >
-                  + New route
+                  <PlusIcon />
+                  New route
                 </button>
                 <button
                   aria-label="Close routes"
@@ -144,16 +145,18 @@ export default function RoutesDashboardPage() {
                     type="button"
                     onClick={() => selectRoute(route.id)}
                   >
-                    <strong className="route-card-title">{route.name}</strong>
-                    <span className="route-card-metrics">
-                      {formatRouteDistance(route)} · {route.defaultSpeedKmh}km/h ·{' '}
-                      {formatMode(route.mode)}
-                    </span>
-                    <span className="chip-row route-card-badges">
-                      <span className="chip rev-chip">
+                    <span className="route-card-title-row">
+                      <strong className="route-card-title">{route.name}</strong>
+                      <span className="route-card-rev">
                         rev {route.currentRevision?.revisionNumber ?? '—'}
                       </span>
-                      {route.isPublic ? <span className="chip">public</span> : null}
+                      {route.isPublic ? <span className="route-card-status">public</span> : null}
+                    </span>
+                    <span className="route-card-meta-row">
+                      <span className="route-card-metrics">
+                        {formatRouteDistance(route)} · {route.defaultSpeedKmh}km/h
+                      </span>
+                      <span className="route-mode-chip">{formatMode(route.mode)}</span>
                     </span>
                   </button>
                 ))}
@@ -185,7 +188,6 @@ export default function RoutesDashboardPage() {
           <RouteEditor
             key={selectedRoute?.id ?? 'new-route'}
             onDelete={selectedRoute == null ? undefined : () => void deleteRoute(selectedRoute.id)}
-            onNew={selectedRoute == null ? undefined : () => selectRoute(null)}
             onSave={(input) => void saveRoute(input)}
             places={places}
             route={selectedRoute}
@@ -239,4 +241,13 @@ function getDistanceKm(
 
 function toRadians(degrees: number): number {
   return (degrees * Math.PI) / 180;
+}
+
+function PlusIcon() {
+  return (
+    <svg aria-hidden="true" className="lucide-icon" fill="none" viewBox="0 0 24 24">
+      <path d="M12 5v14" />
+      <path d="M5 12h14" />
+    </svg>
+  );
 }
