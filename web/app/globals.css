@@ -72,11 +72,11 @@
   --radius-lg: 1rem;
   --radius-pill: 999px;
 
-  /* Shadows — soft, Apple-like */
-  --shadow-xs: 0 1px 3px rgb(0 0 0 / 6%), 0 1px 2px rgb(0 0 0 / 4%);
-  --shadow-sm: 0 2px 8px rgb(0 0 0 / 8%), 0 1px 3px rgb(0 0 0 / 4%);
-  --shadow-md: 0 4px 16px rgb(0 0 0 / 10%), 0 2px 6px rgb(0 0 0 / 6%);
-  --shadow-lg: 0 8px 32px rgb(0 0 0 / 12%), 0 4px 12px rgb(0 0 0 / 8%);
+  /* Shadows — restrained, notebook-like */
+  --shadow-xs: 0 1px 2px rgb(42 37 32 / 4%);
+  --shadow-sm: 0 1px 2px rgb(42 37 32 / 4%);
+  --shadow-md: 0 1px 2px rgb(42 37 32 / 4%);
+  --shadow-lg: 0 1px 2px rgb(42 37 32 / 4%);
 
   /* Focus ring */
   --focus-ring: 0 0 0 3px rgb(217 118 68 / 30%);
@@ -319,7 +319,8 @@ button:hover:not(:disabled) {
 
 button:active:not(:disabled) {
   box-shadow: none;
-  transform: translateY(0);
+  transform: scale(0.98);
+  transition-duration: 80ms;
 }
 
 button:focus-visible {
@@ -604,30 +605,7 @@ label {
 }
 
 .loading-shimmer {
-  animation: dashboard-shimmer 1.1s linear infinite;
-  background: linear-gradient(
-    90deg,
-    rgb(255 255 255 / 5%) 0%,
-    rgb(255 255 255 / 30%) 45%,
-    rgb(255 255 255 / 5%) 100%
-  );
-  background-position: 100% 0;
-  background-size: 200% 100%;
-  border-radius: var(--radius-lg);
-  inset: 0;
-  pointer-events: none;
-  position: absolute;
-  z-index: 2;
-}
-
-@keyframes dashboard-shimmer {
-  0% {
-    background-position: 100% 0;
-  }
-
-  100% {
-    background-position: -100% 0;
-  }
+  display: none;
 }
 
 /* ==========================================================================
@@ -1504,27 +1482,29 @@ label {
 .kc-brand strong {
   color: var(--text-primary);
   display: block;
-  font-size: 1rem;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
   line-height: 1.2;
 }
 
 .kc-logo,
 .kc-avatar {
   align-items: center;
-  background: var(--accent);
-  border: 1px solid var(--accent-hover);
-  border-radius: 12px;
-  color: #ffffff;
+  background: var(--bg-canvas);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--accent);
   display: inline-flex;
-  height: 38px;
+  height: 36px;
   justify-content: center;
-  width: 38px;
+  width: 36px;
 }
 
 .kc-signed-in {
   color: var(--text-muted);
   display: block;
-  font-size: 0.78rem;
+  font-size: 12px;
   font-weight: 500;
 }
 
@@ -1562,7 +1542,7 @@ label {
 }
 
 .kc-user-button {
-  border-radius: 999px;
+  border-radius: 10px;
   padding: 5px 10px 5px 5px;
 }
 
@@ -1576,6 +1556,7 @@ label {
 
 .kc-avatar {
   background: var(--accent);
+  border-color: var(--accent);
   color: white;
   font-size: 0.86rem;
   font-weight: 800;
@@ -1587,7 +1568,7 @@ label {
   background: var(--overlay-surface);
   border: 1px solid var(--kc-slate-200);
   border-radius: 16px;
-  box-shadow: 0 22px 60px rgb(42 37 32 / 18%);
+  box-shadow: var(--shadow-sm);
   color: var(--kc-slate-900);
   padding: 16px;
   position: absolute;
@@ -1677,8 +1658,8 @@ label {
 }
 
 .list-item.route-list-item:hover {
-  box-shadow: 0 12px 28px rgb(42 37 32 / 10%);
-  transform: translateY(-1px);
+  box-shadow: none;
+  transform: none;
 }
 
 .list-item.route-list-item.active {
@@ -1804,7 +1785,7 @@ label {
   border: 1px solid var(--kc-slate-200);
   border-radius: 16px;
   bottom: 12px;
-  box-shadow: 0 -8px 28px rgb(42 37 32 / 8%);
+  box-shadow: var(--shadow-sm);
   padding: 12px;
   position: sticky;
   z-index: 20;
@@ -1814,13 +1795,11 @@ button,
 .kc-tab,
 .list-item,
 .favorite-place-option {
-  transition: all 150ms ease;
+  transition: all 120ms ease-out;
 }
 
 button.is-loading {
-  background-image: linear-gradient(90deg, var(--accent-hover), var(--accent), var(--accent-hover));
-  background-size: 200% 100%;
-  animation: kc-loading 1s linear infinite;
+  background: var(--accent);
 }
 
 .skeleton-list {
@@ -1830,9 +1809,7 @@ button.is-loading {
 }
 
 .skeleton-line {
-  animation: kc-skeleton 1.2s ease-in-out infinite;
-  background: linear-gradient(90deg, var(--kc-slate-100), var(--bg-surface), var(--kc-slate-100));
-  background-size: 220% 100%;
+  background: var(--bg-subtle);
   border-radius: 12px;
   height: 52px;
 }
@@ -1988,6 +1965,9 @@ button.is-loading {
   background: var(--accent-soft);
   border: 1px solid var(--accent);
   box-shadow: none;
+  transition:
+    background-color 180ms ease-out,
+    border-color 180ms ease-out;
 }
 
 .rev-chip,
@@ -2017,15 +1997,96 @@ button.is-loading {
   box-shadow: none;
 }
 
-@keyframes kc-loading {
-  to {
-    background-position: -200% 0;
-  }
+.kc-icon-button.is-rotating .lucide-icon {
+  animation: refresh-rotate 240ms ease-out;
 }
 
-@keyframes kc-skeleton {
+.route-list-item.active .route-card-title::before {
+  background: var(--accent);
+  border-radius: 999px;
+  content: "";
+  height: 4px;
+  width: 4px;
+}
+
+.favorite-place-option {
+  cursor: default;
+}
+
+.favorite-place-option:hover {
+  background: var(--bg-subtle);
+}
+
+.favorite-add {
+  align-items: center;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--accent);
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 600;
+  margin-left: auto;
+  min-height: 28px;
+  opacity: 0;
+  padding: 0 8px;
+}
+
+.favorite-place-option:hover .favorite-add,
+.favorite-add:focus-visible {
+  opacity: 1;
+}
+
+.favorite-add:hover:not(:disabled) {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  box-shadow: none;
+  color: var(--accent);
+  transform: none;
+}
+
+.coordinate-copy {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: inline-flex;
+  justify-content: flex-start;
+  min-height: 24px;
+  padding: 0;
+  position: relative;
+  text-align: left;
+  width: fit-content;
+}
+
+.coordinate-copy:hover:not(:disabled),
+.coordinate-copy:focus-visible {
+  background: transparent;
+  box-shadow: none;
+  color: var(--accent);
+  transform: none;
+}
+
+.coordinate-copy-tooltip {
+  background: var(--accent-soft);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--accent);
+  font-family: Inter, Geist, ui-sans-serif, system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  left: calc(100% + 8px);
+  letter-spacing: 0;
+  padding: 2px 6px;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  white-space: nowrap;
+}
+
+@keyframes refresh-rotate {
   to {
-    background-position: -220% 0;
+    transform: rotate(360deg);
   }
 }
 

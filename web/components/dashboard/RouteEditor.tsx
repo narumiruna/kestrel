@@ -2,7 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import { type FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import {
   formatError,
@@ -156,9 +156,7 @@ export default function RouteEditor({
       <section className="route-editor-section route-editor-map-section">
         <div>
           <h3>Route editor</h3>
-          <p className="muted">
-            Edit your route, manage waypoints, and configure playback settings.
-          </p>
+          <p className="muted">Drag, drop, refine. Your route, your pace.</p>
         </div>
         <div className="route-builder-hint">
           <InfoIcon />
@@ -351,6 +349,8 @@ function FavoriteWaypointPicker({
   places: Place[];
 }) {
   const [query, setQuery] = useState('');
+  const [copiedPlaceId, setCopiedPlaceId] = useState<string | null>(null);
+  const copiedTimeoutRef = useRef<number | null>(null);
   const filteredPlaces = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
 
@@ -364,6 +364,31 @@ function FavoriteWaypointPicker({
       return haystack.includes(normalizedQuery);
     });
   }, [places, query]);
+
+  useEffect(
+    () => () => {
+      if (copiedTimeoutRef.current != null) {
+        window.clearTimeout(copiedTimeoutRef.current);
+      }
+    },
+    [],
+  );
+
+  async function copyFavoriteCoords(place: Place) {
+    try {
+      await navigator.clipboard.writeText(formatFavoritePlaceCoords(place));
+      setCopiedPlaceId(place.id);
+      if (copiedTimeoutRef.current != null) {
+        window.clearTimeout(copiedTimeoutRef.current);
+      }
+      copiedTimeoutRef.current = window.setTimeout(() => {
+        setCopiedPlaceId((currentPlaceId) => (currentPlaceId === place.id ? null : currentPlaceId));
+        copiedTimeoutRef.current = null;
+      }, 1400);
+    } catch {
+      setCopiedPlaceId(null);
+    }
+  }
 
   if (places.length === 0) {
     return (
@@ -381,7 +406,7 @@ function FavoriteWaypointPicker({
         <p className="muted">
           {mode === 'start'
             ? 'Pick a saved place as the first waypoint, or click the map to start manually.'
-            : 'Append a saved place to the end of this route.'}
+            : 'Drop a favorite onto the tail of this route.'}
         </p>
       </div>
       <label className="favorite-search">
@@ -398,18 +423,25 @@ function FavoriteWaypointPicker({
       </label>
       <div className="favorite-place-list">
         {filteredPlaces.map((place) => (
-          <button
-            className="favorite-place-option"
-            key={place.id}
-            type="button"
-            onClick={() => onSelect(place)}
-          >
+          <div className="favorite-place-option" key={place.id}>
             <span className="favorite-place-main">
               <MapPinIcon />
               <strong>{place.name}</strong>
-              <span className="favorite-add">+ Add</span>
+              <button className="favorite-add" type="button" onClick={() => onSelect(place)}>
+                + Add
+              </button>
             </span>
-            <span className="muted mono">{formatFavoritePlaceCoords(place)}</span>
+            <button
+              aria-label={`Copy coordinates for ${place.name}`}
+              className="coordinate-copy muted mono"
+              type="button"
+              onClick={() => void copyFavoriteCoords(place)}
+            >
+              {formatFavoritePlaceCoords(place)}
+              {copiedPlaceId === place.id ? (
+                <span className="coordinate-copy-tooltip">copied</span>
+              ) : null}
+            </button>
             {place.tags.length === 0 ? null : (
               <span className="chip-row">
                 {place.tags.map((tag) => (
@@ -419,7 +451,7 @@ function FavoriteWaypointPicker({
                 ))}
               </span>
             )}
-          </button>
+          </div>
         ))}
         {filteredPlaces.length === 0 ? <p className="muted">No favorite places match.</p> : null}
       </div>
@@ -458,7 +490,7 @@ function getRouteBuilderHint(waypointCount: number, placeCount: number): string 
     return 'Add at least one more waypoint to save this route.';
   }
 
-  return 'Add more waypoints from the map, or drag markers to refine the route.';
+  return 'Tap the map to add a waypoint, or drag any pin to nudge the path.';
 }
 
 function getSaveDisabledReason(waypointCount: number): string | null {
