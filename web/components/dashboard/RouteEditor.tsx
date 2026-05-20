@@ -52,6 +52,7 @@ export default function RouteEditor({
   const [error, setError] = useState<string | null>(null);
   const [saveNotice, setSaveNotice] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const saveNoticeTimeoutRef = useRef<number | null>(null);
   const routeBuilderHint = getRouteBuilderHint(waypoints.length, places.length);
   const saveDisabledReason = getSaveDisabledReason(waypoints.length);
   const favoritePickerMode = waypoints.length === 0 ? 'start' : 'append';
@@ -62,10 +63,22 @@ export default function RouteEditor({
     }
   }, [selectedWaypointIndex, waypoints.length]);
 
+  useEffect(
+    () => () => {
+      if (saveNoticeTimeoutRef.current != null) {
+        window.clearTimeout(saveNoticeTimeoutRef.current);
+      }
+    },
+    [],
+  );
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
     setSaveNotice(null);
+    if (saveNoticeTimeoutRef.current != null) {
+      window.clearTimeout(saveNoticeTimeoutRef.current);
+    }
     setIsSaving(true);
 
     try {
@@ -81,6 +94,10 @@ export default function RouteEditor({
         })),
       });
       setSaveNotice('Saved.');
+      saveNoticeTimeoutRef.current = window.setTimeout(() => {
+        setSaveNotice(null);
+        saveNoticeTimeoutRef.current = null;
+      }, 1000);
     } catch (nextError) {
       setError(formatError(nextError));
     } finally {
@@ -144,7 +161,6 @@ export default function RouteEditor({
         </div>
       </header>
       {error == null ? null : <div className="error route-editor-error">{error}</div>}
-      {saveNotice == null ? null : <div className="success route-editor-success">{saveNotice}</div>}
 
       <section className="route-editor-section route-editor-map-section">
         <div>
@@ -175,6 +191,7 @@ export default function RouteEditor({
           <button
             className="secondary"
             disabled={waypoints.length === 0}
+            title="Auto-frame the map to show all waypoints"
             type="button"
             onClick={() => setFitRequest((currentRequest) => currentRequest + 1)}
           >
@@ -187,7 +204,8 @@ export default function RouteEditor({
 
         <details className="route-editor-collapsible route-editor-waypoints-section">
           <summary>
-            <span>Waypoints ({waypoints.length})</span>
+            <span>{formatWaypointCount(waypoints.length)}</span>
+            <span className="muted">{formatWaypointSummary(waypoints)}</span>
           </summary>
           <div className="route-editor-collapsible-content">
             {waypoints.map((waypoint, index) => (
@@ -211,7 +229,7 @@ export default function RouteEditor({
                     updateWaypoint(waypoints, setWaypoints, index, 'longitude', event.target.value)
                   }
                 />
-                <div className="row">
+                <div className="row-actions">
                   <button
                     className="secondary"
                     disabled={index === 0}
@@ -320,7 +338,7 @@ export default function RouteEditor({
               </button>
             )}
             <button
-              className={isSaving ? 'is-loading' : ''}
+              className={isSaving ? 'is-loading' : saveNotice == null ? '' : 'is-saved'}
               disabled={isSaving || saveDisabledReason != null}
               type="submit"
             >
@@ -400,7 +418,7 @@ function FavoriteWaypointPicker({
         <p className="muted">
           {mode === 'start'
             ? 'Pick a saved place as the first waypoint, or click the map to start manually.'
-            : 'Drop a favorite onto the tail of this route.'}
+            : 'Append a saved place. Drag, or click to add.'}
         </p>
       </div>
       <label className="favorite-search">
@@ -464,6 +482,33 @@ function formatFavoritePlaceCoords(place: Place): string {
 
 function getWaypointKey(waypoint: RouteWaypoint, index: number): string {
   return `${waypoint.sequence ?? index}-${waypoint.latitude}-${waypoint.longitude}`;
+}
+
+function formatWaypointCount(waypointCount: number): string {
+  return `${waypointCount} waypoint${waypointCount === 1 ? '' : 's'}`;
+}
+
+function formatWaypointSummary(waypoints: RouteWaypoint[]): string {
+  const firstWaypoint = waypoints[0];
+  const lastWaypoint = waypoints.at(-1);
+
+  if (firstWaypoint == null || lastWaypoint == null) {
+    return 'Start by adding a point';
+  }
+
+  if (waypoints.length === 1) {
+    return `Starts at ${formatShortCoord(firstWaypoint.latitude)}, ${formatShortCoord(
+      firstWaypoint.longitude,
+    )}`;
+  }
+
+  return `Start at ${formatShortCoord(firstWaypoint.latitude)}, end at ${formatShortCoord(
+    lastWaypoint.latitude,
+  )}`;
+}
+
+function formatShortCoord(value: number | string): string {
+  return Number(value).toFixed(2);
 }
 
 function getWaypointLabel(index: number, waypointCount: number): string {
