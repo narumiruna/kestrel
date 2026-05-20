@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { type FormEvent, type ReactNode, useState } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import { formatError } from '@/components/dashboard/utils';
+import { useTheme } from '@/components/ThemeProvider';
 
 type DashboardSection = 'places' | 'routes';
 
@@ -32,7 +33,15 @@ export default function DashboardShell({
   username,
 }: Props) {
   const [isAccountOpen, setIsAccountOpen] = useState(false);
+  const [isRefreshAnimating, setIsRefreshAnimating] = useState(false);
   const refreshLabel = formatRefreshLabel(lastUpdatedLabel);
+
+  function handleRefresh() {
+    setIsRefreshAnimating(false);
+    window.requestAnimationFrame(() => setIsRefreshAnimating(true));
+    window.setTimeout(() => setIsRefreshAnimating(false), 240);
+    onRefresh();
+  }
 
   return (
     <main className="shell kc-shell">
@@ -53,11 +62,11 @@ export default function DashboardShell({
           <button
             aria-busy={isRefreshing}
             aria-label={refreshLabel}
-            className="secondary kc-icon-button"
+            className={`secondary kc-icon-button ${isRefreshAnimating ? 'is-rotating' : ''}`}
             disabled={isRefreshing}
             title={refreshLabel}
             type="button"
-            onClick={onRefresh}
+            onClick={handleRefresh}
           >
             <RefreshCwIcon />
           </button>
@@ -100,6 +109,7 @@ export default function DashboardShell({
 
 function AccountMenu({ onLogout }: { onLogout: () => void }) {
   const auth = useAuth();
+  const { isHydrated, theme, toggleTheme } = useTheme();
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [notice, setNotice] = useState<string | null>(null);
@@ -136,6 +146,15 @@ function AccountMenu({ onLogout }: { onLogout: () => void }) {
         </div>
         {error == null ? null : <div className="error">{error}</div>}
         {notice == null ? null : <div className="success">{notice}</div>}
+        <button
+          className="secondary kc-theme-toggle"
+          disabled={!isHydrated}
+          type="button"
+          onClick={toggleTheme}
+        >
+          {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
+          {theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+        </button>
         <form className="stack" onSubmit={submitPasswordChange}>
           <label>
             Current password
@@ -173,20 +192,15 @@ function AccountMenu({ onLogout }: { onLogout: () => void }) {
 
 function KestrelIcon() {
   return (
-    <svg aria-hidden="true" fill="none" height="24" viewBox="0 0 24 24" width="24">
+    <svg aria-hidden="true" fill="none" height="28" viewBox="0 0 28 28" width="28">
       <path
-        d="M3 13.2C8.4 4.7 15.7 3.1 21 4.1c-4.1 1.5-5.6 4.6-6.9 8.1"
+        d="M4 16.5C9.8 8.2 17.3 5.4 24 6.3c-4.8 1.7-8 5.2-9.9 10.8"
         stroke="currentColor"
         strokeLinecap="round"
         strokeLinejoin="round"
-        strokeWidth="1.8"
+        strokeWidth="2"
       />
-      <path
-        d="M4.4 13.4c4.8-.5 8.2.5 10.8 3.2-4 .8-7.8-.1-10.8-3.2Z"
-        fill="currentColor"
-        opacity="0.25"
-      />
-      <path d="M13.9 12.1 21 20" stroke="currentColor" strokeLinecap="round" strokeWidth="1.8" />
+      <path d="M5.4 16.7c5.2-.4 9.1.9 12 4.1-4.7.8-8.6-.2-12-4.1Z" fill="currentColor" />
     </svg>
   );
 }
@@ -225,6 +239,30 @@ function ChevronDownIcon() {
   return (
     <svg aria-hidden="true" className="lucide-icon" fill="none" viewBox="0 0 24 24">
       <path d="m6 9 6 6 6-6" />
+    </svg>
+  );
+}
+
+function MoonIcon() {
+  return (
+    <svg aria-hidden="true" className="lucide-icon" fill="none" viewBox="0 0 24 24">
+      <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
+    </svg>
+  );
+}
+
+function SunIcon() {
+  return (
+    <svg aria-hidden="true" className="lucide-icon" fill="none" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2" />
+      <path d="M12 20v2" />
+      <path d="m4.93 4.93 1.41 1.41" />
+      <path d="m17.66 17.66 1.41 1.41" />
+      <path d="M2 12h2" />
+      <path d="M20 12h2" />
+      <path d="m6.34 17.66-1.41 1.41" />
+      <path d="m19.07 4.93-1.41 1.41" />
     </svg>
   );
 }
