@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { type FormEvent, type ReactNode, useState } from 'react';
+import { type FormEvent, type ReactNode, useEffect, useState } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import { formatError } from '@/components/dashboard/utils';
 import { useTheme } from '@/components/ThemeProvider';
@@ -12,7 +12,7 @@ type Props = {
   activeSection: DashboardSection;
   children: ReactNode;
   isRefreshing?: boolean;
-  lastUpdatedLabel?: string | null;
+  lastUpdatedAt?: Date | null;
   onLogout: () => void;
   onRefresh: () => void;
   username: string;
@@ -27,13 +27,14 @@ export default function DashboardShell({
   activeSection,
   children,
   isRefreshing = false,
-  lastUpdatedLabel = null,
+  lastUpdatedAt = null,
   onLogout,
   onRefresh,
   username,
 }: Props) {
   const [isAccountOpen, setIsAccountOpen] = useState(false);
   const [isRefreshAnimating, setIsRefreshAnimating] = useState(false);
+  const lastUpdatedLabel = useRelativeUpdatedLabel(lastUpdatedAt);
   const refreshLabel = formatRefreshLabel(lastUpdatedLabel);
 
   function handleRefresh() {
@@ -192,7 +193,7 @@ function AccountMenu({ onLogout }: { onLogout: () => void }) {
 
 function KestrelIcon() {
   return (
-    <svg aria-hidden="true" fill="none" height="28" viewBox="0 0 28 28" width="28">
+    <svg aria-hidden="true" fill="none" height="36" viewBox="0 0 28 28" width="36">
       <path
         d="M4 16.5C9.8 8.2 17.3 5.4 24 6.3c-4.8 1.7-8 5.2-9.9 10.8"
         stroke="currentColor"
@@ -265,6 +266,51 @@ function SunIcon() {
       <path d="m19.07 4.93-1.41 1.41" />
     </svg>
   );
+}
+
+function useRelativeUpdatedLabel(lastUpdatedAt: Date | null): string | null {
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (lastUpdatedAt == null) {
+      return;
+    }
+
+    setNow(Date.now());
+    const intervalId = window.setInterval(() => setNow(Date.now()), 30_000);
+
+    return () => window.clearInterval(intervalId);
+  }, [lastUpdatedAt]);
+
+  if (lastUpdatedAt == null) {
+    return null;
+  }
+
+  return formatRelativeTime(lastUpdatedAt, now);
+}
+
+function formatRelativeTime(date: Date, now: number): string {
+  const elapsedSeconds = Math.max(0, Math.floor((now - date.getTime()) / 1000));
+
+  if (elapsedSeconds < 60) {
+    return 'Just now';
+  }
+
+  const elapsedMinutes = Math.floor(elapsedSeconds / 60);
+
+  if (elapsedMinutes < 60) {
+    return `${elapsedMinutes} minute${elapsedMinutes === 1 ? '' : 's'} ago`;
+  }
+
+  const elapsedHours = Math.floor(elapsedMinutes / 60);
+
+  if (elapsedHours < 24) {
+    return `${elapsedHours} hour${elapsedHours === 1 ? '' : 's'} ago`;
+  }
+
+  const elapsedDays = Math.floor(elapsedHours / 24);
+
+  return `${elapsedDays} day${elapsedDays === 1 ? '' : 's'} ago`;
 }
 
 function formatRefreshLabel(lastUpdatedLabel?: string | null): string {
