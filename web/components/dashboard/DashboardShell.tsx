@@ -292,25 +292,27 @@ function useRelativeUpdatedLabel(lastUpdatedAt: Date | null): string | null {
 function formatRelativeTime(date: Date, now: number): string {
   const elapsedSeconds = Math.max(0, Math.floor((now - date.getTime()) / 1000));
 
-  if (elapsedSeconds < 60) {
+  if (elapsedSeconds < 10) {
     return 'Just now';
+  }
+
+  if (elapsedSeconds < 60) {
+    return `${elapsedSeconds}s ago`;
   }
 
   const elapsedMinutes = Math.floor(elapsedSeconds / 60);
 
   if (elapsedMinutes < 60) {
-    return `${elapsedMinutes} minute${elapsedMinutes === 1 ? '' : 's'} ago`;
+    return `${elapsedMinutes}m ago`;
   }
 
   const elapsedHours = Math.floor(elapsedMinutes / 60);
 
   if (elapsedHours < 24) {
-    return `${elapsedHours} hour${elapsedHours === 1 ? '' : 's'} ago`;
+    return `${elapsedHours}h ago`;
   }
 
-  const elapsedDays = Math.floor(elapsedHours / 24);
-
-  return `${elapsedDays} day${elapsedDays === 1 ? '' : 's'} ago`;
+  return new Intl.DateTimeFormat('en-US', { day: 'numeric', month: 'short' }).format(date);
 }
 
 function formatRefreshLabel(lastUpdatedLabel?: string | null): string {
