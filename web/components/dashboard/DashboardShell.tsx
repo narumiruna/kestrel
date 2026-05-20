@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { type FormEvent, type ReactNode, useState } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import { formatError } from '@/components/dashboard/utils';
+import { useTheme } from '@/components/ThemeProvider';
 
 type DashboardSection = 'places' | 'routes';
 
@@ -100,6 +101,7 @@ export default function DashboardShell({
 
 function AccountMenu({ onLogout }: { onLogout: () => void }) {
   const auth = useAuth();
+  const { isHydrated, theme, toggleTheme } = useTheme();
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [notice, setNotice] = useState<string | null>(null);
@@ -136,6 +138,15 @@ function AccountMenu({ onLogout }: { onLogout: () => void }) {
         </div>
         {error == null ? null : <div className="error">{error}</div>}
         {notice == null ? null : <div className="success">{notice}</div>}
+        <button
+          className="secondary kc-theme-toggle"
+          disabled={!isHydrated}
+          type="button"
+          onClick={toggleTheme}
+        >
+          {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
+          {theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+        </button>
         <form className="stack" onSubmit={submitPasswordChange}>
           <label>
             Current password
@@ -225,6 +236,30 @@ function ChevronDownIcon() {
   return (
     <svg aria-hidden="true" className="lucide-icon" fill="none" viewBox="0 0 24 24">
       <path d="m6 9 6 6 6-6" />
+    </svg>
+  );
+}
+
+function MoonIcon() {
+  return (
+    <svg aria-hidden="true" className="lucide-icon" fill="none" viewBox="0 0 24 24">
+      <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
+    </svg>
+  );
+}
+
+function SunIcon() {
+  return (
+    <svg aria-hidden="true" className="lucide-icon" fill="none" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2" />
+      <path d="M12 20v2" />
+      <path d="m4.93 4.93 1.41 1.41" />
+      <path d="m17.66 17.66 1.41 1.41" />
+      <path d="M2 12h2" />
+      <path d="M20 12h2" />
+      <path d="m6.34 17.66-1.41 1.41" />
+      <path d="m19.07 4.93-1.41 1.41" />
     </svg>
   );
 }
