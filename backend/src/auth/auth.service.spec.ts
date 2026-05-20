@@ -366,7 +366,7 @@ describe('AuthService', () => {
       ),
     ).resolves.toBe(true);
     expect(result).toEqual({
-      nextStep: 'totp_setup',
+      nextStep: 'login',
       user: {
         createdAt,
         id: 'user-1',
@@ -376,7 +376,10 @@ describe('AuthService', () => {
   });
 
   it('rejects duplicate usernames', async () => {
-    prismaService.user.findUnique.mockResolvedValue({ id: 'existing-user' });
+    prismaService.user.findUnique.mockResolvedValue({
+      id: 'existing-user',
+      username: 'alice',
+    });
 
     await expect(
       authService.register({
@@ -570,6 +573,74 @@ describe('AuthService', () => {
       recoveryCodeRows,
       result.recoveryCodes,
     );
+  });
+
+  it('creates a password-only login session when no one-time code is supplied', async () => {
+    const passwordHash = await hash('a-very-secure-password', {
+      type: argon2id,
+    });
+    const authenticatedAt = new Date('2026-05-09T15:55:00.000Z');
+
+    prismaService.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      passwordHash,
+      totpEnabledAt: null,
+      totpSecretEncrypted: null,
+      username: 'alice',
+    });
+    prismaService.session.create.mockResolvedValue({
+      createdAt: authenticatedAt,
+      expiresAt: new Date('2026-06-08T15:55:00.000Z'),
+      id: 'session-password',
+      lastUsedAt: authenticatedAt,
+    });
+    accessTokenService.issueToken.mockReturnValue({
+      expiresAt: new Date('2026-05-09T16:10:00.000Z'),
+      token: 'access-token',
+    });
+    jest.useFakeTimers().setSystemTime(authenticatedAt);
+
+    const result = await authService.login({
+      password: 'a-very-secure-password',
+      username: 'alice',
+    });
+
+    expect(totpService.verifyCode).not.toHaveBeenCalled();
+    expect(prismaService.recoveryCode.findMany).not.toHaveBeenCalled();
+    expect(result.authMethod).toBe('password');
+    expect(result.session.id).toBe('session-password');
+  });
+
+  it('rejects password-only login when TOTP is enabled', async () => {
+    const passwordHash = await hash('a-very-secure-password', {
+      type: argon2id,
+    });
+    const enabledAt = new Date('2026-05-09T15:58:00.000Z');
+
+    prismaService.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      passwordHash,
+      totpEnabledAt: enabledAt,
+      totpSecretEncrypted: 'encrypted-secret',
+      username: 'alice',
+    });
+
+    await expect(
+      authService.login({
+        password: 'a-very-secure-password',
+        username: 'alice',
+      }),
+    ).rejects.toThrow(UnauthorizedException);
+    expect(totpService.verifyCode).not.toHaveBeenCalled();
+    expect(prismaService.session.create).not.toHaveBeenCalled();
+    expect(authAuditService.log).toHaveBeenCalledWith({
+      authMethod: 'password',
+      event: 'login',
+      failureReason: 'one_time_code_required',
+      outcome: 'failure',
+      userId: 'user-1',
+      username: 'alice',
+    });
   });
 
   it('creates a login session with access and refresh tokens after a valid TOTP code', async () => {
@@ -776,6 +847,44 @@ describe('AuthService', () => {
       failureReason: 'invalid_username_or_password',
       outcome: 'failure',
       userId: undefined,
+      username: 'alice',
+    });
+  });
+
+  it('changes the authenticated user password', async () => {
+    const passwordHash = await hash('a-very-secure-password', {
+      type: argon2id,
+    });
+    let capturedUpdateArgs: Prisma.UserUpdateArgs | undefined;
+
+    prismaService.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      passwordHash,
+      username: 'alice',
+    });
+    prismaService.user.update.mockImplementation((args) => {
+      capturedUpdateArgs = args;
+
+      return Promise.resolve({ id: 'user-1' });
+    });
+
+    await expect(
+      authService.changePassword('user-1', {
+        currentPassword: 'a-very-secure-password',
+        newPassword: 'new-very-secure-password',
+      }),
+    ).resolves.toEqual({ ok: true });
+    expect(capturedUpdateArgs?.where).toEqual({ id: 'user-1' });
+    const nextPasswordHash = capturedUpdateArgs?.data.passwordHash;
+    expect(typeof nextPasswordHash).toBe('string');
+    await expect(
+      verify(nextPasswordHash as string, 'new-very-secure-password'),
+    ).resolves.toBe(true);
+    expect(authAuditService.log).toHaveBeenCalledWith({
+      authMethod: 'password',
+      event: 'password_change',
+      outcome: 'success',
+      userId: 'user-1',
       username: 'alice',
     });
   });

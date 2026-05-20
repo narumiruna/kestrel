@@ -37,10 +37,15 @@ export default function LoginPage() {
     setIsSubmitting(true);
 
     try {
+      const trimmedOneTimeCode = oneTimeCode.trim();
       const session = await login({
         password,
         username,
-        ...(isRecoveryCode ? { recoveryCode: oneTimeCode } : { totpCode: oneTimeCode }),
+        ...(trimmedOneTimeCode.length === 0
+          ? {}
+          : isRecoveryCode
+            ? { recoveryCode: trimmedOneTimeCode }
+            : { totpCode: trimmedOneTimeCode }),
       });
       auth.saveSession(session);
       router.replace('/dashboard');
@@ -59,11 +64,9 @@ export default function LoginPage() {
     try {
       if (totpSetup == null) {
         await register({ password, username });
-        const setup = await setupTotp({ password, username });
-        setTotpSetup({
-          qrCodeDataUrl: setup.qrCodeDataUrl,
-          secret: setup.secret,
-        });
+        const session = await login({ password, username });
+        auth.saveSession(session);
+        router.replace('/dashboard');
       } else {
         const result = await verifyTotp({
           code: oneTimeCode,
@@ -76,6 +79,36 @@ export default function LoginPage() {
       setError(formatError(nextError));
     } finally {
       setIsSubmitting(false);
+    }
+  }
+
+  async function startTotpSetup() {
+    setError(null);
+    setIsSubmitting(true);
+
+    try {
+      await ensureAccountForTotpSetup();
+      const setup = await setupTotp({ password, username });
+      setTotpSetup({
+        qrCodeDataUrl: setup.qrCodeDataUrl,
+        secret: setup.secret,
+      });
+    } catch (nextError) {
+      setError(formatError(nextError));
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function ensureAccountForTotpSetup() {
+    try {
+      await register({ password, username });
+    } catch (nextError) {
+      if (nextError instanceof ApiError && nextError.status === 409) {
+        return;
+      }
+
+      throw nextError;
     }
   }
 
@@ -119,7 +152,7 @@ export default function LoginPage() {
               <input
                 autoComplete="one-time-code"
                 inputMode="numeric"
-                required
+                placeholder="Optional when password-only login is allowed"
                 value={oneTimeCode}
                 onChange={(event) => setOneTimeCode(event.target.value)}
               />
@@ -148,8 +181,8 @@ export default function LoginPage() {
 
             {totpSetup == null ? (
               <p className="muted">
-                Passwords must be at least 12 characters. Registration starts TOTP setup
-                immediately.
+                Passwords must be at least 12 characters. TOTP is optional; you can sign in with
+                username and password only.
               </p>
             ) : (
               <div className="stack">
@@ -197,6 +230,16 @@ export default function LoginPage() {
             <button disabled={isSubmitting || recoveryCodes != null} type="submit">
               {totpSetup == null ? 'Create account' : 'Verify TOTP'}
             </button>
+            {totpSetup == null ? (
+              <button
+                className="secondary"
+                disabled={isSubmitting || username.length === 0 || password.length < 12}
+                type="button"
+                onClick={() => void startTotpSetup()}
+              >
+                Create account + set up optional TOTP
+              </button>
+            ) : null}
             {recoveryCodes == null ? null : (
               <button
                 className="secondary"

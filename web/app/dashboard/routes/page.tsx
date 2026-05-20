@@ -83,10 +83,10 @@ export default function RoutesDashboardPage() {
   return (
     <DashboardShell
       activeSection="routes"
-      onLogout={auth.logout}
-      onRefresh={() => void loadRoutes()}
       isRefreshing={isLoading}
       lastUpdatedLabel={lastLoadedAt?.toLocaleTimeString() ?? null}
+      onLogout={auth.logout}
+      onRefresh={() => void loadRoutes()}
       username={auth.session.user.username}
     >
       {error == null ? null : <div className="error dashboard-error">{error}</div>}
@@ -107,7 +107,7 @@ export default function RoutesDashboardPage() {
                   {isSidebarOpen ? '‹' : '›'}
                 </button>
                 <button
-                  className="secondary dashboard-sidebar-new"
+                  className="secondary dashboard-sidebar-new dashboard-sidebar-new-card"
                   type="button"
                   onClick={() => setSelectedRouteId(null)}
                 >
@@ -116,22 +116,23 @@ export default function RoutesDashboardPage() {
               </div>
             </div>
             <div className="dashboard-sidebar-content">
-              {isLoading ? <p className="muted">Loading routes…</p> : null}
+              {isLoading ? <SidebarSkeleton /> : null}
               <div className="list">
                 {routes.map((route) => (
                   <button
-                    className={`list-item ${selectedRouteId === route.id ? 'active' : ''}`}
+                    className={`list-item route-list-item route-mode-${route.mode.toLowerCase().replace('_', '-')} ${selectedRouteId === route.id ? 'active' : ''}`}
                     key={route.id}
                     type="button"
                     onClick={() => setSelectedRouteId(route.id)}
                   >
                     <strong>{route.name}</strong>
-                    <span className="muted">
-                      {route.currentRevision?.waypoints.length ?? 0} waypoints ·{' '}
-                      {route.defaultSpeedKmh} km/h · {formatMode(route.mode)}
+                    <span className="route-card-metrics">
+                      <span>⌁ {route.currentRevision?.waypoints.length ?? 0}</span>
+                      <span>↗ {route.defaultSpeedKmh} km/h</span>
+                      <span>⇄ {formatMode(route.mode)}</span>
                     </span>
                     <span className="chip-row">
-                      <span className="chip">
+                      <span className="chip rev-chip">
                         rev {route.currentRevision?.revisionNumber ?? '—'}
                       </span>
                       {route.isPublic ? <span className="chip">public</span> : null}
@@ -168,5 +169,15 @@ export default function RoutesDashboardPage() {
         </section>
       </section>
     </DashboardShell>
+  );
+}
+
+function SidebarSkeleton() {
+  return (
+    <div aria-label="Loading routes" className="skeleton-list" role="status">
+      <span className="skeleton-line wide" />
+      <span className="skeleton-line" />
+      <span className="skeleton-line short" />
+    </div>
   );
 }

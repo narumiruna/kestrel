@@ -93,10 +93,10 @@ export default function PlacesDashboardPage() {
   return (
     <DashboardShell
       activeSection="places"
-      onLogout={auth.logout}
-      onRefresh={() => void loadPlaces()}
       isRefreshing={isLoading}
       lastUpdatedLabel={lastLoadedAt?.toLocaleTimeString() ?? null}
+      onLogout={auth.logout}
+      onRefresh={() => void loadPlaces()}
       username={auth.session.user.username}
     >
       {error == null ? null : <div className="error dashboard-error">{error}</div>}
@@ -126,7 +126,7 @@ export default function PlacesDashboardPage() {
               </div>
             </div>
             <div className="dashboard-sidebar-content">
-              {isLoading ? <p className="muted">Loading places…</p> : null}
+              {isLoading ? <SidebarSkeleton /> : null}
               <div className="list">
                 {places.map((place) => (
                   <button
@@ -167,6 +167,16 @@ export default function PlacesDashboardPage() {
         </section>
       </section>
     </DashboardShell>
+  );
+}
+
+function SidebarSkeleton() {
+  return (
+    <div aria-label="Loading places" className="skeleton-list" role="status">
+      <span className="skeleton-line wide" />
+      <span className="skeleton-line" />
+      <span className="skeleton-line short" />
+    </div>
   );
 }
 
