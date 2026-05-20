@@ -202,11 +202,9 @@ export default function PlacesDashboardPage() {
         activeSection="places"
         count={places.length}
         newLabel="New entry"
-        pageLabel="places ledger"
         searchPlaceholder="Find a place"
         searchRef={searchRef}
         searchValue={placeQuery}
-        title="Field notebook"
         onNewEntry={createNewPlace}
         onSearchChange={setPlaceQuery}
       >

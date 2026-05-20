@@ -6,11 +6,18 @@ import { getStyleByName } from '@/components/mapStyle';
 import { useMapStyle } from '@/hooks/useMapStyle';
 import type { RouteWaypoint } from '@/lib/api';
 
+export type RouteMapControls = {
+  fit: () => void;
+  zoomIn: () => void;
+  zoomOut: () => void;
+};
+
 type Props = {
   className?: string;
   fitRequest?: number;
   focusTarget?: RouteWaypoint | null;
   onChange: (waypoints: RouteWaypoint[]) => void;
+  onReady?: (controls: RouteMapControls) => void;
   onSelectWaypoint?: (index: number) => void;
   selectedWaypointIndex?: number | null;
   waypoints: RouteWaypoint[];
@@ -24,6 +31,7 @@ export default function RouteMapEditor({
   fitRequest = 0,
   focusTarget = null,
   onChange,
+  onReady,
   onSelectWaypoint,
   selectedWaypointIndex = null,
   waypoints,
@@ -33,6 +41,7 @@ export default function RouteMapEditor({
   const mapRef = useRef<MapLibreMap | null>(null);
   const markersRef = useRef<Marker[]>([]);
   const onChangeRef = useRef(onChange);
+  const onReadyRef = useRef(onReady);
   const onSelectWaypointRef = useRef(onSelectWaypoint);
   const selectedWaypointIndexRef = useRef(selectedWaypointIndex);
   const waypointsRef = useRef(waypoints);
@@ -40,10 +49,11 @@ export default function RouteMapEditor({
 
   useEffect(() => {
     onChangeRef.current = onChange;
+    onReadyRef.current = onReady;
     onSelectWaypointRef.current = onSelectWaypoint;
     selectedWaypointIndexRef.current = selectedWaypointIndex;
     waypointsRef.current = waypoints;
-  }, [onChange, onSelectWaypoint, selectedWaypointIndex, waypoints]);
+  }, [onChange, onReady, onSelectWaypoint, selectedWaypointIndex, waypoints]);
 
   useEffect(() => {
     if (containerRef.current == null || mapRef.current != null) {
@@ -73,6 +83,11 @@ export default function RouteMapEditor({
       });
       updateMarkerSelection(markersRef.current, selectedWaypointIndexRef.current);
       fitWaypoints(map, waypointsRef.current);
+      onReadyRef.current?.({
+        fit: () => fitWaypoints(map, waypointsRef.current),
+        zoomIn: () => map.zoomIn({ duration: 180 }),
+        zoomOut: () => map.zoomOut({ duration: 180 }),
+      });
     });
     map.on('click', (event) => {
       onChangeRef.current([
@@ -92,6 +107,7 @@ export default function RouteMapEditor({
         marker.remove();
       });
       markersRef.current = [];
+      onReadyRef.current?.(createEmptyRouteMapControls());
       map.remove();
       mapRef.current = null;
     };
@@ -333,6 +349,14 @@ function toLineFeature(waypoints: RouteWaypoint[]): GeoJSON.Feature<GeoJSON.Line
     },
     properties: {},
     type: 'Feature',
+  };
+}
+
+function createEmptyRouteMapControls(): RouteMapControls {
+  return {
+    fit: () => undefined,
+    zoomIn: () => undefined,
+    zoomOut: () => undefined,
   };
 }
 

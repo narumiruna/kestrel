@@ -25,22 +25,34 @@ const RouteMapEditor = dynamic(() => import('@/components/RouteMapEditor'), {
 });
 
 export default function RouteEditor({
+  mapMode = 'embedded',
   onDelete,
+  onFocusTargetChange,
   onSave,
+  onSelectedWaypointIndexChange,
+  onWaypointsChange,
   places = [],
   route,
+  selectedWaypointIndex: controlledSelectedWaypointIndex,
+  waypoints: controlledWaypoints,
 }: {
+  mapMode?: 'background' | 'embedded';
   onDelete?: () => void;
+  onFocusTargetChange?: (waypoint: RouteWaypoint | null) => void;
   onSave: (input: RouteInput) => void;
+  onSelectedWaypointIndexChange?: (index: number | null) => void;
+  onWaypointsChange?: (waypoints: RouteWaypoint[]) => void;
   places?: Place[];
   route: Route | null;
+  selectedWaypointIndex?: number | null;
+  waypoints?: RouteWaypoint[];
 }) {
   const [name, setName] = useState(route?.name ?? '');
   const [description, setDescription] = useState(route?.description ?? '');
   const [defaultSpeedKmh, setDefaultSpeedKmh] = useState(route?.defaultSpeedKmh.toString() ?? '5');
   const [mode, setMode] = useState<RouteMode>(route?.mode ?? 'ONCE');
   const [isPublic, setIsPublic] = useState(route?.isPublic ?? false);
-  const [waypoints, setWaypoints] = useState<RouteWaypoint[]>(
+  const [internalWaypoints, setInternalWaypoints] = useState<RouteWaypoint[]>(
     route?.currentRevision?.waypoints.map((waypoint) => ({
       latitude: waypoint.latitude,
       longitude: waypoint.longitude,
@@ -48,20 +60,44 @@ export default function RouteEditor({
   );
   const [fitRequest, setFitRequest] = useState(0);
   const [focusTarget, setFocusTarget] = useState<RouteWaypoint | null>(null);
-  const [selectedWaypointIndex, setSelectedWaypointIndex] = useState<number | null>(null);
+  const [internalSelectedWaypointIndex, setInternalSelectedWaypointIndex] = useState<number | null>(
+    null,
+  );
   const [error, setError] = useState<string | null>(null);
   const [saveNotice, setSaveNotice] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const saveNoticeTimeoutRef = useRef<number | null>(null);
+  const waypoints = controlledWaypoints ?? internalWaypoints;
+  const selectedWaypointIndex =
+    controlledSelectedWaypointIndex === undefined
+      ? internalSelectedWaypointIndex
+      : controlledSelectedWaypointIndex;
+  const setWaypoints = onWaypointsChange ?? setInternalWaypoints;
   const routeBuilderHint = getRouteBuilderHint(waypoints.length, places.length);
   const saveDisabledReason = getSaveDisabledReason(waypoints.length);
   const favoritePickerMode = waypoints.length === 0 ? 'start' : 'append';
+
+  const setSelectedWaypointIndex = useCallback(
+    (nextIndex: number | null) => {
+      setInternalSelectedWaypointIndex(nextIndex);
+      onSelectedWaypointIndexChange?.(nextIndex);
+    },
+    [onSelectedWaypointIndexChange],
+  );
+
+  const setRouteFocusTarget = useCallback(
+    (nextFocusTarget: RouteWaypoint | null) => {
+      setFocusTarget(nextFocusTarget);
+      onFocusTargetChange?.(nextFocusTarget);
+    },
+    [onFocusTargetChange],
+  );
 
   useEffect(() => {
     if (selectedWaypointIndex != null && selectedWaypointIndex >= waypoints.length) {
       setSelectedWaypointIndex(null);
     }
-  }, [selectedWaypointIndex, waypoints.length]);
+  }, [selectedWaypointIndex, setSelectedWaypointIndex, waypoints.length]);
 
   useEffect(
     () => () => {
@@ -113,7 +149,7 @@ export default function RouteEditor({
     const nextWaypoints = waypoints.length === 0 ? [waypoint] : [...waypoints, waypoint];
 
     setWaypoints(nextWaypoints);
-    setFocusTarget(waypoint);
+    setRouteFocusTarget(waypoint);
     setSelectedWaypointIndex(nextWaypoints.length - 1);
   }
 
@@ -130,13 +166,15 @@ export default function RouteEditor({
 
   function removeWaypoint(index: number) {
     setWaypoints(waypoints.filter((_, currentIndex) => currentIndex !== index));
-    setSelectedWaypointIndex((currentIndex) => {
-      if (currentIndex == null || currentIndex === index) {
-        return null;
-      }
 
-      return currentIndex > index ? currentIndex - 1 : currentIndex;
-    });
+    if (selectedWaypointIndex == null || selectedWaypointIndex === index) {
+      setSelectedWaypointIndex(null);
+      return;
+    }
+
+    setSelectedWaypointIndex(
+      selectedWaypointIndex > index ? selectedWaypointIndex - 1 : selectedWaypointIndex,
+    );
   }
 
   function confirmDelete() {
@@ -171,40 +209,46 @@ export default function RouteEditor({
           <InfoIcon />
           {routeBuilderHint}
         </div>
-        <FavoriteWaypointPicker
-          mode={favoritePickerMode}
-          places={places}
-          onSelect={addFavoriteWaypoint}
-        />
-        <div className="map-builder">
-          <RouteMapEditor
-            fitRequest={fitRequest}
-            focusTarget={focusTarget}
-            selectedWaypointIndex={selectedWaypointIndex}
-            waypoints={waypoints}
-            onChange={setWaypoints}
-            onSelectWaypoint={setSelectedWaypointIndex}
-          />
-          <div className="map-instruction">Click map to add waypoint · Drag markers to adjust</div>
-        </div>
-        <div className="map-action-row">
-          <button
-            className="secondary"
-            disabled={waypoints.length === 0}
-            title="Auto-frame the map to show all waypoints"
-            type="button"
-            onClick={() => setFitRequest((currentRequest) => currentRequest + 1)}
-          >
-            Fit route
-          </button>
-          <span className="muted">
-            Add from map click, then expand Waypoints for exact coordinates.
-          </span>
-        </div>
+        {mapMode === 'embedded' ? (
+          <>
+            <div className="map-builder">
+              <RouteMapEditor
+                fitRequest={fitRequest}
+                focusTarget={focusTarget}
+                selectedWaypointIndex={selectedWaypointIndex}
+                waypoints={waypoints}
+                onChange={setWaypoints}
+                onSelectWaypoint={setSelectedWaypointIndex}
+              />
+              <div className="map-instruction">
+                Click map to add waypoint · Drag markers to adjust
+              </div>
+            </div>
+            <div className="map-action-row">
+              <button
+                className="secondary"
+                disabled={waypoints.length === 0}
+                title="Auto-frame the map to show all waypoints"
+                type="button"
+                onClick={() => setFitRequest((currentRequest) => currentRequest + 1)}
+              >
+                Fit route
+              </button>
+              <span className="muted">
+                Add from map click, then expand Waypoints for exact coordinates.
+              </span>
+            </div>
+          </>
+        ) : (
+          <div className="route-map-info-banner">
+            <InfoIcon />
+            Tap the background map to add a waypoint. Drag map pins to adjust the route.
+          </div>
+        )}
 
-        <details className="route-editor-collapsible route-editor-waypoints-section">
+        <details className="route-editor-collapsible route-editor-waypoints-section" open>
           <summary>
-            <span>{formatWaypointCount(waypoints.length)}</span>
+            <span>Waypoints ({waypoints.length})</span>
             <span className="muted">{formatWaypointSummary(waypoints)}</span>
           </summary>
           <div className="route-editor-collapsible-content">
@@ -216,6 +260,7 @@ export default function RouteEditor({
               >
                 <span className="chip">{getWaypointLabel(index, waypoints.length)}</span>
                 <input
+                  aria-label={`${getWaypointLabel(index, waypoints.length)} latitude`}
                   inputMode="decimal"
                   value={waypoint.latitude}
                   onChange={(event) =>
@@ -223,13 +268,15 @@ export default function RouteEditor({
                   }
                 />
                 <input
+                  aria-label={`${getWaypointLabel(index, waypoints.length)} longitude`}
                   inputMode="decimal"
                   value={waypoint.longitude}
                   onChange={(event) =>
                     updateWaypoint(waypoints, setWaypoints, index, 'longitude', event.target.value)
                   }
                 />
-                <div className="row-actions">
+                <fieldset className="row-actions">
+                  <legend className="sr-only">Waypoint actions</legend>
                   <button
                     className="secondary"
                     disabled={index === 0}
@@ -247,9 +294,9 @@ export default function RouteEditor({
                     ↓
                   </button>
                   <button className="danger" type="button" onClick={() => removeWaypoint(index)}>
-                    ×
+                    Remove
                   </button>
-                </div>
+                </fieldset>
               </div>
             ))}
             <button
@@ -259,10 +306,16 @@ export default function RouteEditor({
               onClick={duplicateLastWaypoint}
             >
               <PlusIcon />
-              Add waypoint
+              Duplicate last waypoint
             </button>
           </div>
         </details>
+
+        <FavoriteWaypointPicker
+          mode={favoritePickerMode}
+          places={places}
+          onSelect={addFavoriteWaypoint}
+        />
       </section>
 
       <details
@@ -482,10 +535,6 @@ function formatFavoritePlaceCoords(place: Place): string {
 
 function getWaypointKey(waypoint: RouteWaypoint, index: number): string {
   return `${waypoint.sequence ?? index}-${waypoint.latitude}-${waypoint.longitude}`;
-}
-
-function formatWaypointCount(waypointCount: number): string {
-  return `${waypointCount} waypoint${waypointCount === 1 ? '' : 's'}`;
 }
 
 function formatWaypointSummary(waypoints: RouteWaypoint[]): string {
