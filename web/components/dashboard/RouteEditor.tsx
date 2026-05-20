@@ -134,10 +134,14 @@ export default function RouteEditor({
     <form className="panel route-editor" onSubmit={submit}>
       <header className="route-editor-header">
         <div className="stack">
-          <div className="breadcrumb">Routes / {route?.name ?? 'New route'}</div>
+          <div className="breadcrumb">
+            Routes / <span>{route?.name ?? 'New route'}</span>
+          </div>
           <h2>{route == null ? 'New route' : route.name}</h2>
           {route?.currentRevision == null ? null : (
-            <span className="chip rev-chip">latest revision {route.currentRevision.revisionNumber}</span>
+            <span className="chip rev-chip">
+              latest revision {route.currentRevision.revisionNumber}
+            </span>
           )}
         </div>
         {onNew == null ? null : (
@@ -156,7 +160,10 @@ export default function RouteEditor({
             Edit your route, manage waypoints, and configure playback settings.
           </p>
         </div>
-        <div className="route-builder-hint"><span aria-hidden>ⓘ</span>{routeBuilderHint}</div>
+        <div className="route-builder-hint">
+          <InfoIcon />
+          {routeBuilderHint}
+        </div>
         <FavoriteWaypointPicker
           mode={favoritePickerMode}
           places={places}
@@ -315,7 +322,11 @@ export default function RouteEditor({
             <p className="muted no-margin">{saveDisabledReason}</p>
           )}
           <div className="row">
-            <button className={isSaving ? 'is-loading' : ''} disabled={isSaving || saveDisabledReason != null} type="submit">
+            <button
+              className={isSaving ? 'is-loading' : ''}
+              disabled={isSaving || saveDisabledReason != null}
+              type="submit"
+            >
               {isSaving ? 'Saving…' : saveNotice == null ? 'Save route' : 'Saved ✓'}
             </button>
             {onDelete == null ? null : (
@@ -376,7 +387,7 @@ function FavoriteWaypointPicker({
       <label className="favorite-search">
         Search favorites
         <span className="favorite-search-box">
-          <span aria-hidden>⌕</span>
+          <SearchIcon />
           <input
             placeholder="Search favorites..."
             value={query}
@@ -394,7 +405,7 @@ function FavoriteWaypointPicker({
             onClick={() => onSelect(place)}
           >
             <span className="favorite-place-main">
-              <span aria-hidden>⌖</span>
+              <MapPinIcon />
               <strong>{place.name}</strong>
               <span className="favorite-add">+ Add</span>
             </span>
@@ -623,6 +634,39 @@ function RouteSharePanel({ route }: { route: Route | null }) {
         </div>
       )}
     </section>
+  );
+}
+
+function InfoIcon() {
+  return (
+    <svg aria-hidden="true" className="lucide-icon" fill="none" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="10" />
+      <path d="M12 16v-4" />
+      <path d="M12 8h.01" />
+    </svg>
+  );
+}
+
+function SearchIcon() {
+  return (
+    <svg aria-hidden="true" className="lucide-icon" fill="none" viewBox="0 0 24 24">
+      <path d="m21 21-4.3-4.3" />
+      <circle cx="11" cy="11" r="8" />
+    </svg>
+  );
+}
+
+function MapPinIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="lucide-icon favorite-place-icon"
+      fill="none"
+      viewBox="0 0 24 24"
+    >
+      <path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 0 1 16 0Z" />
+      <circle cx="12" cy="10" r="3" />
+    </svg>
   );
 }
 

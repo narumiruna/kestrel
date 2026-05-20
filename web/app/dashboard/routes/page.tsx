@@ -120,18 +120,17 @@ export default function RoutesDashboardPage() {
               <div className="list">
                 {routes.map((route) => (
                   <button
-                    className={`list-item route-list-item route-mode-${route.mode.toLowerCase().replace('_', '-')} ${selectedRouteId === route.id ? 'active' : ''}`}
+                    className={`list-item route-list-item ${selectedRouteId === route.id ? 'active' : ''}`}
                     key={route.id}
                     type="button"
                     onClick={() => setSelectedRouteId(route.id)}
                   >
-                    <strong>{route.name}</strong>
+                    <strong className="route-card-title">{route.name}</strong>
                     <span className="route-card-metrics">
-                      <span>⌁ {route.currentRevision?.waypoints.length ?? 0}</span>
-                      <span>↗ {route.defaultSpeedKmh} km/h</span>
-                      <span>⇄ {formatMode(route.mode)}</span>
+                      {formatRouteDistance(route)} · {route.defaultSpeedKmh}km/h ·{' '}
+                      {formatMode(route.mode)}
                     </span>
-                    <span className="chip-row">
+                    <span className="chip-row route-card-badges">
                       <span className="chip rev-chip">
                         rev {route.currentRevision?.revisionNumber ?? '—'}
                       </span>
@@ -180,4 +179,39 @@ function SidebarSkeleton() {
       <span className="skeleton-line short" />
     </div>
   );
+}
+
+function formatRouteDistance(route: Route): string {
+  const waypoints = route.currentRevision?.waypoints ?? [];
+  const distanceKm = waypoints.slice(1).reduce((totalDistance, waypoint, index) => {
+    const previousWaypoint = waypoints[index];
+
+    return totalDistance + getDistanceKm(previousWaypoint, waypoint);
+  }, 0);
+
+  if (distanceKm < 10) {
+    return `${distanceKm.toFixed(1)}km`;
+  }
+
+  return `${Math.round(distanceKm)}km`;
+}
+
+function getDistanceKm(
+  from: { latitude: number; longitude: number },
+  to: { latitude: number; longitude: number },
+): number {
+  const earthRadiusKm = 6371;
+  const deltaLatitude = toRadians(to.latitude - from.latitude);
+  const deltaLongitude = toRadians(to.longitude - from.longitude);
+  const fromLatitude = toRadians(from.latitude);
+  const toLatitude = toRadians(to.latitude);
+  const haversine =
+    Math.sin(deltaLatitude / 2) ** 2 +
+    Math.cos(fromLatitude) * Math.cos(toLatitude) * Math.sin(deltaLongitude / 2) ** 2;
+
+  return 2 * earthRadiusKm * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
+}
+
+function toRadians(degrees: number): number {
+  return (degrees * Math.PI) / 180;
 }
