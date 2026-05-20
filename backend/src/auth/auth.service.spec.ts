@@ -611,6 +611,38 @@ describe('AuthService', () => {
     expect(result.session.id).toBe('session-password');
   });
 
+  it('rejects password-only login when TOTP is enabled', async () => {
+    const passwordHash = await hash('a-very-secure-password', {
+      type: argon2id,
+    });
+    const enabledAt = new Date('2026-05-09T15:58:00.000Z');
+
+    prismaService.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      passwordHash,
+      totpEnabledAt: enabledAt,
+      totpSecretEncrypted: 'encrypted-secret',
+      username: 'alice',
+    });
+
+    await expect(
+      authService.login({
+        password: 'a-very-secure-password',
+        username: 'alice',
+      }),
+    ).rejects.toThrow(UnauthorizedException);
+    expect(totpService.verifyCode).not.toHaveBeenCalled();
+    expect(prismaService.session.create).not.toHaveBeenCalled();
+    expect(authAuditService.log).toHaveBeenCalledWith({
+      authMethod: 'password',
+      event: 'login',
+      failureReason: 'one_time_code_required',
+      outcome: 'failure',
+      userId: 'user-1',
+      username: 'alice',
+    });
+  });
+
   it('creates a login session with access and refresh tokens after a valid TOTP code', async () => {
     const passwordHash = await hash('a-very-secure-password', {
       type: argon2id,
