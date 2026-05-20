@@ -3093,3 +3093,65 @@ button.is-loading {
     min-height: 44px;
   }
 }
+
+/* Header right-side and secondary action alignment */
+.kc-shell .kc-icon-button.secondary,
+.kc-shell .kc-user-button.secondary {
+  background: #ffffff;
+  border: 0.5px solid #e8e0d3;
+  border-radius: 8px;
+  color: var(--text-secondary);
+  height: 32px;
+  min-height: 32px;
+}
+
+.kc-shell .kc-icon-button.secondary {
+  padding: 0;
+  width: 32px;
+}
+
+.kc-shell .kc-icon-button.secondary:hover:not(:disabled),
+.kc-shell .kc-user-button.secondary:hover:not(:disabled) {
+  background: var(--bg-subtle);
+  border-color: #e8e0d3;
+  box-shadow: none;
+  color: var(--text-primary);
+  transform: none;
+}
+
+.kc-shell .kc-user-button.secondary {
+  gap: 8px;
+  padding: 4px 10px 4px 4px;
+}
+
+.kc-shell .kc-user-button.secondary > span:not(.kc-avatar) {
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.kc-shell .kc-user-button.secondary .lucide-icon {
+  color: var(--text-muted);
+}
+
+.kc-shell .kc-user-button.secondary .kc-avatar {
+  height: 22px;
+  width: 22px;
+}
+
+.kc-shell .dashboard-sidebar .dashboard-sidebar-new,
+.kc-shell .dashboard-sidebar .dashboard-sidebar-new-card {
+  background: transparent;
+  border: 1px dashed #d6cbb8;
+  color: var(--text-secondary);
+}
+
+.kc-shell .dashboard-sidebar .dashboard-sidebar-new:hover:not(:disabled),
+.kc-shell .dashboard-sidebar .dashboard-sidebar-new-card:hover:not(:disabled) {
+  background: transparent;
+  border-color: var(--accent);
+  border-style: solid;
+  box-shadow: none;
+  color: var(--accent-hover);
+  transform: none;
+}
