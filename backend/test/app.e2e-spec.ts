@@ -506,7 +506,7 @@ describe('AppController (e2e)', () => {
       })
       .expect(201)
       .expect({
-        nextStep: 'totp_setup',
+        nextStep: 'login',
         user: {
           createdAt: createdAt.toISOString(),
           id: 'user-1',
