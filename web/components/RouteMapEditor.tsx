@@ -71,7 +71,7 @@ export default function RouteMapEditor({
           'line-join': 'round',
         },
         paint: {
-          'line-color': '#76c945',
+          'line-color': '#d97644',
           'line-width': 4,
         },
         source: LINE_SOURCE_ID,

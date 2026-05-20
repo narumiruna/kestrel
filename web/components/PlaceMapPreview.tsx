@@ -28,7 +28,7 @@ export default function PlaceMapPreview({ className = 'map-mini', latitude, long
       zoom: 14,
     });
     const marker = new maplibregl.Marker({
-      color: '#76c945',
+      color: '#d97644',
     })
       .setLngLat([longitude, latitude])
       .addTo(map);
