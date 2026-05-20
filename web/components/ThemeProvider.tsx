@@ -58,7 +58,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       const nextTheme = currentTheme === 'dark' ? 'light' : 'dark';
 
       enableManualThemeTransition();
-      window.localStorage.setItem(STORAGE_KEY, nextTheme);
+      writeStoredTheme(nextTheme);
       applyTheme(nextTheme);
 
       return nextTheme;
@@ -88,9 +88,21 @@ export function useTheme() {
 }
 
 function readStoredTheme(): Theme | null {
-  const storedTheme = window.localStorage.getItem(STORAGE_KEY);
+  try {
+    const storedTheme = window.localStorage.getItem(STORAGE_KEY);
 
-  return storedTheme === 'dark' || storedTheme === 'light' ? storedTheme : null;
+    return storedTheme === 'dark' || storedTheme === 'light' ? storedTheme : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredTheme(theme: Theme) {
+  try {
+    window.localStorage.setItem(STORAGE_KEY, theme);
+  } catch {
+    // A blocked or full Web Storage area should not break theme switching.
+  }
 }
 
 function getSystemTheme(mediaQuery: MediaQueryList): Theme {
