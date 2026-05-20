@@ -10,7 +10,8 @@ type DashboardSection = 'places' | 'routes';
 type Props = {
   activeSection: DashboardSection;
   children: ReactNode;
-  lastUpdatedAt?: Date | null;
+  isRefreshing?: boolean;
+  lastUpdatedLabel?: string | null;
   onLogout: () => void;
   onRefresh: () => void;
   username: string;
@@ -24,12 +25,14 @@ const sections: Array<{ href: string; icon: string; key: DashboardSection; label
 export default function DashboardShell({
   activeSection,
   children,
-  lastUpdatedAt,
+  isRefreshing = false,
+  lastUpdatedLabel = null,
   onLogout,
   onRefresh,
   username,
 }: Props) {
   const [isAccountOpen, setIsAccountOpen] = useState(false);
+  const refreshLabel = formatRefreshLabel(lastUpdatedLabel);
 
   return (
     <main className="shell kc-shell">
@@ -45,13 +48,15 @@ export default function DashboardShell({
         </div>
         <div className="kc-topbar-actions">
           <button
-            aria-label={formatLastUpdated(lastUpdatedAt)}
+            aria-busy={isRefreshing}
+            aria-label={refreshLabel}
             className="secondary kc-icon-button"
-            title={formatLastUpdated(lastUpdatedAt)}
+            disabled={isRefreshing}
+            title={refreshLabel}
             type="button"
             onClick={onRefresh}
           >
-            ↻
+            {isRefreshing ? '…' : '↻'}
           </button>
           <div className="kc-user-menu">
             <button
@@ -70,10 +75,14 @@ export default function DashboardShell({
           </div>
         </div>
       </header>
+      {lastUpdatedLabel == null ? null : (
+        <p className="muted dashboard-last-updated">Updated {lastUpdatedLabel}</p>
+      )}
 
       <nav aria-label="Dashboard sections" className="kc-tabs">
         {sections.map((section) => (
           <Link
+            aria-current={activeSection === section.key ? 'page' : undefined}
             className={`kc-tab ${activeSection === section.key ? 'active' : ''}`}
             href={section.href}
             key={section.key}
@@ -165,17 +174,32 @@ function AccountMenu({ onLogout }: { onLogout: () => void }) {
 function KestrelIcon() {
   return (
     <svg aria-hidden="true" fill="none" height="24" viewBox="0 0 24 24" width="24">
-      <path d="M3 13.2C8.4 4.7 15.7 3.1 21 4.1c-4.1 1.5-5.6 4.6-6.9 8.1" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
-      <path d="M4.4 13.4c4.8-.5 8.2.5 10.8 3.2-4 .8-7.8-.1-10.8-3.2Z" fill="currentColor" opacity="0.25" />
-      <path d="M13.9 12.1 21 20" stroke="currentColor" strokeLinecap="round" strokeWidth="1.8" />
+      <path
+        d="M3 13.2C8.4 4.7 15.7 3.1 21 4.1c-4.1 1.5-5.6 4.6-6.9 8.1"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+      <path
+        d="M4.4 13.4c4.8-.5 8.2.5 10.8 3.2-4 .8-7.8-.1-10.8-3.2Z"
+        fill="currentColor"
+        opacity="0.25"
+      />
+      <path
+        d="M13.9 12.1 21 20"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeWidth="1.8"
+      />
     </svg>
   );
 }
 
-function formatLastUpdated(lastUpdatedAt?: Date | null): string {
-  if (lastUpdatedAt == null) {
+function formatRefreshLabel(lastUpdatedLabel?: string | null): string {
+  if (lastUpdatedLabel == null) {
     return 'Refresh · not updated yet';
   }
 
-  return `Refresh · last updated ${lastUpdatedAt.toLocaleTimeString()}`;
+  return `Refresh · last updated ${lastUpdatedLabel}`;
 }
