@@ -15,6 +15,7 @@ export default function RoutesDashboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isRouteSheetOpen, setIsRouteSheetOpen] = useState(false);
   const [lastLoadedAt, setLastLoadedAt] = useState<Date | null>(null);
 
   const selectedRoute = useMemo(
@@ -80,6 +81,11 @@ export default function RoutesDashboardPage() {
     setSelectedRouteId(null);
   }
 
+  function selectRoute(routeId: string | null) {
+    setSelectedRouteId(routeId);
+    setIsRouteSheetOpen(false);
+  }
+
   return (
     <DashboardShell
       activeSection="routes"
@@ -92,7 +98,12 @@ export default function RoutesDashboardPage() {
       {error == null ? null : <div className="error dashboard-error">{error}</div>}
 
       <section className="dashboard-grid kc-workspace">
-        <aside className={`dashboard-sidebar${isSidebarOpen ? '' : ' collapsed'}`}>
+        <aside
+          className={`dashboard-sidebar route-sidebar${isSidebarOpen ? '' : ' collapsed'}${
+            isRouteSheetOpen ? ' mobile-open' : ''
+          }`}
+          id="route-list-panel"
+        >
           <div className="card stack">
             <div className="dashboard-sidebar-header">
               <h2 className="dashboard-sidebar-title">Routes</h2>
@@ -109,9 +120,17 @@ export default function RoutesDashboardPage() {
                 <button
                   className="secondary dashboard-sidebar-new dashboard-sidebar-new-card"
                   type="button"
-                  onClick={() => setSelectedRouteId(null)}
+                  onClick={() => selectRoute(null)}
                 >
                   + New route
+                </button>
+                <button
+                  aria-label="Close routes"
+                  className="secondary dashboard-sidebar-close"
+                  type="button"
+                  onClick={() => setIsRouteSheetOpen(false)}
+                >
+                  ×
                 </button>
               </div>
             </div>
@@ -123,7 +142,7 @@ export default function RoutesDashboardPage() {
                     className={`list-item route-list-item ${selectedRouteId === route.id ? 'active' : ''}`}
                     key={route.id}
                     type="button"
-                    onClick={() => setSelectedRouteId(route.id)}
+                    onClick={() => selectRoute(route.id)}
                   >
                     <strong className="route-card-title">{route.name}</strong>
                     <span className="route-card-metrics">
@@ -141,11 +160,7 @@ export default function RoutesDashboardPage() {
                 {routes.length === 0 && !isLoading ? (
                   <div className="empty-state">
                     <p className="muted">No routes yet.</p>
-                    <button
-                      className="secondary"
-                      type="button"
-                      onClick={() => setSelectedRouteId(null)}
-                    >
+                    <button className="secondary" type="button" onClick={() => selectRoute(null)}>
                       Create your first route
                     </button>
                   </div>
@@ -155,12 +170,22 @@ export default function RoutesDashboardPage() {
           </div>
         </aside>
 
-        <section aria-busy={isLoading} className="grid">
+        <button
+          aria-controls="route-list-panel"
+          aria-expanded={isRouteSheetOpen}
+          className="secondary mobile-route-sheet-trigger"
+          type="button"
+          onClick={() => setIsRouteSheetOpen((current) => !current)}
+        >
+          ≡ Routes ({routes.length})
+        </button>
+
+        <section aria-busy={isLoading} className="grid dashboard-route-editor">
           {isLoading ? <div className="loading-shimmer" /> : null}
           <RouteEditor
             key={selectedRoute?.id ?? 'new-route'}
             onDelete={selectedRoute == null ? undefined : () => void deleteRoute(selectedRoute.id)}
-            onNew={selectedRoute == null ? undefined : () => setSelectedRouteId(null)}
+            onNew={selectedRoute == null ? undefined : () => selectRoute(null)}
             onSave={(input) => void saveRoute(input)}
             places={places}
             route={selectedRoute}
