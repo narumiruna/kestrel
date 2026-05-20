@@ -94,7 +94,7 @@ export default function PlacesDashboardPage() {
     <DashboardShell
       activeSection="places"
       isRefreshing={isLoading}
-      lastUpdatedLabel={lastLoadedAt?.toLocaleTimeString() ?? null}
+      lastUpdatedAt={lastLoadedAt}
       onLogout={auth.logout}
       onRefresh={() => void loadPlaces()}
       username={auth.session.user.username}
