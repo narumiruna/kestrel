@@ -80,7 +80,10 @@ export default function CartographerPlaceMap({
         zoomIn: () => map.zoomIn({ duration: 180 }),
         zoomOut: () => map.zoomOut({ duration: 180 }),
       });
-      fitPlaces(map, stateRef.current.places, stateRef.current.draftCoords);
+      panToSelectedPlace(map, stateRef.current.places, stateRef.current.selectedPlaceId, 0);
+      if (stateRef.current.selectedPlaceId == null) {
+        fitPlaces(map, stateRef.current.places, stateRef.current.draftCoords);
+      }
     });
 
     map.on('click', (event) => {
@@ -124,6 +127,16 @@ export default function CartographerPlaceMap({
       selectedPlaceId,
     });
   }, [draftCoords, onChangeDraftCoords, onSelectPlace, places, selectedPlaceId]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+
+    if (map == null) {
+      return;
+    }
+
+    panToSelectedPlace(map, places, selectedPlaceId, 350);
+  }, [places, selectedPlaceId]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -232,6 +245,25 @@ function createPlaceMarkerElement({ active, label }: { active: boolean; label: s
   element.type = 'button';
 
   return element;
+}
+
+function panToSelectedPlace(
+  map: MapLibreMap,
+  places: Place[],
+  selectedPlaceId: string | null,
+  duration: number,
+) {
+  const selectedPlace = places.find((place) => place.id === selectedPlaceId);
+
+  if (selectedPlace == null) {
+    return;
+  }
+
+  map.easeTo({
+    center: [selectedPlace.longitude, selectedPlace.latitude],
+    duration,
+    zoom: Math.max(map.getZoom(), 14),
+  });
 }
 
 function fitPlaces(
