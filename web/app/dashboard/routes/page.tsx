@@ -90,7 +90,7 @@ export default function RoutesDashboardPage() {
     <DashboardShell
       activeSection="routes"
       isRefreshing={isLoading}
-      lastUpdatedLabel={lastLoadedAt?.toLocaleTimeString() ?? null}
+      lastUpdatedAt={lastLoadedAt}
       onLogout={auth.logout}
       onRefresh={() => void loadRoutes()}
       username={auth.session.user.username}
