@@ -116,7 +116,7 @@ export default function LoginPage() {
     <main className="auth-page">
       <section className="card auth-card stack">
         <div className="brand">
-          <strong>🦅 Kestrel Cloud</strong>
+          <strong>Kestrel Cloud</strong>
           <span className="muted">Edit places and routes for Android sync.</span>
         </div>
 
