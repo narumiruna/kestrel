@@ -77,8 +77,13 @@ export default function PlaceEditor({
   }
 
   return (
-    <form className="panel stack" onSubmit={submit}>
-      <h2>{place == null ? 'New place' : 'Edit place'}</h2>
+    <form className="panel stack place-editor" onSubmit={submit}>
+      <header className="place-editor-header">
+        <div className="breadcrumb">
+          Places / <span>{place?.name ?? 'New place'}</span>
+        </div>
+        <h2>{place == null ? 'New place' : place.name}</h2>
+      </header>
       {error == null ? null : <div className="error">{error}</div>}
       <PlaceMapEditor
         latitude={mapCoords.latitude}
@@ -121,16 +126,18 @@ export default function PlaceEditor({
         <textarea value={description} onChange={(event) => setDescription(event.target.value)} />
       </label>
       <PlaceSharePanel place={place} />
-      <div className="row">
-        <button disabled={isSaving} type="submit">
-          {isSaving ? 'Saving…' : 'Save place'}
-        </button>
-        {onDelete == null ? null : (
-          <button className="danger" disabled={isSaving} type="button" onClick={onDelete}>
-            Delete
+      <footer className="route-editor-footer place-editor-footer">
+        <div className="row">
+          {onDelete == null ? null : (
+            <button className="danger" disabled={isSaving} type="button" onClick={onDelete}>
+              Delete
+            </button>
+          )}
+          <button disabled={isSaving} type="submit">
+            {isSaving ? 'Saving…' : 'Save place'}
           </button>
-        )}
-      </div>
+        </div>
+      </footer>
     </form>
   );
 }
@@ -253,7 +260,12 @@ function PlaceSharePanel({ place }: { place: Place | null }) {
       {notice == null ? null : <div className="success">{notice}</div>}
       {shareLink == null ? (
         <div className="row">
-          <button disabled={isMutating} type="button" onClick={() => void createShareLink()}>
+          <button
+            className="secondary"
+            disabled={isMutating}
+            type="button"
+            onClick={() => void createShareLink()}
+          >
             {isMutating ? 'Creating…' : 'Create public link'}
           </button>
         </div>
