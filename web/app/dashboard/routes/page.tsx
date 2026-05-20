@@ -16,10 +16,10 @@ import { useKeyboardShortcuts } from '@/components/cartographer/useKeyboardShort
 import RouteEditor from '@/components/dashboard/RouteEditor';
 import { useDashboardAuth } from '@/components/dashboard/useDashboardAuth';
 import { formatError, formatMode } from '@/components/dashboard/utils';
-import type { MapViewportControls } from '@/components/RouteMapPreview';
-import type { Place, Route, RouteInput } from '@/lib/api';
+import type { RouteMapControls } from '@/components/RouteMapEditor';
+import type { Place, Route, RouteInput, RouteWaypoint } from '@/lib/api';
 
-const RouteMapPreview = dynamic(() => import('@/components/RouteMapPreview'), {
+const RouteMapEditor = dynamic(() => import('@/components/RouteMapEditor'), {
   ssr: false,
 });
 const ZoomStack = dynamic(
@@ -41,13 +41,16 @@ export default function RoutesDashboardPage() {
   const [lastLoadedAt, setLastLoadedAt] = useState<Date | null>(null);
   const [routeQuery, setRouteQuery] = useState('');
   const [isHelpOpen, setIsHelpOpen] = useState(false);
-  const [viewportControls, setViewportControls] = useState<MapViewportControls | null>(null);
+  const [viewportControls, setViewportControls] = useState<RouteMapControls | null>(null);
+  const [draftWaypoints, setDraftWaypoints] = useState<RouteWaypoint[]>([]);
+  const [selectedWaypointIndex, setSelectedWaypointIndex] = useState<number | null>(null);
+  const [focusTarget, setFocusTarget] = useState<RouteWaypoint | null>(null);
 
   const selectedRoute = useMemo(
     () => routes.find((route) => route.id === selectedRouteId) ?? null,
     [routes, selectedRouteId],
   );
-  const selectedWaypoints = selectedRoute?.currentRevision?.waypoints ?? [];
+  const selectedWaypoints = draftWaypoints;
   const filteredRoutes = useMemo(() => {
     const normalizedQuery = routeQuery.trim().toLowerCase();
 
@@ -91,6 +94,17 @@ export default function RoutesDashboardPage() {
 
     void loadRoutes();
   }, [auth.isAuthenticated, auth.isHydrated, loadRoutes]);
+
+  useEffect(() => {
+    setDraftWaypoints(
+      selectedRoute?.currentRevision?.waypoints.map((waypoint) => ({
+        latitude: waypoint.latitude,
+        longitude: waypoint.longitude,
+      })) ?? [],
+    );
+    setSelectedWaypointIndex(null);
+    setFocusTarget(null);
+  }, [selectedRoute]);
 
   const createNewRoute = useCallback(() => {
     setSelectedRouteId(null);
@@ -145,11 +159,14 @@ export default function RoutesDashboardPage() {
   return (
     <Stage
       map={
-        <RouteMapPreview
+        <RouteMapEditor
           className="cartographer-map"
-          interactive
+          focusTarget={focusTarget}
+          selectedWaypointIndex={selectedWaypointIndex}
           waypoints={selectedWaypoints}
+          onChange={setDraftWaypoints}
           onReady={setViewportControls}
+          onSelectWaypoint={setSelectedWaypointIndex}
         />
       }
       mode="routes"
@@ -171,11 +188,9 @@ export default function RoutesDashboardPage() {
         activeSection="routes"
         count={routes.length}
         newLabel="New route"
-        pageLabel="routes ledger"
         searchPlaceholder="Find a route"
         searchRef={searchRef}
         searchValue={routeQuery}
-        title="Route notebook"
         onNewEntry={createNewRoute}
         onSearchChange={setRouteQuery}
       >
@@ -222,9 +237,15 @@ export default function RoutesDashboardPage() {
         <RouteEditor
           key={selectedRoute?.id ?? 'new-route'}
           onDelete={selectedRoute == null ? undefined : () => void deleteRoute(selectedRoute.id)}
-          onSave={(input) => void saveRoute(input)}
+          mapMode="background"
           places={places}
           route={selectedRoute}
+          selectedWaypointIndex={selectedWaypointIndex}
+          waypoints={draftWaypoints}
+          onFocusTargetChange={setFocusTarget}
+          onSave={(input) => void saveRoute(input)}
+          onSelectedWaypointIndexChange={setSelectedWaypointIndex}
+          onWaypointsChange={setDraftWaypoints}
         />
       </IndexCard>
       <ZoomStack

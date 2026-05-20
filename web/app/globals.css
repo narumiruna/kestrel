@@ -3775,7 +3775,7 @@ button.is-loading {
 }
 
 .zoom-stack-style {
-  writing-mode: vertical-rl;
+  writing-mode: horizontal-tb;
 }
 
 .scale-bar {
@@ -4040,4 +4040,158 @@ button.is-loading {
   position: absolute;
   white-space: nowrap;
   width: 1px;
+}
+
+/* Field notebook cleanup and fixed map controls */
+.field-notebook {
+  padding-top: 16px;
+}
+
+.notebook-nav {
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+  padding: 0 0 12px;
+}
+
+.notebook-nav a {
+  align-items: center;
+  display: inline-flex;
+  gap: 6px;
+  justify-content: center;
+}
+
+.notebook-tab-count {
+  background: var(--accent-soft);
+  border: 1px solid rgb(180 95 50 / 28%);
+  border-radius: 999px;
+  color: var(--accent-hover);
+  font-size: 10px;
+  line-height: 1;
+  padding: 3px 6px;
+}
+
+.route-map-info-banner {
+  align-items: center;
+  background: var(--accent-soft);
+  border: 1px solid rgb(180 95 50 / 22%);
+  border-left: 4px solid var(--accent);
+  border-radius: 12px;
+  color: var(--text-secondary);
+  display: flex;
+  gap: 10px;
+  padding: 10px 12px;
+}
+
+@media (min-width: 1024px) {
+  .index-card {
+    max-height: calc(100vh - 112px);
+    right: 172px;
+    width: min(420px, max(380px, 28vw), calc(100vw - 220px));
+  }
+
+  .index-card-route {
+    width: min(420px, max(380px, 28vw), calc(100vw - 220px));
+  }
+}
+
+.index-card {
+  padding-top: 34px;
+}
+
+.index-card-pin {
+  left: auto;
+  right: 20px;
+  top: 16px;
+  transform: none;
+}
+
+.index-card-stamp {
+  margin-right: 34px;
+}
+
+.index-card .route-editor-footer {
+  background: var(--overlay-surface);
+  bottom: -22px;
+  box-shadow: 0 -1px 2px rgb(0 0 0 / 4%);
+  position: sticky;
+  z-index: 45;
+}
+
+.index-card .favorite-place-list {
+  max-height: none;
+  overflow: visible;
+}
+
+.zoom-stack {
+  bottom: 100px;
+  left: auto;
+  position: fixed;
+  right: 16px;
+  top: auto;
+  width: 132px;
+  z-index: 8;
+}
+
+.zoom-stack button {
+  align-items: center;
+  display: inline-flex;
+  gap: 6px;
+  justify-content: center;
+  min-width: 0;
+  width: 100%;
+  writing-mode: horizontal-tb;
+}
+
+.zoom-stack-style {
+  font-family: var(--font-sans), Inter, ui-sans-serif, system-ui, sans-serif;
+  font-size: 12px;
+  line-height: 1.2;
+  min-height: 38px;
+  writing-mode: horizontal-tb;
+}
+
+.zoom-stack-fit .lucide-icon,
+.zoom-stack-style .lucide-icon {
+  height: 14px;
+  width: 14px;
+}
+
+.cartographer-stage .maplibregl-ctrl-bottom-right {
+  bottom: 12px;
+  max-width: calc(100vw - 32px);
+  right: 16px;
+  z-index: 30;
+}
+
+.maplibregl-ctrl-attrib,
+.leaflet-control-attribution {
+  max-width: calc(100vw - 32px);
+  overflow: visible;
+  white-space: normal;
+}
+
+.scale-bar {
+  bottom: 58px;
+}
+
+@media (max-width: 1023px) {
+  .zoom-stack {
+    bottom: 100px;
+    left: auto;
+    right: 16px;
+  }
+
+  .cartographer-stage .maplibregl-ctrl-bottom-right {
+    bottom: 12px;
+    left: 16px;
+    right: auto;
+  }
+}
+
+.waypoint-row fieldset.row-actions {
+  margin: 0;
+  min-inline-size: 0;
+  padding: 0;
 }
