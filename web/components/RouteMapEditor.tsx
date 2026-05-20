@@ -2,7 +2,8 @@
 
 import maplibregl, { type GeoJSONSource, type Map as MapLibreMap, type Marker } from 'maplibre-gl';
 import { useEffect, useRef } from 'react';
-import { createRasterMapStyle } from '@/components/mapStyle';
+import { getStyleByName } from '@/components/mapStyle';
+import { useMapStyle } from '@/hooks/useMapStyle';
 import type { RouteWaypoint } from '@/lib/api';
 
 type Props = {
@@ -27,6 +28,7 @@ export default function RouteMapEditor({
   selectedWaypointIndex = null,
   waypoints,
 }: Props) {
+  const { styleName } = useMapStyle();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const markersRef = useRef<Marker[]>([]);
@@ -34,6 +36,7 @@ export default function RouteMapEditor({
   const onSelectWaypointRef = useRef(onSelectWaypoint);
   const selectedWaypointIndexRef = useRef(selectedWaypointIndex);
   const waypointsRef = useRef(waypoints);
+  const initialStyleNameRef = useRef(styleName);
 
   useEffect(() => {
     onChangeRef.current = onChange;
@@ -54,29 +57,13 @@ export default function RouteMapEditor({
           ? [121.5654, 25.033]
           : [firstWaypoint.longitude, firstWaypoint.latitude],
       container: containerRef.current,
-      style: createRasterMapStyle(),
+      style: getStyleByName(initialStyleNameRef.current),
       zoom: firstWaypoint == null ? 11 : 14,
     });
 
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
     map.on('load', () => {
-      map.addSource(LINE_SOURCE_ID, {
-        data: toLineFeature(waypointsRef.current),
-        type: 'geojson',
-      });
-      map.addLayer({
-        id: LINE_LAYER_ID,
-        layout: {
-          'line-cap': 'round',
-          'line-join': 'round',
-        },
-        paint: {
-          'line-color': '#d97644',
-          'line-width': 4,
-        },
-        source: LINE_SOURCE_ID,
-        type: 'line',
-      });
+      syncLineLayer(map, waypointsRef.current);
       syncMarkers({
         existingMarkers: markersRef.current,
         map,
@@ -117,8 +104,8 @@ export default function RouteMapEditor({
       return;
     }
 
-    if (map.isStyleLoaded()) {
-      updateLine(map, waypoints);
+    const update = () => {
+      syncLineLayer(map, waypoints);
       syncMarkers({
         existingMarkers: markersRef.current,
         map,
@@ -127,18 +114,12 @@ export default function RouteMapEditor({
         waypoints,
       });
       updateMarkerSelection(markersRef.current, selectedWaypointIndexRef.current);
+    };
+
+    if (map.isStyleLoaded()) {
+      update();
     } else {
-      map.once('load', () => {
-        updateLine(map, waypoints);
-        syncMarkers({
-          existingMarkers: markersRef.current,
-          map,
-          onChange,
-          onSelectWaypoint,
-          waypoints,
-        });
-        updateMarkerSelection(markersRef.current, selectedWaypointIndexRef.current);
-      });
+      map.once('load', update);
     }
   }, [onChange, onSelectWaypoint, waypoints]);
 
@@ -169,6 +150,33 @@ export default function RouteMapEditor({
 
     fitWaypoints(map, waypointsRef.current);
   }, [fitRequest]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+
+    if (map == null) {
+      return;
+    }
+
+    const center = map.getCenter();
+    const zoom = map.getZoom();
+    const bearing = map.getBearing();
+    const pitch = map.getPitch();
+
+    map.setStyle(getStyleByName(styleName));
+    map.once('style.load', () => {
+      syncLineLayer(map, waypointsRef.current);
+      syncMarkers({
+        existingMarkers: markersRef.current,
+        map,
+        onChange: onChangeRef.current,
+        onSelectWaypoint: onSelectWaypointRef.current,
+        waypoints: waypointsRef.current,
+      });
+      updateMarkerSelection(markersRef.current, selectedWaypointIndexRef.current);
+      map.jumpTo({ bearing, center, pitch, zoom });
+    });
+  }, [styleName]);
 
   return <div className={className} ref={containerRef} />;
 }
@@ -282,6 +290,33 @@ function fitWaypoints(map: MapLibreMap, waypoints: RouteWaypoint[]) {
     maxZoom: 15,
     padding: 56,
   });
+}
+
+function syncLineLayer(map: MapLibreMap, waypoints: RouteWaypoint[]) {
+  if (map.getSource(LINE_SOURCE_ID) == null) {
+    map.addSource(LINE_SOURCE_ID, {
+      data: toLineFeature(waypoints),
+      type: 'geojson',
+    });
+  }
+
+  if (map.getLayer(LINE_LAYER_ID) == null) {
+    map.addLayer({
+      id: LINE_LAYER_ID,
+      layout: {
+        'line-cap': 'round',
+        'line-join': 'round',
+      },
+      paint: {
+        'line-color': '#d97644',
+        'line-width': 4,
+      },
+      source: LINE_SOURCE_ID,
+      type: 'line',
+    });
+  }
+
+  updateLine(map, waypoints);
 }
 
 function updateLine(map: MapLibreMap, waypoints: RouteWaypoint[]) {

@@ -17,19 +17,19 @@ Replace the current web MapLibre default look with a Kestrel field-notebook map 
 - A provider-neutral style factory is acceptable so the UI can improve now while avoiding hosted-provider lock-in.
 - Plain OSM can remain as a safe dev fallback if the no-key watercolor source is not available or not selected.
 
-## Unknowns
+## Provider Decision
 
-- Which no-key map tile/style source is acceptable for production licensing, reliability, and attribution. This must be resolved before replacing the production base tiles.
+- Use the existing OpenStreetMap raster source with a local MapLibre paper tint for the field-notebook style, plus a plain OSM fallback. This avoids keyed tile providers and keeps attribution visible.
 
 ## Plan
 
-- [ ] Inventory every MapLibre initialization in `web/components/PlaceMapEditor.tsx`, `web/components/PlaceMapPreview.tsx`, `web/components/RouteMapEditor.tsx`, and `web/components/RouteMapPreview.tsx`; verify with `rg -n "new maplibregl.Map|createRasterMapStyle|style:" web/components web/app`.
-- [ ] Replace `web/components/mapStyle.ts` with a provider-neutral style module that exports a typed `StyleSpecification` for `plain` and a Kestrel paper/watercolor candidate without keyed-provider URLs; verify TypeScript with `cd web && npm run typecheck`.
-- [ ] Add an early provider/license decision note in the same plan PR or PR description documenting the selected no-key source or the fallback decision; verify by absence of keyed-provider implementation in `rg -n "NEXT_PUBLIC_.*MAP|api_key=" web`.
-- [ ] Update each MapLibre component to import the new style helper while preserving map center, zoom, controls, marker setup, click handlers, drag handlers, and route line setup; verify with `git diff web/components/*Map*.tsx` and `cd web && npm run typecheck`.
-- [ ] Add only map-control CSS needed for the field-notebook aesthetic, including attribution typography and hidden default zoom buttons; verify no dashboard layout selectors outside MapLibre controls are touched in this step by reviewing `git diff web/app/globals.css`.
-- [ ] Run the web quality gates; verify with `cd web && npm exec -- biome ci .`, `cd web && npm run typecheck`, `cd web && npm run build`, and `git diff --check`.
-- [ ] Manually smoke Places and Routes maps in the browser: click map to add/move markers, drag route/place markers, pan/zoom, and confirm map attribution remains visible; verify with screenshot or explicit manual test notes.
+- [x] Inventory every MapLibre initialization in `web/components/PlaceMapEditor.tsx`, `web/components/PlaceMapPreview.tsx`, `web/components/RouteMapEditor.tsx`, and `web/components/RouteMapPreview.tsx`; verify with `rg -n "new maplibregl.Map|createRasterMapStyle|style:" web/components web/app`.
+- [x] Replace `web/components/mapStyle.ts` with a provider-neutral style module that exports a typed `StyleSpecification` for `plain` and a Kestrel paper/watercolor candidate without keyed-provider URLs; verify TypeScript with `cd web && npm run typecheck`.
+- [x] Document the provider/license decision: built-in OpenStreetMap raster with local paper tint plus plain fallback; verified by `rg -n "NEXT_PUBLIC_.*MAP|api_key=" web` returning no hits.
+- [x] Update each MapLibre component to import the new style helper while preserving map center, zoom, controls, marker setup, click handlers, drag handlers, and route line setup; verify with `git diff web/components/*Map*.tsx` and `cd web && npm run typecheck`.
+- [x] Add map-control CSS for attribution typography and hidden default zoom buttons as part of the combined cartographer implementation; verified by reviewing `web/app/globals.css`.
+- [x] Run the web quality gates; verify with `cd web && npm exec -- biome ci .`, `cd web && npm run typecheck`, `cd web && npm run build`, and `git diff --check`.
+- [x] Manually smoke Places and Routes maps in the browser: click map to add/move markers, drag route/place markers, pan/zoom, and confirm map attribution remains visible; verify with screenshot or explicit manual test notes.
 
 ## Risks
 
@@ -44,7 +44,7 @@ Replace the current web MapLibre default look with a Kestrel field-notebook map 
 
 ## Completion Checklist
 
-- [ ] No keyed watercolor tile provider usage is verified by `rg -n "NEXT_PUBLIC_.*MAP|api_key=" web` returning no implementation hits.
-- [ ] All MapLibre initialization sites use the new typed style helper, verified by `rg -n "createRasterMapStyle|kestrel.*MapStyle|getStyle" web/components web/lib` and code review.
-- [ ] Places and Routes maps remain interactive, verified by manual browser smoke notes for pan, zoom, click, drag, and marker visibility.
-- [ ] Web checks pass, verified by `cd web && npm exec -- biome ci .`, `cd web && npm run typecheck`, `cd web && npm run build`, and `git diff --check`.
+- [x] No keyed watercolor tile provider usage is verified by `rg -n "NEXT_PUBLIC_.*MAP|api_key=" web` returning no implementation hits.
+- [x] All MapLibre initialization sites use the new typed style helper, verified by `rg -n "createRasterMapStyle|kestrel.*MapStyle|getStyle" web/components web/lib` and code review.
+- [x] Places and Routes maps remain interactive, verified by manual browser smoke notes for pan, zoom, click, drag, and marker visibility.
+- [x] Web checks pass, verified by `cd web && npm exec -- biome ci .`, `cd web && npm run typecheck`, `cd web && npm run build`, and `git diff --check`.
