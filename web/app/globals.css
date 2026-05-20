@@ -3,41 +3,61 @@
    ========================================================================== */
 
 :root {
-  /* Brand */
-  --color-topbar: #0a2e3c;
+  /* Warm Kestrel palette */
+  --bg-canvas: #faf7f2;
+  --bg-surface: #ffffff;
+  --bg-subtle: #f2ede5;
+  --border: #e8e0d3;
+  --border-strong: #d6cbb8;
 
-  /* Primary / Teal-Blue */
-  --color-primary: #0a7ea4;
-  --color-primary-dark: #086b8c;
+  --text-primary: #2a2520;
+  --text-secondary: #6b6157;
+  --text-muted: #9a8f82;
+
+  --accent: #d97644;
+  --accent-hover: #c5612f;
+  --accent-soft: #fbede2;
+
+  --success: #7a8c3f;
+  --warning: #c99a2e;
+  --danger: #b8483a;
+  --danger-soft: #f7e4df;
+
+  /* Brand */
+  --color-topbar: var(--bg-surface);
+
+  /* Primary / Kestrel terracotta */
+  --color-primary: var(--accent);
+  --color-primary-dark: var(--accent-hover);
   --color-primary-text: #ffffff;
 
-  /* Secondary — soft teal tint for subtle surfaces */
-  --color-secondary: #e0f4f8;
+  /* Secondary — warm subtle tint */
+  --color-secondary: var(--accent-soft);
 
-  /* Backgrounds — iOS system colours */
-  --color-bg: #f2f2f7;
-  --color-surface-bg: #f2f2f7;
-  --color-surface: #ffffff;
+  /* Backgrounds */
+  --color-bg: var(--bg-canvas);
+  --color-surface-bg: var(--bg-canvas);
+  --color-surface: var(--bg-surface);
 
   /* Text */
-  --color-text: #1c1c1e;
-  --color-text-secondary: #6c6c70;
+  --color-text: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
 
   /* Borders */
-  --color-border: rgb(60 60 67 / 18%);
-  --color-border-focus: #0a7ea4;
+  --color-border: var(--border);
+  --color-border-focus: var(--accent);
 
   /* Status — danger */
-  --color-danger: #ff3b30;
-  --color-danger-bg: rgb(255 59 48 / 8%);
-  --color-danger-border: rgb(255 59 48 / 25%);
-  --color-danger-text: #c0392b;
+  --color-danger: var(--danger);
+  --color-danger-bg: transparent;
+  --color-danger-border: var(--danger);
+  --color-danger-text: var(--danger);
 
   /* Status — success */
-  --color-success: #34c759;
-  --color-success-bg: rgb(52 199 89 / 8%);
-  --color-success-border: rgb(52 199 89 / 25%);
-  --color-success-text: #248a3d;
+  --color-success: var(--success);
+  --color-success-bg: #eef1dd;
+  --color-success-border: #d9dfbc;
+  --color-success-text: #56642f;
 
   /* Radii */
   --radius-xs: 0.375rem;
@@ -53,7 +73,7 @@
   --shadow-lg: 0 8px 32px rgb(0 0 0 / 12%), 0 4px 12px rgb(0 0 0 / 8%);
 
   /* Focus ring */
-  --focus-ring: 0 0 0 3px rgb(10 126 164 / 30%);
+  --focus-ring: 0 0 0 3px rgb(217 118 68 / 30%);
 
   /* Transitions */
   --transition-fast: 0.15s ease;
@@ -66,38 +86,57 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --color-primary: #40c8e0;
-    --color-primary-dark: #30b8d0;
-    --color-primary-text: #000000;
+    --bg-canvas: #1f1a15;
+    --bg-surface: #2a241e;
+    --bg-subtle: #342d26;
+    --border: #4a4036;
+    --border-strong: #5f5144;
 
-    --color-secondary: #1a3a42;
+    --text-primary: #f5efe7;
+    --text-secondary: #cdbfaf;
+    --text-muted: #a99a89;
 
-    --color-bg: #000000;
-    --color-surface-bg: #1c1c1e;
-    --color-surface: #2c2c2e;
+    --accent: #e08a55;
+    --accent-hover: #f09a65;
+    --accent-soft: rgb(217 118 68 / 16%);
 
-    --color-text: rgb(235 235 245 / 92%);
-    --color-text-secondary: rgb(235 235 245 / 60%);
+    --success: #a0ad5c;
+    --warning: #d5aa45;
+    --danger: #dc6a5c;
+    --danger-soft: rgb(184 72 58 / 18%);
 
-    --color-border: rgb(84 84 88 / 65%);
-    --color-border-focus: #40c8e0;
+    --color-primary: var(--accent);
+    --color-primary-dark: var(--accent-hover);
+    --color-primary-text: #ffffff;
 
-    --color-danger: #ff453a;
-    --color-danger-bg: rgb(255 69 58 / 15%);
-    --color-danger-border: rgb(255 69 58 / 35%);
-    --color-danger-text: #ff6961;
+    --color-secondary: var(--accent-soft);
 
-    --color-success: #32d74b;
-    --color-success-bg: rgb(50 215 75 / 12%);
-    --color-success-border: rgb(50 215 75 / 30%);
-    --color-success-text: #57dc67;
+    --color-bg: var(--bg-canvas);
+    --color-surface-bg: var(--bg-canvas);
+    --color-surface: var(--bg-surface);
+
+    --color-text: var(--text-primary);
+    --color-text-secondary: var(--text-secondary);
+
+    --color-border: var(--border);
+    --color-border-focus: var(--accent);
+
+    --color-danger: var(--danger);
+    --color-danger-bg: transparent;
+    --color-danger-border: var(--danger);
+    --color-danger-text: var(--danger);
+
+    --color-success: var(--success);
+    --color-success-bg: rgb(122 140 63 / 16%);
+    --color-success-border: rgb(160 173 92 / 35%);
+    --color-success-text: #dbe6a0;
 
     --shadow-xs: 0 1px 3px rgb(0 0 0 / 25%);
     --shadow-sm: 0 2px 8px rgb(0 0 0 / 35%);
     --shadow-md: 0 4px 16px rgb(0 0 0 / 45%);
     --shadow-lg: 0 8px 32px rgb(0 0 0 / 55%);
 
-    --focus-ring: 0 0 0 3px rgb(64 200 224 / 35%);
+    --focus-ring: 0 0 0 3px rgb(224 138 85 / 35%);
   }
 }
 
@@ -218,11 +257,11 @@ button.secondary:hover:not(:disabled) {
 
 @media (prefers-color-scheme: dark) {
   button.secondary {
-    background: rgb(44 44 46 / 70%);
+    background: var(--bg-surface);
   }
 
   button.secondary:hover:not(:disabled) {
-    background: rgb(58 58 60 / 90%);
+    background: var(--bg-subtle);
     border-color: var(--color-primary);
   }
 }
@@ -235,14 +274,14 @@ button.danger {
 }
 
 button.danger:hover:not(:disabled) {
-  background: rgb(255 59 48 / 14%);
-  box-shadow: 0 2px 8px rgb(255 59 48 / 15%);
+  background: var(--danger-soft);
+  box-shadow: none;
 }
 
 @media (prefers-color-scheme: dark) {
   button.danger:hover:not(:disabled) {
-    background: rgb(255 69 58 / 18%);
-    box-shadow: 0 2px 8px rgb(255 69 58 / 15%);
+    background: var(--danger-soft);
+    box-shadow: none;
   }
 }
 
@@ -413,26 +452,26 @@ label {
 }
 
 .dashboard-tab:hover {
-  background: rgb(10 126 164 / 10%);
+  background: rgb(217 118 68 / 10%);
   color: var(--color-text);
 }
 
 .dashboard-tab.active {
-  background: rgb(10 126 164 / 12%);
-  border-color: rgb(10 126 164 / 30%);
-  box-shadow: inset 0 0 0 1px rgb(10 126 164 / 18%);
+  background: rgb(217 118 68 / 12%);
+  border-color: rgb(217 118 68 / 30%);
+  box-shadow: inset 0 0 0 1px rgb(217 118 68 / 18%);
   color: var(--color-primary);
 }
 
 @media (prefers-color-scheme: dark) {
   .dashboard-tab:hover {
-    background: rgb(64 200 224 / 12%);
+    background: rgb(224 138 85 / 12%);
   }
 
   .dashboard-tab.active {
-    background: rgb(64 200 224 / 14%);
-    border-color: rgb(64 200 224 / 25%);
-    box-shadow: inset 0 0 0 1px rgb(64 200 224 / 16%);
+    background: rgb(224 138 85 / 14%);
+    border-color: rgb(224 138 85 / 25%);
+    box-shadow: inset 0 0 0 1px rgb(224 138 85 / 16%);
   }
 }
 
@@ -631,7 +670,7 @@ label {
 }
 
 .list-item:hover:not(:disabled) {
-  border-color: rgb(10 126 164 / 35%);
+  border-color: rgb(217 118 68 / 35%);
   box-shadow: var(--shadow-xs);
   transform: translateY(-1px);
 }
@@ -643,13 +682,13 @@ label {
 }
 
 .list-item.active {
-  background: rgb(10 126 164 / 8%);
+  background: rgb(217 118 68 / 8%);
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 2px rgb(10 126 164 / 18%);
+  box-shadow: 0 0 0 2px rgb(217 118 68 / 18%);
 }
 
 .list-item.active:hover {
-  background: rgb(10 126 164 / 12%);
+  background: rgb(217 118 68 / 12%);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -662,13 +701,13 @@ label {
   }
 
   .list-item.active {
-    background: rgb(64 200 224 / 10%);
+    background: rgb(224 138 85 / 10%);
     border-color: var(--color-primary);
-    box-shadow: 0 0 0 2px rgb(64 200 224 / 18%);
+    box-shadow: 0 0 0 2px rgb(224 138 85 / 18%);
   }
 
   .list-item.active:hover {
-    background: rgb(64 200 224 / 14%);
+    background: rgb(224 138 85 / 14%);
   }
 }
 
@@ -683,8 +722,8 @@ label {
 }
 
 .chip {
-  background: rgb(10 126 164 / 10%);
-  border: 1px solid rgb(10 126 164 / 22%);
+  background: rgb(217 118 68 / 10%);
+  border: 1px solid rgb(217 118 68 / 22%);
   border-radius: var(--radius-pill);
   color: var(--color-primary-dark);
   font-size: 0.75rem;
@@ -694,8 +733,8 @@ label {
 
 @media (prefers-color-scheme: dark) {
   .chip {
-    background: rgb(64 200 224 / 12%);
-    border-color: rgb(64 200 224 / 25%);
+    background: rgb(224 138 85 / 12%);
+    border-color: rgb(224 138 85 / 25%);
     color: var(--color-primary);
   }
 }
@@ -743,8 +782,8 @@ label {
    ========================================================================== */
 
 .tabs {
-  background: rgb(10 126 164 / 8%);
-  border: 1px solid rgb(10 126 164 / 15%);
+  background: rgb(217 118 68 / 8%);
+  border: 1px solid rgb(217 118 68 / 15%);
   border-radius: var(--radius-pill);
   display: grid;
   gap: 0.25rem;
@@ -764,7 +803,7 @@ label {
 }
 
 .tabs button:hover:not(:disabled) {
-  background: rgb(10 126 164 / 12%);
+  background: rgb(217 118 68 / 12%);
   box-shadow: none;
   transform: none;
 }
@@ -781,12 +820,12 @@ label {
 
 @media (prefers-color-scheme: dark) {
   .tabs {
-    background: rgb(64 200 224 / 8%);
-    border-color: rgb(64 200 224 / 15%);
+    background: rgb(224 138 85 / 8%);
+    border-color: rgb(224 138 85 / 15%);
   }
 
   .tabs button:hover:not(:disabled) {
-    background: rgb(64 200 224 / 12%);
+    background: rgb(224 138 85 / 12%);
   }
 }
 
@@ -844,7 +883,7 @@ label {
 }
 
 .route-editor-secondary-section {
-  background: rgb(10 126 164 / 5%);
+  background: rgb(217 118 68 / 5%);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   padding: 1rem;
@@ -924,8 +963,8 @@ label {
    ========================================================================== */
 
 .route-builder-hint {
-  background: rgb(10 126 164 / 8%);
-  border: 1px solid rgb(10 126 164 / 18%);
+  background: rgb(217 118 68 / 8%);
+  border: 1px solid rgb(217 118 68 / 18%);
   border-radius: var(--radius-md);
   color: var(--color-text-secondary);
   font-size: 0.9rem;
@@ -963,7 +1002,7 @@ label {
 }
 
 .favorite-place-option:hover:not(:disabled) {
-  background: rgb(10 126 164 / 8%);
+  background: rgb(217 118 68 / 8%);
   transform: none;
 }
 
@@ -1036,7 +1075,7 @@ label {
 .route-marker.selected:focus-visible {
   background: var(--color-primary);
   box-shadow:
-    0 0 0 4px rgb(10 126 164 / 28%),
+    0 0 0 4px rgb(217 118 68 / 28%),
     var(--shadow-md);
   color: var(--color-primary-text);
   transform: scale(1.16);
@@ -1080,8 +1119,8 @@ label {
 }
 
 .waypoint-row.selected {
-  background: rgb(10 126 164 / 8%);
-  border-color: rgb(10 126 164 / 25%);
+  background: rgb(217 118 68 / 8%);
+  border-color: rgb(217 118 68 / 25%);
 }
 
 /* ==========================================================================
@@ -1171,12 +1210,13 @@ label {
 .kc-topbar {
   height: 68px;
   background: var(--color-topbar);
+  border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 0 20px;
-  color: #ffffff;
+  color: var(--text-primary);
 }
 
 .kc-brand {
@@ -1198,17 +1238,18 @@ label {
 }
 
 .kc-topbar-actions button.secondary {
-  background: rgb(255 255 255 / 8%);
-  border: 1px solid rgb(255 255 255 / 25%);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  color: #ffffff;
+  color: var(--text-secondary);
   padding: 9px 16px;
 }
 
 .kc-topbar-actions button.secondary:hover:not(:disabled) {
-  background: rgb(255 255 255 / 15%);
-  border-color: rgb(255 255 255 / 40%);
+  background: var(--accent-soft);
+  border-color: var(--accent);
   box-shadow: none;
+  color: var(--accent);
   transform: none;
 }
 
@@ -1231,7 +1272,7 @@ label {
 }
 
 .kc-tab:hover {
-  border-color: rgb(10 126 164 / 40%);
+  border-color: rgb(217 118 68 / 40%);
   color: var(--color-text);
 }
 
@@ -1246,7 +1287,7 @@ label {
   }
 
   .kc-tab:hover {
-    border-color: rgb(64 200 224 / 40%);
+    border-color: rgb(224 138 85 / 40%);
   }
 }
 
@@ -1306,9 +1347,13 @@ label {
 }
 
 .route-editor .danger {
-  background: var(--color-danger-bg);
+  background: transparent;
   border: 1px solid var(--color-danger-border);
   color: var(--color-danger);
+}
+
+.route-editor .danger:hover:not(:disabled) {
+  background: var(--danger-soft);
 }
 
 @media (max-width: 860px) {
@@ -1320,23 +1365,21 @@ label {
 
 /* Kestrel Cloud SaaS dashboard refresh */
 :root {
-  --kc-brand: #0a2a3a;
-  --kc-brand-2: #0f3f52;
-  --kc-accent: #06b6d4;
-  --kc-accent-soft: rgb(6 182 212 / 12%);
-  --kc-emerald: #10b981;
-  --kc-slate-50: #f8fafc;
-  --kc-slate-100: #f1f5f9;
-  --kc-slate-200: #e2e8f0;
-  --kc-slate-500: #64748b;
-  --kc-slate-700: #334155;
-  --kc-slate-900: #0f172a;
+  --kc-brand: var(--text-primary);
+  --kc-brand-2: var(--bg-subtle);
+  --kc-accent: var(--accent);
+  --kc-accent-soft: var(--accent-soft);
+  --kc-emerald: var(--success);
+  --kc-slate-50: var(--bg-canvas);
+  --kc-slate-100: var(--bg-subtle);
+  --kc-slate-200: var(--border);
+  --kc-slate-500: var(--text-muted);
+  --kc-slate-700: var(--text-secondary);
+  --kc-slate-900: var(--text-primary);
 }
 
 .kc-shell {
-  background:
-    radial-gradient(circle at top left, rgb(6 182 212 / 10%), transparent 26rem),
-    linear-gradient(180deg, #f8fafc, #eef4f8);
+  background: linear-gradient(180deg, var(--bg-canvas), #f5efe5);
   color: var(--kc-slate-900);
   font-family: Inter, Geist, "Noto Sans TC", ui-sans-serif, system-ui, sans-serif;
   max-width: 1440px;
@@ -1346,11 +1389,11 @@ label {
 
 .kc-topbar {
   align-items: center;
-  background: linear-gradient(135deg, var(--kc-brand), var(--kc-brand-2));
-  border: 1px solid rgb(255 255 255 / 12%);
+  background: linear-gradient(180deg, var(--bg-surface), #f5efe5);
+  border: 1px solid var(--border);
   border-radius: 18px;
-  box-shadow: 0 18px 45px rgb(15 23 42 / 16%);
-  color: white;
+  box-shadow: 0 1px 2px rgb(42 37 32 / 4%);
+  color: var(--text-primary);
   display: flex;
   justify-content: space-between;
   min-height: 58px;
@@ -1364,7 +1407,7 @@ label {
 }
 
 .kc-brand strong {
-  color: white;
+  color: var(--text-primary);
   display: block;
   font-size: 1rem;
   line-height: 1.2;
@@ -1373,10 +1416,10 @@ label {
 .kc-logo,
 .kc-avatar {
   align-items: center;
-  background: rgb(255 255 255 / 10%);
-  border: 1px solid rgb(255 255 255 / 18%);
+  background: var(--accent);
+  border: 1px solid var(--accent-hover);
   border-radius: 12px;
-  color: #67e8f9;
+  color: #ffffff;
   display: inline-flex;
   height: 38px;
   justify-content: center;
@@ -1384,7 +1427,7 @@ label {
 }
 
 .kc-signed-in {
-  color: rgb(226 232 240 / 78%);
+  color: var(--text-muted);
   display: block;
   font-size: 0.78rem;
   font-weight: 500;
@@ -1399,10 +1442,17 @@ label {
 
 .kc-topbar-actions button.secondary,
 .kc-user-button.secondary {
-  background: rgb(255 255 255 / 8%);
-  border: 1px solid rgb(255 255 255 / 16%);
-  color: white;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
   transition: all 150ms ease;
+}
+
+.kc-topbar-actions button.secondary:hover:not(:disabled),
+.kc-user-button.secondary:hover:not(:disabled) {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .kc-icon-button {
@@ -1422,7 +1472,7 @@ label {
 }
 
 .kc-avatar {
-  background: linear-gradient(135deg, #06b6d4, #10b981);
+  background: var(--accent);
   color: white;
   font-size: 0.86rem;
   font-weight: 800;
@@ -1434,7 +1484,7 @@ label {
   background: rgb(255 255 255 / 96%);
   border: 1px solid var(--kc-slate-200);
   border-radius: 16px;
-  box-shadow: 0 22px 60px rgb(15 23 42 / 18%);
+  box-shadow: 0 22px 60px rgb(42 37 32 / 18%);
   color: var(--kc-slate-900);
   padding: 16px;
   position: absolute;
@@ -1448,7 +1498,7 @@ label {
   background: rgb(255 255 255 / 74%);
   border: 1px solid var(--kc-slate-200);
   border-radius: 16px;
-  box-shadow: 0 1px 2px rgb(15 23 42 / 4%);
+  box-shadow: 0 1px 2px rgb(42 37 32 / 4%);
   display: inline-flex;
   gap: 4px;
   margin: 14px 0;
@@ -1466,11 +1516,16 @@ label {
   transition: all 150ms ease;
 }
 
-.kc-tab:hover,
+.kc-tab:hover {
+  background: var(--bg-subtle);
+  color: var(--text-primary);
+}
+
 .kc-tab.active {
-  background: white;
-  box-shadow: 0 8px 22px rgb(15 23 42 / 8%);
-  color: var(--kc-brand);
+  background: var(--accent-soft);
+  border: 1.5px solid var(--accent);
+  box-shadow: none;
+  color: var(--accent);
 }
 
 .kc-workspace,
@@ -1480,15 +1535,15 @@ label {
 
 .dashboard-sidebar .card,
 .route-editor {
-  background: rgb(255 255 255 / 88%);
+  background: var(--bg-surface);
   border: 1px solid var(--kc-slate-200);
-  box-shadow: 0 12px 32px rgb(15 23 42 / 8%);
+  box-shadow: 0 1px 2px rgb(42 37 32 / 4%);
 }
 
 .kc-shell .dashboard-sidebar .dashboard-sidebar-new-card {
-  background: linear-gradient(180deg, white, var(--kc-slate-50));
-  border: 1.5px dashed rgb(6 182 212 / 45%);
-  color: var(--kc-brand);
+  background: var(--bg-surface);
+  border: 1.5px dashed var(--border-strong);
+  color: var(--text-secondary);
 }
 
 .list-item.route-list-item {
@@ -1508,18 +1563,19 @@ label {
   width: 4px;
 }
 
-.route-mode-loop::before { background: var(--kc-emerald); }
-.route-mode-ping-pong::before { background: #8b5cf6; }
+.route-mode-loop::before { background: var(--success); }
+.route-mode-ping-pong::before { background: var(--warning); }
+.list-item.route-list-item.active::before { background: var(--accent); }
 
 .list-item.route-list-item:hover {
-  box-shadow: 0 12px 28px rgb(15 23 42 / 10%);
+  box-shadow: 0 12px 28px rgb(42 37 32 / 10%);
   transform: translateY(-1px);
 }
 
 .list-item.route-list-item.active {
-  background: linear-gradient(180deg, rgb(6 182 212 / 9%), white);
-  border-color: rgb(6 182 212 / 42%);
-  box-shadow: 0 0 0 2px rgb(6 182 212 / 22%), 0 16px 34px rgb(6 182 212 / 10%);
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgb(217 118 68 / 18%);
 }
 
 .route-card-metrics {
@@ -1550,20 +1606,25 @@ label {
 
 .route-builder-hint {
   align-items: center;
-  background: linear-gradient(90deg, var(--kc-accent-soft), white);
-  border: 1px solid rgb(6 182 212 / 18%);
-  border-left: 4px solid var(--kc-accent);
+  background: var(--accent-soft);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--accent);
+  color: var(--text-primary);
   display: flex;
   gap: 10px;
 }
 
+.route-builder-hint > span {
+  color: var(--accent);
+}
+
 .favorite-picker {
-  background: linear-gradient(180deg, white, var(--kc-slate-50));
+  background: var(--bg-surface);
 }
 
 .favorite-search-box {
   align-items: center;
-  background: white;
+  background: var(--bg-surface);
   border: 1px solid var(--kc-slate-200);
   border-radius: 14px;
   display: flex;
@@ -1624,11 +1685,11 @@ label {
 
 .route-editor-footer {
   backdrop-filter: blur(16px);
-  background: rgb(255 255 255 / 78%);
+  background: rgb(255 255 255 / 82%);
   border: 1px solid var(--kc-slate-200);
   border-radius: 16px;
   bottom: 12px;
-  box-shadow: 0 -8px 28px rgb(15 23 42 / 8%);
+  box-shadow: 0 -8px 28px rgb(42 37 32 / 8%);
   padding: 12px;
   position: sticky;
   z-index: 20;
@@ -1642,7 +1703,7 @@ button,
 }
 
 button.is-loading {
-  background-image: linear-gradient(90deg, #0891b2, #06b6d4, #0891b2);
+  background-image: linear-gradient(90deg, var(--accent-hover), var(--accent), var(--accent-hover));
   background-size: 200% 100%;
   animation: kc-loading 1s linear infinite;
 }
@@ -1655,7 +1716,7 @@ button.is-loading {
 
 .skeleton-line {
   animation: kc-skeleton 1.2s ease-in-out infinite;
-  background: linear-gradient(90deg, var(--kc-slate-100), white, var(--kc-slate-100));
+  background: linear-gradient(90deg, var(--kc-slate-100), var(--bg-surface), var(--kc-slate-100));
   background-size: 220% 100%;
   border-radius: 12px;
   height: 52px;
@@ -1680,8 +1741,12 @@ button.is-loading {
 
 @media (prefers-color-scheme: dark) {
   .kc-shell {
-    background: linear-gradient(180deg, #020617, #0f172a);
-    color: #e2e8f0;
+    background: linear-gradient(180deg, var(--bg-canvas), #2a211a);
+    color: var(--text-primary);
+  }
+
+  .kc-topbar {
+    background: linear-gradient(180deg, var(--bg-surface), var(--bg-subtle));
   }
 
   .kc-account-popover,
@@ -1690,24 +1755,24 @@ button.is-loading {
   .route-editor,
   .favorite-picker,
   .favorite-search-box {
-    background: rgb(15 23 42 / 92%);
-    border-color: rgb(148 163 184 / 18%);
-    color: #e2e8f0;
+    background: rgb(42 36 30 / 94%);
+    border-color: var(--border);
+    color: var(--text-primary);
   }
 
   .kc-tab:hover,
-  .kc-tab.active,
   .favorite-place-option,
   .route-editor-footer {
-    background: rgb(30 41 59 / 88%);
+    background: rgb(52 45 38 / 88%);
   }
 
+  .kc-tab.active,
   .route-builder-hint {
-    background: linear-gradient(90deg, rgb(6 182 212 / 15%), rgb(15 23 42 / 80%));
+    background: var(--accent-soft);
   }
 
   .skeleton-line {
-    background: linear-gradient(90deg, rgb(30 41 59), rgb(51 65 85), rgb(30 41 59));
+    background: linear-gradient(90deg, var(--bg-subtle), var(--bg-surface), var(--bg-subtle));
     background-size: 220% 100%;
   }
 }
