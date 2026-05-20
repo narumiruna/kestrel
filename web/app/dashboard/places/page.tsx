@@ -18,6 +18,7 @@ export default function PlacesDashboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
 
   const selectedPlace = useMemo(
     () => places.find((place) => place.id === selectedPlaceId) ?? null,
@@ -31,6 +32,7 @@ export default function PlacesDashboardPage() {
     try {
       const nextPlaces = await auth.apiRequest<Place[]>('/places');
       setPlaces(nextPlaces);
+      setLastUpdatedAt(new Date());
       setSelectedPlaceId((current) => current ?? nextPlaces[0]?.id ?? null);
     } catch (nextError) {
       setError(formatError(nextError));
@@ -91,6 +93,7 @@ export default function PlacesDashboardPage() {
   return (
     <DashboardShell
       activeSection="places"
+      lastUpdatedAt={lastUpdatedAt}
       onLogout={auth.logout}
       onRefresh={() => void loadPlaces()}
       username={auth.session.user.username}
@@ -122,7 +125,7 @@ export default function PlacesDashboardPage() {
               </div>
             </div>
             <div className="dashboard-sidebar-content">
-              {isLoading ? <p className="muted">Loading…</p> : null}
+              {isLoading ? <SidebarSkeleton /> : null}
               <div className="list">
                 {places.map((place) => (
                   <button
@@ -162,6 +165,16 @@ export default function PlacesDashboardPage() {
         </section>
       </section>
     </DashboardShell>
+  );
+}
+
+function SidebarSkeleton() {
+  return (
+    <div aria-label="Loading places" className="skeleton-list" role="status">
+      <span className="skeleton-line wide" />
+      <span className="skeleton-line" />
+      <span className="skeleton-line short" />
+    </div>
   );
 }
 
