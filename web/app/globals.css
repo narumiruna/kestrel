@@ -3014,11 +3014,7 @@ button.is-loading {
 }
 
 .route-editor-collapsible .route-editor-collapsible-content {
-  max-height: 1800px;
-  overflow: hidden;
-  transition:
-    max-height 200ms ease-out,
-    padding 200ms ease-out;
+  transition: padding 200ms ease-out;
 }
 
 .route-editor-collapsible summary::after {
