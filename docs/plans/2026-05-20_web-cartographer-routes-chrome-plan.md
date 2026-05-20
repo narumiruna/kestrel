@@ -19,15 +19,15 @@ Routes should reuse the `web/components/cartographer/` stage primitives. Route d
 
 ## Plan
 
-- [ ] Add `UserMark.tsx` and account-menu integration to `web/components/cartographer/` so logout/theme/password actions remain reachable after the old header is removed; verify manually that logout and theme toggle still work.
-- [ ] Remove the old dashboard top header and segmented tabs from cartographer Places/Routes pages while keeping navigation inside `FieldNotebook`; verify with `rg -n "kc-topbar|kc-tabs|DashboardShell" web/app/dashboard web/components/cartographer` and browser screenshots.
-- [ ] Rebuild `web/app/dashboard/routes/page.tsx` around `Stage`, `EdgeTape`, `CornerMark`, `FieldNotebook` in Routes mode, `StatusStrip`, `ScaleBar`, and `ZoomStack`; verify with screenshot of `/dashboard/routes`.
-- [ ] Implement a route `IndexCard` variant with draft/revision stamp, route metadata, waypoint count, mode, speed, distance, and action bar; verify selected route details match API data in browser smoke.
-- [ ] Preserve route editor functionality by embedding or adapting `RouteEditor`: waypoint add/remove/reorder, map click add, marker drag, save, delete confirmation, public/share link; verify with manual route edit smoke.
-- [ ] Add a stage-level keyboard shortcut module in `web/lib/keyboard.ts` or `web/components/cartographer/useKeyboardShortcuts.ts`: `g p`, `g r`, `n`, `/`, `Escape`, and `?`; verify shortcuts do not fire while typing in inputs/textareas/contenteditable.
-- [ ] Add a keyboard cheatsheet overlay with mono typography and paper-card styling; verify `?` opens/closes it and `Escape` closes it.
-- [ ] Delete or deprecate unused old dashboard chrome references after both Places and Routes are migrated; verify removed files/selectors are listed in the PR description.
-- [ ] Run web quality gates; verify with `cd web && npm exec -- biome ci .`, `cd web && npm run typecheck`, `cd web && npm run build`, and `git diff --check`.
+- [x] Add `UserMark.tsx` and account-menu integration to `web/components/cartographer/` so logout/theme/password actions remain reachable after the old header is removed; verify manually that logout and theme toggle still work.
+- [x] Remove the old dashboard top header and segmented tabs from cartographer Places/Routes pages while keeping navigation inside `FieldNotebook`; verify with `rg -n "kc-topbar|kc-tabs|DashboardShell" web/app/dashboard web/components/cartographer` and browser screenshots.
+- [x] Rebuild `web/app/dashboard/routes/page.tsx` around `Stage`, `EdgeTape`, `CornerMark`, `FieldNotebook` in Routes mode, `StatusStrip`, `ScaleBar`, and `ZoomStack`; verify with screenshot of `/dashboard/routes`.
+- [x] Implement a route `IndexCard` variant with draft/revision stamp, route metadata, waypoint count, mode, speed, distance, and action bar; verify selected route details match API data in browser smoke.
+- [x] Preserve route editor functionality by embedding or adapting `RouteEditor`: waypoint add/remove/reorder, map click add, marker drag, save, delete confirmation, public/share link; verify with manual route edit smoke.
+- [x] Add a stage-level keyboard shortcut module in `web/lib/keyboard.ts` or `web/components/cartographer/useKeyboardShortcuts.ts`: `g p`, `g r`, `n`, `/`, `Escape`, and `?`; verify shortcuts do not fire while typing in inputs/textareas/contenteditable.
+- [x] Add a keyboard cheatsheet overlay with mono typography and paper-card styling; verify `?` opens/closes it and `Escape` closes it.
+- [x] Delete or deprecate unused old dashboard chrome references after both Places and Routes are migrated; verify removed files/selectors are listed in the PR description.
+- [x] Run web quality gates; verify with `cd web && npm exec -- biome ci .`, `cd web && npm run typecheck`, `cd web && npm run build`, and `git diff --check`.
 
 ## Risks
 
@@ -42,9 +42,9 @@ Routes should reuse the `web/components/cartographer/` stage primitives. Route d
 
 ## Completion Checklist
 
-- [ ] Places and Routes both use cartographer stage chrome and no old dashboard top header/tab group, verified by screenshots and `rg -n "kc-topbar|kc-tabs" web/app/dashboard web/components/cartographer` review.
-- [ ] Route workflows still work, verified by manual tests for selecting a route, adding waypoints, dragging markers, saving, deleting with confirmation, and share-link actions.
-- [ ] Account/logout/theme/password actions are still reachable, verified by manual browser smoke.
-- [ ] Keyboard shortcuts work and do not fire while typing, verified by manual shortcut smoke.
-- [ ] No keyed map-provider dependency is introduced, verified by `rg -n "NEXT_PUBLIC_.*MAP|api_key=" web`.
-- [ ] Web checks pass, verified by `cd web && npm exec -- biome ci .`, `cd web && npm run typecheck`, `cd web && npm run build`, and `git diff --check`.
+- [x] Places and Routes both use cartographer stage chrome and no old dashboard top header/tab group, verified by screenshots and `rg -n "kc-topbar|kc-tabs" web/app/dashboard web/components/cartographer` review.
+- [x] Route workflows still work, verified by manual tests for selecting a route, adding waypoints, dragging markers, saving, deleting with confirmation, and share-link actions.
+- [x] Account/logout/theme/password actions are still reachable, verified by manual browser smoke.
+- [x] Keyboard shortcuts work and do not fire while typing, verified by manual shortcut smoke.
+- [x] No keyed map-provider dependency is introduced, verified by `rg -n "NEXT_PUBLIC_.*MAP|api_key=" web`.
+- [x] Web checks pass, verified by `cd web && npm exec -- biome ci .`, `cd web && npm run typecheck`, `cd web && npm run build`, and `git diff --check`.

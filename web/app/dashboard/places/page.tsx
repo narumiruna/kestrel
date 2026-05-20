@@ -1,14 +1,47 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import DashboardShell from '@/components/dashboard/DashboardShell';
+import dynamic from 'next/dynamic';
+import { useRouter } from 'next/navigation';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { CornerMark } from '@/components/cartographer/CornerMark';
+import { EdgeTape } from '@/components/cartographer/EdgeTape';
+import { FieldNotebook } from '@/components/cartographer/FieldNotebook';
+import { IndexCard } from '@/components/cartographer/IndexCard';
+import { KeyboardCheatsheet } from '@/components/cartographer/KeyboardCheatsheet';
+import { ScaleBar } from '@/components/cartographer/ScaleBar';
+import { Stage } from '@/components/cartographer/Stage';
+import { StatusStrip } from '@/components/cartographer/StatusStrip';
+import { UserMark } from '@/components/cartographer/UserMark';
+import { useKeyboardShortcuts } from '@/components/cartographer/useKeyboardShortcuts';
 import PlaceEditor from '@/components/dashboard/PlaceEditor';
 import { useDashboardAuth } from '@/components/dashboard/useDashboardAuth';
 import { formatCoord, formatError } from '@/components/dashboard/utils';
+import { DEFAULT_MAP_CENTER } from '@/components/mapStyle';
 import type { Place, PlaceInput } from '@/lib/api';
+
+const CartographerPlaceMap = dynamic(
+  () => import('@/components/cartographer/CartographerPlaceMap'),
+  {
+    ssr: false,
+  },
+);
+const ZoomStack = dynamic(
+  () => import('@/components/cartographer/ZoomStack').then((module) => module.ZoomStack),
+  {
+    ssr: false,
+  },
+);
+
+type PlaceViewportControls = {
+  fit: () => void;
+  zoomIn: () => void;
+  zoomOut: () => void;
+};
 
 export default function PlacesDashboardPage() {
   const auth = useDashboardAuth();
+  const router = useRouter();
+  const searchRef = useRef<HTMLInputElement | null>(null);
   const [places, setPlaces] = useState<Place[]>([]);
   const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
   const [draftPlaceCoords, setDraftPlaceCoords] = useState<{
@@ -17,13 +50,38 @@ export default function PlacesDashboardPage() {
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [lastLoadedAt, setLastLoadedAt] = useState<Date | null>(null);
+  const [placeQuery, setPlaceQuery] = useState('');
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
+  const [viewportControls, setViewportControls] = useState<PlaceViewportControls | null>(null);
 
   const selectedPlace = useMemo(
     () => places.find((place) => place.id === selectedPlaceId) ?? null,
     [places, selectedPlaceId],
   );
+  const activeCoords = useMemo(
+    () =>
+      draftPlaceCoords ??
+      (selectedPlace == null
+        ? DEFAULT_MAP_CENTER
+        : { latitude: selectedPlace.latitude, longitude: selectedPlace.longitude }),
+    [draftPlaceCoords, selectedPlace],
+  );
+  const filteredPlaces = useMemo(() => {
+    const normalizedQuery = placeQuery.trim().toLowerCase();
+
+    if (normalizedQuery.length === 0) {
+      return places;
+    }
+
+    return places.filter((place) =>
+      [place.name, place.description ?? '', ...place.tags]
+        .join(' ')
+        .toLowerCase()
+        .includes(normalizedQuery),
+    );
+  }, [placeQuery, places]);
+  const lastUpdatedLabel = useRelativeUpdatedLabel(lastLoadedAt);
 
   const loadPlaces = useCallback(async () => {
     setError(null);
@@ -49,6 +107,31 @@ export default function PlacesDashboardPage() {
     void loadPlaces();
   }, [auth.isAuthenticated, auth.isHydrated, loadPlaces]);
 
+  const selectPlace = useCallback(
+    (placeId: string) => {
+      const place = places.find((currentPlace) => currentPlace.id === placeId);
+      setSelectedPlaceId(placeId);
+      setDraftPlaceCoords(
+        place == null ? null : { latitude: place.latitude, longitude: place.longitude },
+      );
+    },
+    [places],
+  );
+
+  const createNewPlace = useCallback(() => {
+    setDraftPlaceCoords(activeCoords);
+    setSelectedPlaceId(null);
+  }, [activeCoords]);
+
+  useKeyboardShortcuts({
+    onClose: () => setIsHelpOpen(false),
+    onFocusSearch: () => searchRef.current?.focus(),
+    onGoPlaces: () => router.push('/dashboard/places'),
+    onGoRoutes: () => router.push('/dashboard/routes'),
+    onNew: createNewPlace,
+    onToggleHelp: () => setIsHelpOpen((current) => !current),
+  });
+
   if (!auth.isHydrated || !auth.isAuthenticated || auth.session == null) {
     return (
       <main className="shell">
@@ -71,122 +154,126 @@ export default function PlacesDashboardPage() {
 
     await loadPlaces();
     setSelectedPlaceId(savedPlace.id);
+    setDraftPlaceCoords({ latitude: savedPlace.latitude, longitude: savedPlace.longitude });
   }
 
   async function deletePlace(placeId: string) {
     await auth.apiRequest(`/places/${placeId}`, { method: 'DELETE' });
     await loadPlaces();
     setSelectedPlaceId(null);
+    setDraftPlaceCoords(DEFAULT_MAP_CENTER);
   }
 
-  function createNewPlace() {
-    if (selectedPlace != null) {
-      setDraftPlaceCoords({
-        latitude: selectedPlace.latitude,
-        longitude: selectedPlace.longitude,
-      });
-    }
-
-    setSelectedPlaceId(null);
+  async function changePassword(input: { currentPassword: string; newPassword: string }) {
+    await auth.apiRequest('/auth/password/change', {
+      body: JSON.stringify(input),
+      method: 'POST',
+    });
   }
 
   return (
-    <DashboardShell
-      activeSection="places"
-      isRefreshing={isLoading}
-      lastUpdatedAt={lastLoadedAt}
-      onLogout={auth.logout}
-      onRefresh={() => void loadPlaces()}
-      username={auth.session.user.username}
+    <Stage
+      map={
+        <CartographerPlaceMap
+          draftCoords={activeCoords}
+          places={places}
+          selectedPlaceId={selectedPlaceId}
+          onChangeDraftCoords={setDraftPlaceCoords}
+          onReady={setViewportControls}
+          onSelectPlace={selectPlace}
+        />
+      }
+      mode="places"
     >
-      {error == null ? null : <div className="error dashboard-error">{error}</div>}
-
-      <section className="dashboard-grid">
-        <aside className={`dashboard-sidebar${isSidebarOpen ? '' : ' collapsed'}`}>
-          <div className="card stack">
-            <div className="dashboard-sidebar-header">
-              <h2 className="dashboard-sidebar-title">Places</h2>
-              <div className="row dashboard-sidebar-actions">
-                <button
-                  aria-expanded={isSidebarOpen}
-                  aria-label={isSidebarOpen ? 'Collapse places sidebar' : 'Expand places sidebar'}
-                  className="secondary dashboard-sidebar-toggle"
-                  type="button"
-                  onClick={() => setIsSidebarOpen((current) => !current)}
-                >
-                  {isSidebarOpen ? '‹' : '›'}
-                </button>
-                <button
-                  className="secondary dashboard-sidebar-new button-icon-label"
-                  type="button"
-                  onClick={createNewPlace}
-                >
-                  <PlusIcon />
-                  New
-                </button>
-              </div>
-            </div>
-            <div className="dashboard-sidebar-content">
-              {isLoading ? <SidebarSkeleton /> : null}
-              <div className="list">
-                {places.map((place) => (
-                  <button
-                    className={`list-item ${selectedPlaceId === place.id ? 'active' : ''}`}
-                    key={place.id}
-                    type="button"
-                    onClick={() => setSelectedPlaceId(place.id)}
-                  >
-                    <strong>{place.name}</strong>
-                    <span className="place-card-coordinates">
-                      {formatCoord(place.latitude)}, {formatCoord(place.longitude)}
-                    </span>
-                    <TagRow tags={place.tags} />
-                  </button>
-                ))}
-                {places.length === 0 && !isLoading ? (
-                  <div className="empty-state">
-                    <p className="muted">No favorite places yet.</p>
-                    <button className="secondary" type="button" onClick={createNewPlace}>
-                      Create your first favorite place
-                    </button>
-                  </div>
-                ) : null}
-              </div>
-            </div>
+      <EdgeTape />
+      <CornerMark label="Places survey sheet" />
+      <StatusStrip
+        error={error}
+        isRefreshing={isLoading}
+        lastUpdatedLabel={lastUpdatedLabel}
+        onRefresh={() => void loadPlaces()}
+      />
+      <UserMark
+        username={auth.session.user.username}
+        onChangePassword={changePassword}
+        onLogout={auth.logout}
+      />
+      <FieldNotebook
+        activeSection="places"
+        count={places.length}
+        newLabel="New entry"
+        pageLabel="places ledger"
+        searchPlaceholder="Find a place"
+        searchRef={searchRef}
+        searchValue={placeQuery}
+        title="Field notebook"
+        onNewEntry={createNewPlace}
+        onSearchChange={setPlaceQuery}
+      >
+        {isLoading ? <NotebookSkeleton /> : null}
+        {filteredPlaces.map((place) => (
+          <button
+            className={`notebook-entry${selectedPlaceId === place.id ? ' active' : ''}`}
+            key={place.id}
+            type="button"
+            onClick={() => selectPlace(place.id)}
+          >
+            <strong>{place.name}</strong>
+            <span className="font-mono">
+              {formatCoord(place.latitude)}, {formatCoord(place.longitude)}
+            </span>
+            <TagRow tags={place.tags} />
+          </button>
+        ))}
+        {filteredPlaces.length === 0 && !isLoading ? (
+          <div className="notebook-empty">
+            <p className="muted no-margin">No matching places on this page.</p>
+            <button className="secondary" type="button" onClick={createNewPlace}>
+              Create your first favorite place
+            </button>
           </div>
-        </aside>
-
-        <section aria-busy={isLoading} className="grid">
-          {isLoading ? <div className="loading-shimmer" /> : null}
-          <PlaceEditor
-            draftCoords={draftPlaceCoords ?? undefined}
-            key={selectedPlace?.id ?? 'new-place'}
-            onDelete={selectedPlace == null ? undefined : () => void deletePlace(selectedPlace.id)}
-            onSave={(input) => void savePlace(input)}
-            place={selectedPlace}
-          />
-        </section>
-      </section>
-    </DashboardShell>
+        ) : null}
+      </FieldNotebook>
+      <IndexCard
+        stamp={selectedPlace == null ? 'draft' : 'archived favorite'}
+        subtitle="Pin the exact coordinates, add field notes, then save the card."
+        title={selectedPlace?.name ?? 'New place'}
+        variant="place"
+        meta={
+          <div className="index-card-coordinate-grid font-mono">
+            <span>lat {formatCoord(activeCoords.latitude)}</span>
+            <span>lng {formatCoord(activeCoords.longitude)}</span>
+          </div>
+        }
+      >
+        <PlaceEditor
+          draftCoords={activeCoords}
+          key={selectedPlace?.id ?? 'new-place'}
+          onDelete={selectedPlace == null ? undefined : () => void deletePlace(selectedPlace.id)}
+          onSave={(input) => void savePlace(input)}
+          place={selectedPlace}
+          showHeader={false}
+          showMap={false}
+        />
+      </IndexCard>
+      <ZoomStack
+        onFit={() => viewportControls?.fit()}
+        onZoomIn={() => viewportControls?.zoomIn()}
+        onZoomOut={() => viewportControls?.zoomOut()}
+      />
+      <ScaleBar />
+      <KeyboardCheatsheet isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
+    </Stage>
   );
 }
 
-function SidebarSkeleton() {
+function NotebookSkeleton() {
   return (
     <div aria-label="Loading places" className="skeleton-list" role="status">
       <span className="skeleton-line wide" />
       <span className="skeleton-line" />
       <span className="skeleton-line short" />
     </div>
-  );
-}
-
-function PlusIcon() {
-  return (
-    <svg aria-hidden="true" className="lucide-icon" fill="none" viewBox="0 0 24 24">
-      <path d="M12 5v14" />
-      <path d="M5 12h14" />
-    </svg>
   );
 }
 
@@ -204,4 +291,41 @@ function TagRow({ tags }: { tags: string[] }) {
       ))}
     </span>
   );
+}
+
+function useRelativeUpdatedLabel(lastUpdatedAt: Date | null): string | null {
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (lastUpdatedAt == null) {
+      return;
+    }
+
+    setNow(Date.now());
+    const intervalId = window.setInterval(() => setNow(Date.now()), 30_000);
+
+    return () => window.clearInterval(intervalId);
+  }, [lastUpdatedAt]);
+
+  if (lastUpdatedAt == null) {
+    return null;
+  }
+
+  const elapsedSeconds = Math.max(0, Math.floor((now - lastUpdatedAt.getTime()) / 1000));
+
+  if (elapsedSeconds < 10) {
+    return 'just now';
+  }
+
+  if (elapsedSeconds < 60) {
+    return `${elapsedSeconds}s ago`;
+  }
+
+  const elapsedMinutes = Math.floor(elapsedSeconds / 60);
+
+  if (elapsedMinutes < 60) {
+    return `${elapsedMinutes}m ago`;
+  }
+
+  return lastUpdatedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }

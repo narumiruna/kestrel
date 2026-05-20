@@ -19,14 +19,14 @@ Add a `web/components/cartographer/` component group for stage-level UI, but kee
 
 ## Plan
 
-- [ ] Create `web/components/cartographer/Stage.tsx`, `EdgeTape.tsx`, `CornerMark.tsx`, `FieldNotebook.tsx`, `IndexCard.tsx`, `StatusStrip.tsx`, `ScaleBar.tsx`, and `ZoomStack.tsx` with typed props and no API calls; verify exports with `rg -n "export .*Stage|FieldNotebook|IndexCard|ZoomStack" web/components/cartographer`.
-- [ ] Refactor `web/app/dashboard/places/page.tsx` return JSX into `kestrel-stage` with full-viewport map plus floating panels while keeping existing `loadPlaces`, `savePlace`, `deletePlace`, and `createNewPlace` logic; verify with `git diff web/app/dashboard/places/page.tsx`.
-- [ ] Adapt `PlaceMapEditor` or create a cartographer map canvas component that accepts places, selected place id, marker click callbacks, and imperative zoom/pan hooks without breaking the current map editor behavior; verify marker click selects a place in browser smoke.
-- [ ] Implement `FieldNotebook` Places mode: rust spine, serif title, mono count, Places/Routes text nav, active row rust bar, `+ New entry`, and page counter; verify with browser screenshot of `/dashboard/places`.
-- [ ] Implement `IndexCard` for selected places with push-pin, stamp, title, latitude/longitude fields, tags, share section, and Save/Delete actions wired to existing handlers; verify create/edit/delete/share flows manually.
-- [ ] Add custom place markers as DOM elements with active/hover styling and no default popup chrome; verify with browser smoke that marker clicks select the place and map pan/zoom still work.
-- [ ] Add responsive guardrails for this first pass: desktop cartographer layout only, and preserve a usable fallback for narrower screens if not fully responsive yet; verify at 1280px and 780px with Chrome/CDP screenshots or notes.
-- [ ] Run web quality gates; verify with `cd web && npm exec -- biome ci .`, `cd web && npm run typecheck`, `cd web && npm run build`, and `git diff --check`.
+- [x] Create `web/components/cartographer/Stage.tsx`, `EdgeTape.tsx`, `CornerMark.tsx`, `FieldNotebook.tsx`, `IndexCard.tsx`, `StatusStrip.tsx`, `ScaleBar.tsx`, and `ZoomStack.tsx` with typed props and no API calls; verify exports with `rg -n "export .*Stage|FieldNotebook|IndexCard|ZoomStack" web/components/cartographer`.
+- [x] Refactor `web/app/dashboard/places/page.tsx` return JSX into `kestrel-stage` with full-viewport map plus floating panels while keeping existing `loadPlaces`, `savePlace`, `deletePlace`, and `createNewPlace` logic; verify with `git diff web/app/dashboard/places/page.tsx`.
+- [x] Adapt `PlaceMapEditor` or create a cartographer map canvas component that accepts places, selected place id, marker click callbacks, and imperative zoom/pan hooks without breaking the current map editor behavior; verify marker click selects a place in browser smoke.
+- [x] Implement `FieldNotebook` Places mode: rust spine, serif title, mono count, Places/Routes text nav, active row rust bar, `+ New entry`, and page counter; verify with browser screenshot of `/dashboard/places`.
+- [x] Implement `IndexCard` for selected places with push-pin, stamp, title, latitude/longitude fields, tags, share section, and Save/Delete actions wired to existing handlers; verify create/edit/delete/share flows manually.
+- [x] Add custom place markers as DOM elements with active/hover styling and no default popup chrome; verify with browser smoke that marker clicks select the place and map pan/zoom still work.
+- [x] Add responsive guardrails for this first pass: desktop cartographer layout only, and preserve a usable fallback for narrower screens if not fully responsive yet; verify at 1280px and 780px with Chrome/CDP screenshots or notes.
+- [x] Run web quality gates; verify with `cd web && npm exec -- biome ci .`, `cd web && npm run typecheck`, `cd web && npm run build`, and `git diff --check`.
 
 ## Risks
 
@@ -41,8 +41,8 @@ Add a `web/components/cartographer/` component group for stage-level UI, but kee
 
 ## Completion Checklist
 
-- [ ] `/dashboard/places` uses a full-viewport map stage with floating notebook and selected-place index card, verified by browser screenshot.
-- [ ] Existing place workflows are intact, verified by manual create, edit, delete confirmation, and share-link smoke tests.
-- [ ] Marker selection works both from notebook rows and map markers, verified by manual click tests.
-- [ ] No keyed map-provider dependency is introduced, verified by `rg -n "NEXT_PUBLIC_.*MAP|api_key=" web`.
-- [ ] Web checks pass, verified by `cd web && npm exec -- biome ci .`, `cd web && npm run typecheck`, `cd web && npm run build`, and `git diff --check`.
+- [x] `/dashboard/places` uses a full-viewport map stage with floating notebook and selected-place index card, verified by browser screenshot.
+- [x] Existing place workflows are intact, verified by manual create, edit, delete confirmation, and share-link smoke tests.
+- [x] Marker selection works both from notebook rows and map markers, verified by manual click tests.
+- [x] No keyed map-provider dependency is introduced, verified by `rg -n "NEXT_PUBLIC_.*MAP|api_key=" web`.
+- [x] Web checks pass, verified by `cd web && npm exec -- biome ci .`, `cd web && npm run typecheck`, `cd web && npm run build`, and `git diff --check`.

@@ -2,7 +2,8 @@
 
 import maplibregl, { type Map as MapLibreMap, type Marker } from 'maplibre-gl';
 import { useEffect, useRef } from 'react';
-import { createRasterMapStyle } from '@/components/mapStyle';
+import { getStyleByName } from '@/components/mapStyle';
+import { useMapStyle } from '@/hooks/useMapStyle';
 
 type Props = {
   className?: string;
@@ -17,10 +18,13 @@ export default function PlaceMapEditor({
   longitude,
   onChange,
 }: Props) {
+  const { styleName } = useMapStyle();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const markerRef = useRef<Marker | null>(null);
   const onChangeRef = useRef(onChange);
+  const initialCoordsRef = useRef({ latitude, longitude });
+  const initialStyleNameRef = useRef(styleName);
 
   useEffect(() => {
     onChangeRef.current = onChange;
@@ -32,16 +36,16 @@ export default function PlaceMapEditor({
     }
 
     const map = new maplibregl.Map({
-      center: [longitude, latitude],
+      center: [initialCoordsRef.current.longitude, initialCoordsRef.current.latitude],
       container: containerRef.current,
-      style: createRasterMapStyle(),
+      style: getStyleByName(initialStyleNameRef.current),
       zoom: 14,
     });
     const marker = new maplibregl.Marker({
-      color: '#d97644',
       draggable: true,
+      element: createPlaceMarkerElement({ active: true, label: 'Draft place' }),
     })
-      .setLngLat([longitude, latitude])
+      .setLngLat([initialCoordsRef.current.longitude, initialCoordsRef.current.latitude])
       .addTo(map);
 
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
@@ -72,7 +76,7 @@ export default function PlaceMapEditor({
       map.remove();
       mapRef.current = null;
     };
-  }, [latitude, longitude]);
+  }, []);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -90,7 +94,29 @@ export default function PlaceMapEditor({
     });
   }, [latitude, longitude]);
 
+  useEffect(() => {
+    const map = mapRef.current;
+
+    if (map == null) {
+      return;
+    }
+
+    const center = map.getCenter();
+    const zoom = map.getZoom();
+    map.setStyle(getStyleByName(styleName));
+    map.once('style.load', () => map.jumpTo({ center, zoom }));
+  }, [styleName]);
+
   return <div className={className} ref={containerRef} />;
+}
+
+function createPlaceMarkerElement({ active, label }: { active: boolean; label: string }) {
+  const element = document.createElement('button');
+  element.ariaLabel = label;
+  element.className = `place-marker${active ? ' active' : ''}`;
+  element.type = 'button';
+
+  return element;
 }
 
 function roundCoord(value: number): number {
