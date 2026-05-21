@@ -219,7 +219,11 @@ export default function RoutesDashboardPage() {
         ))}
         {filteredRoutes.length === 0 && !isLoading ? (
           <div className="notebook-empty">
-            <p className="muted no-margin">No matching routes on this page.</p>
+            <p className="muted no-margin">
+              {routes.length === 0
+                ? 'No routes yet. Use New route to start with map pins or favorites.'
+                : 'No routes match this search.'}
+            </p>
           </div>
         ) : null}
       </FieldNotebook>

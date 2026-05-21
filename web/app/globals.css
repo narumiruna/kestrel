@@ -5609,3 +5609,27 @@ button.is-loading {
 .cartographer-stage .place-editor-footer {
   background: rgb(255 249 236 / 92%);
 }
+
+/* Softer active notebook rows: keep selection clear without a heavy filled card. */
+.cartographer-stage .notebook-entry.active {
+  background: rgb(180 95 50 / 10%);
+  border-color: rgb(180 95 50 / 34%);
+  box-shadow: none;
+  color: var(--text-primary);
+}
+
+.cartographer-stage .notebook-entry.active::before {
+  background: var(--accent);
+  opacity: 1;
+}
+
+.cartographer-stage .notebook-entry.active strong,
+.cartographer-stage .notebook-entry.active .font-mono {
+  color: var(--text-primary);
+}
+
+.cartographer-stage .notebook-entry.active .chip {
+  background: rgb(255 249 236 / 72%);
+  border-color: rgb(180 95 50 / 24%);
+  color: var(--accent-hover);
+}
