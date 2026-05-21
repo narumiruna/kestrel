@@ -40,6 +40,7 @@ export default function RoutesDashboardPage() {
   const [routeQuery, setRouteQuery] = useState('');
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [viewportControls, setViewportControls] = useState<RouteMapControls | null>(null);
+  const [fitRequest, setFitRequest] = useState(0);
   const [draftWaypoints, setDraftWaypoints] = useState<RouteWaypoint[]>([]);
   const [selectedWaypointIndex, setSelectedWaypointIndex] = useState<number | null>(null);
   const [focusTarget, setFocusTarget] = useState<RouteWaypoint | null>(null);
@@ -94,14 +95,19 @@ export default function RoutesDashboardPage() {
   }, [auth.isAuthenticated, auth.isHydrated, loadRoutes]);
 
   useEffect(() => {
-    setDraftWaypoints(
+    const nextWaypoints =
       selectedRoute?.currentRevision?.waypoints.map((waypoint) => ({
         latitude: waypoint.latitude,
         longitude: waypoint.longitude,
-      })) ?? [],
-    );
+      })) ?? [];
+
+    setDraftWaypoints(nextWaypoints);
     setSelectedWaypointIndex(null);
     setFocusTarget(null);
+
+    if (nextWaypoints.length > 0) {
+      setFitRequest((currentRequest) => currentRequest + 1);
+    }
   }, [selectedRoute]);
 
   const createNewRoute = useCallback(() => {
@@ -159,6 +165,7 @@ export default function RoutesDashboardPage() {
       map={
         <RouteMapEditor
           className="cartographer-map"
+          fitRequest={fitRequest}
           focusTarget={focusTarget}
           selectedWaypointIndex={selectedWaypointIndex}
           waypoints={selectedWaypoints}

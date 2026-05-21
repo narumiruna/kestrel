@@ -5348,3 +5348,76 @@ button.is-loading {
     font-size: 22px;
   }
 }
+
+/* Route editor overflow and selection-fit fixes */
+.index-card,
+.index-card-route,
+.index-card-body,
+.index-card .route-editor {
+  min-width: 0;
+  overflow-x: hidden;
+}
+
+.index-card .route-editor {
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+
+.route-editor-waypoints-section {
+  min-width: 0;
+}
+
+.route-editor-waypoints-section .route-editor-collapsible-content {
+  min-width: 0;
+}
+
+.route-editor-waypoints-section .waypoint-list {
+  box-sizing: border-box;
+  max-height: min(360px, 38vh);
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding-block: 2px;
+  scrollbar-gutter: stable;
+}
+
+.route-editor-waypoints-section .waypoint-row {
+  box-sizing: border-box;
+  min-width: 0;
+  overflow: visible;
+}
+
+.route-editor-waypoints-section .waypoint-focus {
+  min-width: 0;
+}
+
+.route-editor-waypoints-section .waypoint-name,
+.route-editor-waypoints-section .waypoint-coordinates {
+  min-width: 0;
+}
+
+.index-card .route-editor-footer {
+  box-sizing: border-box;
+  margin: 0;
+  position: sticky;
+  width: 100%;
+}
+
+@media (min-width: 1024px) {
+  .field-notebook {
+    gap: 10px;
+  }
+
+  .notebook-nav a {
+    min-height: 30px;
+    padding-block: 0;
+  }
+
+  .notebook-search input {
+    min-height: 36px;
+  }
+
+  .notebook-new-entry {
+    min-height: 56px;
+    padding-block: 8px;
+  }
+}
