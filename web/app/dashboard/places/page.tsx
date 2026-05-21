@@ -196,7 +196,6 @@ export default function PlacesDashboardPage() {
       />
       <FieldNotebook
         activeSection="places"
-        count={places.length}
         newLabel="New place"
         searchPlaceholder="Find a place"
         searchRef={searchRef}
