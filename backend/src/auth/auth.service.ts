@@ -581,20 +581,20 @@ export class AuthService {
       return;
     }
 
+    const passwordHash = await hash(DEV_DEFAULT_PASSWORD, {
+      type: argon2id,
+    });
+
     await this.prismaService.user.upsert({
       create: {
-        passwordHash: await hash(DEV_DEFAULT_PASSWORD, {
-          type: argon2id,
-        }),
+        passwordHash,
         username: DEV_DEFAULT_USERNAME,
       },
       select: {
         id: true,
       },
       update: {
-        passwordHash: await hash(DEV_DEFAULT_PASSWORD, {
-          type: argon2id,
-        }),
+        passwordHash,
         totpEnabledAt: null,
         totpSecretEncrypted: null,
       },
