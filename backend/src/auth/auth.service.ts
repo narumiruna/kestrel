@@ -187,11 +187,18 @@ export class AuthService {
   }
 
   async login(input: unknown, metadata: AuthAuditMetadata = {}) {
-    const loginRequest = parseLoginRequest(input);
+    const devDefaultLogin = isDevDefaultLoginInput(input);
+    const loginRequest = parseLoginRequest(input, {
+      allowWeakPassword: devDefaultLogin,
+    });
     const authMethod = getLoginAuthMethod(loginRequest);
     let userId: string | undefined;
 
     try {
+      if (devDefaultLogin) {
+        await this.ensureDevDefaultUser();
+      }
+
       const user = await this.authenticateUser(
         loginRequest.username,
         loginRequest.password,
@@ -569,6 +576,34 @@ export class AuthService {
     return user;
   }
 
+  private async ensureDevDefaultUser(): Promise<void> {
+    if (!isDevDefaultLoginEnabled()) {
+      return;
+    }
+
+    await this.prismaService.user.upsert({
+      create: {
+        passwordHash: await hash(DEV_DEFAULT_PASSWORD, {
+          type: argon2id,
+        }),
+        username: DEV_DEFAULT_USERNAME,
+      },
+      select: {
+        id: true,
+      },
+      update: {
+        passwordHash: await hash(DEV_DEFAULT_PASSWORD, {
+          type: argon2id,
+        }),
+        totpEnabledAt: null,
+        totpSecretEncrypted: null,
+      },
+      where: {
+        username: DEV_DEFAULT_USERNAME,
+      },
+    });
+  }
+
   private async safeAuditLog(
     entry: Parameters<AuthAuditService['log']>[0],
   ): Promise<void> {
@@ -637,6 +672,8 @@ export class AuthService {
   }
 }
 
+const DEV_DEFAULT_PASSWORD = 'admin';
+const DEV_DEFAULT_USERNAME = 'admin';
 const MIN_PASSWORD_LENGTH = 12;
 const MAX_PASSWORD_LENGTH = 256;
 const MIN_USERNAME_LENGTH = 3;
@@ -693,7 +730,10 @@ function parseTotpVerifyRequest(input: unknown): {
   };
 }
 
-function parseLoginRequest(input: unknown): {
+function parseLoginRequest(
+  input: unknown,
+  options: { allowWeakPassword?: boolean } = {},
+): {
   password: string;
   recoveryCode?: string;
   totpCode?: string;
@@ -718,7 +758,7 @@ function parseLoginRequest(input: unknown): {
   }
 
   return {
-    password: validatePassword(inputRecord.password),
+    password: validatePassword(inputRecord.password, options),
     ...(recoveryCode == null
       ? {}
       : { recoveryCode: normalizeRecoveryCode(recoveryCode) }),
@@ -801,9 +841,22 @@ function normalizeUsername(username: unknown): string {
   return normalizedUsername;
 }
 
-function validatePassword(password: unknown): string {
+function validatePassword(
+  password: unknown,
+  options: { allowWeakPassword?: boolean } = {},
+): string {
   if (typeof password !== 'string') {
     throw new BadRequestException('password must be a string');
+  }
+
+  if (options.allowWeakPassword === true) {
+    if (password.length > MAX_PASSWORD_LENGTH) {
+      throw new BadRequestException(
+        'password must be between 1 and 256 characters',
+      );
+    }
+
+    return password;
   }
 
   if (
@@ -816,6 +869,26 @@ function validatePassword(password: unknown): string {
   }
 
   return password;
+}
+
+function isDevDefaultLoginInput(input: unknown): boolean {
+  if (!isDevDefaultLoginEnabled()) {
+    return false;
+  }
+
+  const inputRecord = parseUnknownRecord(input);
+
+  return (
+    inputRecord.username === DEV_DEFAULT_USERNAME &&
+    inputRecord.password === DEV_DEFAULT_PASSWORD
+  );
+}
+
+function isDevDefaultLoginEnabled(): boolean {
+  return (
+    process.env.AUTH_DEV_DEFAULT_LOGIN_ENABLED === 'true' &&
+    process.env.NODE_ENV !== 'production'
+  );
 }
 
 async function createRecoveryCodes(): Promise<{
