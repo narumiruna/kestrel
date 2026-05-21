@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef, useState } from 'react';
 import { useMapStyle } from '@/hooks/useMapStyle';
 
 type ZoomStackProps = {
@@ -9,32 +10,115 @@ type ZoomStackProps = {
 };
 
 export function ZoomStack({ onFit, onZoomIn, onZoomOut }: ZoomStackProps) {
-  const { canToggle, label, toggleStyleName } = useMapStyle();
+  const { availableStyles, label, setStyleName, styleName } = useMapStyle();
+  const [isStyleMenuOpen, setIsStyleMenuOpen] = useState(false);
+  const styleControlRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!isStyleMenuOpen) {
+      return;
+    }
+
+    function handlePointerDown(event: PointerEvent) {
+      if (styleControlRef.current?.contains(event.target as Node) === true) {
+        return;
+      }
+
+      setIsStyleMenuOpen(false);
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setIsStyleMenuOpen(false);
+      }
+    }
+
+    window.addEventListener('pointerdown', handlePointerDown);
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('pointerdown', handlePointerDown);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isStyleMenuOpen]);
 
   return (
-    <fieldset className="zoom-stack">
-      <legend className="sr-only">Map controls</legend>
-      <button aria-label="Zoom in" type="button" onClick={onZoomIn}>
-        +
-      </button>
-      <button aria-label="Zoom out" type="button" onClick={onZoomOut}>
-        −
-      </button>
-      <button className="zoom-stack-fit" type="button" onClick={onFit}>
-        <FitIcon />
-        Fit
-      </button>
-      {canToggle ? (
-        <button className="zoom-stack-style" type="button" onClick={toggleStyleName}>
-          <BookOpenIcon />
-          <span>Map: {label}</span>
+    <div className="map-control-stack">
+      <fieldset className="map-control-group zoom-control-group">
+        <legend className="sr-only">Zoom controls</legend>
+        <button aria-label="Zoom in" type="button" onClick={onZoomIn}>
+          <PlusIcon />
         </button>
-      ) : null}
-    </fieldset>
+        <span aria-hidden className="map-control-divider" />
+        <button aria-label="Zoom out" type="button" onClick={onZoomOut}>
+          <MinusIcon />
+        </button>
+      </fieldset>
+
+      <fieldset className="map-control-group fit-control-group">
+        <legend className="sr-only">Viewport controls</legend>
+        <button aria-label="Fit to all pins" title="Fit to all pins" type="button" onClick={onFit}>
+          <MaximizeIcon />
+        </button>
+      </fieldset>
+
+      <div className="map-style-control" ref={styleControlRef}>
+        <button
+          aria-expanded={isStyleMenuOpen}
+          aria-haspopup="menu"
+          className="map-style-trigger"
+          type="button"
+          onClick={() => setIsStyleMenuOpen((current) => !current)}
+        >
+          <MapIcon />
+          <span>{label}</span>
+          <ChevronDownIcon />
+        </button>
+        {isStyleMenuOpen ? (
+          <div className="map-style-menu" role="menu">
+            {availableStyles.map((styleOption) => (
+              <button
+                aria-checked={styleOption.name === styleName}
+                className={styleOption.name === styleName ? 'active' : ''}
+                key={styleOption.name}
+                role="menuitemradio"
+                type="button"
+                onClick={() => {
+                  setStyleName(styleOption.name);
+                  setIsStyleMenuOpen(false);
+                }}
+              >
+                <span aria-hidden className="map-style-check">
+                  {styleOption.name === styleName ? '✓' : ''}
+                </span>
+                {styleOption.label}
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </div>
+    </div>
   );
 }
 
-function FitIcon() {
+function PlusIcon() {
+  return (
+    <svg aria-hidden="true" className="lucide-icon" fill="none" viewBox="0 0 24 24">
+      <path d="M12 5v14" />
+      <path d="M5 12h14" />
+    </svg>
+  );
+}
+
+function MinusIcon() {
+  return (
+    <svg aria-hidden="true" className="lucide-icon" fill="none" viewBox="0 0 24 24">
+      <path d="M5 12h14" />
+    </svg>
+  );
+}
+
+function MaximizeIcon() {
   return (
     <svg aria-hidden="true" className="lucide-icon" fill="none" viewBox="0 0 24 24">
       <path d="M8 3H5a2 2 0 0 0-2 2v3" />
@@ -45,12 +129,20 @@ function FitIcon() {
   );
 }
 
-function BookOpenIcon() {
+function MapIcon() {
   return (
     <svg aria-hidden="true" className="lucide-icon" fill="none" viewBox="0 0 24 24">
-      <path d="M12 7v14" />
-      <path d="M3 18a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4v13a3 3 0 0 0-3-3z" />
-      <path d="M21 18a1 1 0 0 0 1-1V5a1 1 0 0 0-1-1h-5a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3z" />
+      <path d="M14.5 4.5 9.5 2 3 5.5v16l6.5-3.5 5 2.5 6.5-3.5v-16z" />
+      <path d="M9.5 2v16" />
+      <path d="M14.5 4.5v16" />
+    </svg>
+  );
+}
+
+function ChevronDownIcon() {
+  return (
+    <svg aria-hidden="true" className="lucide-icon" fill="none" viewBox="0 0 24 24">
+      <path d="m6 9 6 6 6-6" />
     </svg>
   );
 }
