@@ -221,7 +221,11 @@ export default function PlacesDashboardPage() {
         ))}
         {filteredPlaces.length === 0 && !isLoading ? (
           <div className="notebook-empty">
-            <p className="muted no-margin">No matching places on this page.</p>
+            <p className="muted no-margin">
+              {places.length === 0
+                ? 'No places yet. Use New place to save your first coordinate.'
+                : 'No places match this search.'}
+            </p>
           </div>
         ) : null}
       </FieldNotebook>
