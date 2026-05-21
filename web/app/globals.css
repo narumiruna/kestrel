@@ -5528,3 +5528,84 @@ button.is-loading {
     font-size: 16px;
   }
 }
+
+/* Keep the cartographer workspace on the intended cream paper palette. */
+.cartographer-stage {
+  --paper-cream: #f4ead5;
+  --paper-parchment: #ead9b8;
+  --paper-card: #fff9ec;
+  --paper-card-warm: #f8edd7;
+  --ink-black: #22180f;
+  --ink-brown: #5f4a35;
+  --ink-muted: #9a7d5d;
+  --kestrel-rust: #b45f32;
+  --kestrel-rust-dark: #8f4726;
+  --kestrel-rust-soft: #ead1b9;
+  --bg-canvas: var(--paper-cream);
+  --bg-surface: var(--paper-card);
+  --bg-subtle: var(--paper-card-warm);
+  --border: #dbc9a9;
+  --border-strong: #b99f79;
+  --text-primary: var(--ink-black);
+  --text-secondary: var(--ink-brown);
+  --text-muted: var(--ink-muted);
+  --accent: var(--kestrel-rust);
+  --accent-hover: var(--kestrel-rust-dark);
+  --accent-soft: var(--kestrel-rust-soft);
+  --bg-canvas-end: #ead8b6;
+  --bg-header-end: #ead8b6;
+  --overlay-surface: rgb(255 249 236 / 95%);
+  --sticky-surface: rgb(255 249 236 / 86%);
+  --toolbar-bg: rgb(248 237 215 / 82%);
+  color-scheme: light;
+}
+
+/* Light aliases for form controls inside the cartographer workspace. */
+.cartographer-stage {
+  --color-bg: var(--paper-cream);
+  --color-surface-bg: var(--paper-cream);
+  --color-surface: var(--paper-card);
+  --color-secondary: var(--accent-soft);
+  --color-text: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-border: var(--border);
+  --color-border-focus: var(--accent);
+  --color-primary: var(--accent);
+  --color-primary-dark: var(--accent-hover);
+  --color-primary-text: #ffffff;
+  --color-danger: var(--danger);
+  --color-danger-border: var(--danger);
+  --color-danger-text: var(--danger);
+}
+
+.cartographer-stage input,
+.cartographer-stage select,
+.cartographer-stage textarea {
+  background: rgb(255 253 247 / 90%);
+  border-color: var(--cloud-border-soft, var(--border));
+  color: var(--text-primary);
+}
+
+.cartographer-stage input:focus,
+.cartographer-stage select:focus,
+.cartographer-stage textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgb(180 95 50 / 16%);
+}
+
+.cartographer-stage label,
+.cartographer-stage .muted,
+.cartographer-stage .route-editor-collapsible summary .muted {
+  color: var(--text-secondary);
+}
+
+.cartographer-stage .route-editor-collapsible summary > span:first-child,
+.cartographer-stage .route-editor-section h3,
+.cartographer-stage .place-editor-share-section summary > span:first-child {
+  color: var(--text-primary);
+}
+
+.cartographer-stage .route-editor-footer,
+.cartographer-stage .place-editor-footer {
+  background: rgb(255 249 236 / 92%);
+}

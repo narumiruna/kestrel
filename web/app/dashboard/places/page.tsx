@@ -197,7 +197,7 @@ export default function PlacesDashboardPage() {
       <FieldNotebook
         activeSection="places"
         count={places.length}
-        newLabel="New entry"
+        newLabel="New place"
         searchPlaceholder="Find a place"
         searchRef={searchRef}
         searchValue={placeQuery}
@@ -222,9 +222,6 @@ export default function PlacesDashboardPage() {
         {filteredPlaces.length === 0 && !isLoading ? (
           <div className="notebook-empty">
             <p className="muted no-margin">No matching places on this page.</p>
-            <button className="secondary" type="button" onClick={createNewPlace}>
-              Create your first favorite place
-            </button>
           </div>
         ) : null}
       </FieldNotebook>
