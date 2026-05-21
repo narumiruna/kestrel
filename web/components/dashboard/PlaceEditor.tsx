@@ -151,7 +151,15 @@ export default function PlaceEditor({
         Description
         <textarea value={description} onChange={(event) => setDescription(event.target.value)} />
       </label>
-      <PlaceSharePanel place={place} />
+      <details className="route-editor-section route-editor-collapsible route-editor-secondary-section place-editor-share-section">
+        <summary>
+          <span>Publishing / share</span>
+          <span className="muted">Public link settings</span>
+        </summary>
+        <div className="route-editor-collapsible-content">
+          <PlaceSharePanel place={place} />
+        </div>
+      </details>
       <footer className="route-editor-footer place-editor-footer">
         <div className="row">
           {onDelete == null ? null : (
