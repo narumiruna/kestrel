@@ -21,11 +21,15 @@ export default function PlaceEditor({
   onDelete,
   onSave,
   place,
+  showHeader = true,
+  showMap = true,
 }: {
   draftCoords?: { latitude: number; longitude: number };
   onDelete?: () => void;
   onSave: (input: PlaceInput) => void;
   place: Place | null;
+  showHeader?: boolean;
+  showMap?: boolean;
 }) {
   const [name, setName] = useState(place?.name ?? '');
   const [latitude, setLatitude] = useState(
@@ -53,6 +57,15 @@ export default function PlaceEditor({
     [draftCoords, latitude, longitude, place],
   );
 
+  useEffect(() => {
+    if (draftCoords == null) {
+      return;
+    }
+
+    setLatitude(formatCoordinateInput(draftCoords.latitude));
+    setLongitude(formatCoordinateInput(draftCoords.longitude));
+  }, [draftCoords]);
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
@@ -76,23 +89,36 @@ export default function PlaceEditor({
     }
   }
 
+  function confirmDelete() {
+    if (window.confirm('Delete this place? This cannot be undone.')) {
+      onDelete?.();
+    }
+  }
+
   return (
-    <form className="panel stack place-editor" onSubmit={submit}>
-      <header className="place-editor-header">
-        <div className="breadcrumb">
-          Places / <span>{place?.name ?? 'New place'}</span>
-        </div>
-        <h2>{place == null ? 'New place' : place.name}</h2>
-      </header>
+    <form
+      className={`${showMap ? 'panel ' : ''}stack place-editor${showMap ? '' : ' place-editor-embedded'}`}
+      onSubmit={submit}
+    >
+      {showHeader ? (
+        <header className="place-editor-header">
+          <div className="breadcrumb">
+            Places / <span>{place?.name ?? 'New place'}</span>
+          </div>
+          <h2>{place == null ? 'New place' : place.name}</h2>
+        </header>
+      ) : null}
       {error == null ? null : <div className="error">{error}</div>}
-      <PlaceMapEditor
-        latitude={mapCoords.latitude}
-        longitude={mapCoords.longitude}
-        onChange={(coords) => {
-          setLatitude(formatCoordinateInput(coords.latitude));
-          setLongitude(formatCoordinateInput(coords.longitude));
-        }}
-      />
+      {showMap ? (
+        <PlaceMapEditor
+          latitude={mapCoords.latitude}
+          longitude={mapCoords.longitude}
+          onChange={(coords) => {
+            setLatitude(formatCoordinateInput(coords.latitude));
+            setLongitude(formatCoordinateInput(coords.longitude));
+          }}
+        />
+      ) : null}
       <label>
         Name
         <input required value={name} onChange={(event) => setName(event.target.value)} />
@@ -129,7 +155,7 @@ export default function PlaceEditor({
       <footer className="route-editor-footer place-editor-footer">
         <div className="row">
           {onDelete == null ? null : (
-            <button className="danger" disabled={isSaving} type="button" onClick={onDelete}>
+            <button className="danger" disabled={isSaving} type="button" onClick={confirmDelete}>
               Delete
             </button>
           )}
