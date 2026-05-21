@@ -220,9 +220,6 @@ export default function RoutesDashboardPage() {
         {filteredRoutes.length === 0 && !isLoading ? (
           <div className="notebook-empty">
             <p className="muted no-margin">No matching routes on this page.</p>
-            <button className="secondary" type="button" onClick={createNewRoute}>
-              Create your first route
-            </button>
           </div>
         ) : null}
       </FieldNotebook>
