@@ -4195,3 +4195,131 @@ button.is-loading {
   min-inline-size: 0;
   padding: 0;
 }
+
+/* Compact, grouped map controls */
+.map-control-stack {
+  align-items: end;
+  bottom: 80px;
+  display: grid;
+  gap: 8px;
+  pointer-events: none;
+  position: fixed;
+  right: 16px;
+  z-index: 20;
+}
+
+.map-control-group,
+.map-style-control {
+  pointer-events: auto;
+}
+
+.map-control-group {
+  backdrop-filter: blur(10px);
+  background: rgb(252 247 237 / 95%);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 10px 28px rgb(34 24 15 / 14%);
+  display: grid;
+  margin: 0;
+  min-inline-size: 0;
+  overflow: hidden;
+  padding: 0;
+  width: 40px;
+}
+
+.map-control-group button,
+.map-style-trigger,
+.map-style-menu button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  color: var(--text-primary);
+  display: inline-flex;
+  font-family: var(--font-sans), Inter, ui-sans-serif, system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  gap: 6px;
+  height: 36px;
+  justify-content: center;
+  min-height: 36px;
+  padding: 0;
+  writing-mode: horizontal-tb;
+}
+
+.map-control-group button:hover:not(:disabled),
+.map-style-trigger:hover:not(:disabled),
+.map-style-menu button:hover:not(:disabled),
+.map-style-menu button.active {
+  background: var(--accent-soft);
+  box-shadow: none;
+  color: var(--accent-hover);
+  transform: none;
+}
+
+.map-control-divider {
+  background: var(--border);
+  display: block;
+  height: 1px;
+  margin: 0 6px;
+}
+
+.map-control-group .lucide-icon,
+.map-style-control .lucide-icon {
+  height: 16px;
+  stroke-width: 1.8;
+  width: 16px;
+}
+
+.map-style-control {
+  position: relative;
+}
+
+.map-style-trigger {
+  backdrop-filter: blur(10px);
+  background: rgb(252 247 237 / 95%);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 10px 28px rgb(34 24 15 / 14%);
+  min-width: 116px;
+  padding: 0 10px;
+  white-space: nowrap;
+}
+
+.map-style-menu {
+  backdrop-filter: blur(10px);
+  background: rgb(252 247 237 / 98%);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  bottom: calc(100% + 8px);
+  box-shadow: 0 10px 28px rgb(34 24 15 / 14%);
+  display: grid;
+  min-width: 132px;
+  overflow: hidden;
+  padding: 4px;
+  position: absolute;
+  right: 0;
+}
+
+.map-style-menu button {
+  border-radius: 7px;
+  justify-content: flex-start;
+  padding: 0 10px;
+  text-align: left;
+}
+
+.map-style-check {
+  color: var(--accent-hover);
+  display: inline-block;
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 12px;
+  width: 1rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  .map-control-group,
+  .map-style-trigger,
+  .map-style-menu {
+    background: rgb(42 33 24 / 95%);
+  }
+}

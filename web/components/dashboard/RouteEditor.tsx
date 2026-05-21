@@ -73,7 +73,7 @@ export default function RouteEditor({
       ? internalSelectedWaypointIndex
       : controlledSelectedWaypointIndex;
   const setWaypoints = onWaypointsChange ?? setInternalWaypoints;
-  const routeBuilderHint = getRouteBuilderHint(waypoints.length, places.length);
+  const routeBuilderHint = getRouteBuilderHint(waypoints.length, places.length, mapMode);
   const saveDisabledReason = getSaveDisabledReason(waypoints.length);
   const favoritePickerMode = waypoints.length === 0 ? 'start' : 'append';
 
@@ -239,12 +239,7 @@ export default function RouteEditor({
               </span>
             </div>
           </>
-        ) : (
-          <div className="route-map-info-banner">
-            <InfoIcon />
-            Tap the background map to add a waypoint. Drag map pins to adjust the route.
-          </div>
-        )}
+        ) : null}
 
         <details className="route-editor-collapsible route-editor-waypoints-section" open>
           <summary>
@@ -538,26 +533,15 @@ function getWaypointKey(waypoint: RouteWaypoint, index: number): string {
 }
 
 function formatWaypointSummary(waypoints: RouteWaypoint[]): string {
-  const firstWaypoint = waypoints[0];
-  const lastWaypoint = waypoints.at(-1);
-
-  if (firstWaypoint == null || lastWaypoint == null) {
+  if (waypoints.length === 0) {
     return 'Start by adding a point';
   }
 
   if (waypoints.length === 1) {
-    return `Starts at ${formatShortCoord(firstWaypoint.latitude)}, ${formatShortCoord(
-      firstWaypoint.longitude,
-    )}`;
+    return 'Add one more waypoint to save';
   }
 
-  return `Start at ${formatShortCoord(firstWaypoint.latitude)}, end at ${formatShortCoord(
-    lastWaypoint.latitude,
-  )}`;
-}
-
-function formatShortCoord(value: number | string): string {
-  return Number(value).toFixed(2);
+  return 'Current route order';
 }
 
 function getWaypointLabel(index: number, waypointCount: number): string {
@@ -572,7 +556,15 @@ function getWaypointLabel(index: number, waypointCount: number): string {
   return `Stop ${index + 1}`;
 }
 
-function getRouteBuilderHint(waypointCount: number, placeCount: number): string {
+function getRouteBuilderHint(
+  waypointCount: number,
+  placeCount: number,
+  mapMode: 'background' | 'embedded',
+): string {
+  if (mapMode === 'background' && waypointCount >= 2) {
+    return 'Tap the background map to add a waypoint. Drag map pins to adjust the route.';
+  }
+
   if (waypointCount === 0) {
     return placeCount === 0
       ? 'Start by clicking the map to add your first waypoint.'
