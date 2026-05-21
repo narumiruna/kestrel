@@ -4044,7 +4044,11 @@ button.is-loading {
 
 /* Field notebook cleanup and fixed map controls */
 .field-notebook {
-  padding-top: 16px;
+  padding: 16px;
+}
+
+.field-notebook-spine {
+  display: none;
 }
 
 .notebook-nav {
@@ -4324,18 +4328,19 @@ button.is-loading {
   }
 }
 
-/* Edge-to-edge cartographer layout */
+/* Floating cartographer cards over a full-bleed map */
 @media (min-width: 1024px) {
   .cartographer-stage {
     height: 100vh;
     min-height: 100vh;
+    overflow: hidden;
   }
 
   .cartographer-map-layer,
   .cartographer-paper-vignette {
     bottom: 0;
-    left: 320px;
-    right: 380px;
+    left: 0;
+    right: 0;
     top: 0;
   }
 
@@ -4346,32 +4351,33 @@ button.is-loading {
   }
 
   .field-notebook {
-    border: 0;
-    border-radius: 0;
-    border-right: 1px solid var(--border);
-    bottom: 0;
-    box-shadow: 8px 0 24px rgb(34 24 15 / 8%);
-    left: 0;
+    background: var(--paper-card);
+    border: 1px solid var(--border-strong);
+    border-radius: 16px;
+    bottom: 16px;
+    box-shadow: 0 1px 2px rgb(0 0 0 / 4%);
+    left: 16px;
     max-height: none;
     padding: 18px 16px;
     position: fixed;
-    top: 0;
+    top: 16px;
     width: 320px;
     z-index: 12;
   }
 
   .index-card {
-    border: 0;
-    border-left: 1px solid var(--border);
-    border-radius: 0;
-    bottom: 0;
-    box-shadow: -8px 0 24px rgb(34 24 15 / 8%);
+    background: var(--overlay-surface);
+    border: 1px solid var(--border-strong);
+    border-radius: 16px;
+    bottom: 16px;
+    box-shadow: 0 1px 2px rgb(0 0 0 / 4%);
     max-height: none;
+    overflow: auto;
     padding: 22px;
     padding-top: 34px;
     position: fixed;
-    right: 0;
-    top: 0;
+    right: 16px;
+    top: 16px;
     width: 380px;
     z-index: 12;
   }
@@ -4381,17 +4387,18 @@ button.is-loading {
   }
 
   .status-strip {
-    left: calc(320px + ((100vw - 700px) / 2));
-    max-width: min(42rem, calc(100vw - 732px));
+    left: 50%;
+    max-width: min(42rem, calc(100vw - 32px));
     position: fixed;
     top: 16px;
+    transform: translateX(-50%);
     z-index: 30;
   }
 
   .user-mark {
     position: fixed;
-    right: 396px;
-    top: 16px;
+    right: 412px;
+    top: 64px;
     z-index: 31;
   }
 
@@ -4403,7 +4410,7 @@ button.is-loading {
 
   .scale-bar {
     bottom: 16px;
-    left: 336px;
+    left: 352px;
   }
 }
 
@@ -4552,12 +4559,6 @@ button.is-loading {
   .map-control-bar,
   .map-style-menu {
     background: rgb(42 33 24 / 95%);
-  }
-}
-
-@media (min-width: 1024px) {
-  .user-mark {
-    top: 64px;
   }
 }
 
