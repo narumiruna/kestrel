@@ -57,7 +57,17 @@ export function FieldNotebook({
         />
       </label>
       <button className="notebook-new-entry" type="button" onClick={onNewEntry}>
-        + {newLabel}
+        <span aria-hidden className="notebook-new-entry-icon">
+          +
+        </span>
+        <span>
+          <strong>{newLabel}</strong>
+          <small>
+            {activeSection === 'routes'
+              ? 'Create from map pins or favorites'
+              : 'Save a place with coordinates'}
+          </small>
+        </span>
       </button>
       <div className="notebook-list">{children}</div>
     </aside>

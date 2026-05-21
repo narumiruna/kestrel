@@ -254,7 +254,8 @@ function syncMarkers({
 
 function createMarkerElement({ index, waypointCount }: { index: number; waypointCount: number }) {
   const element = document.createElement('button');
-  element.className = 'route-marker';
+  const positionClass = getWaypointMarkerPositionClass(index, waypointCount);
+  element.className = `route-marker ${positionClass}`;
   element.textContent = getWaypointShortLabel(index, waypointCount);
   element.type = 'button';
 
@@ -269,14 +270,26 @@ function updateMarkerSelection(markers: Marker[], selectedWaypointIndex: number 
 
 function getWaypointShortLabel(index: number, waypointCount: number): string {
   if (index === 0) {
-    return 'S';
+    return '1';
   }
 
   if (index === waypointCount - 1) {
-    return 'E';
+    return '⚑';
   }
 
   return `${index + 1}`;
+}
+
+function getWaypointMarkerPositionClass(index: number, waypointCount: number): string {
+  if (index === 0) {
+    return 'route-marker-start';
+  }
+
+  if (index === waypointCount - 1) {
+    return 'route-marker-end';
+  }
+
+  return 'route-marker-middle';
 }
 
 function fitWaypoints(map: MapLibreMap, waypoints: RouteWaypoint[]) {
@@ -316,6 +329,22 @@ function syncLineLayer(map: MapLibreMap, waypoints: RouteWaypoint[]) {
     });
   }
 
+  if (map.getLayer(`${LINE_LAYER_ID}-shadow`) == null) {
+    map.addLayer({
+      id: `${LINE_LAYER_ID}-shadow`,
+      layout: {
+        'line-cap': 'round',
+        'line-join': 'round',
+      },
+      paint: {
+        'line-color': 'rgba(53, 39, 28, 0.24)',
+        'line-width': 7,
+      },
+      source: LINE_SOURCE_ID,
+      type: 'line',
+    });
+  }
+
   if (map.getLayer(LINE_LAYER_ID) == null) {
     map.addLayer({
       id: LINE_LAYER_ID,
@@ -325,7 +354,7 @@ function syncLineLayer(map: MapLibreMap, waypoints: RouteWaypoint[]) {
       },
       paint: {
         'line-color': '#d97644',
-        'line-width': 4,
+        'line-width': 3.5,
       },
       source: LINE_SOURCE_ID,
       type: 'line',
