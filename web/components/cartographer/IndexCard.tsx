@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 type IndexCardProps = {
   actions?: ReactNode;
   children: ReactNode;
+  eyebrow?: ReactNode;
   meta?: ReactNode;
   stamp: string;
   subtitle?: string;
@@ -13,6 +14,7 @@ type IndexCardProps = {
 export function IndexCard({
   actions,
   children,
+  eyebrow,
   meta,
   stamp,
   subtitle,
@@ -22,6 +24,7 @@ export function IndexCard({
   return (
     <section className={`index-card index-card-${variant}`} aria-label={`${title} index card`}>
       <span aria-hidden className="index-card-pin" />
+      {eyebrow == null ? null : <div className="index-card-breadcrumb breadcrumb">{eyebrow}</div>}
       <header className="index-card-header">
         <div>
           <p className="index-card-stamp font-mono">{stamp}</p>

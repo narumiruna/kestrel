@@ -3,8 +3,6 @@
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { CornerMark } from '@/components/cartographer/CornerMark';
-import { EdgeTape } from '@/components/cartographer/EdgeTape';
 import { FieldNotebook } from '@/components/cartographer/FieldNotebook';
 import { IndexCard } from '@/components/cartographer/IndexCard';
 import { KeyboardCheatsheet } from '@/components/cartographer/KeyboardCheatsheet';
@@ -185,8 +183,6 @@ export default function PlacesDashboardPage() {
       }
       mode="places"
     >
-      <EdgeTape />
-      <CornerMark label="Places survey sheet" />
       <StatusStrip
         error={error}
         isRefreshing={isLoading}
@@ -233,6 +229,11 @@ export default function PlacesDashboardPage() {
         ) : null}
       </FieldNotebook>
       <IndexCard
+        eyebrow={
+          <span>
+            Places / <span>{selectedPlace?.name ?? 'New place'}</span>
+          </span>
+        }
         stamp={selectedPlace == null ? 'draft' : 'archived favorite'}
         subtitle="Pin the exact coordinates, add field notes, then save the card."
         title={selectedPlace?.name ?? 'New place'}

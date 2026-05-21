@@ -73,6 +73,7 @@ export default function RouteEditor({
       ? internalSelectedWaypointIndex
       : controlledSelectedWaypointIndex;
   const setWaypoints = onWaypointsChange ?? setInternalWaypoints;
+  const isBackgroundMapMode = mapMode === 'background';
   const routeBuilderHint = getRouteBuilderHint(waypoints.length, places.length, mapMode);
   const saveDisabledReason = getSaveDisabledReason(waypoints.length);
   const favoritePickerMode = waypoints.length === 0 ? 'start' : 'append';
@@ -185,26 +186,30 @@ export default function RouteEditor({
 
   return (
     <form className="panel route-editor" onSubmit={submit}>
-      <header className="route-editor-header">
-        <div className="stack">
-          <div className="breadcrumb">
-            Routes / <span>{route?.name ?? 'New route'}</span>
+      {isBackgroundMapMode ? null : (
+        <header className="route-editor-header">
+          <div className="stack">
+            <div className="breadcrumb">
+              Routes / <span>{route?.name ?? 'New route'}</span>
+            </div>
+            <h2>{route == null ? 'New route' : route.name}</h2>
+            {route?.currentRevision == null ? null : (
+              <span className="chip rev-chip">
+                latest revision {route.currentRevision.revisionNumber}
+              </span>
+            )}
           </div>
-          <h2>{route == null ? 'New route' : route.name}</h2>
-          {route?.currentRevision == null ? null : (
-            <span className="chip rev-chip">
-              latest revision {route.currentRevision.revisionNumber}
-            </span>
-          )}
-        </div>
-      </header>
+        </header>
+      )}
       {error == null ? null : <div className="error route-editor-error">{error}</div>}
 
       <section className="route-editor-section route-editor-map-section">
-        <div>
-          <h3>Route editor</h3>
-          <p className="muted">Drag, drop, refine. Your route, your pace.</p>
-        </div>
+        {isBackgroundMapMode ? null : (
+          <div>
+            <h3>Route editor</h3>
+            <p className="muted">Drag, drop, refine. Your route, your pace.</p>
+          </div>
+        )}
         <div className="route-builder-hint">
           <InfoIcon />
           {routeBuilderHint}
@@ -244,7 +249,7 @@ export default function RouteEditor({
         <details className="route-editor-collapsible route-editor-waypoints-section" open>
           <summary>
             <span>Waypoints ({waypoints.length})</span>
-            <span className="muted">{formatWaypointSummary(waypoints)}</span>
+            <span className="muted">{formatWaypointSummary(waypoints, places)}</span>
           </summary>
           <div className="route-editor-collapsible-content">
             {waypoints.map((waypoint, index) => (
@@ -532,8 +537,11 @@ function getWaypointKey(waypoint: RouteWaypoint, index: number): string {
   return `${waypoint.sequence ?? index}-${waypoint.latitude}-${waypoint.longitude}`;
 }
 
-function formatWaypointSummary(waypoints: RouteWaypoint[]): string {
-  if (waypoints.length === 0) {
+function formatWaypointSummary(waypoints: RouteWaypoint[], places: Place[]): string {
+  const firstWaypoint = waypoints[0];
+  const lastWaypoint = waypoints.at(-1);
+
+  if (firstWaypoint == null || lastWaypoint == null) {
     return 'Start by adding a point';
   }
 
@@ -541,7 +549,21 @@ function formatWaypointSummary(waypoints: RouteWaypoint[]): string {
     return 'Add one more waypoint to save';
   }
 
-  return 'Current route order';
+  return `${formatWaypointName(firstWaypoint, places, 'Start')} → ${formatWaypointName(
+    lastWaypoint,
+    places,
+    'End',
+  )}`;
+}
+
+function formatWaypointName(waypoint: RouteWaypoint, places: Place[], fallback: string): string {
+  return (
+    places.find(
+      (place) =>
+        Math.abs(place.latitude - waypoint.latitude) < 0.00001 &&
+        Math.abs(place.longitude - waypoint.longitude) < 0.00001,
+    )?.name ?? fallback
+  );
 }
 
 function getWaypointLabel(index: number, waypointCount: number): string {
@@ -562,7 +584,7 @@ function getRouteBuilderHint(
   mapMode: 'background' | 'embedded',
 ): string {
   if (mapMode === 'background' && waypointCount >= 2) {
-    return 'Tap the background map to add a waypoint. Drag map pins to adjust the route.';
+    return 'Tap the map to add a waypoint · Drag pins to adjust';
   }
 
   if (waypointCount === 0) {
