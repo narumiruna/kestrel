@@ -189,7 +189,6 @@ export default function RoutesDashboardPage() {
       />
       <FieldNotebook
         activeSection="routes"
-        count={routes.length}
         newLabel="New route"
         searchPlaceholder="Find a route"
         searchRef={searchRef}

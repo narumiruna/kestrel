@@ -4,7 +4,6 @@ import type { ReactNode, RefObject } from 'react';
 type FieldNotebookProps = {
   activeSection: 'places' | 'routes';
   children: ReactNode;
-  count: number;
   newLabel: string;
   onNewEntry: () => void;
   onSearchChange: (value: string) => void;
@@ -16,7 +15,6 @@ type FieldNotebookProps = {
 export function FieldNotebook({
   activeSection,
   children,
-  count,
   newLabel,
   onNewEntry,
   onSearchChange,
@@ -24,8 +22,6 @@ export function FieldNotebook({
   searchRef,
   searchValue,
 }: FieldNotebookProps) {
-  const activeCount = <span className="notebook-tab-count font-mono">{count}</span>;
-
   return (
     <aside className="field-notebook" aria-label={`${activeSection} field notebook`}>
       <div aria-hidden className="field-notebook-spine" />
@@ -36,7 +32,6 @@ export function FieldNotebook({
           href="/dashboard/places"
         >
           <span>Places</span>
-          {activeSection === 'places' ? activeCount : null}
         </Link>
         <Link
           aria-current={activeSection === 'routes' ? 'page' : undefined}
@@ -44,7 +39,6 @@ export function FieldNotebook({
           href="/dashboard/routes"
         >
           <span>Routes</span>
-          {activeSection === 'routes' ? activeCount : null}
         </Link>
       </nav>
       <label className="notebook-search font-mono">
