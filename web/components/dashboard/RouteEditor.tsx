@@ -60,6 +60,8 @@ export default function RouteEditor({
   );
   const [fitRequest, setFitRequest] = useState(0);
   const [focusTarget, setFocusTarget] = useState<RouteWaypoint | null>(null);
+  const [draggedWaypointIndex, setDraggedWaypointIndex] = useState<number | null>(null);
+  const [dragOverWaypointIndex, setDragOverWaypointIndex] = useState<number | null>(null);
   const [internalSelectedWaypointIndex, setInternalSelectedWaypointIndex] = useState<number | null>(
     null,
   );
@@ -165,6 +167,50 @@ export default function RouteEditor({
     setSelectedWaypointIndex(waypoints.length);
   }
 
+  function insertWaypointAfter(index: number) {
+    const waypoint = waypoints[index];
+
+    if (waypoint == null) {
+      return;
+    }
+
+    const nextWaypoints = [...waypoints];
+    nextWaypoints.splice(index + 1, 0, waypoint);
+    setWaypoints(nextWaypoints);
+    setSelectedWaypointIndex(index + 1);
+  }
+
+  function editWaypointCoordinates(index: number) {
+    const waypoint = waypoints[index];
+
+    if (waypoint == null) {
+      return;
+    }
+
+    const input = window.prompt(
+      'Edit coordinates as latitude, longitude',
+      `${waypoint.latitude.toFixed(6)}, ${waypoint.longitude.toFixed(6)}`,
+    );
+
+    if (input == null) {
+      return;
+    }
+
+    const [latitude, longitude] = input.split(',').map((value) => Number(value.trim()));
+
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+      window.alert('Enter coordinates as latitude, longitude.');
+      return;
+    }
+
+    setWaypoints(
+      waypoints.map((currentWaypoint, currentIndex) =>
+        currentIndex === index ? { ...currentWaypoint, latitude, longitude } : currentWaypoint,
+      ),
+    );
+    setRouteFocusTarget({ latitude, longitude });
+  }
+
   function removeWaypoint(index: number) {
     setWaypoints(waypoints.filter((_, currentIndex) => currentIndex !== index));
 
@@ -176,6 +222,11 @@ export default function RouteEditor({
     setSelectedWaypointIndex(
       selectedWaypointIndex > index ? selectedWaypointIndex - 1 : selectedWaypointIndex,
     );
+  }
+
+  function focusWaypoint(waypoint: RouteWaypoint, index: number) {
+    setSelectedWaypointIndex(index);
+    setRouteFocusTarget(waypoint);
   }
 
   function confirmDelete() {
@@ -252,53 +303,102 @@ export default function RouteEditor({
             <span className="muted">{formatWaypointSummary(waypoints, places)}</span>
           </summary>
           <div className="route-editor-collapsible-content">
-            {waypoints.map((waypoint, index) => (
-              <div
-                className={`waypoint-row ${selectedWaypointIndex === index ? 'selected' : ''}`}
-                key={getWaypointKey(waypoint, index)}
-                onPointerDown={() => setSelectedWaypointIndex(index)}
-              >
-                <span className="chip">{getWaypointLabel(index, waypoints.length)}</span>
-                <input
-                  aria-label={`${getWaypointLabel(index, waypoints.length)} latitude`}
-                  inputMode="decimal"
-                  value={waypoint.latitude}
-                  onChange={(event) =>
-                    updateWaypoint(waypoints, setWaypoints, index, 'latitude', event.target.value)
-                  }
-                />
-                <input
-                  aria-label={`${getWaypointLabel(index, waypoints.length)} longitude`}
-                  inputMode="decimal"
-                  value={waypoint.longitude}
-                  onChange={(event) =>
-                    updateWaypoint(waypoints, setWaypoints, index, 'longitude', event.target.value)
-                  }
-                />
-                <fieldset className="row-actions">
-                  <legend className="sr-only">Waypoint actions</legend>
-                  <button
-                    className="secondary"
-                    disabled={index === 0}
-                    type="button"
-                    onClick={() => moveWaypoint(waypoints, setWaypoints, index, index - 1)}
-                  >
-                    ↑
-                  </button>
-                  <button
-                    className="secondary"
-                    disabled={index === waypoints.length - 1}
-                    type="button"
-                    onClick={() => moveWaypoint(waypoints, setWaypoints, index, index + 1)}
-                  >
-                    ↓
-                  </button>
-                  <button className="danger" type="button" onClick={() => removeWaypoint(index)}>
-                    Remove
-                  </button>
-                </fieldset>
+            {waypoints.length === 0 ? (
+              <div className="waypoint-empty-state">
+                <MapPinIcon />
+                <strong>No waypoints yet</strong>
+                <span className="muted">
+                  Tap the map to add your first waypoint, or pick from favorites below.
+                </span>
               </div>
-            ))}
+            ) : (
+              <ul className="waypoint-list" aria-label="Route waypoints">
+                {waypoints.map((waypoint, index) => {
+                  const waypointName = formatWaypointName(waypoint, places, `Pin ${index + 1}`);
+
+                  const waypointRowClassName = [
+                    'waypoint-row',
+                    selectedWaypointIndex === index ? 'selected' : '',
+                    draggedWaypointIndex === index ? 'is-dragging' : '',
+                    dragOverWaypointIndex === index && draggedWaypointIndex !== index
+                      ? 'is-drop-target'
+                      : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ');
+
+                  return (
+                    <li
+                      className={waypointRowClassName}
+                      draggable
+                      key={getWaypointKey(waypoint, index)}
+                      onDragEnd={() => {
+                        setDraggedWaypointIndex(null);
+                        setDragOverWaypointIndex(null);
+                      }}
+                      onDragEnter={() => setDragOverWaypointIndex(index)}
+                      onDragOver={(event) => event.preventDefault()}
+                      onDragStart={(event) => {
+                        setDraggedWaypointIndex(index);
+                        event.dataTransfer.effectAllowed = 'move';
+                        event.dataTransfer.setData('text/plain', String(index));
+                      }}
+                      onDrop={(event) => {
+                        event.preventDefault();
+                        const fromIndex = Number(event.dataTransfer.getData('text/plain'));
+
+                        if (Number.isInteger(fromIndex) && fromIndex !== index) {
+                          moveWaypoint(waypoints, setWaypoints, fromIndex, index);
+                          setSelectedWaypointIndex(index);
+                        }
+
+                        setDraggedWaypointIndex(null);
+                        setDragOverWaypointIndex(null);
+                      }}
+                    >
+                      <button
+                        className="waypoint-focus"
+                        type="button"
+                        onClick={() => focusWaypoint(waypoint, index)}
+                      >
+                        <span className="waypoint-grip" title="Drag to reorder">
+                          <GripVerticalIcon />
+                        </span>
+                        <span className={getWaypointBadgeClassName(index, waypoints.length)}>
+                          {index === waypoints.length - 1 && waypoints.length > 1 ? (
+                            <FlagIcon />
+                          ) : (
+                            index + 1
+                          )}
+                        </span>
+                        <span className="waypoint-name" title={waypointName}>
+                          {waypointName}
+                        </span>
+                        <span className="waypoint-coordinates mono">
+                          {formatWaypointCoords(waypoint)}
+                        </span>
+                      </button>
+                      <details className="waypoint-menu">
+                        <summary aria-label={`More options for ${waypointName}`}>
+                          <MoreHorizontalIcon />
+                        </summary>
+                        <div className="waypoint-menu-content">
+                          <button type="button" onClick={() => removeWaypoint(index)}>
+                            Remove from route
+                          </button>
+                          <button type="button" onClick={() => insertWaypointAfter(index)}>
+                            Insert pin after
+                          </button>
+                          <button type="button" onClick={() => editWaypointCoordinates(index)}>
+                            Edit coordinates
+                          </button>
+                        </div>
+                      </details>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
             <button
               className="secondary button-icon-label"
               disabled={waypoints.length === 0}
@@ -549,10 +649,10 @@ function formatWaypointSummary(waypoints: RouteWaypoint[], places: Place[]): str
     return 'Add one more waypoint to save';
   }
 
-  return `${formatWaypointName(firstWaypoint, places, 'Start')} → ${formatWaypointName(
+  return `${formatWaypointName(firstWaypoint, places, 'Pin 1')} → ${formatWaypointName(
     lastWaypoint,
     places,
-    'End',
+    `Pin ${waypoints.length}`,
   )}`;
 }
 
@@ -566,16 +666,14 @@ function formatWaypointName(waypoint: RouteWaypoint, places: Place[], fallback: 
   );
 }
 
-function getWaypointLabel(index: number, waypointCount: number): string {
-  if (index === 0) {
-    return 'Start';
-  }
+function getWaypointBadgeClassName(index: number, waypointCount: number): string {
+  const positionClass = index === 0 || index === waypointCount - 1 ? 'is-terminal' : 'is-middle';
 
-  if (index === waypointCount - 1) {
-    return 'End';
-  }
+  return `waypoint-badge ${positionClass}`;
+}
 
-  return `Stop ${index + 1}`;
+function formatWaypointCoords(waypoint: RouteWaypoint): string {
+  return `${waypoint.latitude.toFixed(5)}, ${waypoint.longitude.toFixed(5)}`;
 }
 
 function getRouteBuilderHint(
@@ -818,23 +916,35 @@ function MapPinIcon() {
   );
 }
 
-function updateWaypoint(
-  waypoints: RouteWaypoint[],
-  setWaypoints: (waypoints: RouteWaypoint[]) => void,
-  index: number,
-  field: 'latitude' | 'longitude',
-  value: string,
-) {
-  const parsedValue = Number(value);
+function GripVerticalIcon() {
+  return (
+    <svg aria-hidden="true" className="lucide-icon" fill="none" viewBox="0 0 24 24">
+      <circle cx="9" cy="12" r="1" />
+      <circle cx="9" cy="5" r="1" />
+      <circle cx="9" cy="19" r="1" />
+      <circle cx="15" cy="12" r="1" />
+      <circle cx="15" cy="5" r="1" />
+      <circle cx="15" cy="19" r="1" />
+    </svg>
+  );
+}
 
-  if (!Number.isFinite(parsedValue)) {
-    return;
-  }
+function MoreHorizontalIcon() {
+  return (
+    <svg aria-hidden="true" className="lucide-icon" fill="none" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="1" />
+      <circle cx="19" cy="12" r="1" />
+      <circle cx="5" cy="12" r="1" />
+    </svg>
+  );
+}
 
-  setWaypoints(
-    waypoints.map((waypoint, currentIndex) =>
-      currentIndex === index ? { ...waypoint, [field]: parsedValue } : waypoint,
-    ),
+function FlagIcon() {
+  return (
+    <svg aria-hidden="true" className="lucide-icon" fill="none" viewBox="0 0 24 24">
+      <path d="M4 22V4" />
+      <path d="M4 4h12l-1 4 1 4H4" />
+    </svg>
   );
 }
 
