@@ -1,23 +1,18 @@
 import type { StyleSpecification } from 'maplibre-gl';
 
-export type MapStyleName = 'dark' | 'field-notebook' | 'plain' | 'satellite' | 'terrain';
+export type MapStyleName = 'dark' | 'plain' | 'satellite' | 'terrain';
 
 export const DEFAULT_MAP_CENTER = {
   latitude: 25.033,
   longitude: 121.5654,
 };
 
-export const DEFAULT_MAP_STYLE: MapStyleName = 'field-notebook';
+export const DEFAULT_MAP_STYLE: MapStyleName = 'plain';
 
 const OSM_ATTRIBUTION = '© OpenStreetMap contributors';
 const OSM_TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 
 const MAP_STYLE_OPTIONS: Array<{ description: string; label: string; name: MapStyleName }> = [
-  {
-    description: 'Paper-tinted OSM raster tiles for the Kestrel field notebook workspace.',
-    label: 'Notebook',
-    name: 'field-notebook',
-  },
   {
     description: 'Plain OSM raster tiles for troubleshooting and maximum familiarity.',
     label: 'Plain',
@@ -45,13 +40,7 @@ export function getAvailableMapStyles() {
 }
 
 export function isMapStyleName(value: string | null): value is MapStyleName {
-  return (
-    value === 'dark' ||
-    value === 'field-notebook' ||
-    value === 'plain' ||
-    value === 'satellite' ||
-    value === 'terrain'
-  );
+  return value === 'dark' || value === 'plain' || value === 'satellite' || value === 'terrain';
 }
 
 export function getNextMapStyleName(styleName: MapStyleName): MapStyleName {
@@ -82,7 +71,7 @@ export function getStyleByName(styleName: MapStyleName): StyleSpecification {
     return createDarkMapStyle();
   }
 
-  return createFieldNotebookMapStyle();
+  return createPlainMapStyle();
 }
 
 export function createPlainMapStyle(): StyleSpecification {

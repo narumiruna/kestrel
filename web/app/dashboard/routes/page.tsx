@@ -3,8 +3,6 @@
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { CornerMark } from '@/components/cartographer/CornerMark';
-import { EdgeTape } from '@/components/cartographer/EdgeTape';
 import { FieldNotebook } from '@/components/cartographer/FieldNotebook';
 import { IndexCard } from '@/components/cartographer/IndexCard';
 import { KeyboardCheatsheet } from '@/components/cartographer/KeyboardCheatsheet';
@@ -171,8 +169,6 @@ export default function RoutesDashboardPage() {
       }
       mode="routes"
     >
-      <EdgeTape />
-      <CornerMark label="Routes survey sheet" />
       <StatusStrip
         error={error}
         isRefreshing={isLoading}
@@ -224,6 +220,11 @@ export default function RoutesDashboardPage() {
         ) : null}
       </FieldNotebook>
       <IndexCard
+        eyebrow={
+          <span>
+            Routes / <span>{selectedRoute?.name ?? 'New route'}</span>
+          </span>
+        }
         stamp={
           selectedRoute == null
             ? 'draft route'
