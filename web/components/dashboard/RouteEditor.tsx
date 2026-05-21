@@ -25,22 +25,34 @@ const RouteMapEditor = dynamic(() => import('@/components/RouteMapEditor'), {
 });
 
 export default function RouteEditor({
+  mapMode = 'embedded',
   onDelete,
+  onFocusTargetChange,
   onSave,
+  onSelectedWaypointIndexChange,
+  onWaypointsChange,
   places = [],
   route,
+  selectedWaypointIndex: controlledSelectedWaypointIndex,
+  waypoints: controlledWaypoints,
 }: {
+  mapMode?: 'background' | 'embedded';
   onDelete?: () => void;
+  onFocusTargetChange?: (waypoint: RouteWaypoint | null) => void;
   onSave: (input: RouteInput) => void;
+  onSelectedWaypointIndexChange?: (index: number | null) => void;
+  onWaypointsChange?: (waypoints: RouteWaypoint[]) => void;
   places?: Place[];
   route: Route | null;
+  selectedWaypointIndex?: number | null;
+  waypoints?: RouteWaypoint[];
 }) {
   const [name, setName] = useState(route?.name ?? '');
   const [description, setDescription] = useState(route?.description ?? '');
   const [defaultSpeedKmh, setDefaultSpeedKmh] = useState(route?.defaultSpeedKmh.toString() ?? '5');
   const [mode, setMode] = useState<RouteMode>(route?.mode ?? 'ONCE');
   const [isPublic, setIsPublic] = useState(route?.isPublic ?? false);
-  const [waypoints, setWaypoints] = useState<RouteWaypoint[]>(
+  const [internalWaypoints, setInternalWaypoints] = useState<RouteWaypoint[]>(
     route?.currentRevision?.waypoints.map((waypoint) => ({
       latitude: waypoint.latitude,
       longitude: waypoint.longitude,
@@ -48,20 +60,47 @@ export default function RouteEditor({
   );
   const [fitRequest, setFitRequest] = useState(0);
   const [focusTarget, setFocusTarget] = useState<RouteWaypoint | null>(null);
-  const [selectedWaypointIndex, setSelectedWaypointIndex] = useState<number | null>(null);
+  const [draggedWaypointIndex, setDraggedWaypointIndex] = useState<number | null>(null);
+  const [dragOverWaypointIndex, setDragOverWaypointIndex] = useState<number | null>(null);
+  const [internalSelectedWaypointIndex, setInternalSelectedWaypointIndex] = useState<number | null>(
+    null,
+  );
   const [error, setError] = useState<string | null>(null);
   const [saveNotice, setSaveNotice] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const saveNoticeTimeoutRef = useRef<number | null>(null);
-  const routeBuilderHint = getRouteBuilderHint(waypoints.length, places.length);
+  const waypoints = controlledWaypoints ?? internalWaypoints;
+  const selectedWaypointIndex =
+    controlledSelectedWaypointIndex === undefined
+      ? internalSelectedWaypointIndex
+      : controlledSelectedWaypointIndex;
+  const setWaypoints = onWaypointsChange ?? setInternalWaypoints;
+  const isBackgroundMapMode = mapMode === 'background';
+  const routeBuilderHint = getRouteBuilderHint(waypoints.length, places.length, mapMode);
   const saveDisabledReason = getSaveDisabledReason(waypoints.length);
   const favoritePickerMode = waypoints.length === 0 ? 'start' : 'append';
+
+  const setSelectedWaypointIndex = useCallback(
+    (nextIndex: number | null) => {
+      setInternalSelectedWaypointIndex(nextIndex);
+      onSelectedWaypointIndexChange?.(nextIndex);
+    },
+    [onSelectedWaypointIndexChange],
+  );
+
+  const setRouteFocusTarget = useCallback(
+    (nextFocusTarget: RouteWaypoint | null) => {
+      setFocusTarget(nextFocusTarget);
+      onFocusTargetChange?.(nextFocusTarget);
+    },
+    [onFocusTargetChange],
+  );
 
   useEffect(() => {
     if (selectedWaypointIndex != null && selectedWaypointIndex >= waypoints.length) {
       setSelectedWaypointIndex(null);
     }
-  }, [selectedWaypointIndex, waypoints.length]);
+  }, [selectedWaypointIndex, setSelectedWaypointIndex, waypoints.length]);
 
   useEffect(
     () => () => {
@@ -113,7 +152,7 @@ export default function RouteEditor({
     const nextWaypoints = waypoints.length === 0 ? [waypoint] : [...waypoints, waypoint];
 
     setWaypoints(nextWaypoints);
-    setFocusTarget(waypoint);
+    setRouteFocusTarget(waypoint);
     setSelectedWaypointIndex(nextWaypoints.length - 1);
   }
 
@@ -128,15 +167,66 @@ export default function RouteEditor({
     setSelectedWaypointIndex(waypoints.length);
   }
 
+  function insertWaypointAfter(index: number) {
+    const waypoint = waypoints[index];
+
+    if (waypoint == null) {
+      return;
+    }
+
+    const nextWaypoints = [...waypoints];
+    nextWaypoints.splice(index + 1, 0, waypoint);
+    setWaypoints(nextWaypoints);
+    setSelectedWaypointIndex(index + 1);
+  }
+
+  function editWaypointCoordinates(index: number) {
+    const waypoint = waypoints[index];
+
+    if (waypoint == null) {
+      return;
+    }
+
+    const input = window.prompt(
+      'Edit coordinates as latitude, longitude',
+      `${waypoint.latitude.toFixed(6)}, ${waypoint.longitude.toFixed(6)}`,
+    );
+
+    if (input == null) {
+      return;
+    }
+
+    const [latitude, longitude] = input.split(',').map((value) => Number(value.trim()));
+
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+      window.alert('Enter coordinates as latitude, longitude.');
+      return;
+    }
+
+    setWaypoints(
+      waypoints.map((currentWaypoint, currentIndex) =>
+        currentIndex === index ? { ...currentWaypoint, latitude, longitude } : currentWaypoint,
+      ),
+    );
+    setRouteFocusTarget({ latitude, longitude });
+  }
+
   function removeWaypoint(index: number) {
     setWaypoints(waypoints.filter((_, currentIndex) => currentIndex !== index));
-    setSelectedWaypointIndex((currentIndex) => {
-      if (currentIndex == null || currentIndex === index) {
-        return null;
-      }
 
-      return currentIndex > index ? currentIndex - 1 : currentIndex;
-    });
+    if (selectedWaypointIndex == null || selectedWaypointIndex === index) {
+      setSelectedWaypointIndex(null);
+      return;
+    }
+
+    setSelectedWaypointIndex(
+      selectedWaypointIndex > index ? selectedWaypointIndex - 1 : selectedWaypointIndex,
+    );
+  }
+
+  function focusWaypoint(waypoint: RouteWaypoint, index: number) {
+    setSelectedWaypointIndex(index);
+    setRouteFocusTarget(waypoint);
   }
 
   function confirmDelete() {
@@ -147,123 +237,22 @@ export default function RouteEditor({
 
   return (
     <form className="panel route-editor" onSubmit={submit}>
-      <header className="route-editor-header">
-        <div className="stack">
-          <div className="breadcrumb">
-            Routes / <span>{route?.name ?? 'New route'}</span>
+      {isBackgroundMapMode ? null : (
+        <header className="route-editor-header">
+          <div className="stack">
+            <div className="breadcrumb">
+              Routes / <span>{route?.name ?? 'New route'}</span>
+            </div>
+            <h2>{route == null ? 'New route' : route.name}</h2>
+            {route?.currentRevision == null ? null : (
+              <span className="chip rev-chip">
+                latest revision {route.currentRevision.revisionNumber}
+              </span>
+            )}
           </div>
-          <h2>{route == null ? 'New route' : route.name}</h2>
-          {route?.currentRevision == null ? null : (
-            <span className="chip rev-chip">
-              latest revision {route.currentRevision.revisionNumber}
-            </span>
-          )}
-        </div>
-      </header>
+        </header>
+      )}
       {error == null ? null : <div className="error route-editor-error">{error}</div>}
-
-      <section className="route-editor-section route-editor-map-section">
-        <div>
-          <h3>Route editor</h3>
-          <p className="muted">Drag, drop, refine. Your route, your pace.</p>
-        </div>
-        <div className="route-builder-hint">
-          <InfoIcon />
-          {routeBuilderHint}
-        </div>
-        <FavoriteWaypointPicker
-          mode={favoritePickerMode}
-          places={places}
-          onSelect={addFavoriteWaypoint}
-        />
-        <div className="map-builder">
-          <RouteMapEditor
-            fitRequest={fitRequest}
-            focusTarget={focusTarget}
-            selectedWaypointIndex={selectedWaypointIndex}
-            waypoints={waypoints}
-            onChange={setWaypoints}
-            onSelectWaypoint={setSelectedWaypointIndex}
-          />
-          <div className="map-instruction">Click map to add waypoint · Drag markers to adjust</div>
-        </div>
-        <div className="map-action-row">
-          <button
-            className="secondary"
-            disabled={waypoints.length === 0}
-            title="Auto-frame the map to show all waypoints"
-            type="button"
-            onClick={() => setFitRequest((currentRequest) => currentRequest + 1)}
-          >
-            Fit route
-          </button>
-          <span className="muted">
-            Add from map click, then expand Waypoints for exact coordinates.
-          </span>
-        </div>
-
-        <details className="route-editor-collapsible route-editor-waypoints-section">
-          <summary>
-            <span>{formatWaypointCount(waypoints.length)}</span>
-            <span className="muted">{formatWaypointSummary(waypoints)}</span>
-          </summary>
-          <div className="route-editor-collapsible-content">
-            {waypoints.map((waypoint, index) => (
-              <div
-                className={`waypoint-row ${selectedWaypointIndex === index ? 'selected' : ''}`}
-                key={getWaypointKey(waypoint, index)}
-                onPointerDown={() => setSelectedWaypointIndex(index)}
-              >
-                <span className="chip">{getWaypointLabel(index, waypoints.length)}</span>
-                <input
-                  inputMode="decimal"
-                  value={waypoint.latitude}
-                  onChange={(event) =>
-                    updateWaypoint(waypoints, setWaypoints, index, 'latitude', event.target.value)
-                  }
-                />
-                <input
-                  inputMode="decimal"
-                  value={waypoint.longitude}
-                  onChange={(event) =>
-                    updateWaypoint(waypoints, setWaypoints, index, 'longitude', event.target.value)
-                  }
-                />
-                <div className="row-actions">
-                  <button
-                    className="secondary"
-                    disabled={index === 0}
-                    type="button"
-                    onClick={() => moveWaypoint(waypoints, setWaypoints, index, index - 1)}
-                  >
-                    ↑
-                  </button>
-                  <button
-                    className="secondary"
-                    disabled={index === waypoints.length - 1}
-                    type="button"
-                    onClick={() => moveWaypoint(waypoints, setWaypoints, index, index + 1)}
-                  >
-                    ↓
-                  </button>
-                  <button className="danger" type="button" onClick={() => removeWaypoint(index)}>
-                    ×
-                  </button>
-                </div>
-              </div>
-            ))}
-            <button
-              className="secondary button-icon-label"
-              disabled={waypoints.length === 0}
-              type="button"
-              onClick={duplicateLastWaypoint}
-            >
-              <PlusIcon />
-              Add waypoint
-            </button>
-          </div>
-        </details>
-      </section>
 
       <details
         className="route-editor-section route-editor-collapsible route-editor-details-section"
@@ -304,6 +293,168 @@ export default function RouteEditor({
               onChange={(event) => setDescription(event.target.value)}
             />
           </label>
+        </div>
+      </details>
+
+      <section className="route-editor-section route-editor-map-section">
+        {isBackgroundMapMode ? null : (
+          <div>
+            <h3>Route builder</h3>
+            <p className="muted">Add pins on the map or pick from favorites.</p>
+          </div>
+        )}
+        <div className="route-builder-hint">
+          <InfoIcon />
+          {routeBuilderHint}
+        </div>
+        {mapMode === 'embedded' ? (
+          <>
+            <div className="map-builder">
+              <RouteMapEditor
+                fitRequest={fitRequest}
+                focusTarget={focusTarget}
+                selectedWaypointIndex={selectedWaypointIndex}
+                waypoints={waypoints}
+                onChange={setWaypoints}
+                onSelectWaypoint={setSelectedWaypointIndex}
+              />
+              <div className="map-instruction">
+                Click map to add waypoint · Drag markers to adjust
+              </div>
+            </div>
+            <div className="map-action-row">
+              <button
+                className="secondary"
+                disabled={waypoints.length === 0}
+                title="Auto-frame the map to show all waypoints"
+                type="button"
+                onClick={() => setFitRequest((currentRequest) => currentRequest + 1)}
+              >
+                Fit route
+              </button>
+              <span className="muted">Use Waypoints below to review, reorder, or edit pins.</span>
+            </div>
+          </>
+        ) : null}
+
+        <FavoriteWaypointPicker
+          mode={favoritePickerMode}
+          places={places}
+          onSelect={addFavoriteWaypoint}
+        />
+      </section>
+
+      <details className="route-editor-section route-editor-collapsible route-editor-waypoints-section" open={waypoints.length > 0}>
+        <summary>
+          <span>Waypoints ({waypoints.length})</span>
+          <span className="muted">{formatWaypointSummary(waypoints, places)}</span>
+        </summary>
+        <div className="route-editor-collapsible-content">
+          {waypoints.length === 0 ? (
+            <div className="waypoint-empty-state">
+              <MapPinIcon />
+              <strong>No waypoints yet</strong>
+              <span className="muted">
+                Tap the map to add your first waypoint, or pick from favorites above.
+              </span>
+            </div>
+          ) : (
+            <ul className="waypoint-list" aria-label="Route waypoints">
+              {waypoints.map((waypoint, index) => {
+                const waypointName = formatWaypointName(waypoint, places, `Pin ${index + 1}`);
+
+                const waypointRowClassName = [
+                  'waypoint-row',
+                  selectedWaypointIndex === index ? 'selected' : '',
+                  draggedWaypointIndex === index ? 'is-dragging' : '',
+                  dragOverWaypointIndex === index && draggedWaypointIndex !== index
+                    ? 'is-drop-target'
+                    : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ');
+
+                return (
+                  <li
+                    className={waypointRowClassName}
+                    draggable
+                    key={getWaypointKey(waypoint, index)}
+                    onDragEnd={() => {
+                      setDraggedWaypointIndex(null);
+                      setDragOverWaypointIndex(null);
+                    }}
+                    onDragEnter={() => setDragOverWaypointIndex(index)}
+                    onDragOver={(event) => event.preventDefault()}
+                    onDragStart={(event) => {
+                      setDraggedWaypointIndex(index);
+                      event.dataTransfer.effectAllowed = 'move';
+                      event.dataTransfer.setData('text/plain', String(index));
+                    }}
+                    onDrop={(event) => {
+                      event.preventDefault();
+                      const fromIndex = Number(event.dataTransfer.getData('text/plain'));
+
+                      if (Number.isInteger(fromIndex) && fromIndex !== index) {
+                        moveWaypoint(waypoints, setWaypoints, fromIndex, index);
+                        setSelectedWaypointIndex(index);
+                      }
+
+                      setDraggedWaypointIndex(null);
+                      setDragOverWaypointIndex(null);
+                    }}
+                  >
+                    <button
+                      className="waypoint-focus"
+                      type="button"
+                      onClick={() => focusWaypoint(waypoint, index)}
+                    >
+                      <span className="waypoint-grip" title="Drag to reorder">
+                        <GripVerticalIcon />
+                      </span>
+                      <span className={getWaypointBadgeClassName(index, waypoints.length)}>
+                        {index === waypoints.length - 1 && waypoints.length > 1 ? (
+                          <FlagIcon />
+                        ) : (
+                          index + 1
+                        )}
+                      </span>
+                      <span className="waypoint-name" title={waypointName}>
+                        {waypointName}
+                      </span>
+                      <span className="waypoint-coordinates mono">
+                        {formatWaypointCoords(waypoint)}
+                      </span>
+                    </button>
+                    <details className="waypoint-menu">
+                      <summary aria-label={`More options for ${waypointName}`}>
+                        <MoreHorizontalIcon />
+                      </summary>
+                      <div className="waypoint-menu-content">
+                        <button type="button" onClick={() => removeWaypoint(index)}>
+                          Remove from route
+                        </button>
+                        <button type="button" onClick={() => insertWaypointAfter(index)}>
+                          Insert pin after
+                        </button>
+                        <button type="button" onClick={() => editWaypointCoordinates(index)}>
+                          Edit coordinates
+                        </button>
+                      </div>
+                    </details>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          <button
+            className="secondary button-icon-label"
+            disabled={waypoints.length === 0}
+            type="button"
+            onClick={duplicateLastWaypoint}
+          >
+            <PlusIcon />
+            Duplicate last waypoint
+          </button>
         </div>
       </details>
 
@@ -484,11 +635,7 @@ function getWaypointKey(waypoint: RouteWaypoint, index: number): string {
   return `${waypoint.sequence ?? index}-${waypoint.latitude}-${waypoint.longitude}`;
 }
 
-function formatWaypointCount(waypointCount: number): string {
-  return `${waypointCount} waypoint${waypointCount === 1 ? '' : 's'}`;
-}
-
-function formatWaypointSummary(waypoints: RouteWaypoint[]): string {
+function formatWaypointSummary(waypoints: RouteWaypoint[], places: Place[]): string {
   const firstWaypoint = waypoints[0];
   const lastWaypoint = waypoints.at(-1);
 
@@ -497,33 +644,45 @@ function formatWaypointSummary(waypoints: RouteWaypoint[]): string {
   }
 
   if (waypoints.length === 1) {
-    return `Starts at ${formatShortCoord(firstWaypoint.latitude)}, ${formatShortCoord(
-      firstWaypoint.longitude,
-    )}`;
+    return 'Add one more waypoint to save';
   }
 
-  return `Start at ${formatShortCoord(firstWaypoint.latitude)}, end at ${formatShortCoord(
-    lastWaypoint.latitude,
+  return `${formatWaypointName(firstWaypoint, places, 'Pin 1')} → ${formatWaypointName(
+    lastWaypoint,
+    places,
+    `Pin ${waypoints.length}`,
   )}`;
 }
 
-function formatShortCoord(value: number | string): string {
-  return Number(value).toFixed(2);
+function formatWaypointName(waypoint: RouteWaypoint, places: Place[], fallback: string): string {
+  return (
+    places.find(
+      (place) =>
+        Math.abs(place.latitude - waypoint.latitude) < 0.00001 &&
+        Math.abs(place.longitude - waypoint.longitude) < 0.00001,
+    )?.name ?? fallback
+  );
 }
 
-function getWaypointLabel(index: number, waypointCount: number): string {
-  if (index === 0) {
-    return 'Start';
-  }
+function getWaypointBadgeClassName(index: number, waypointCount: number): string {
+  const positionClass = index === 0 || index === waypointCount - 1 ? 'is-terminal' : 'is-middle';
 
-  if (index === waypointCount - 1) {
-    return 'End';
-  }
-
-  return `Stop ${index + 1}`;
+  return `waypoint-badge ${positionClass}`;
 }
 
-function getRouteBuilderHint(waypointCount: number, placeCount: number): string {
+function formatWaypointCoords(waypoint: RouteWaypoint): string {
+  return `${waypoint.latitude.toFixed(5)}, ${waypoint.longitude.toFixed(5)}`;
+}
+
+function getRouteBuilderHint(
+  waypointCount: number,
+  placeCount: number,
+  mapMode: 'background' | 'embedded',
+): string {
+  if (mapMode === 'background' && waypointCount >= 2) {
+    return 'Tap the map to add a waypoint · Drag pins to adjust';
+  }
+
   if (waypointCount === 0) {
     return placeCount === 0
       ? 'Start by clicking the map to add your first waypoint.'
@@ -755,23 +914,35 @@ function MapPinIcon() {
   );
 }
 
-function updateWaypoint(
-  waypoints: RouteWaypoint[],
-  setWaypoints: (waypoints: RouteWaypoint[]) => void,
-  index: number,
-  field: 'latitude' | 'longitude',
-  value: string,
-) {
-  const parsedValue = Number(value);
+function GripVerticalIcon() {
+  return (
+    <svg aria-hidden="true" className="lucide-icon" fill="none" viewBox="0 0 24 24">
+      <circle cx="9" cy="12" r="1" />
+      <circle cx="9" cy="5" r="1" />
+      <circle cx="9" cy="19" r="1" />
+      <circle cx="15" cy="12" r="1" />
+      <circle cx="15" cy="5" r="1" />
+      <circle cx="15" cy="19" r="1" />
+    </svg>
+  );
+}
 
-  if (!Number.isFinite(parsedValue)) {
-    return;
-  }
+function MoreHorizontalIcon() {
+  return (
+    <svg aria-hidden="true" className="lucide-icon" fill="none" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="1" />
+      <circle cx="19" cy="12" r="1" />
+      <circle cx="5" cy="12" r="1" />
+    </svg>
+  );
+}
 
-  setWaypoints(
-    waypoints.map((waypoint, currentIndex) =>
-      currentIndex === index ? { ...waypoint, [field]: parsedValue } : waypoint,
-    ),
+function FlagIcon() {
+  return (
+    <svg aria-hidden="true" className="lucide-icon" fill="none" viewBox="0 0 24 24">
+      <path d="M4 22V4" />
+      <path d="M4 4h12l-1 4 1 4H4" />
+    </svg>
   );
 }
 
