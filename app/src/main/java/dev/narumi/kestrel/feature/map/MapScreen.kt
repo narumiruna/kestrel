@@ -193,6 +193,21 @@ private fun formatDistance(meters: Double): String =
         "${formatMeters(meters)} m"
     }
 
+private fun formatWaypointCount(count: Int): String = if (count == 1) "1 waypoint" else "$count waypoints"
+
+private fun formatSpeedKmh(value: Double): String =
+    if (value % 1.0 == 0.0) {
+        "${value.toInt()} km/h"
+    } else {
+        "%.1f km/h".format(Locale.US, value)
+    }
+
+internal fun formatRouteStatusDetails(
+    waypointCount: Int,
+    speedKmh: Double,
+    routeMode: MovementEngine.Mode,
+): String = "${formatWaypointCount(waypointCount)} · ${formatSpeedKmh(speedKmh)} · ${routeMode.label()}"
+
 private fun MovementEngine.Mode.label(): String =
     when (this) {
         MovementEngine.Mode.Once -> "Once"
@@ -781,7 +796,13 @@ private fun MapSheet(
                 .padding(bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        StatusRow(runState = runState, waypointCount = waypointCount, mockNow = mockNow)
+        StatusRow(
+            runState = runState,
+            waypointCount = waypointCount,
+            mockNow = mockNow,
+            speedKmh = speedKmh,
+            routeMode = routeMode,
+        )
         PrimaryActionRow(
             runState = runState,
             waypointCount = waypointCount,
@@ -839,6 +860,8 @@ private fun StatusRow(
     runState: RunState,
     waypointCount: Int,
     mockNow: LatLng?,
+    speedKmh: Double,
+    routeMode: MovementEngine.Mode,
 ) {
     val (dotColor, title, subtitle) =
         when (runState) {
@@ -864,13 +887,13 @@ private fun StatusRow(
                 Triple(
                     MaterialTheme.colorScheme.error,
                     "Route playing",
-                    "$waypointCount waypoints",
+                    formatRouteStatusDetails(waypointCount, speedKmh, routeMode),
                 )
             RunState.RoutePaused ->
                 Triple(
                     MaterialTheme.colorScheme.tertiary,
                     "Route paused",
-                    "$waypointCount waypoints",
+                    formatRouteStatusDetails(waypointCount, speedKmh, routeMode),
                 )
         }
     Row(
