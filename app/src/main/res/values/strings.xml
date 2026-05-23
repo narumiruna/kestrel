@@ -1,7 +1,14 @@
 <resources>
     <string name="app_name">Kestrel</string>
     <string name="location_service_channel_name">Mock location</string>
-    <string name="location_service_title">Kestrel mock location</string>
-    <string name="location_service_text">Mock location is active</string>
+    <string name="location_service_channel_description">Shows when Kestrel is providing mock location updates.</string>
+    <string name="location_service_title">Kestrel is controlling location</string>
+    <string name="location_service_text_ready">Mock location service is ready</string>
+    <string name="location_service_text_single">Holding a single mock location</string>
+    <string name="location_service_text_route_paused">Mock route paused</string>
+    <string name="location_service_text_route_playing">Playing a mock route</string>
+    <string name="location_service_action_pause">Pause</string>
+    <string name="location_service_action_resume">Resume</string>
+    <string name="location_service_action_stop">Stop</string>
     <string name="asset_statements" translatable="false"><![CDATA[[{"relation":["delegate_permission/common.get_login_creds"],"target":{"namespace":"web","site":"https://kestrel.narumi.dev"}}]]]></string>
 </resources>
