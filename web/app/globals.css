@@ -3119,7 +3119,9 @@ button.is-loading {
   grid-template-columns: minmax(0, 1fr) 32px;
   min-height: 44px;
   padding: 0 8px;
-  transition: background 150ms ease, border-color 150ms ease;
+  transition:
+    background 150ms ease,
+    border-color 150ms ease;
 }
 
 .waypoint-focus {
@@ -4747,7 +4749,13 @@ button.is-loading {
 
   .cartographer-paper-vignette {
     background:
-      linear-gradient(90deg, rgb(47 34 21 / 10%), transparent 22%, transparent 78%, rgb(47 34 21 / 8%)),
+      linear-gradient(
+        90deg,
+        rgb(47 34 21 / 10%),
+        transparent 22%,
+        transparent 78%,
+        rgb(47 34 21 / 8%)
+      ),
       radial-gradient(circle at 50% 46%, transparent 0 56%, rgb(65 44 26 / 14%) 100%);
   }
 

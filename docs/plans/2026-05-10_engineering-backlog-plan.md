@@ -23,7 +23,7 @@ This backlog comes from the general TODO and the operations/DX sections of the c
 - [ ] Generate or publish OpenAPI docs for auth/library/sync/sharing APIs.
 - [ ] Decide client generation strategy: TypeScript generated client, Kotlin generated client, or documented hand-written client rules.
 - [ ] Add Android jitter option for mock samples: configurable lat/lng and speed perturbation, default off, with `MovementEngine`/service tests where possible.
-- [ ] Improve foreground notification title/text and channel description.
+- [x] Improve foreground notification title/text and channel description. Completed in `docs/plans/archived/2026-05-23_foreground-notification-copy-plan.md`; verified with stale-copy `rg` check and `just check`.
 - [ ] Replace default Android Studio app icon with Kestrel adaptive icon assets.
 - [ ] Add Generate route advanced parameters: starting bearing, turn variance, and optional seed.
 - [ ] Add Android route revision history UI only if a concrete product need appears; keep current-revision-only storage/load behavior as the default until that slice is planned.

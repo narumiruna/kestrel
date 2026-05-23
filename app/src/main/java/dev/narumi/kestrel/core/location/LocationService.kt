@@ -408,7 +408,9 @@ class LocationService : Service() {
                 CHANNEL_ID,
                 getString(R.string.location_service_channel_name),
                 NotificationManager.IMPORTANCE_LOW,
-            ),
+            ).apply {
+                description = getString(R.string.location_service_channel_description)
+            },
         )
     }
 
@@ -423,10 +425,10 @@ class LocationService : Service() {
             )
         val text =
             when {
-                currentMode == MockState.Mode.Idle -> getString(R.string.location_service_text)
-                currentMode == MockState.Mode.Single -> "Single point mock active"
-                paused -> "Route paused"
-                else -> "Route playing"
+                currentMode == MockState.Mode.Idle -> getString(R.string.location_service_text_ready)
+                currentMode == MockState.Mode.Single -> getString(R.string.location_service_text_single)
+                paused -> getString(R.string.location_service_text_route_paused)
+                else -> getString(R.string.location_service_text_route_playing)
             }
         val builder =
             NotificationCompat
@@ -439,13 +441,25 @@ class LocationService : Service() {
 
         if (currentMode == MockState.Mode.Route) {
             if (paused) {
-                builder.addAction(0, "Resume", servicePI(REQ_RESUME, ACTION_RESUME))
+                builder.addAction(
+                    0,
+                    getString(R.string.location_service_action_resume),
+                    servicePI(REQ_RESUME, ACTION_RESUME),
+                )
             } else {
-                builder.addAction(0, "Pause", servicePI(REQ_PAUSE, ACTION_PAUSE))
+                builder.addAction(
+                    0,
+                    getString(R.string.location_service_action_pause),
+                    servicePI(REQ_PAUSE, ACTION_PAUSE),
+                )
             }
         }
         if (currentMode != MockState.Mode.Idle) {
-            builder.addAction(0, "Stop", servicePI(REQ_STOP, ACTION_STOP))
+            builder.addAction(
+                0,
+                getString(R.string.location_service_action_stop),
+                servicePI(REQ_STOP, ACTION_STOP),
+            )
         }
         return builder.build()
     }
