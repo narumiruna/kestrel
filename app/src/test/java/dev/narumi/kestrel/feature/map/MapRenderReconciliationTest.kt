@@ -90,4 +90,28 @@ class MapRenderReconciliationTest {
         assertEquals(5.0, render.speedKmh, 0.0)
         assertEquals(MovementEngine.Mode.Once, render.routeMode)
     }
+
+    @Test
+    fun routeStatusDetails_formatsIntegerSpeed() {
+        val details =
+            formatRouteStatusDetails(
+                waypointCount = 3,
+                speedKmh = 20.0,
+                routeMode = MovementEngine.Mode.Loop,
+            )
+
+        assertEquals("3 waypoints · 20 km/h · Loop", details)
+    }
+
+    @Test
+    fun routeStatusDetails_formatsFractionalSpeed() {
+        val details =
+            formatRouteStatusDetails(
+                waypointCount = 2,
+                speedKmh = 12.5,
+                routeMode = MovementEngine.Mode.PingPong,
+            )
+
+        assertEquals("2 waypoints · 12.5 km/h · Ping-pong", details)
+    }
 }
