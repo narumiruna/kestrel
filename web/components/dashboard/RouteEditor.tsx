@@ -344,7 +344,10 @@ export default function RouteEditor({
         />
       </section>
 
-      <details className="route-editor-section route-editor-collapsible route-editor-waypoints-section" open={waypoints.length > 0}>
+      <details
+        className="route-editor-section route-editor-collapsible route-editor-waypoints-section"
+        open={waypoints.length > 0}
+      >
         <summary>
           <span>Waypoints ({waypoints.length})</span>
           <span className="muted">{formatWaypointSummary(waypoints, places)}</span>
