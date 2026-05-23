@@ -991,19 +991,24 @@ private fun ChipChoice(
     enabled: Boolean,
     onClick: () -> Unit,
 ) {
+    val colors =
+        if (selected) {
+            val containerColor = MaterialTheme.colorScheme.primaryContainer
+            val labelColor = MaterialTheme.colorScheme.onPrimaryContainer
+            AssistChipDefaults.assistChipColors(
+                containerColor = containerColor,
+                labelColor = labelColor,
+                disabledContainerColor = containerColor.copy(alpha = 0.72f),
+                disabledLabelColor = labelColor.copy(alpha = 0.88f),
+            )
+        } else {
+            AssistChipDefaults.assistChipColors()
+        }
     AssistChip(
         onClick = onClick,
         label = { Text(label) },
         enabled = enabled,
-        colors =
-            if (selected) {
-                AssistChipDefaults.assistChipColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    labelColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                )
-            } else {
-                AssistChipDefaults.assistChipColors()
-            },
+        colors = colors,
     )
 }
 
