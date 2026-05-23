@@ -1,5 +1,6 @@
 ## GOTCHA
 
+- Android adaptive launcher icon layers are `108dp × 108dp`; keep important artwork inside the central `66dp × 66dp` safe zone (`x/y = 21..87`) and size the logo about `48..66dp`. Legacy launcher PNG sizes are mdpi 48, hdpi 72, xhdpi 96, xxhdpi 144, xxxhdpi 192 px.
 - Android `:app:assembleRelease` currently produces `app/build/outputs/apk/release/app-release-unsigned.apk` because there is no signing config yet. Any workflow or release docs must call the artifact unsigned until keystore-based signing is added.
 - The auto-tag flow must push tags with `PAT_TOKEN`, not the default `GITHUB_TOKEN`, or the follow-up `push.tags` release workflow will not fire.
 - Backend Prisma schema edits are not visible to TypeScript/Nest until `cd backend && npm run prisma:generate` refreshes `node_modules/@prisma/client`; if `shareLink` or other new model types seem to be missing during `npm run typecheck`/`npm run build`, regenerate the client first.
