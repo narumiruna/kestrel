@@ -2,6 +2,7 @@ package dev.narumi.kestrel.feature.options
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -459,15 +460,18 @@ private fun CloudSignedInCardContent(
             color = MaterialTheme.colorScheme.error,
         )
     }
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
         Button(onClick = onSyncNow, enabled = !loading) {
-            Text(if (loading) "Syncing…" else "Sync now")
+            Text(if (loading) "Syncing…" else "Sync now", maxLines = 1)
         }
         OutlinedButton(onClick = onRefreshSession, enabled = !loading) {
-            Text("Refresh session")
+            Text("Refresh session", maxLines = 1)
         }
         OutlinedButton(onClick = onLogout, enabled = !loading) {
-            Text("Sign out")
+            Text("Sign out", maxLines = 1)
         }
     }
 }
