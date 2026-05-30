@@ -2,6 +2,7 @@ package dev.narumi.kestrel.feature.options
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -430,6 +431,7 @@ private fun CloudSignedOutCardContent(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun CloudSignedInCardContent(
     session: CloudSession,
