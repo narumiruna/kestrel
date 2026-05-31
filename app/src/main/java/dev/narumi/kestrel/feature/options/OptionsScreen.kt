@@ -2,9 +2,6 @@ package dev.narumi.kestrel.feature.options
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -13,7 +10,6 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
@@ -54,6 +50,10 @@ import dev.narumi.kestrel.core.data.StartupPreference
 import dev.narumi.kestrel.core.library.LibraryItemWithContent
 import dev.narumi.kestrel.core.library.LibraryRepository
 import dev.narumi.kestrel.core.library.description
+import dev.narumi.kestrel.ui.components.KestrelActionRow
+import dev.narumi.kestrel.ui.components.KestrelCard
+import dev.narumi.kestrel.ui.components.KestrelScreenHeader
+import dev.narumi.kestrel.ui.components.KestrelSectionHeader
 import kotlinx.coroutines.launch
 import java.io.IOException
 import java.util.Date
@@ -78,6 +78,18 @@ private fun Modifier.autofillText(contentType: ContentType): Modifier =
     fillMaxWidth()
         .contentType(contentType)
         .semantics { contentDataType = ContentDataType.Text }
+
+@Composable
+private fun OptionsCard(
+    title: String,
+    subtitle: String,
+    content: @Composable () -> Unit,
+) {
+    KestrelCard {
+        KestrelSectionHeader(title = title, subtitle = subtitle)
+        content()
+    }
+}
 
 @Composable
 fun OptionsScreen(modifier: Modifier = Modifier) {
@@ -111,6 +123,11 @@ fun OptionsScreen(modifier: Modifier = Modifier) {
                 .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        KestrelScreenHeader(
+            title = "Options",
+            subtitle = "Tune cloud sync, startup behavior, and route playback defaults.",
+        )
+
         CloudSettingsSection()
 
         MockPlaybackSettingsCard(
@@ -331,52 +348,48 @@ private fun CloudSettingsCard(
     onLogout: () -> Unit,
     onSyncNow: () -> Unit,
 ) {
-    Text(
-        text = "Cloud sync",
-        style = MaterialTheme.typography.titleMedium,
-    )
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            OutlinedTextField(
-                value = uiState.apiBaseUrl,
-                onValueChange = onApiBaseUrlChange,
-                label = { Text("API base URL") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Text(
-                text = "Production default is https://kestrel.narumi.dev; /api/backend is added automatically.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            OutlinedButton(onClick = onSaveApiBaseUrl) { Text("Save API URL") }
+    OptionsCard(
+        title = "Cloud sync",
+        subtitle = "Connect to Kestrel cloud and keep favorites synced.",
+    ) {
+        OutlinedTextField(
+            value = uiState.apiBaseUrl,
+            onValueChange = onApiBaseUrlChange,
+            label = { Text("API base URL") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Text(
+            text = "Production default is https://kestrel.narumi.dev; /api/backend is added automatically.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        KestrelActionRow {
+            OutlinedButton(onClick = onSaveApiBaseUrl) { Text("Save API URL", maxLines = 1) }
+        }
 
-            if (uiState.session == null) {
-                CloudSignedOutCardContent(
-                    loginForm = loginForm,
-                    loading = uiState.loading,
-                    onLoginFormChange = onLoginFormChange,
-                    onLogin = onLogin,
-                )
-            } else {
-                CloudSignedInCardContent(
-                    session = uiState.session,
-                    syncState = uiState.syncState,
-                    loading = uiState.loading,
-                    onRefreshSession = onRefreshSession,
-                    onLogout = onLogout,
-                    onSyncNow = onSyncNow,
-                )
-            }
-
-            CloudStatusMessage(
-                message = uiState.message,
-                error = uiState.error,
+        if (uiState.session == null) {
+            CloudSignedOutCardContent(
+                loginForm = loginForm,
+                loading = uiState.loading,
+                onLoginFormChange = onLoginFormChange,
+                onLogin = onLogin,
+            )
+        } else {
+            CloudSignedInCardContent(
+                session = uiState.session,
+                syncState = uiState.syncState,
+                loading = uiState.loading,
+                onRefreshSession = onRefreshSession,
+                onLogout = onLogout,
+                onSyncNow = onSyncNow,
             )
         }
+
+        CloudStatusMessage(
+            message = uiState.message,
+            error = uiState.error,
+        )
     }
 }
 
@@ -419,19 +432,20 @@ private fun CloudSignedOutCardContent(
             onLoginFormChange(loginForm.copy(useRecoveryCode = !loginForm.useRecoveryCode))
         },
     )
-    Button(
-        onClick = onLogin,
-        enabled =
-            !loading &&
-                loginForm.username.isNotBlank() &&
-                loginForm.password.isNotBlank() &&
-                loginForm.oneTimeCode.isNotBlank(),
-    ) {
-        Text(if (loading) "Signing in…" else "Sign in")
+    KestrelActionRow {
+        Button(
+            onClick = onLogin,
+            enabled =
+                !loading &&
+                    loginForm.username.isNotBlank() &&
+                    loginForm.password.isNotBlank() &&
+                    loginForm.oneTimeCode.isNotBlank(),
+        ) {
+            Text(if (loading) "Signing in…" else "Sign in", maxLines = 1)
+        }
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun CloudSignedInCardContent(
     session: CloudSession,
@@ -462,10 +476,7 @@ private fun CloudSignedInCardContent(
             color = MaterialTheme.colorScheme.error,
         )
     }
-    FlowRow(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
+    KestrelActionRow {
         Button(onClick = onSyncNow, enabled = !loading) {
             Text(if (loading) "Syncing…" else "Sync now", maxLines = 1)
         }
@@ -487,30 +498,19 @@ private fun CloudConflictCard(
     onKeepBoth: (CloudPlaceConflict) -> Unit,
 ) {
     if (conflicts.isEmpty()) return
-    Text(
-        text = "Sync conflicts",
-        style = MaterialTheme.typography.titleMedium,
-    )
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Text(
-                text = "Choose which place version to keep.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+    OptionsCard(
+        title = "Sync conflicts",
+        subtitle = "Choose which place version to keep.",
+    ) {
+        conflicts.forEachIndexed { index, conflict ->
+            if (index > 0) HorizontalDivider()
+            CloudConflictItem(
+                conflict = conflict,
+                loading = loading,
+                onUseCloud = { onUseCloud(conflict) },
+                onUseLocal = { onUseLocal(conflict) },
+                onKeepBoth = { onKeepBoth(conflict) },
             )
-            conflicts.forEachIndexed { index, conflict ->
-                if (index > 0) HorizontalDivider()
-                CloudConflictItem(
-                    conflict = conflict,
-                    loading = loading,
-                    onUseCloud = { onUseCloud(conflict) },
-                    onUseLocal = { onUseLocal(conflict) },
-                    onKeepBoth = { onKeepBoth(conflict) },
-                )
-            }
         }
     }
 }
@@ -538,10 +538,10 @@ private fun CloudConflictItem(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = onUseCloud, enabled = !loading) { Text("Use Cloud") }
-            Button(onClick = onUseLocal, enabled = !loading) { Text("Use Local") }
-            OutlinedButton(onClick = onKeepBoth, enabled = !loading) { Text("Keep Both") }
+        KestrelActionRow {
+            OutlinedButton(onClick = onUseCloud, enabled = !loading) { Text("Use Cloud", maxLines = 1) }
+            Button(onClick = onUseLocal, enabled = !loading) { Text("Use Local", maxLines = 1) }
+            OutlinedButton(onClick = onKeepBoth, enabled = !loading) { Text("Keep Both", maxLines = 1) }
         }
     }
 }
@@ -573,11 +573,10 @@ private fun StartupPreferenceCard(
     startup: StartupPreference,
     onUpdate: (StartupPreference) -> Unit,
 ) {
-    Text(
-        text = "When opening the app",
-        style = MaterialTheme.typography.titleMedium,
-    )
-    Card(modifier = Modifier.fillMaxWidth()) {
+    OptionsCard(
+        title = "When opening the app",
+        subtitle = "Choose where the map starts after launch.",
+    ) {
         StartupRadioRow(
             label = "Last position",
             selected = startup.mode == StartupPreference.Mode.Last,
@@ -622,11 +621,10 @@ private fun FavoriteStartupPicker(
     onSelect: (LibraryItemWithContent) -> Unit,
 ) {
     if (startup.mode != StartupPreference.Mode.Favorite || items.isEmpty()) return
-    Text(
-        text = "Pick a favorite",
-        style = MaterialTheme.typography.titleSmall,
-    )
-    Card(modifier = Modifier.fillMaxWidth()) {
+    OptionsCard(
+        title = "Pick a favorite",
+        subtitle = "This saved item becomes the startup target.",
+    ) {
         items.forEachIndexed { index, item ->
             if (index > 0) HorizontalDivider()
             StartupRadioRow(
@@ -645,44 +643,38 @@ private fun MockPlaybackSettingsCard(
     onProgressWriteIntervalChange: (Int) -> Unit,
 ) {
     val seconds = settings.progressWriteIntervalSeconds
-    Text(
-        text = "Mock playback",
-        style = MaterialTheme.typography.titleMedium,
-    )
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Text(
-                text = "Route progress write interval (1–60 s): $seconds s",
-                style = MaterialTheme.typography.titleSmall,
-            )
-            Text(
-                text =
-                    "Higher values reduce DataStore writes but widen rollback after Android " +
-                        "kills the service. Applies to the next route start or restore.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(
-                    onClick = { onProgressWriteIntervalChange(seconds - 1) },
-                    enabled = seconds > MockPlaybackSettings.MIN_PROGRESS_WRITE_INTERVAL_SECONDS,
-                ) { Text("− 1 s") }
-                Button(
-                    onClick = {
-                        onProgressWriteIntervalChange(
-                            MockPlaybackSettings.DEFAULT_PROGRESS_WRITE_INTERVAL_SECONDS,
-                        )
-                    },
-                    enabled = seconds != MockPlaybackSettings.DEFAULT_PROGRESS_WRITE_INTERVAL_SECONDS,
-                ) { Text("Reset to 5 s") }
-                OutlinedButton(
-                    onClick = { onProgressWriteIntervalChange(seconds + 1) },
-                    enabled = seconds < MockPlaybackSettings.MAX_PROGRESS_WRITE_INTERVAL_SECONDS,
-                ) { Text("+ 1 s") }
-            }
+    OptionsCard(
+        title = "Mock playback",
+        subtitle = "Balance route restore accuracy with DataStore write frequency.",
+    ) {
+        Text(
+            text = "Route progress write interval: $seconds s",
+            style = MaterialTheme.typography.titleSmall,
+        )
+        Text(
+            text =
+                "Higher values reduce DataStore writes but widen rollback after Android " +
+                    "kills the service. Applies to the next route start or restore.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        KestrelActionRow {
+            OutlinedButton(
+                onClick = { onProgressWriteIntervalChange(seconds - 1) },
+                enabled = seconds > MockPlaybackSettings.MIN_PROGRESS_WRITE_INTERVAL_SECONDS,
+            ) { Text("− 1 s", maxLines = 1) }
+            Button(
+                onClick = {
+                    onProgressWriteIntervalChange(
+                        MockPlaybackSettings.DEFAULT_PROGRESS_WRITE_INTERVAL_SECONDS,
+                    )
+                },
+                enabled = seconds != MockPlaybackSettings.DEFAULT_PROGRESS_WRITE_INTERVAL_SECONDS,
+            ) { Text("Reset to 5 s", maxLines = 1) }
+            OutlinedButton(
+                onClick = { onProgressWriteIntervalChange(seconds + 1) },
+                enabled = seconds < MockPlaybackSettings.MAX_PROGRESS_WRITE_INTERVAL_SECONDS,
+            ) { Text("+ 1 s", maxLines = 1) }
         }
     }
 }
@@ -700,61 +692,55 @@ private fun RandomRouteDefaultsCard(
     val parsedPointCount = pointCount.toIntOrNull()
     val parsedSpacing = spacingMeters.toDoubleOrNull()
     val valid = isValidRandomRoute(parsedPointCount, parsedSpacing)
-    Text(
-        text = "Random route defaults",
-        style = MaterialTheme.typography.titleMedium,
-    )
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
+    OptionsCard(
+        title = "Random route defaults",
+        subtitle = "Set the fallback shape for generated routes.",
+    ) {
+        Text(
+            text = "Used when no previous random route settings exist.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (hasLastUsed) {
             Text(
-                text = "Used when no previous random route settings exist.",
+                text = "Generate random route is currently using last used settings.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            if (hasLastUsed) {
-                Text(
-                    text = "Generate random route is currently using last used settings.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            OutlinedTextField(
-                value = pointCount,
-                onValueChange = onPointCountChange,
-                label = { Text("Point count (2–1000)") },
-                isError = pointCount.isNotBlank() && !isValidPointCount(parsedPointCount),
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            OutlinedTextField(
-                value = spacingMeters,
-                onValueChange = onSpacingMetersChange,
-                label = { Text("Spacing meters (1–10000)") },
-                isError = spacingMeters.isNotBlank() && !isValidSpacing(parsedSpacing),
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Text(
-                text =
-                    "Estimated distance: " +
-                        if (parsedPointCount != null && parsedSpacing != null) {
-                            formatDistance((parsedPointCount - 1).coerceAtLeast(0) * parsedSpacing)
-                        } else {
-                            "—"
-                        },
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(
-                    onClick = onSave,
-                    enabled = valid,
-                ) { Text("Save") }
-                OutlinedButton(onClick = onReset) { Text("Reset to recommended") }
-            }
+        }
+        OutlinedTextField(
+            value = pointCount,
+            onValueChange = onPointCountChange,
+            label = { Text("Point count (2–1000)") },
+            isError = pointCount.isNotBlank() && !isValidPointCount(parsedPointCount),
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        OutlinedTextField(
+            value = spacingMeters,
+            onValueChange = onSpacingMetersChange,
+            label = { Text("Spacing meters (1–10000)") },
+            isError = spacingMeters.isNotBlank() && !isValidSpacing(parsedSpacing),
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Text(
+            text =
+                "Estimated distance: " +
+                    if (parsedPointCount != null && parsedSpacing != null) {
+                        formatDistance((parsedPointCount - 1).coerceAtLeast(0) * parsedSpacing)
+                    } else {
+                        "—"
+                    },
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        KestrelActionRow {
+            Button(
+                onClick = onSave,
+                enabled = valid,
+            ) { Text("Save", maxLines = 1) }
+            OutlinedButton(onClick = onReset) { Text("Reset to recommended", maxLines = 1) }
         }
     }
 }

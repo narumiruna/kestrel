@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="780" viewBox="0 0 360 780">
+<rect width="360" height="780" fill="#f5f6ff"/>
+<text x="20" y="42" font-family="Inter,Arial,sans-serif" font-size="22" font-weight="700" fill="#1a1c23">Map — before</text>
+<text x="20" y="66" font-family="Inter,Arial,sans-serif" font-size="12" fill="#727785">Default Material surfaces, flat sheet hierarchy</text>
+<rect x="16" y="90" width="328" height="110" rx="18" fill="#f5f6ff" stroke="#dde3ee" stroke-width="1"/>
+<circle cx="36" cy="113" r="6" fill="#727785"/>
+<text x="52" y="116" font-family="Inter,Arial,sans-serif" font-size="15" font-weight="700" fill="#1a1c23">Idle</text>
+<text x="52" y="136" font-family="Inter,Arial,sans-serif" font-size="11" fill="#727785">Tap the map to drop a point or generate a route.</text>
+<rect x="32" y="158" width="169" height="30" rx="15" fill="#005fad" stroke="#005fad"/>
+<text x="43" y="178" font-family="Inter,Arial,sans-serif" font-size="11" font-weight="600" fill="#ffffff">Generate random route</text>
+<rect x="16" y="214" width="328" height="92" rx="18" fill="#f5f6ff" stroke="#dde3ee" stroke-width="1"/>
+<text x="32" y="240" font-family="Inter,Arial,sans-serif" font-size="15" font-weight="700" fill="#1a1c23">Clear   Save route   Re-generate</text>
+<text x="32" y="260" font-family="Inter,Arial,sans-serif" font-size="11" fill="#727785">Secondary actions in one row; cramped on small screens.</text>
+<rect x="16" y="320" width="328" height="112" rx="18" fill="#f5f6ff" stroke="#dde3ee" stroke-width="1"/>
+<text x="32" y="346" font-family="Inter,Arial,sans-serif" font-size="15" font-weight="700" fill="#1a1c23">Speed</text>
+<text x="32" y="366" font-family="Inter,Arial,sans-serif" font-size="11" fill="#727785">Chips share same visual weight as primary action.</text>
+<rect x="32" y="394" width="62" height="26" rx="13" fill="#ffffff00" stroke="#dde3ee"/>
+<text x="42" y="411" font-family="Inter,Arial,sans-serif" font-size="10" fill="#1a1c23">5 km/h</text>
+<rect x="102" y="394" width="69" height="26" rx="13" fill="#ffffff00" stroke="#dde3ee"/>
+<text x="112" y="411" font-family="Inter,Arial,sans-serif" font-size="10" fill="#1a1c23">10 km/h</text>
+<rect x="179" y="394" width="69" height="26" rx="13" fill="#ffffff00" stroke="#dde3ee"/>
+<text x="189" y="411" font-family="Inter,Arial,sans-serif" font-size="10" fill="#1a1c23">15 km/h</text>
+<rect x="256" y="394" width="69" height="26" rx="13" fill="#005fad" stroke="#005fad"/>
+<text x="266" y="411" font-family="Inter,Arial,sans-serif" font-size="10" fill="#ffffff">20 km/h</text>
+<rect x="0" y="704" width="360" height="76" fill="#f5f6ff" stroke="#dde3ee"/>
+<circle cx="60" cy="728" r="10" fill="#005fad" opacity="0.85"/>
+<text x="60" y="756" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="11" fill="#005fad">Map</text>
+<circle cx="180" cy="728" r="10" fill="#727785" opacity="0.85"/>
+<text x="180" y="756" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="11" fill="#727785">Favorites</text>
+<circle cx="300" cy="728" r="10" fill="#727785" opacity="0.85"/>
+<text x="300" y="756" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="11" fill="#727785">Options</text>
+</svg>

@@ -38,7 +38,6 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -94,6 +93,8 @@ import dev.narumi.kestrel.core.location.RuntimeState
 import dev.narumi.kestrel.core.location.parseCoordInput
 import dev.narumi.kestrel.core.location.rememberCurrentLocation
 import dev.narumi.kestrel.core.map.KestrelMap
+import dev.narumi.kestrel.ui.components.KestrelActionRow
+import dev.narumi.kestrel.ui.components.KestrelCard
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.util.Locale
@@ -168,7 +169,7 @@ private sealed interface PendingFavorite {
     ) : PendingFavorite
 }
 
-private val SPEED_PRESETS = listOf(5.0, 10.0, 15.0, 20.0)
+internal val SPEED_PRESETS = listOf(5.0, 10.0, 15.0, 20.0)
 
 private fun isValidPointCount(value: Int?): Boolean =
     value != null &&
@@ -208,7 +209,7 @@ internal fun formatRouteStatusDetails(
     routeMode: MovementEngine.Mode,
 ): String = "${formatWaypointCount(waypointCount)} · ${formatSpeedKmh(speedKmh)} · ${routeMode.label()}"
 
-private fun MovementEngine.Mode.label(): String =
+internal fun MovementEngine.Mode.label(): String =
     when (this) {
         MovementEngine.Mode.Once -> "Once"
         MovementEngine.Mode.Loop -> "Loop"
@@ -458,7 +459,9 @@ fun MapScreen(
     BottomSheetScaffold(
         modifier = modifier.fillMaxSize(),
         scaffoldState = scaffoldState,
-        sheetPeekHeight = 156.dp,
+        sheetPeekHeight = 168.dp,
+        sheetContainerColor = MaterialTheme.colorScheme.surface,
+        containerColor = MaterialTheme.colorScheme.background,
         sheetContent = {
             MapSheet(
                 runState = runState,
@@ -539,6 +542,13 @@ fun MapScreen(
                         )
                     },
                     onRefreshMockCheck = { mockAllowed = mockProvider.isMockAllowed() },
+                )
+            } else {
+                MapHintPill(
+                    modifier =
+                        Modifier
+                            .align(Alignment.TopStart)
+                            .padding(horizontal = 12.dp, vertical = 12.dp),
                 )
             }
             Column(
@@ -792,65 +802,42 @@ private fun MapSheet(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp)
+                .padding(horizontal = 16.dp)
                 .padding(bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        StatusRow(
-            runState = runState,
+        KestrelCard {
+            StatusRow(
+                runState = runState,
+                waypointCount = waypointCount,
+                mockNow = mockNow,
+                speedKmh = speedKmh,
+                routeMode = routeMode,
+            )
+            PrimaryActionRow(
+                runState = runState,
+                waypointCount = waypointCount,
+                ready = ready,
+                onPrimary = onPrimary,
+                onStop = onStop,
+            )
+        }
+        if (canShowExtras && waypointCount > 0) {
+            DraftRouteActionsCard(
+                waypointCount = waypointCount,
+                onClear = onClear,
+                onSaveRoute = onSaveRoute,
+                onGenerate = onGenerate,
+            )
+        }
+        RouteSettingsCard(
             waypointCount = waypointCount,
-            mockNow = mockNow,
             speedKmh = speedKmh,
             routeMode = routeMode,
+            isRouteRunning = isRouteRunning,
+            onSpeedChange = onSpeedChange,
+            onModeChange = onModeChange,
         )
-        PrimaryActionRow(
-            runState = runState,
-            waypointCount = waypointCount,
-            ready = ready,
-            onPrimary = onPrimary,
-            onStop = onStop,
-        )
-        if (canShowExtras && waypointCount > 0) {
-            HorizontalDivider()
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(
-                    onClick = onClear,
-                    modifier = Modifier.weight(1f),
-                ) { Text("Clear") }
-                OutlinedButton(
-                    onClick = onSaveRoute,
-                    enabled = waypointCount >= 2,
-                    modifier = Modifier.weight(1f),
-                ) { Text("Save route") }
-                OutlinedButton(
-                    onClick = onGenerate,
-                    modifier = Modifier.weight(1f),
-                ) { Text("Re-generate") }
-            }
-        }
-        HorizontalDivider()
-        SectionLabel("Speed")
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            SPEED_PRESETS.forEach { preset ->
-                ChipChoice(
-                    label = "${preset.toInt()} km/h",
-                    selected = preset == speedKmh,
-                    enabled = !isRouteRunning,
-                    onClick = { onSpeedChange(preset) },
-                )
-            }
-        }
-        SectionLabel("Mode")
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            MovementEngine.Mode.entries.forEach { entry ->
-                ChipChoice(
-                    label = entry.label(),
-                    selected = entry == routeMode,
-                    enabled = !isRouteRunning && waypointCount >= 2,
-                    onClick = { onModeChange(entry) },
-                )
-            }
-        }
         Spacer(Modifier.size(4.dp))
     }
 }
@@ -903,7 +890,7 @@ private fun StatusRow(
         Box(
             modifier =
                 Modifier
-                    .size(10.dp)
+                    .size(12.dp)
                     .clip(CircleShape)
                     .background(dotColor),
         )
@@ -943,40 +930,28 @@ private fun PrimaryActionRow(
                 onClick = onPrimary,
                 enabled = enabled,
                 modifier = Modifier.fillMaxWidth(),
-            ) { Text(label) }
+            ) { Text(label, maxLines = 1) }
         }
         RunState.Single ->
             Button(
                 onClick = onStop,
                 modifier = Modifier.fillMaxWidth(),
-            ) { Text("Stop mock") }
+            ) { Text("Stop mock", maxLines = 1) }
         RunState.RoutePlaying ->
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(
-                    onClick = onPrimary,
-                    modifier = Modifier.weight(1f),
-                ) { Text("Pause") }
-                OutlinedButton(
-                    onClick = onStop,
-                    modifier = Modifier.weight(1f),
-                ) { Text("Stop") }
+            KestrelActionRow {
+                Button(onClick = onPrimary) { Text("Pause", maxLines = 1) }
+                OutlinedButton(onClick = onStop) { Text("Stop", maxLines = 1) }
             }
         RunState.RoutePaused ->
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(
-                    onClick = onPrimary,
-                    modifier = Modifier.weight(1f),
-                ) { Text("Resume") }
-                OutlinedButton(
-                    onClick = onStop,
-                    modifier = Modifier.weight(1f),
-                ) { Text("Stop") }
+            KestrelActionRow {
+                Button(onClick = onPrimary) { Text("Resume", maxLines = 1) }
+                OutlinedButton(onClick = onStop) { Text("Stop", maxLines = 1) }
             }
     }
 }
 
 @Composable
-private fun SectionLabel(text: String) {
+internal fun SectionLabel(text: String) {
     Text(
         text = text,
         style = MaterialTheme.typography.labelLarge,
@@ -985,7 +960,7 @@ private fun SectionLabel(text: String) {
 }
 
 @Composable
-private fun ChipChoice(
+internal fun ChipChoice(
     label: String,
     selected: Boolean,
     enabled: Boolean,
@@ -1052,15 +1027,15 @@ private fun StatusBanner(
                     },
                 style = MaterialTheme.typography.bodySmall,
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            KestrelActionRow {
                 if (!permissionsOk) {
                     Button(onClick = { permissionState.launchMultiplePermissionRequest() }) {
-                        Text("Grant")
+                        Text("Grant", maxLines = 1)
                     }
                 }
                 if (!mockAllowed) {
-                    Button(onClick = onOpenDeveloperOptions) { Text("Dev options") }
-                    OutlinedButton(onClick = onRefreshMockCheck) { Text("Recheck") }
+                    Button(onClick = onOpenDeveloperOptions) { Text("Dev options", maxLines = 1) }
+                    OutlinedButton(onClick = onRefreshMockCheck) { Text("Recheck", maxLines = 1) }
                 }
             }
         }

@@ -11,8 +11,10 @@ import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteDefaults
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -75,6 +77,13 @@ fun KestrelApp() {
     }
 
     NavigationSuiteScaffold(
+        containerColor = MaterialTheme.colorScheme.background,
+        navigationSuiteColors =
+            NavigationSuiteDefaults.colors(
+                navigationBarContainerColor = MaterialTheme.colorScheme.surface,
+                navigationRailContainerColor = MaterialTheme.colorScheme.surface,
+                navigationDrawerContainerColor = MaterialTheme.colorScheme.surface,
+            ),
         navigationSuiteItems = {
             AppDestinations.entries.forEach { destination ->
                 item(
@@ -88,7 +97,10 @@ fun KestrelApp() {
             }
         },
     ) {
-        Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+        Scaffold(
+            modifier = Modifier.fillMaxSize(),
+            containerColor = MaterialTheme.colorScheme.background,
+        ) { innerPadding ->
             val contentModifier = Modifier.padding(innerPadding)
             when (currentDestination) {
                 AppDestinations.HOME ->

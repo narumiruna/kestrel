@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="780" viewBox="0 0 360 780">
+<rect width="360" height="780" fill="#f5f6ff"/>
+<text x="20" y="42" font-family="Inter,Arial,sans-serif" font-size="22" font-weight="700" fill="#1a1c23">Favorites — before</text>
+<text x="20" y="66" font-family="Inter,Arial,sans-serif" font-size="12" fill="#727785">Single card list and sparse empty state</text>
+<rect x="16" y="90" width="328" height="96" rx="18" fill="#f5f6ff" stroke="#dde3ee" stroke-width="1"/>
+<text x="32" y="116" font-family="Inter,Arial,sans-serif" font-size="15" font-weight="700" fill="#1a1c23">Favorites</text>
+<text x="32" y="136" font-family="Inter,Arial,sans-serif" font-size="11" fill="#727785">No screen subtitle; tabs and sort sit directly in page.</text>
+<rect x="16" y="200" width="328" height="96" rx="18" fill="#f5f6ff" stroke="#dde3ee" stroke-width="1"/>
+<text x="32" y="226" font-family="Inter,Arial,sans-serif" font-size="15" font-weight="700" fill="#1a1c23">Long Place Name</text>
+<text x="32" y="246" font-family="Inter,Arial,sans-serif" font-size="11" fill="#727785">Apply button and overflow compete with text.</text>
+<rect x="32" y="254" width="72" height="30" rx="15" fill="#005fad" stroke="#005fad"/>
+<text x="43" y="274" font-family="Inter,Arial,sans-serif" font-size="11" font-weight="600" fill="#ffffff">Apply</text>
+<rect x="16" y="310" width="328" height="116" rx="18" fill="#f5f6ff" stroke="#dde3ee" stroke-width="1"/>
+<text x="32" y="336" font-family="Inter,Arial,sans-serif" font-size="15" font-weight="700" fill="#1a1c23">No favorites yet</text>
+<text x="32" y="356" font-family="Inter,Arial,sans-serif" font-size="11" fill="#727785">Empty state uses default spacing and muted icon.</text>
+<rect x="0" y="704" width="360" height="76" fill="#f5f6ff" stroke="#dde3ee"/>
+<circle cx="60" cy="728" r="10" fill="#727785" opacity="0.85"/>
+<text x="60" y="756" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="11" fill="#727785">Map</text>
+<circle cx="180" cy="728" r="10" fill="#005fad" opacity="0.85"/>
+<text x="180" y="756" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="11" fill="#005fad">Favorites</text>
+<circle cx="300" cy="728" r="10" fill="#727785" opacity="0.85"/>
+<text x="300" y="756" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="11" fill="#727785">Options</text>
+</svg>

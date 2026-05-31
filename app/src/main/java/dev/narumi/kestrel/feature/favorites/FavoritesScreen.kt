@@ -5,23 +5,20 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
+import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.PrimaryTabRow
@@ -37,6 +34,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.narumi.kestrel.core.data.FavoritesSortMode
@@ -52,6 +50,10 @@ import dev.narumi.kestrel.core.library.sortedFor
 import dev.narumi.kestrel.core.location.LatLng
 import dev.narumi.kestrel.core.location.MovementEngine
 import dev.narumi.kestrel.core.location.parseCoordInput
+import dev.narumi.kestrel.ui.components.KestrelActionRow
+import dev.narumi.kestrel.ui.components.KestrelCard
+import dev.narumi.kestrel.ui.components.KestrelEmptyState
+import dev.narumi.kestrel.ui.components.KestrelScreenHeader
 import kotlinx.coroutines.launch
 
 @Suppress("LongMethod")
@@ -72,6 +74,7 @@ fun FavoritesScreen(
     var editingName by remember { mutableStateOf<LibraryItemWithContent?>(null) }
     var editingPoint by remember { mutableStateOf<LibraryItemWithContent?>(null) }
     var editingRoute by remember { mutableStateOf<LibraryItemWithContent?>(null) }
+    var deletingItem by remember { mutableStateOf<LibraryItemWithContent?>(null) }
     var renameText by remember { mutableStateOf("") }
     var pointText by remember { mutableStateOf("") }
     var routeSpeedText by remember { mutableStateOf("") }
@@ -81,6 +84,25 @@ fun FavoritesScreen(
         items
             .filter { if (selectedTab == 0) it.kind == LibraryItemKind.Place else it.kind == LibraryItemKind.Route }
             .sortedFor(sortMode.mode)
+
+    deletingItem?.let { item ->
+        ConfirmDeleteFavoriteDialog(
+            item = item,
+            onConfirm = {
+                scope.launch {
+                    libraryRepository.removeItem(item.item.id)
+                    if (
+                        startup.mode == StartupPreference.Mode.Favorite &&
+                        startup.libraryItemId == item.item.id
+                    ) {
+                        prefs.setStartupPreference(StartupPreference(StartupPreference.Mode.Last))
+                    }
+                }
+                deletingItem = null
+            },
+            onDismiss = { deletingItem = null },
+        )
+    }
 
     FavoriteEditDialogs(
         editingName = editingName,
@@ -157,17 +179,7 @@ fun FavoritesScreen(
             }
         },
         onMove = { item, toIndex -> scope.launch { libraryRepository.reorderItem(item.item.id, toIndex) } },
-        onDelete = { item ->
-            scope.launch {
-                libraryRepository.removeItem(item.item.id)
-                if (
-                    startup.mode == StartupPreference.Mode.Favorite &&
-                    startup.libraryItemId == item.item.id
-                ) {
-                    prefs.setStartupPreference(StartupPreference(StartupPreference.Mode.Last))
-                }
-            }
-        },
+        onDelete = { item -> deletingItem = item },
     )
 }
 
@@ -243,7 +255,10 @@ private fun FavoritesContent(
                 .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text("Favorites", style = MaterialTheme.typography.titleMedium)
+        KestrelScreenHeader(
+            title = "Favorites",
+            subtitle = "Saved points and routes for quick mock-GPS starts.",
+        )
         when {
             items.isEmpty() ->
                 EmptyFavorites(
@@ -283,11 +298,13 @@ private fun FavoritesListContent(
     onMove: (LibraryItemWithContent, Int) -> Unit,
     onDelete: (LibraryItemWithContent) -> Unit,
 ) {
-    PrimaryTabRow(selectedTabIndex = selectedTab) {
-        Tab(selected = selectedTab == 0, onClick = { onTabChange(0) }, text = { Text("Points") })
-        Tab(selected = selectedTab == 1, onClick = { onTabChange(1) }, text = { Text("Routes") })
+    KestrelCard {
+        PrimaryTabRow(selectedTabIndex = selectedTab) {
+            Tab(selected = selectedTab == 0, onClick = { onTabChange(0) }, text = { Text("Points") })
+            Tab(selected = selectedTab == 1, onClick = { onTabChange(1) }, text = { Text("Routes") })
+        }
+        SortModeMenu(sortMode = sortMode, onSortModeChange = onSortModeChange)
     }
-    SortModeMenu(sortMode = sortMode, onSortModeChange = onSortModeChange)
     if (visibleItems.isEmpty()) {
         EmptyFavorites(
             title = if (selectedTab == 0) "No point favorites" else "No route favorites",
@@ -299,25 +316,22 @@ private fun FavoritesListContent(
                 },
         )
     } else {
-        Card(modifier = Modifier.fillMaxWidth()) {
-            LazyColumn {
-                itemsIndexed(visibleItems, key = { _, item -> item.item.id }) { index, item ->
-                    val previousIndex = visibleItems.getOrNull(index - 1)?.globalIndexIn(items)
-                    val nextIndex = visibleItems.getOrNull(index + 1)?.globalIndexIn(items)
-                    FavoriteRow(
-                        item = item,
-                        canReorder = sortMode == FavoritesSortMode.Mode.Manual,
-                        canMoveUp = previousIndex != null,
-                        canMoveDown = nextIndex != null,
-                        onApply = { onApply(item) },
-                        onRename = { onRename(item) },
-                        onEdit = { onEdit(item) },
-                        onMoveUp = { previousIndex?.let { onMove(item, it) } },
-                        onMoveDown = { nextIndex?.let { onMove(item, it) } },
-                        onDelete = { onDelete(item) },
-                    )
-                    HorizontalDivider()
-                }
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            itemsIndexed(visibleItems, key = { _, item -> item.item.id }) { index, item ->
+                val previousIndex = visibleItems.getOrNull(index - 1)?.globalIndexIn(items)
+                val nextIndex = visibleItems.getOrNull(index + 1)?.globalIndexIn(items)
+                FavoriteRow(
+                    item = item,
+                    canReorder = sortMode == FavoritesSortMode.Mode.Manual,
+                    canMoveUp = previousIndex != null,
+                    canMoveDown = nextIndex != null,
+                    onApply = { onApply(item) },
+                    onRename = { onRename(item) },
+                    onEdit = { onEdit(item) },
+                    onMoveUp = { previousIndex?.let { onMove(item, it) } },
+                    onMoveDown = { nextIndex?.let { onMove(item, it) } },
+                    onDelete = { onDelete(item) },
+                )
             }
         }
     }
@@ -328,26 +342,11 @@ private fun EmptyFavorites(
     title: String,
     message: String,
 ) {
-    Box(modifier = Modifier.fillMaxWidth().padding(top = 32.dp)) {
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.StarBorder,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.outline,
-                modifier = Modifier.size(48.dp),
-            )
-            Text(text = title, style = MaterialTheme.typography.titleMedium)
-            Text(
-                text = message,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
+    KestrelEmptyState(
+        icon = Icons.Outlined.StarBorder,
+        title = title,
+        message = message,
+    )
 }
 
 @Composable
@@ -392,63 +391,145 @@ private fun FavoriteRow(
     onDelete: () -> Unit,
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
-    ListItem(
-        headlineContent = { Text(item.name) },
-        supportingContent = { Text(item.description()) },
-        trailingContent = {
-            Row {
-                TextButton(onClick = onApply) { Text("Apply") }
-                Box {
-                    IconButton(onClick = { menuExpanded = true }) {
-                        Icon(Icons.Filled.MoreVert, contentDescription = "More actions for ${item.name}")
-                    }
-                    DropdownMenu(
-                        expanded = menuExpanded,
-                        onDismissRequest = { menuExpanded = false },
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text("Rename") },
-                            onClick = {
-                                menuExpanded = false
-                                onRename()
-                            },
-                        )
-                        DropdownMenuItem(
-                            text = { Text(if (item.kind == LibraryItemKind.Place) "Edit coordinates" else "Edit route") },
-                            onClick = {
-                                menuExpanded = false
-                                onEdit()
-                            },
-                        )
-                        if (canReorder) {
-                            DropdownMenuItem(
-                                text = { Text("Move up") },
-                                enabled = canMoveUp,
-                                onClick = {
-                                    menuExpanded = false
-                                    onMoveUp()
-                                },
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Move down") },
-                                enabled = canMoveDown,
-                                onClick = {
-                                    menuExpanded = false
-                                    onMoveDown()
-                                },
-                            )
-                        }
-                        DropdownMenuItem(
-                            text = { Text("Delete") },
-                            onClick = {
-                                menuExpanded = false
-                                onDelete()
-                            },
-                        )
-                    }
+    KestrelCard {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.Top,
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Star,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = item.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = item.description(),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            Box {
+                IconButton(onClick = { menuExpanded = true }) {
+                    Icon(Icons.Filled.MoreVert, contentDescription = "More actions for ${item.name}")
                 }
+                FavoriteRowMenu(
+                    expanded = menuExpanded,
+                    item = item,
+                    canReorder = canReorder,
+                    canMoveUp = canMoveUp,
+                    canMoveDown = canMoveDown,
+                    onDismiss = { menuExpanded = false },
+                    onRename = onRename,
+                    onEdit = onEdit,
+                    onMoveUp = onMoveUp,
+                    onMoveDown = onMoveDown,
+                    onDelete = onDelete,
+                )
+            }
+        }
+        KestrelActionRow {
+            Button(onClick = onApply) { Text("Apply to map", maxLines = 1) }
+            TextButton(onClick = onEdit) {
+                Text(if (item.kind == LibraryItemKind.Place) "Edit coordinates" else "Edit route", maxLines = 1)
+            }
+        }
+    }
+}
+
+@Composable
+private fun FavoriteRowMenu(
+    expanded: Boolean,
+    item: LibraryItemWithContent,
+    canReorder: Boolean,
+    canMoveUp: Boolean,
+    canMoveDown: Boolean,
+    onDismiss: () -> Unit,
+    onRename: () -> Unit,
+    onEdit: () -> Unit,
+    onMoveUp: () -> Unit,
+    onMoveDown: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    DropdownMenu(
+        expanded = expanded,
+        onDismissRequest = onDismiss,
+    ) {
+        DropdownMenuItem(
+            text = { Text("Rename") },
+            onClick = {
+                onDismiss()
+                onRename()
+            },
+        )
+        DropdownMenuItem(
+            text = { Text(if (item.kind == LibraryItemKind.Place) "Edit coordinates" else "Edit route") },
+            onClick = {
+                onDismiss()
+                onEdit()
+            },
+        )
+        if (canReorder) {
+            DropdownMenuItem(
+                text = { Text("Move up") },
+                enabled = canMoveUp,
+                onClick = {
+                    onDismiss()
+                    onMoveUp()
+                },
+            )
+            DropdownMenuItem(
+                text = { Text("Move down") },
+                enabled = canMoveDown,
+                onClick = {
+                    onDismiss()
+                    onMoveDown()
+                },
+            )
+        }
+        DropdownMenuItem(
+            text = { Text("Delete") },
+            onClick = {
+                onDismiss()
+                onDelete()
+            },
+        )
+    }
+}
+
+@Composable
+private fun ConfirmDeleteFavoriteDialog(
+    item: LibraryItemWithContent,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Delete favorite?") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = item.name,
+                    style = MaterialTheme.typography.titleSmall,
+                )
+                Text(
+                    text = "This removes the saved ${if (item.kind == LibraryItemKind.Place) "point" else "route"} from this device.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         },
+        confirmButton = {
+            Button(onClick = onConfirm) { Text("Delete", maxLines = 1) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
 }
 
