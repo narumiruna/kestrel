@@ -564,9 +564,9 @@ private fun StartupPreferenceCard(
     onUpdate: (StartupPreference) -> Unit,
 ) {
     var expandedKind by remember { mutableStateOf<LibraryItemKind?>(null) }
-    val places = items.filter { it.kind == LibraryItemKind.Place }
-    val routes = items.filter { it.kind == LibraryItemKind.Route }
-    val selectedItem = items.firstOrNull { it.item.id == startup.libraryItemId }
+    val places = remember(items) { items.filter { it.kind == LibraryItemKind.Place } }
+    val routes = remember(items) { items.filter { it.kind == LibraryItemKind.Route } }
+    val selectedItem = remember(items, startup.libraryItemId) { items.firstOrNull { it.item.id == startup.libraryItemId } }
 
     fun selectFavorite(item: LibraryItemWithContent) {
         onUpdate(
