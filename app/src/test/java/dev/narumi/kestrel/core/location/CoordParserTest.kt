@@ -65,6 +65,35 @@ class CoordParserTest {
     }
 
     @Test
+    fun parsesGoogleMapsQueryUrl() {
+        val url = "https://www.google.com/maps/search/?api=1&query=25.0330%2C121.5654"
+        val r = parseCoordInput(url)!!
+        assertEquals(25.0330, r.lat, 1e-6)
+        assertEquals(121.5654, r.lng, 1e-6)
+    }
+
+    @Test
+    fun parsesGeoPairIntentUri() {
+        val r = parseCoordInput("geo:25.0330,121.5654?z=15")!!
+        assertEquals(25.0330, r.lat, 1e-6)
+        assertEquals(121.5654, r.lng, 1e-6)
+    }
+
+    @Test
+    fun parsesGeoQueryIntentUri() {
+        val r = parseCoordInput("geo:0,0?q=25.0330,121.5654(Taipei 101)")!!
+        assertEquals(25.0330, r.lat, 1e-6)
+        assertEquals(121.5654, r.lng, 1e-6)
+    }
+
+    @Test
+    fun geoQueryBeatsGeoPair() {
+        val r = parseCoordInput("geo:0,0?q=25.0330,121.5654")!!
+        assertEquals(25.0330, r.lat, 1e-6)
+        assertEquals(121.5654, r.lng, 1e-6)
+    }
+
+    @Test
     fun trimsSurroundingWhitespace() {
         val r = parseCoordInput("   25.0330, 121.5654   ")!!
         assertEquals(25.0330, r.lat, 1e-6)

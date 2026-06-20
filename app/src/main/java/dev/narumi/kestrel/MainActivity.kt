@@ -1,5 +1,6 @@
 package dev.narumi.kestrel
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -18,6 +19,7 @@ import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteDefaul
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -33,6 +35,8 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import dev.narumi.kestrel.core.cloud.CloudSyncRepository
 import dev.narumi.kestrel.core.library.LibraryItemWithContent
+import dev.narumi.kestrel.core.location.LatLng
+import dev.narumi.kestrel.core.location.parseCoordInput
 import dev.narumi.kestrel.feature.favorites.FavoritesScreen
 import dev.narumi.kestrel.feature.map.MapScreen
 import dev.narumi.kestrel.feature.options.OptionsScreen
@@ -40,20 +44,40 @@ import dev.narumi.kestrel.ui.theme.KestrelTheme
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
+    private var pendingMapLinkPoint by mutableStateOf<LatLng?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        consumeMapLinkIntent(intent)
         enableEdgeToEdge()
         setContent {
             KestrelTheme {
-                KestrelApp()
+                KestrelApp(
+                    pendingMapLinkPoint = pendingMapLinkPoint,
+                    onMapLinkPointConsumed = { pendingMapLinkPoint = null },
+                )
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        consumeMapLinkIntent(intent)
+    }
+
+    private fun consumeMapLinkIntent(intent: Intent?) {
+        if (intent?.action != Intent.ACTION_VIEW) return
+        pendingMapLinkPoint = intent.dataString?.let(::parseCoordInput)
     }
 }
 
 @PreviewScreenSizes
 @Composable
-fun KestrelApp() {
+fun KestrelApp(
+    pendingMapLinkPoint: LatLng? = null,
+    onMapLinkPointConsumed: () -> Unit = {},
+) {
     var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.HOME) }
     var pendingFavoriteApply by remember { mutableStateOf<LibraryItemWithContent?>(null) }
     val context = LocalContext.current
@@ -73,6 +97,12 @@ fun KestrelApp() {
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
+    LaunchedEffect(pendingMapLinkPoint) {
+        if (pendingMapLinkPoint != null) {
+            currentDestination = AppDestinations.HOME
         }
     }
 
@@ -108,6 +138,8 @@ fun KestrelApp() {
                         modifier = contentModifier,
                         pendingFavoriteApply = pendingFavoriteApply,
                         onFavoriteApplyConsumed = { pendingFavoriteApply = null },
+                        pendingMapLinkPoint = pendingMapLinkPoint,
+                        onMapLinkPointConsumed = onMapLinkPointConsumed,
                     )
                 AppDestinations.FAVORITES ->
                     FavoritesScreen(
