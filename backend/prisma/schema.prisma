@@ -17,6 +17,7 @@ model User {
   updatedAt           DateTime  @updatedAt @map("updated_at")
   authAuditLogs       AuthAuditLog[]
   devices             Device[]
+  remoteCommands      RemoteCommand[]
   libraryItems        LibraryItem[]
   places              Place[]
   shareLinks          ShareLink[]
@@ -176,16 +177,20 @@ model LibraryItem {
 }
 
 model Device {
-  id         String       @id @default(uuid()) @db.Uuid
-  userId     String       @map("user_id") @db.Uuid
-  name       String       @db.VarChar(128)
-  platform   DevicePlatform
-  appVersion String?      @map("app_version") @db.VarChar(64)
-  lastSeenAt DateTime     @map("last_seen_at")
-  createdAt  DateTime     @default(now()) @map("created_at")
-  user       User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  state      DeviceState?
+  id                   String          @id @default(uuid()) @db.Uuid
+  userId               String          @map("user_id") @db.Uuid
+  clientDeviceId       String          @map("client_device_id") @db.VarChar(128)
+  name                 String          @db.VarChar(128)
+  platform             DevicePlatform
+  appVersion           String?         @map("app_version") @db.VarChar(64)
+  remoteControlEnabled Boolean         @default(false) @map("remote_control_enabled")
+  lastSeenAt           DateTime        @map("last_seen_at")
+  createdAt            DateTime        @default(now()) @map("created_at")
+  user                 User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  state                DeviceState?
+  remoteCommands       RemoteCommand[]
 
+  @@unique([userId, clientDeviceId])
   @@index([userId])
   @@map("devices")
 }
@@ -263,6 +268,27 @@ model SyncEvent {
   @@map("sync_events")
 }
 
+model RemoteCommand {
+  id           String              @id @default(uuid()) @db.Uuid
+  userId       String              @map("user_id") @db.Uuid
+  deviceId     String              @map("device_id") @db.Uuid
+  type         RemoteCommandType
+  payload      Json
+  status       RemoteCommandStatus @default(QUEUED)
+  errorMessage String?             @map("error_message") @db.VarChar(1024)
+  expiresAt    DateTime            @map("expires_at")
+  deliveredAt  DateTime?           @map("delivered_at")
+  appliedAt    DateTime?           @map("applied_at")
+  createdAt    DateTime            @default(now()) @map("created_at")
+  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  device       Device              @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@index([userId, deviceId, status, createdAt])
+  @@index([deviceId, status, createdAt])
+  @@index([expiresAt])
+  @@map("remote_commands")
+}
+
 enum DevicePlatform {
   ANDROID
   WEB
@@ -289,6 +315,20 @@ enum RouteMode {
   ONCE
   LOOP
   PING_PONG
+}
+
+enum RemoteCommandStatus {
+  QUEUED
+  DELIVERED
+  APPLIED
+  FAILED
+  EXPIRED
+}
+
+enum RemoteCommandType {
+  SET_POINT
+  START_ROUTE
+  STOP
 }
 
 enum SyncEntityType {
