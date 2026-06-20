@@ -53,7 +53,7 @@ type MockPrismaService = {
   >;
   device: {
     findFirst: jest.Mock<
-      Promise<{ id: string; remoteControlEnabled?: boolean } | null>,
+      Promise<{ id: string; remoteControlEnabled: boolean } | null>,
       [unknown]
     >;
     findMany: jest.Mock<Promise<MockRemoteDeviceRecord[]>, [unknown]>;
@@ -598,7 +598,10 @@ describe('RemoteControlService', () => {
   });
 
   it('rejects ack before delivery and foreign device ack', async () => {
-    prismaService.device.findFirst.mockResolvedValueOnce({ id: 'device-1' });
+    prismaService.device.findFirst.mockResolvedValueOnce({
+      id: 'device-1',
+      remoteControlEnabled: true,
+    });
     prismaService.remoteCommand.findFirst.mockResolvedValue(
       createRemoteCommandRecord({ status: RemoteCommandStatus.QUEUED }),
     );
@@ -636,7 +639,7 @@ function createMockPrismaService(): MockPrismaService {
     >(),
     device: {
       findFirst: createMock<
-        Promise<{ id: string; remoteControlEnabled?: boolean } | null>,
+        Promise<{ id: string; remoteControlEnabled: boolean } | null>,
         [unknown]
       >(),
       findMany: createMock<Promise<MockRemoteDeviceRecord[]>, [unknown]>(),
