@@ -81,6 +81,15 @@ export class RemoteControlService {
             userId,
           },
         });
+
+        // Re-read so the response reflects the just-expired commands rather
+        // than the QUEUED snapshot captured by the upsert above.
+        const refreshed = await tx.device.findUniqueOrThrow({
+          select: remoteDeviceSelect,
+          where: { id: device.id },
+        });
+
+        return mapRemoteDevice(refreshed, now);
       }
 
       return mapRemoteDevice(device, now);
