@@ -259,6 +259,15 @@ export class RemoteControlService {
       }
 
       if (isTerminalRemoteCommandStatus(command.status)) {
+        await tx.device.update({
+          data: {
+            lastSeenAt: now,
+          },
+          where: {
+            id: deviceId,
+          },
+        });
+
         return mapRemoteCommand(command);
       }
 

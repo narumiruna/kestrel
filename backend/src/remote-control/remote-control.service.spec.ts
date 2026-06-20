@@ -164,6 +164,26 @@ describe('RemoteControlService', () => {
     expect(prismaService.remoteCommand.create).not.toHaveBeenCalled();
   });
 
+  it('uses payload-specific validation errors', async () => {
+    await expect(
+      remoteControlService.createCommand('user-1', 'device-1', {
+        type: 'SET_POINT',
+      }),
+    ).rejects.toThrow('payload must be an object');
+    await expect(
+      remoteControlService.createCommand('user-1', 'device-1', {
+        payload: 'bad',
+        type: 'START_ROUTE',
+      }),
+    ).rejects.toThrow('payload must be an object');
+    await expect(
+      remoteControlService.createCommand('user-1', 'device-1', {
+        payload: 'bad',
+        type: 'STOP',
+      }),
+    ).rejects.toThrow('payload must be an object');
+  });
+
   it('rejects caller-supplied expiry beyond the bounded ttl', async () => {
     await expect(
       remoteControlService.createCommand('user-1', 'device-1', {
@@ -570,6 +590,9 @@ describe('RemoteControlService', () => {
 
     expect(result).toMatchObject({ status: RemoteCommandStatus.APPLIED });
     expect(prismaService.remoteCommand.updateMany).toHaveBeenCalledTimes(2);
+    expect(prismaService.device.update.mock.calls[0]?.[0]).toMatchObject({
+      data: { lastSeenAt: new Date('2026-06-20T08:00:00.000Z') },
+    });
   });
 
   it('rejects ack before delivery and foreign device ack', async () => {
