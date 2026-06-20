@@ -567,6 +567,13 @@ private fun StartupPreferenceCard(
     val places = remember(items) { items.filter { it.kind == LibraryItemKind.Place } }
     val routes = remember(items) { items.filter { it.kind == LibraryItemKind.Route } }
     val selectedItem = remember(items, startup.libraryItemId) { items.firstOrNull { it.item.id == startup.libraryItemId } }
+    val favoriteSupporting =
+        when {
+            startup.mode != StartupPreference.Mode.Favorite -> null
+            items.isEmpty() -> "No favorites yet. Long-press the map to save one."
+            selectedItem != null -> "Startup favorite: ${selectedItem.name}"
+            else -> "Pick a point or route below."
+        }
 
     fun selectFavorite(item: LibraryItemWithContent) {
         onUpdate(
@@ -600,7 +607,7 @@ private fun StartupPreferenceCard(
                 } else {
                     "A favorite"
                 },
-            supporting = selectedItem?.let { "Startup favorite: ${it.name}" } ?: "Pick a point or route below.",
+            supporting = favoriteSupporting,
             selected = startup.mode == StartupPreference.Mode.Favorite,
             enabled = items.isNotEmpty(),
             onSelect = {
