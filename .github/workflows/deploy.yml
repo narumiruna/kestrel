@@ -19,7 +19,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           # Previous dev-stack deploys bind-mounted the checkout and may have left
           # root-owned ignored build artifacts (for example web/.next).
