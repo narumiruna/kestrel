@@ -36,7 +36,7 @@ jobs:
           python3 scripts/bump-version.py "${{ inputs.bump_type }}"
 
       - name: Create pull request
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ secrets.PAT_TOKEN }}
           base: main
