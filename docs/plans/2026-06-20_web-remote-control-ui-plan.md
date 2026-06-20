@@ -31,7 +31,7 @@
 - [ ] 在 `web/lib/api` 型別或 dashboard local types 新增 remote-control DTO：`RemoteDevice`、`RemoteCommand`、`CreateRemoteCommandRequest`；驗證方式為 `cd web && npm run typecheck`。
 - [ ] 新增 `web/components/dashboard/useRemoteDevices.ts`，封裝 `GET /devices`、`POST /devices/:id/commands`、command status polling；驗證方式為 lint/typecheck 與 hook call sites compile。
 - [ ] 在 Places dashboard 的 selected place card 加 `Mock on device` 控制：device picker、submit button、queued/applied/failed/offline status；payload 使用 selected place latitude/longitude snapshot；驗證方式為 `cd web && npm run lint && npm run typecheck`，並手動用 mocked/real backend 建 command。
-- [ ] 在 Routes dashboard 的 selected route card 加 `Play on device` 控制：device picker、submit button、status；payload 使用 currentRevision waypoints、defaultSpeedKmh、mode snapshot；route 無 currentRevision 或 waypoints < 2 時 disabled 並顯示 reason；驗證方式為 lint/typecheck 與手動 UI review。
+- [ ] 在 Routes dashboard 的 selected route card 加 `Play on device` 控制：device picker、submit button、status；payload 使用 currentRevision waypoints、`speedKmh`（取自 route 的 defaultSpeedKmh）、mode snapshot；route 無 currentRevision 或 waypoints < 2 時 disabled 並顯示 reason；驗證方式為 lint/typecheck 與手動 UI review。
 - [ ] 加入 `Stop on device` 作為次要 action（若 backend/Android 已支援 `STOP`），讓使用者能從 Web 停掉 remote mock；驗證方式為 command create smoke 與 UI disabled 狀態。
 - [ ] 為 offline/expired 狀態加清楚文案：`Open Kestrel on Android to receive commands`；驗證方式為 manual review。
 - [ ] 執行 Web quality gates：`cd web && npm run lint && npm run typecheck`，以及 repo-level `just check && just lint`。
