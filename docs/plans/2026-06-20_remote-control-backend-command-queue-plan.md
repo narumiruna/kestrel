@@ -15,6 +15,7 @@
   - `STOP`: `{}`
 - Command status：`QUEUED`、`DELIVERED`、`APPLIED`、`FAILED`、`EXPIRED`。
 - Poll 採 at-most-once delivery：transaction 內把 `QUEUED` 標成 `DELIVERED` 後才回傳；不重送 `DELIVERED` command，避免 ack 失敗時 route 被重跑。
+- `expiresAt` 只讓未送達的 `QUEUED` command 變 `EXPIRED`；`DELIVERED` 保留到 Android ack，或超過 `deliveredAt + ackTimeout` 才標 `EXPIRED`。
 - Backend 只驗證結構、ownership、基本範圍；Android 負責 mock permission / service 執行結果。
 
 ## Non-Goals
@@ -31,14 +32,14 @@
 - [ ] 實作 Web create command：檢查 target device belongs to authenticated user、`remoteControlEnabled=true`、remote-control command payload valid、`START_ROUTE.mode` 只接受 `ONCE|LOOP|PING_PONG`、`expiresAt` 預設 60 秒；驗證方式為 service tests 覆蓋 foreign device 403/404、disabled device 400/409、invalid payload 400、valid command queued。
 - [ ] 實作 Android poll：只挑該 device 未過期 `QUEUED` commands，transaction 內標記 `DELIVERED` / `deliveredAt` 後回傳，poll 同時更新 `lastSeenAt`；驗證方式為 service tests 覆蓋 expired command 不回傳且標記 `EXPIRED`、已 `DELIVERED` command 不會重送。
 - [ ] 實作 Android ack：只允許該 device 對 `DELIVERED` command 回報 `APPLIED` / `FAILED`，保存 error message，ack 已終止 command 時保持 idempotent；驗證方式為 service tests 覆蓋 duplicate ack、ack queued command 拒絕、foreign command 拒絕。
-- [ ] 將 device list/status response 轉成 Web 需要的狀態：讀取前先把 stale `QUEUED` / `DELIVERED` command 依 `expiresAt` 標成 `EXPIRED`，`online` 由 `lastSeenAt` 是否在 90 秒內推導，回傳 `remoteControlEnabled` 與最近一筆 `lastCommand`；驗證方式為 controller/service tests 覆蓋 online/offline 邊界與 offline command 過期。
+- [ ] 將 device list/status response 轉成 Web 需要的狀態：讀取前先把 stale `QUEUED` command 依 `expiresAt` 標成 `EXPIRED`，`DELIVERED` command 只依 `deliveredAt + ackTimeout` 過期或等待 Android ack，`online` 由 `lastSeenAt` 是否在 90 秒內推導，回傳 `remoteControlEnabled` 與最近一筆 `lastCommand`；驗證方式為 controller/service tests 覆蓋 online/offline 邊界、offline queued command 過期、delivered command 不被 `expiresAt` 誤過期。
 - [ ] 執行 backend quality gates：`cd backend && npm run test -- remote-control && npm run typecheck && npm run lint && npm run build`；若 migration 需要 DB，另跑 `cd backend && npm run prisma:migrate:dev -- --name remote-control-commands` 並檢查產物。
 
 ## Risks
 
 - Prisma schema edits 後 TypeScript 不認得新 model；需跑 `npm run prisma:generate`。
 - Command table 可能累積；第一版用 expiry + status，後續再加 cleanup job，不阻塞 MVP。
-- At-most-once delivery 可能讓 Android poll 後 crash 的 command 變成 `DELIVERED` 後過期；第一版接受，避免 route 因 ack 失敗被重跑。
+- At-most-once delivery 可能讓 Android poll 後 crash 的 command 卡在 `DELIVERED` 到 ack timeout；第一版接受，避免 route 因 ack 失敗被重跑。
 - Remote mock command 是敏感操作；所有 endpoint 必須走 `SessionAuthGuard` 並以 `userId` constrain query。
 
 ## Rollback / Recovery
@@ -49,6 +50,6 @@
 ## Completion Checklist
 
 - [ ] Prisma migration / generated client 已完成，且 backend build 使用新 Prisma client 無型別錯誤。
-- [ ] Remote-control endpoints 已由 controller/service tests 覆蓋 ownership、validation、expiry、delivery、ack、remote-control opt-out。
+- [ ] Remote-control endpoints 已由 controller/service tests 覆蓋 ownership、validation、queued expiry、delivered ack timeout、delivery、ack、remote-control opt-out。
 - [ ] Backend quality gates 通過：`cd backend && npm run test -- remote-control && npm run typecheck && npm run lint && npm run build`。
 - [ ] API contract 已在 PR 描述或 docs 中列出 request/response examples，供 Android/Web 實作使用。

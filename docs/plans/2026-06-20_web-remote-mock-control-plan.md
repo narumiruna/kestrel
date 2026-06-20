@@ -2,7 +2,7 @@
 
 讓 Web dashboard 可以遠端要求 Android app 執行 mock point 或 mock route，第一版採「Cloud command queue + Android foreground polling」完成端到端控制。
 
-成功條件：Web 選一個已登入且啟用 remote control 的 Android device 後，可以對 place 送出 `SET_POINT`、對 route 送出 `START_ROUTE`，Android app 在前景或 mock service active 時接收命令並套用到既有 `LocationService`，Web 能看到 queued / delivered / applied / failed / expired / offline 狀態。
+成功條件：Web 選一個已登入且啟用 remote control 的 Android device 後，可以對 place 送出 `SET_POINT`、對 route 送出 `START_ROUTE`，Android app 在前景或 mock service active 時接收命令並套用到既有 `LocationService`，Web 能看到 device online/offline 與 command `QUEUED` / `DELIVERED` / `APPLIED` / `FAILED` / `EXPIRED` 狀態。
 
 ## Context
 
@@ -16,7 +16,7 @@
 1. Backend 建立 remote-control module：device registration、device list/status、command create、Android poll、Android ack/state report。
 2. Web 只建立 command，不直接碰 Android；command payload 包含 point/route snapshot，route mode 使用 `ONCE|LOOP|PING_PONG` API enum。
 3. Android 登入 cloud 後以 stable `clientDeviceId` 註冊 device；remote control opt-in 開啟時，在前景或 mock service active 狀態下 polling pending command。
-4. Backend poll 採 at-most-once delivery：`QUEUED` → `DELIVERED` 後才回傳，避免 ACK 失敗造成 route 重跑；status/device reads 也會讓過期 command 變 `EXPIRED`。
+4. Backend poll 採 at-most-once delivery：`QUEUED` → `DELIVERED` 後才回傳，避免 ACK 失敗造成 route 重跑；status/device reads 只用 `expiresAt` 過期未送達的 `QUEUED` command，`DELIVERED` 等 Android ack 或獨立 ack timeout。
 5. Android 收到 command 後用 result-aware facade 呼叫既有 `LocationService` API atomic replace mock；確認 runtime state 後才 ack `APPLIED`，失敗則 ack `FAILED`。
 6. Web 以短輪詢或 refresh 顯示 command/device 狀態，不要求 real-time。
 
