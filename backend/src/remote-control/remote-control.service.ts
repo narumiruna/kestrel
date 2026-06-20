@@ -27,6 +27,7 @@ const ACK_TIMEOUT_MS = 120_000;
 const COMMAND_BATCH_SIZE = 10;
 const COMMAND_ACK_TIMEOUT_MESSAGE = 'command ack timed out';
 const COMMAND_EXPIRED_MESSAGE = 'command expired before delivery';
+const REMOTE_CONTROL_DISABLED_MESSAGE = 'remote control disabled';
 
 type RemoteControlStore = Pick<
   Prisma.TransactionClient,
@@ -128,11 +129,43 @@ export class RemoteControlService {
     const now = new Date();
 
     return this.prismaService.$transaction(async (tx) => {
-      await this.assertOwnDevice(tx, userId, deviceId, input.clientDeviceId);
+      const device = await this.assertOwnDevice(
+        tx,
+        userId,
+        deviceId,
+        input.clientDeviceId,
+      );
       await this.expireStaleCommands(tx, now, { deviceId, userId });
 
+      if (!device.remoteControlEnabled) {
+        await tx.remoteCommand.updateMany({
+          data: {
+            errorMessage: REMOTE_CONTROL_DISABLED_MESSAGE,
+            status: RemoteCommandStatus.EXPIRED,
+          },
+          where: {
+            deviceId,
+            status: RemoteCommandStatus.QUEUED,
+            userId,
+          },
+        });
+        await tx.device.update({
+          data: {
+            lastSeenAt: now,
+          },
+          where: {
+            id: deviceId,
+          },
+        });
+
+        return {
+          commands: [],
+          serverTime: now,
+        };
+      }
+
       const queuedCommands = await tx.remoteCommand.findMany({
-        orderBy: [{ createdAt: 'asc' }],
+        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
         select: remoteCommandSelect,
         take: COMMAND_BATCH_SIZE,
         where: {
@@ -163,7 +196,7 @@ export class RemoteControlService {
           },
         });
         deliveredCommands = await tx.remoteCommand.findMany({
-          orderBy: [{ createdAt: 'asc' }],
+          orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
           select: remoteCommandSelect,
           where: {
             deliveredAt: now,
@@ -292,6 +325,7 @@ export class RemoteControlService {
     const device = await client.device.findFirst({
       select: {
         id: true,
+        remoteControlEnabled: true,
       },
       where: {
         clientDeviceId,
@@ -303,6 +337,8 @@ export class RemoteControlService {
     if (device == null) {
       throw new NotFoundException('device not found');
     }
+
+    return device;
   }
 
   private async expireStaleCommands(
