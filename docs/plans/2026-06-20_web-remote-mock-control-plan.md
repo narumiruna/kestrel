@@ -2,7 +2,7 @@
 
 讓 Web dashboard 可以遠端要求 Android app 執行 mock point 或 mock route，第一版採「Cloud command queue + Android foreground polling」完成端到端控制。
 
-成功條件：Web 選一個已登入且啟用 remote control 的 Android device 後，可以對 place 送出 `SET_POINT`、對 route 送出 `START_ROUTE`，Android app 在前景或 mock service active 時接收命令並套用到既有 `LocationService`，Web 能看到 queued / applied / failed / offline 狀態。
+成功條件：Web 選一個已登入且啟用 remote control 的 Android device 後，可以對 place 送出 `SET_POINT`、對 route 送出 `START_ROUTE`，Android app 在前景或 mock service active 時接收命令並套用到既有 `LocationService`，Web 能看到 queued / delivered / applied / failed / expired / offline 狀態。
 
 ## Context
 
@@ -14,10 +14,11 @@
 ## Architecture
 
 1. Backend 建立 remote-control module：device registration、device list/status、command create、Android poll、Android ack/state report。
-2. Web 只建立 command，不直接碰 Android；command payload 包含 point/route snapshot。
-3. Android 登入 cloud 後註冊 device；remote control opt-in 開啟時，在前景或 mock service active 狀態下 polling pending command。
-4. Android 收到 command 後用既有 `LocationService` API atomic replace mock；執行結果回 backend。
-5. Web 以短輪詢或 refresh 顯示 command/device 狀態，不要求 real-time。
+2. Web 只建立 command，不直接碰 Android；command payload 包含 point/route snapshot，route mode 使用 `ONCE|LOOP|PING_PONG` API enum。
+3. Android 登入 cloud 後以 stable `clientDeviceId` 註冊 device；remote control opt-in 開啟時，在前景或 mock service active 狀態下 polling pending command。
+4. Backend poll 採 at-most-once delivery：`QUEUED` → `DELIVERED` 後才回傳，避免 ACK 失敗造成 route 重跑；status/device reads 也會讓過期 command 變 `EXPIRED`。
+5. Android 收到 command 後用 result-aware facade 呼叫既有 `LocationService` API atomic replace mock；確認 runtime state 後才 ack `APPLIED`，失敗則 ack `FAILED`。
+6. Web 以短輪詢或 refresh 顯示 command/device 狀態，不要求 real-time。
 
 ## Non-Goals
 
@@ -29,7 +30,7 @@
 ## Plan
 
 - [ ] 實作 `docs/plans/2026-06-20_remote-control-backend-command-queue-plan.md`，提供 authenticated command queue API；驗證方式為 backend unit tests、`cd backend && npm run test && npm run typecheck && npm run lint && npm run build`。
-- [ ] 實作 `docs/plans/2026-06-20_android-remote-command-executor-plan.md`，讓 Android opt-in、註冊 device、poll/ack command、呼叫 `LocationService`；驗證方式為 Android unit tests（`just test`）、`just check && just lint`、非破壞性 manual smoke。
+- [ ] 實作 `docs/plans/2026-06-20_android-remote-command-executor-plan.md`，讓 Android opt-in、註冊 device、poll/ack command、呼叫 `LocationService`；驗證方式為 Android unit tests（`JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" ./gradlew :app:testDebugUnitTest`）、`just check && just lint`、非破壞性 manual smoke。
 - [ ] 實作 `docs/plans/2026-06-20_web-remote-control-ui-plan.md`，在 Web places/routes 加 device picker 與 mock/play buttons；驗證方式為 `cd web && npm run lint && npm run typecheck`、manual smoke。
 - [ ] 做端到端 smoke：Web `Mock on device` place → Android mock dot/foreground notification 進入 single point；Web `Play on device` route → Android route playing；驗證方式為測試 device 畫面、backend command 狀態、必要時 filtered `just logf`。不可使用 `just reset` 或清 app data。
 - [ ] 更新 README 或 PR 描述記錄第一版限制：remote control requires Android app foreground or active Kestrel service, command expires after bounded time, Google/web cannot wake killed app；驗證方式為文件 diff 或 PR description。
@@ -38,12 +39,12 @@
 
 - Android app 被系統殺掉時 polling 不會跑；第一版接受，用 Web offline/expired 文案處理。
 - Web command payload 如果只放 remote route id，Android sync 延遲會造成失敗；用 route snapshot 降低耦合。
-- Remote mock 是敏感能力；必須有 Android opt-in、same-user device ownership check、command expiry、ack/failure audit。
+- Remote mock 是敏感能力；必須有 Android opt-in、same-user device ownership check、stable client device identity、command expiry、ack/failure audit。
 
 ## Completion Checklist
 
-- [ ] Backend command queue API 已由 backend tests/typecheck/lint/build 驗證。
-- [ ] Android remote executor 已由 Android tests/check/lint 與非破壞性 device smoke 驗證。
-- [ ] Web remote control UI 已由 web lint/typecheck 與 manual smoke 驗證。
+- [ ] Backend command queue API 已由 backend tests/typecheck/lint/build 驗證，且涵蓋 client device id、remote-control opt-out、delivery、expiry。
+- [ ] Android remote executor 已由 Android tests/check/lint 與非破壞性 device smoke 驗證，且只在 result-aware 狀態確認後 ack `APPLIED`。
+- [ ] Web remote control UI 已由 web lint/typecheck 與 manual smoke 驗證，且只對 online + enabled device 送 command。
 - [ ] Web → backend → Android 的 `SET_POINT` 與 `START_ROUTE` 端到端流程已在測試 device 驗證。
 - [ ] 第一版限制與安全模型已記錄在 PR 描述或文件中。
