@@ -91,9 +91,9 @@ describe('RemoteControlService', () => {
   });
 
   it('upserts one Android device by user and client device id', async () => {
-    prismaService.device.upsert.mockResolvedValue(
-      createRemoteDeviceRecord({ remoteControlEnabled: true }),
-    );
+    const device = createRemoteDeviceRecord({ remoteControlEnabled: true });
+    prismaService.device.upsert.mockResolvedValue(device);
+    prismaService.device.findUniqueOrThrow.mockResolvedValue(device);
 
     const result = await remoteControlService.registerDevice('user-1', {
       appVersion: '1.2.3',
@@ -121,6 +121,54 @@ describe('RemoteControlService', () => {
           clientDeviceId: 'android-stable-id',
           userId: 'user-1',
         },
+      },
+    });
+  });
+
+  it('expires stale commands before returning a registered device', async () => {
+    prismaService.device.upsert.mockResolvedValue(
+      createRemoteDeviceRecord({
+        remoteCommands: [
+          createRemoteCommandRecord({
+            expiresAt: new Date('2026-06-20T07:59:59.000Z'),
+            status: RemoteCommandStatus.QUEUED,
+          }),
+        ],
+        remoteControlEnabled: true,
+      }),
+    );
+    prismaService.device.findUniqueOrThrow.mockResolvedValue(
+      createRemoteDeviceRecord({
+        remoteCommands: [
+          createRemoteCommandRecord({
+            errorMessage: 'command expired before delivery',
+            expiresAt: new Date('2026-06-20T07:59:59.000Z'),
+            status: RemoteCommandStatus.EXPIRED,
+          }),
+        ],
+        remoteControlEnabled: true,
+      }),
+    );
+
+    const result = await remoteControlService.registerDevice('user-1', {
+      appVersion: '1.2.3',
+      clientDeviceId: 'android-stable-id',
+      name: 'Pixel',
+      remoteControlEnabled: true,
+    });
+
+    expect(result).toMatchObject({
+      lastCommand: { status: RemoteCommandStatus.EXPIRED },
+      remoteControlEnabled: true,
+    });
+    expect(
+      prismaService.remoteCommand.updateMany.mock.calls[0]?.[0],
+    ).toMatchObject({
+      where: {
+        deviceId: 'device-1',
+        expiresAt: { lte: new Date('2026-06-20T08:00:00.000Z') },
+        status: RemoteCommandStatus.QUEUED,
+        userId: 'user-1',
       },
     });
   });
@@ -158,7 +206,7 @@ describe('RemoteControlService', () => {
       remoteControlEnabled: false,
     });
     expect(
-      prismaService.remoteCommand.updateMany.mock.calls[0]?.[0],
+      prismaService.remoteCommand.updateMany.mock.calls.at(-1)?.[0],
     ).toMatchObject({
       data: {
         errorMessage: 'remote control disabled',
