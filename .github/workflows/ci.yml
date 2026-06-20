@@ -57,7 +57,7 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
-      - uses: extractions/setup-just@v2
+      - uses: extractions/setup-just@v4
 
       - name: Check Android formatting
         run: just android-check
