@@ -215,9 +215,15 @@ describe('RemoteControlService', () => {
 
   it('marks queued commands delivered once during poll', async () => {
     prismaService.device.findFirst.mockResolvedValue({ id: 'device-1' });
-    prismaService.remoteCommand.findMany.mockResolvedValue([
-      createRemoteCommandRecord({ id: 'command-1' }),
-    ]);
+    prismaService.remoteCommand.findMany
+      .mockResolvedValueOnce([createRemoteCommandRecord({ id: 'command-1' })])
+      .mockResolvedValueOnce([
+        createRemoteCommandRecord({
+          deliveredAt: new Date('2026-06-20T08:00:00.000Z'),
+          id: 'command-1',
+          status: RemoteCommandStatus.DELIVERED,
+        }),
+      ]);
     prismaService.remoteCommand.updateMany
       .mockResolvedValueOnce({ count: 0 })
       .mockResolvedValueOnce({ count: 0 })
@@ -253,11 +259,20 @@ describe('RemoteControlService', () => {
     });
   });
 
-  it('does not return a command when delivery update loses a race', async () => {
+  it('returns the subset actually delivered when poll delivery races', async () => {
     prismaService.device.findFirst.mockResolvedValue({ id: 'device-1' });
-    prismaService.remoteCommand.findMany.mockResolvedValue([
-      createRemoteCommandRecord({ id: 'command-1' }),
-    ]);
+    prismaService.remoteCommand.findMany
+      .mockResolvedValueOnce([
+        createRemoteCommandRecord({ id: 'command-1' }),
+        createRemoteCommandRecord({ id: 'command-2' }),
+      ])
+      .mockResolvedValueOnce([
+        createRemoteCommandRecord({
+          deliveredAt: new Date('2026-06-20T08:00:00.000Z'),
+          id: 'command-1',
+          status: RemoteCommandStatus.DELIVERED,
+        }),
+      ]);
 
     const result = await remoteControlService.pollCommands(
       'user-1',
@@ -267,7 +282,14 @@ describe('RemoteControlService', () => {
       },
     );
 
-    expect(result).toMatchObject({ commands: [] });
+    expect(result).toMatchObject({
+      commands: [
+        {
+          id: 'command-1',
+          status: RemoteCommandStatus.DELIVERED,
+        },
+      ],
+    });
   });
 
   it('does not poll commands already delivered', async () => {
@@ -344,19 +366,24 @@ describe('RemoteControlService', () => {
 
   it('acks delivered commands as applied', async () => {
     prismaService.device.findFirst.mockResolvedValue({ id: 'device-1' });
-    prismaService.remoteCommand.findFirst.mockResolvedValue(
-      createRemoteCommandRecord({
-        deliveredAt: new Date('2026-06-20T07:59:00.000Z'),
-        status: RemoteCommandStatus.DELIVERED,
-      }),
-    );
-    prismaService.remoteCommand.update.mockResolvedValue(
-      createRemoteCommandRecord({
-        appliedAt: new Date('2026-06-20T08:00:00.000Z'),
-        deliveredAt: new Date('2026-06-20T07:59:00.000Z'),
-        status: RemoteCommandStatus.APPLIED,
-      }),
-    );
+    prismaService.remoteCommand.findFirst
+      .mockResolvedValueOnce(
+        createRemoteCommandRecord({
+          deliveredAt: new Date('2026-06-20T07:59:00.000Z'),
+          status: RemoteCommandStatus.DELIVERED,
+        }),
+      )
+      .mockResolvedValueOnce(
+        createRemoteCommandRecord({
+          appliedAt: new Date('2026-06-20T08:00:00.000Z'),
+          deliveredAt: new Date('2026-06-20T07:59:00.000Z'),
+          status: RemoteCommandStatus.APPLIED,
+        }),
+      );
+    prismaService.remoteCommand.updateMany
+      .mockResolvedValueOnce({ count: 0 })
+      .mockResolvedValueOnce({ count: 0 })
+      .mockResolvedValueOnce({ count: 1 });
 
     const result = await remoteControlService.ackCommand(
       'user-1',
@@ -372,30 +399,74 @@ describe('RemoteControlService', () => {
       appliedAt: new Date('2026-06-20T08:00:00.000Z'),
       status: RemoteCommandStatus.APPLIED,
     });
-    expect(prismaService.remoteCommand.update.mock.calls[0]?.[0]).toMatchObject(
-      {
-        data: {
+    expect(
+      prismaService.remoteCommand.updateMany.mock.calls.at(-1)?.[0],
+    ).toMatchObject({
+      data: {
+        appliedAt: new Date('2026-06-20T08:00:00.000Z'),
+        status: RemoteCommandStatus.APPLIED,
+      },
+      where: {
+        deviceId: 'device-1',
+        id: 'command-1',
+        status: RemoteCommandStatus.DELIVERED,
+        userId: 'user-1',
+      },
+    });
+  });
+
+  it('returns terminal command when a racing ack wins first', async () => {
+    prismaService.device.findFirst.mockResolvedValue({ id: 'device-1' });
+    prismaService.remoteCommand.findFirst
+      .mockResolvedValueOnce(
+        createRemoteCommandRecord({
+          deliveredAt: new Date('2026-06-20T07:59:00.000Z'),
+          status: RemoteCommandStatus.DELIVERED,
+        }),
+      )
+      .mockResolvedValueOnce(
+        createRemoteCommandRecord({
           appliedAt: new Date('2026-06-20T08:00:00.000Z'),
+          deliveredAt: new Date('2026-06-20T07:59:00.000Z'),
           status: RemoteCommandStatus.APPLIED,
-        },
+        }),
+      );
+
+    const result = await remoteControlService.ackCommand(
+      'user-1',
+      'device-1',
+      'command-1',
+      {
+        clientDeviceId: 'client-1',
+        status: 'FAILED',
       },
     );
+
+    expect(result).toMatchObject({
+      appliedAt: new Date('2026-06-20T08:00:00.000Z'),
+      status: RemoteCommandStatus.APPLIED,
+    });
   });
 
   it('acks delivered commands as failed with an error message', async () => {
     prismaService.device.findFirst.mockResolvedValue({ id: 'device-1' });
-    prismaService.remoteCommand.findFirst.mockResolvedValue(
-      createRemoteCommandRecord({
-        deliveredAt: new Date('2026-06-20T07:59:00.000Z'),
-        status: RemoteCommandStatus.DELIVERED,
-      }),
-    );
-    prismaService.remoteCommand.update.mockResolvedValue(
-      createRemoteCommandRecord({
-        errorMessage: 'missing mock permission',
-        status: RemoteCommandStatus.FAILED,
-      }),
-    );
+    prismaService.remoteCommand.findFirst
+      .mockResolvedValueOnce(
+        createRemoteCommandRecord({
+          deliveredAt: new Date('2026-06-20T07:59:00.000Z'),
+          status: RemoteCommandStatus.DELIVERED,
+        }),
+      )
+      .mockResolvedValueOnce(
+        createRemoteCommandRecord({
+          errorMessage: 'missing mock permission',
+          status: RemoteCommandStatus.FAILED,
+        }),
+      );
+    prismaService.remoteCommand.updateMany
+      .mockResolvedValueOnce({ count: 0 })
+      .mockResolvedValueOnce({ count: 0 })
+      .mockResolvedValueOnce({ count: 1 });
 
     const result = await remoteControlService.ackCommand(
       'user-1',
@@ -431,7 +502,7 @@ describe('RemoteControlService', () => {
     );
 
     expect(result).toMatchObject({ status: RemoteCommandStatus.APPLIED });
-    expect(prismaService.remoteCommand.update).not.toHaveBeenCalled();
+    expect(prismaService.remoteCommand.updateMany).toHaveBeenCalledTimes(2);
   });
 
   it('rejects ack before delivery and foreign device ack', async () => {

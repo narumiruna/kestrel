@@ -148,7 +148,7 @@ export class RemoteControlService {
       let deliveredCommands = queuedCommands;
 
       if (commandIds.length > 0) {
-        const delivery = await tx.remoteCommand.updateMany({
+        await tx.remoteCommand.updateMany({
           data: {
             deliveredAt: now,
             status: RemoteCommandStatus.DELIVERED,
@@ -162,9 +162,19 @@ export class RemoteControlService {
             userId,
           },
         });
-        if (delivery.count !== commandIds.length) {
-          deliveredCommands = [];
-        }
+        deliveredCommands = await tx.remoteCommand.findMany({
+          orderBy: [{ createdAt: 'asc' }],
+          select: remoteCommandSelect,
+          where: {
+            deliveredAt: now,
+            deviceId,
+            id: {
+              in: commandIds,
+            },
+            status: RemoteCommandStatus.DELIVERED,
+            userId,
+          },
+        });
       }
 
       await tx.device.update({
@@ -223,7 +233,7 @@ export class RemoteControlService {
         throw new ConflictException('command has not been delivered');
       }
 
-      const updatedCommand = await tx.remoteCommand.update({
+      const ack = await tx.remoteCommand.updateMany({
         data: {
           appliedAt:
             input.status === RemoteCommandStatus.APPLIED ? now : undefined,
@@ -233,11 +243,33 @@ export class RemoteControlService {
               : null,
           status: input.status,
         },
-        select: remoteCommandSelect,
         where: {
+          deviceId,
           id: command.id,
+          status: RemoteCommandStatus.DELIVERED,
+          userId,
         },
       });
+      const updatedCommand = await tx.remoteCommand.findFirst({
+        select: remoteCommandSelect,
+        where: {
+          deviceId,
+          id: command.id,
+          userId,
+        },
+      });
+
+      if (updatedCommand == null) {
+        throw new NotFoundException('command not found');
+      }
+
+      if (
+        ack.count === 0 &&
+        !isTerminalRemoteCommandStatus(updatedCommand.status)
+      ) {
+        throw new ConflictException('command has not been delivered');
+      }
+
       await tx.device.update({
         data: {
           lastSeenAt: now,
