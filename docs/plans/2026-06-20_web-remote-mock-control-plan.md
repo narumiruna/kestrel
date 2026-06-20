@@ -30,7 +30,7 @@
 ## Plan
 
 - [ ] 實作 `docs/plans/2026-06-20_remote-control-backend-command-queue-plan.md`，提供 authenticated command queue API；驗證方式為 backend unit tests、`cd backend && npm run test && npm run typecheck && npm run lint && npm run build`。
-- [ ] 實作 `docs/plans/2026-06-20_android-remote-command-executor-plan.md`，讓 Android opt-in、註冊 device、poll/ack command、呼叫 `LocationService`；驗證方式為 Android unit tests（`JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" ./gradlew :app:testDebugUnitTest`）、`just check && just lint`、非破壞性 manual smoke。
+- [ ] 實作 `docs/plans/2026-06-20_android-remote-command-executor-plan.md`，讓 Android opt-in、註冊 device、poll/ack command、呼叫 `LocationService`；驗證方式為 Android unit tests（`just android-test`）、`just check && just lint`、非破壞性 manual smoke。
 - [ ] 實作 `docs/plans/2026-06-20_web-remote-control-ui-plan.md`，在 Web places/routes 加 device picker 與 mock/play buttons；驗證方式為 `cd web && npm run lint && npm run typecheck`、manual smoke。
 - [ ] 做端到端 smoke：Web `Mock on device` place → Android mock dot/foreground notification 進入 single point；Web `Play on device` route → Android route playing；驗證方式為測試 device 畫面、backend command 狀態、必要時 filtered `just logf`。不可使用 `just reset` 或清 app data。
 - [ ] 更新 README 或 PR 描述記錄第一版限制：remote control requires Android app foreground or active Kestrel service, command expires after bounded time, Google/web cannot wake killed app；驗證方式為文件 diff 或 PR description。
