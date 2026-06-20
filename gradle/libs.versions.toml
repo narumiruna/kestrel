@@ -18,7 +18,7 @@ maplibre = "11.5.0"
 datastore = "1.1.1"
 spotless = "6.25.0"
 ktlint = "1.5.0"
-detekt = "1.23.7"
+detekt = "1.23.8"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
