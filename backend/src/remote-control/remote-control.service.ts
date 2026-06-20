@@ -115,38 +115,56 @@ export class RemoteControlService {
   async createCommand(userId: string, deviceId: string, body: unknown) {
     const now = new Date();
     const input = parseCreateRemoteCommandInput(body, now);
-    const device = await this.prismaService.device.findFirst({
-      select: {
-        id: true,
-        remoteControlEnabled: true,
-      },
-      where: {
-        id: deviceId,
-        platform: DevicePlatform.ANDROID,
-        userId,
-      },
+
+    return this.prismaService.$transaction(async (tx) => {
+      // Lock the enabled device row so a concurrent opt-out cannot miss this enqueue.
+      const enabled = await tx.device.updateMany({
+        data: {
+          remoteControlEnabled: true,
+        },
+        where: {
+          id: deviceId,
+          platform: DevicePlatform.ANDROID,
+          remoteControlEnabled: true,
+          userId,
+        },
+      });
+
+      if (enabled.count === 0) {
+        const device = await tx.device.findFirst({
+          select: {
+            id: true,
+            remoteControlEnabled: true,
+          },
+          where: {
+            id: deviceId,
+            platform: DevicePlatform.ANDROID,
+            userId,
+          },
+        });
+
+        if (device == null) {
+          throw new NotFoundException('device not found');
+        }
+
+        throw new ConflictException(
+          'remote control is disabled for this device',
+        );
+      }
+
+      const command = await tx.remoteCommand.create({
+        data: {
+          deviceId,
+          expiresAt: input.expiresAt,
+          payload: input.payload,
+          type: input.type,
+          userId,
+        },
+        select: remoteCommandSelect,
+      });
+
+      return mapRemoteCommand(command);
     });
-
-    if (device == null) {
-      throw new NotFoundException('device not found');
-    }
-
-    if (!device.remoteControlEnabled) {
-      throw new ConflictException('remote control is disabled for this device');
-    }
-
-    const command = await this.prismaService.remoteCommand.create({
-      data: {
-        deviceId: device.id,
-        expiresAt: input.expiresAt,
-        payload: input.payload,
-        type: input.type,
-        userId,
-      },
-      select: remoteCommandSelect,
-    });
-
-    return mapRemoteCommand(command);
   }
 
   async pollCommands(userId: string, deviceId: string, body: unknown) {
