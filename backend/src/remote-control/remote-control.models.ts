@@ -28,9 +28,7 @@ export const remoteDeviceSelect = {
   name: true,
   platform: true,
   remoteCommands: {
-    orderBy: {
-      createdAt: 'desc',
-    },
+    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
     select: remoteCommandSelect,
     take: 1,
   },

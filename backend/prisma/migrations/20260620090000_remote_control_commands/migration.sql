@@ -17,7 +17,7 @@ ALTER TABLE "devices"
     ADD COLUMN "remote_control_enabled" BOOLEAN NOT NULL DEFAULT false;
 
 UPDATE "devices"
-SET "client_device_id" = "id"::text
+SET "client_device_id" = 'migrated-' || gen_random_uuid()::text
 WHERE "client_device_id" IS NULL;
 
 ALTER TABLE "devices"

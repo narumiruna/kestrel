@@ -7,6 +7,7 @@ import {
 } from '@prisma/client';
 
 const DEFAULT_EXPIRES_MS = 60_000;
+const MAX_EXPIRES_MS = 60_000;
 const MAX_APP_VERSION_LENGTH = 64;
 const MAX_CLIENT_DEVICE_ID_LENGTH = 128;
 const MAX_ERROR_MESSAGE_LENGTH = 1024;
@@ -265,6 +266,10 @@ function parseExpiresAt(value: unknown, now: Date): Date {
 
   if (expiresAt.getTime() <= now.getTime()) {
     throw new BadRequestException('expiresAt must be in the future');
+  }
+
+  if (expiresAt.getTime() > now.getTime() + MAX_EXPIRES_MS) {
+    throw new BadRequestException('expiresAt must be within 60 seconds');
   }
 
   return expiresAt;

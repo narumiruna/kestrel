@@ -164,6 +164,17 @@ describe('RemoteControlService', () => {
     expect(prismaService.remoteCommand.create).not.toHaveBeenCalled();
   });
 
+  it('rejects caller-supplied expiry beyond the bounded ttl', async () => {
+    await expect(
+      remoteControlService.createCommand('user-1', 'device-1', {
+        expiresAt: '2026-06-20T08:10:00.000Z',
+        payload: {},
+        type: 'STOP',
+      }),
+    ).rejects.toThrow(BadRequestException);
+    expect(prismaService.remoteCommand.create).not.toHaveBeenCalled();
+  });
+
   it('queues a valid route command with the default expiry', async () => {
     prismaService.device.findFirst.mockResolvedValue({
       id: 'device-1',
@@ -214,7 +225,10 @@ describe('RemoteControlService', () => {
   });
 
   it('marks queued commands delivered once during poll', async () => {
-    prismaService.device.findFirst.mockResolvedValue({ id: 'device-1' });
+    prismaService.device.findFirst.mockResolvedValue({
+      id: 'device-1',
+      remoteControlEnabled: true,
+    });
     prismaService.remoteCommand.findMany
       .mockResolvedValueOnce([createRemoteCommandRecord({ id: 'command-1' })])
       .mockResolvedValueOnce([
@@ -260,7 +274,10 @@ describe('RemoteControlService', () => {
   });
 
   it('returns the subset actually delivered when poll delivery races', async () => {
-    prismaService.device.findFirst.mockResolvedValue({ id: 'device-1' });
+    prismaService.device.findFirst.mockResolvedValue({
+      id: 'device-1',
+      remoteControlEnabled: true,
+    });
     prismaService.remoteCommand.findMany
       .mockResolvedValueOnce([
         createRemoteCommandRecord({ id: 'command-1' }),
@@ -293,7 +310,10 @@ describe('RemoteControlService', () => {
   });
 
   it('does not poll commands already delivered', async () => {
-    prismaService.device.findFirst.mockResolvedValue({ id: 'device-1' });
+    prismaService.device.findFirst.mockResolvedValue({
+      id: 'device-1',
+      remoteControlEnabled: true,
+    });
     prismaService.remoteCommand.findMany.mockResolvedValue([]);
 
     const result = await remoteControlService.pollCommands(
@@ -308,12 +328,47 @@ describe('RemoteControlService', () => {
     expect(
       prismaService.remoteCommand.findMany.mock.calls[0]?.[0],
     ).toMatchObject({
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
       where: { status: RemoteCommandStatus.QUEUED },
     });
   });
 
+  it('expires queued commands and returns nothing when remote control is disabled', async () => {
+    prismaService.device.findFirst.mockResolvedValue({
+      id: 'device-1',
+      remoteControlEnabled: false,
+    });
+
+    const result = await remoteControlService.pollCommands(
+      'user-1',
+      'device-1',
+      {
+        clientDeviceId: 'client-1',
+      },
+    );
+
+    expect(result).toMatchObject({ commands: [] });
+    expect(prismaService.remoteCommand.findMany).not.toHaveBeenCalled();
+    expect(
+      prismaService.remoteCommand.updateMany.mock.calls.at(-1)?.[0],
+    ).toMatchObject({
+      data: {
+        errorMessage: 'remote control disabled',
+        status: RemoteCommandStatus.EXPIRED,
+      },
+      where: {
+        deviceId: 'device-1',
+        status: RemoteCommandStatus.QUEUED,
+        userId: 'user-1',
+      },
+    });
+  });
+
   it('expires stale queued commands during poll', async () => {
-    prismaService.device.findFirst.mockResolvedValue({ id: 'device-1' });
+    prismaService.device.findFirst.mockResolvedValue({
+      id: 'device-1',
+      remoteControlEnabled: true,
+    });
     prismaService.remoteCommand.findMany.mockResolvedValue([]);
 
     await remoteControlService.pollCommands('user-1', 'device-1', {
@@ -365,7 +420,10 @@ describe('RemoteControlService', () => {
   });
 
   it('acks delivered commands as applied', async () => {
-    prismaService.device.findFirst.mockResolvedValue({ id: 'device-1' });
+    prismaService.device.findFirst.mockResolvedValue({
+      id: 'device-1',
+      remoteControlEnabled: true,
+    });
     prismaService.remoteCommand.findFirst
       .mockResolvedValueOnce(
         createRemoteCommandRecord({
@@ -416,7 +474,10 @@ describe('RemoteControlService', () => {
   });
 
   it('returns terminal command when a racing ack wins first', async () => {
-    prismaService.device.findFirst.mockResolvedValue({ id: 'device-1' });
+    prismaService.device.findFirst.mockResolvedValue({
+      id: 'device-1',
+      remoteControlEnabled: true,
+    });
     prismaService.remoteCommand.findFirst
       .mockResolvedValueOnce(
         createRemoteCommandRecord({
@@ -449,7 +510,10 @@ describe('RemoteControlService', () => {
   });
 
   it('acks delivered commands as failed with an error message', async () => {
-    prismaService.device.findFirst.mockResolvedValue({ id: 'device-1' });
+    prismaService.device.findFirst.mockResolvedValue({
+      id: 'device-1',
+      remoteControlEnabled: true,
+    });
     prismaService.remoteCommand.findFirst
       .mockResolvedValueOnce(
         createRemoteCommandRecord({
@@ -486,7 +550,10 @@ describe('RemoteControlService', () => {
   });
 
   it('keeps duplicate terminal ack idempotent', async () => {
-    prismaService.device.findFirst.mockResolvedValue({ id: 'device-1' });
+    prismaService.device.findFirst.mockResolvedValue({
+      id: 'device-1',
+      remoteControlEnabled: true,
+    });
     prismaService.remoteCommand.findFirst.mockResolvedValue(
       createRemoteCommandRecord({ status: RemoteCommandStatus.APPLIED }),
     );

@@ -64,7 +64,7 @@ Payloads:
 - `START_ROUTE`: `{ "waypoints": [...], "speedKmh": 20, "mode": "ONCE|LOOP|PING_PONG" }`
 - `STOP`: `{}`
 
-`expiresAt` is optional; default is 60 seconds from creation. Disabled devices reject command creation.
+`expiresAt` is optional; default and maximum are 60 seconds from creation. Disabled devices reject command creation.
 
 Response:
 
@@ -98,7 +98,7 @@ Response:
 { "clientDeviceId": "android-installation-id" }
 ```
 
-Returns queued commands after marking them `DELIVERED`. Already delivered commands are not returned again.
+Returns queued commands after marking them `DELIVERED`. Already delivered commands are not returned again. Disabled devices receive an empty batch and any queued commands are expired.
 
 ```json
 {
