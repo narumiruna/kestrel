@@ -17,7 +17,6 @@ export const remoteCommandSelect = {
   payload: true,
   status: true,
   type: true,
-  userId: true,
 } satisfies Prisma.RemoteCommandSelect;
 
 export const remoteDeviceSelect = {
