@@ -234,6 +234,11 @@ describe('RemoteControlService', () => {
       status: RemoteCommandStatus.QUEUED,
       type: RemoteCommandType.START_ROUTE,
     });
+    expect(prismaService.device.findFirst.mock.calls[0]?.[0]).toMatchObject({
+      where: {
+        platform: DevicePlatform.ANDROID,
+      },
+    });
     expect(prismaService.remoteCommand.create.mock.calls[0]?.[0]).toMatchObject(
       {
         data: {
@@ -298,18 +303,15 @@ describe('RemoteControlService', () => {
       id: 'device-1',
       remoteControlEnabled: true,
     });
-    prismaService.remoteCommand.findMany
-      .mockResolvedValueOnce([
-        createRemoteCommandRecord({ id: 'command-1' }),
-        createRemoteCommandRecord({ id: 'command-2' }),
-      ])
-      .mockResolvedValueOnce([
-        createRemoteCommandRecord({
-          deliveredAt: new Date('2026-06-20T08:00:00.000Z'),
-          id: 'command-1',
-          status: RemoteCommandStatus.DELIVERED,
-        }),
-      ]);
+    prismaService.remoteCommand.findMany.mockResolvedValueOnce([
+      createRemoteCommandRecord({ id: 'command-1' }),
+      createRemoteCommandRecord({ id: 'command-2' }),
+    ]);
+    prismaService.remoteCommand.updateMany
+      .mockResolvedValueOnce({ count: 0 })
+      .mockResolvedValueOnce({ count: 0 })
+      .mockResolvedValueOnce({ count: 1 })
+      .mockResolvedValueOnce({ count: 0 });
 
     const result = await remoteControlService.pollCommands(
       'user-1',

@@ -98,6 +98,7 @@ export class RemoteControlService {
       },
       where: {
         id: deviceId,
+        platform: DevicePlatform.ANDROID,
         userId,
       },
     });
@@ -177,37 +178,25 @@ export class RemoteControlService {
           userId,
         },
       });
-      const commandIds = queuedCommands.map((command) => command.id);
-      let deliveredCommands = queuedCommands;
+      const deliveredCommands: typeof queuedCommands = [];
 
-      if (commandIds.length > 0) {
-        await tx.remoteCommand.updateMany({
+      for (const command of queuedCommands) {
+        const delivery = await tx.remoteCommand.updateMany({
           data: {
             deliveredAt: now,
             status: RemoteCommandStatus.DELIVERED,
           },
           where: {
             deviceId,
-            id: {
-              in: commandIds,
-            },
+            id: command.id,
             status: RemoteCommandStatus.QUEUED,
             userId,
           },
         });
-        deliveredCommands = await tx.remoteCommand.findMany({
-          orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-          select: remoteCommandSelect,
-          where: {
-            deliveredAt: now,
-            deviceId,
-            id: {
-              in: commandIds,
-            },
-            status: RemoteCommandStatus.DELIVERED,
-            userId,
-          },
-        });
+
+        if (delivery.count === 1) {
+          deliveredCommands.push(command);
+        }
       }
 
       await tx.device.update({
@@ -339,6 +328,7 @@ export class RemoteControlService {
       where: {
         clientDeviceId,
         id: deviceId,
+        platform: DevicePlatform.ANDROID,
         userId,
       },
     });

@@ -285,6 +285,7 @@ model RemoteCommand {
 
   @@index([userId, deviceId, status, createdAt])
   @@index([deviceId, status, createdAt])
+  @@index([userId, status, deliveredAt])
   @@index([expiresAt])
   @@map("remote_commands")
 }
