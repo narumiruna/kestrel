@@ -135,13 +135,13 @@ function parsePayload(
       return parseStartRoutePayload(payload);
     case RemoteCommandType.STOP:
       if (payload == null) return {};
-      parseRecord(payload);
+      parseRecord(payload, 'payload must be an object');
       return {};
   }
 }
 
 function parseSetPointPayload(payload: unknown): { point: RemotePoint } {
-  const record = parseRecord(payload);
+  const record = parseRecord(payload, 'payload must be an object');
 
   return {
     point: parsePoint(record.point, 'point'),
@@ -153,7 +153,7 @@ function parseStartRoutePayload(payload: unknown): {
   speedKmh: number;
   waypoints: RemotePoint[];
 } {
-  const record = parseRecord(payload);
+  const record = parseRecord(payload, 'payload must be an object');
 
   return {
     mode: parseRouteMode(record.mode),
