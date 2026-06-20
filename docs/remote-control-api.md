@@ -64,7 +64,7 @@ Payloads:
 - `START_ROUTE`: `{ "waypoints": [...], "speedKmh": 20, "mode": "ONCE|LOOP|PING_PONG" }`
 - `STOP`: `{}`
 
-`expiresAt` is optional; default and maximum are 60 seconds from creation. Disabled devices reject command creation.
+`expiresAt` is optional; default and maximum are 60 seconds from creation (applies while status is `QUEUED`). Once a command is `DELIVERED`, it is no longer expired by `expiresAt`; instead the server waits for an ACK and marks it `EXPIRED` if the ACK is not received within the ACK-timeout window. Disabled devices reject command creation.
 
 Response:
 
