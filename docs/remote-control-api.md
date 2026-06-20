@@ -15,7 +15,7 @@ All endpoints require the existing bearer access token. Android must register wi
 }
 ```
 
-Upserts by `(userId, clientDeviceId)`, sets `platform=ANDROID`, updates `lastSeenAt`, and returns a `RemoteDevice` (Android should persist the returned `id` and use it as `:deviceId` for poll/ack).
+Upserts by `(userId, clientDeviceId)`, sets `platform=ANDROID`, updates `lastSeenAt`, and returns a `RemoteDevice` (Android should persist the returned `id` and use it as `:deviceId` for poll/ack). Setting `remoteControlEnabled=false` expires queued commands for that device.
 
 ## List devices
 
