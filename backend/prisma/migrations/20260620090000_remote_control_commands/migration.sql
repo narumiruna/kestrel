@@ -46,6 +46,8 @@ CREATE INDEX "remote_commands_user_id_device_id_status_created_at_idx"
     ON "remote_commands"("user_id", "device_id", "status", "created_at");
 CREATE INDEX "remote_commands_device_id_status_created_at_idx"
     ON "remote_commands"("device_id", "status", "created_at");
+CREATE INDEX "remote_commands_user_id_status_delivered_at_idx"
+    ON "remote_commands"("user_id", "status", "delivered_at");
 CREATE INDEX "remote_commands_expires_at_idx" ON "remote_commands"("expires_at");
 
 ALTER TABLE "remote_commands"
