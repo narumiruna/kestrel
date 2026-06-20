@@ -619,13 +619,13 @@ private fun StartupPreferenceCard(
             KestrelActionRow {
                 OutlinedButton(
                     onClick = { expandedKind = expandedKind.toggle(LibraryItemKind.Place) },
-                    enabled = places.isNotEmpty(),
+                    enabled = places.isNotEmpty() || expandedKind == LibraryItemKind.Place,
                 ) {
                     Text(if (expandedKind == LibraryItemKind.Place) "Hide points" else "Points (${places.size})", maxLines = 1)
                 }
                 OutlinedButton(
                     onClick = { expandedKind = expandedKind.toggle(LibraryItemKind.Route) },
-                    enabled = routes.isNotEmpty(),
+                    enabled = routes.isNotEmpty() || expandedKind == LibraryItemKind.Route,
                 ) {
                     Text(if (expandedKind == LibraryItemKind.Route) "Hide routes" else "Routes (${routes.size})", maxLines = 1)
                 }
