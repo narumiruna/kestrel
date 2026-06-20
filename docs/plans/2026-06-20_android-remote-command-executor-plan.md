@@ -20,7 +20,7 @@
 
 ## Plan
 
-- [ ] 在 `Preferences.kt` 新增向前相容 `RemoteControlSettings(enabled: Boolean = false, deviceId: String? = null, deviceName: String? = null)`，並在 `KestrelPrefs` 加 getter/setter；驗證方式為 DataStore serialization compile，`just android-check` 通過。
+- [ ] 在 `Preferences.kt` 新增向前相容 `RemoteControlSettings(enabled: Boolean = false, deviceId: String? = null, deviceName: String? = null)`，並在 `KestrelPrefs` 加 getter/setter；驗證方式為 DataStore serialization compile（`just build`）並通過格式檢查（`just android-check`）。
 - [ ] 擴充 `CloudApiClient` / `CloudModels.kt` 支援 backend remote-control endpoints：register device、poll commands、ack command；驗證方式為新增純 Kotlin serialization/unit tests 或 mock client tests，命令 `JAVA_HOME=… ./gradlew :app:testDebugUnitTest --tests '*RemoteControl*'`。
 - [ ] 新增 `RemoteControlRepository`，負責確保 device registration、定期 poll、expiry-aware ack、access token refresh；驗證方式為 unit tests 覆蓋 disabled/no-session/no-device/register/poll/ack failure path。
 - [ ] 新增 command executor：`SET_POINT` 驗證 lat/lng 後呼叫 `LocationService.setLocation(context, point)`；`START_ROUTE` 驗證 waypoint >= 2、speed/mode 後呼叫 `LocationService.startRoute(context, waypoints, speedKmh, mode)`；`STOP` 呼叫 `LocationService.stop(context)`；驗證方式為 unit tests 使用 fake executor 或 facade 確認不先送 `stop()` 再 set/start。
