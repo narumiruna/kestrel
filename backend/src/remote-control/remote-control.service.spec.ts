@@ -57,6 +57,7 @@ type MockPrismaService = {
       [unknown]
     >;
     findMany: jest.Mock<Promise<MockRemoteDeviceRecord[]>, [unknown]>;
+    findUniqueOrThrow: jest.Mock<Promise<MockRemoteDeviceRecord>, [unknown]>;
     update: jest.Mock<Promise<{ id: string }>, [unknown]>;
     upsert: jest.Mock<Promise<MockRemoteDeviceRecord>, [unknown]>;
   };
@@ -126,7 +127,23 @@ describe('RemoteControlService', () => {
 
   it('expires queued commands when Android disables remote control', async () => {
     prismaService.device.upsert.mockResolvedValue(
-      createRemoteDeviceRecord({ remoteControlEnabled: false }),
+      createRemoteDeviceRecord({
+        remoteCommands: [
+          createRemoteCommandRecord({ status: RemoteCommandStatus.QUEUED }),
+        ],
+        remoteControlEnabled: false,
+      }),
+    );
+    prismaService.device.findUniqueOrThrow.mockResolvedValue(
+      createRemoteDeviceRecord({
+        remoteCommands: [
+          createRemoteCommandRecord({
+            errorMessage: 'remote control disabled',
+            status: RemoteCommandStatus.EXPIRED,
+          }),
+        ],
+        remoteControlEnabled: false,
+      }),
     );
 
     const result = await remoteControlService.registerDevice('user-1', {
@@ -136,7 +153,10 @@ describe('RemoteControlService', () => {
       remoteControlEnabled: false,
     });
 
-    expect(result).toMatchObject({ remoteControlEnabled: false });
+    expect(result).toMatchObject({
+      lastCommand: { status: RemoteCommandStatus.EXPIRED },
+      remoteControlEnabled: false,
+    });
     expect(
       prismaService.remoteCommand.updateMany.mock.calls[0]?.[0],
     ).toMatchObject({
@@ -665,6 +685,10 @@ function createMockPrismaService(): MockPrismaService {
         [unknown]
       >(),
       findMany: createMock<Promise<MockRemoteDeviceRecord[]>, [unknown]>(),
+      findUniqueOrThrow: createMock<
+        Promise<MockRemoteDeviceRecord>,
+        [unknown]
+      >(),
       update: createMock<
         Promise<{ id: string }>,
         [unknown]
