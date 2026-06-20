@@ -134,7 +134,6 @@ function parsePayload(
     case RemoteCommandType.START_ROUTE:
       return parseStartRoutePayload(payload);
     case RemoteCommandType.STOP:
-      if (payload == null) return {};
       parseRecord(payload, 'payload must be an object');
       return {};
   }

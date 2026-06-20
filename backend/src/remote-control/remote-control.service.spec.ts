@@ -23,7 +23,6 @@ type MockRemoteCommandRecord = {
   payload: Prisma.JsonValue;
   status: RemoteCommandStatus;
   type: RemoteCommandType;
-  userId: string;
 };
 
 type MockRemoteDeviceRecord = {
@@ -270,6 +269,11 @@ describe('RemoteControlService', () => {
       remoteControlService.createCommand('user-1', 'device-1', {
         payload: 'bad',
         type: 'START_ROUTE',
+      }),
+    ).rejects.toThrow('payload must be an object');
+    await expect(
+      remoteControlService.createCommand('user-1', 'device-1', {
+        type: 'STOP',
       }),
     ).rejects.toThrow('payload must be an object');
     await expect(
@@ -789,7 +793,6 @@ function createRemoteCommandRecord(
     payload: {},
     status: RemoteCommandStatus.QUEUED,
     type: RemoteCommandType.STOP,
-    userId: 'user-1',
     ...overrides,
   };
 }
