@@ -58,7 +58,7 @@ Upserts by `(userId, clientDeviceId)`, sets `platform=ANDROID`, updates `lastSee
 }
 ```
 
-Payloads:
+`payload` is required. Payloads:
 
 - `SET_POINT`: `{ "point": { "latitude": 25.033, "longitude": 121.5654 } }`
 - `START_ROUTE`: `{ "waypoints": [...], "speedKmh": 20, "mode": "ONCE|LOOP|PING_PONG" }`
