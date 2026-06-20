@@ -47,6 +47,7 @@ import dev.narumi.kestrel.core.data.KestrelPrefs
 import dev.narumi.kestrel.core.data.MockPlaybackSettings
 import dev.narumi.kestrel.core.data.RandomRoutePreference
 import dev.narumi.kestrel.core.data.StartupPreference
+import dev.narumi.kestrel.core.library.LibraryItemKind
 import dev.narumi.kestrel.core.library.LibraryItemWithContent
 import dev.narumi.kestrel.core.library.LibraryRepository
 import dev.narumi.kestrel.core.library.description
@@ -125,10 +126,14 @@ fun OptionsScreen(modifier: Modifier = Modifier) {
     ) {
         KestrelScreenHeader(
             title = "Options",
-            subtitle = "Tune cloud sync, startup behavior, and route playback defaults.",
+            subtitle = "Choose startup, map links, playback, routes, and cloud sync.",
         )
 
-        CloudSettingsSection()
+        StartupPreferenceCard(
+            items = items,
+            startup = startup,
+            onUpdate = ::update,
+        )
 
         MapLinksOptionsCard()
 
@@ -137,12 +142,6 @@ fun OptionsScreen(modifier: Modifier = Modifier) {
             onProgressWriteIntervalChange = { seconds ->
                 scope.launch { prefs.setProgressWriteIntervalSeconds(seconds) }
             },
-        )
-
-        StartupPreferenceCard(
-            items = items,
-            startup = startup,
-            onUpdate = ::update,
         )
 
         RandomRouteDefaultsCard(
@@ -164,18 +163,7 @@ fun OptionsScreen(modifier: Modifier = Modifier) {
             onReset = { scope.launch { prefs.resetRandomRoutePreference() } },
         )
 
-        FavoriteStartupPicker(
-            items = items,
-            startup = startup,
-            onSelect = { item ->
-                update(
-                    StartupPreference(
-                        mode = StartupPreference.Mode.Favorite,
-                        libraryItemId = item.item.id,
-                    ),
-                )
-            },
-        )
+        CloudSettingsSection()
     }
 }
 
@@ -575,6 +563,20 @@ private fun StartupPreferenceCard(
     startup: StartupPreference,
     onUpdate: (StartupPreference) -> Unit,
 ) {
+    var expandedKind by remember { mutableStateOf<LibraryItemKind?>(null) }
+    val places = items.filter { it.kind == LibraryItemKind.Place }
+    val routes = items.filter { it.kind == LibraryItemKind.Route }
+    val selectedItem = items.firstOrNull { it.item.id == startup.libraryItemId }
+
+    fun selectFavorite(item: LibraryItemWithContent) {
+        onUpdate(
+            StartupPreference(
+                mode = StartupPreference.Mode.Favorite,
+                libraryItemId = item.item.id,
+            ),
+        )
+    }
+
     OptionsCard(
         title = "When opening the app",
         subtitle = "Choose where the map starts after launch.",
@@ -598,46 +600,56 @@ private fun StartupPreferenceCard(
                 } else {
                     "A favorite"
                 },
+            supporting = selectedItem?.let { "Startup favorite: ${it.name}" } ?: "Pick a point or route below.",
             selected = startup.mode == StartupPreference.Mode.Favorite,
             enabled = items.isNotEmpty(),
             onSelect = {
-                val target =
-                    items.firstOrNull { it.item.id == startup.libraryItemId }
-                        ?: items.firstOrNull()
-                        ?: return@StartupRadioRow
-                onUpdate(
-                    StartupPreference(
-                        mode = StartupPreference.Mode.Favorite,
-                        libraryItemId = target.item.id,
-                    ),
-                )
+                val target = selectedItem ?: items.firstOrNull() ?: return@StartupRadioRow
+                selectFavorite(target)
             },
         )
+        if (startup.mode == StartupPreference.Mode.Favorite && items.isNotEmpty()) {
+            KestrelActionRow {
+                OutlinedButton(
+                    onClick = { expandedKind = expandedKind.toggle(LibraryItemKind.Place) },
+                    enabled = places.isNotEmpty(),
+                ) {
+                    Text(if (expandedKind == LibraryItemKind.Place) "Hide points" else "Points (${places.size})", maxLines = 1)
+                }
+                OutlinedButton(
+                    onClick = { expandedKind = expandedKind.toggle(LibraryItemKind.Route) },
+                    enabled = routes.isNotEmpty(),
+                ) {
+                    Text(if (expandedKind == LibraryItemKind.Route) "Hide routes" else "Routes (${routes.size})", maxLines = 1)
+                }
+            }
+            when (expandedKind) {
+                LibraryItemKind.Place -> FavoriteStartupList(places, startup, ::selectFavorite)
+                LibraryItemKind.Route -> FavoriteStartupList(routes, startup, ::selectFavorite)
+                null -> Unit
+            }
+        }
     }
 }
 
 @Composable
-private fun FavoriteStartupPicker(
+private fun FavoriteStartupList(
     items: List<LibraryItemWithContent>,
     startup: StartupPreference,
     onSelect: (LibraryItemWithContent) -> Unit,
 ) {
-    if (startup.mode != StartupPreference.Mode.Favorite || items.isEmpty()) return
-    OptionsCard(
-        title = "Pick a favorite",
-        subtitle = "This saved item becomes the startup target.",
-    ) {
-        items.forEachIndexed { index, item ->
-            if (index > 0) HorizontalDivider()
-            StartupRadioRow(
-                label = item.name,
-                supporting = item.description(),
-                selected = startup.libraryItemId == item.item.id,
-                onSelect = { onSelect(item) },
-            )
-        }
+    items.forEachIndexed { index, item ->
+        if (index > 0) HorizontalDivider()
+        StartupRadioRow(
+            label = item.name,
+            supporting = item.description(),
+            selected = startup.libraryItemId == item.item.id,
+            onSelect = { onSelect(item) },
+        )
     }
 }
+
+private fun LibraryItemKind?.toggle(kind: LibraryItemKind): LibraryItemKind? = if (this == kind) null else kind
 
 @Composable
 private fun MockPlaybackSettingsCard(
