@@ -130,6 +130,8 @@ fun OptionsScreen(modifier: Modifier = Modifier) {
 
         CloudSettingsSection()
 
+        MapLinksOptionsCard()
+
         MockPlaybackSettingsCard(
             settings = mockPlayback,
             onProgressWriteIntervalChange = { seconds ->
