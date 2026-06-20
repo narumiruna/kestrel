@@ -58,6 +58,7 @@ type MockPrismaService = {
     findMany: jest.Mock<Promise<MockRemoteDeviceRecord[]>, [unknown]>;
     findUniqueOrThrow: jest.Mock<Promise<MockRemoteDeviceRecord>, [unknown]>;
     update: jest.Mock<Promise<{ id: string }>, [unknown]>;
+    updateMany: jest.Mock<Promise<{ count: number }>, [unknown]>;
     upsert: jest.Mock<Promise<MockRemoteDeviceRecord>, [unknown]>;
   };
   remoteCommand: {
@@ -220,6 +221,7 @@ describe('RemoteControlService', () => {
   });
 
   it('rejects command creation for a disabled device', async () => {
+    prismaService.device.updateMany.mockResolvedValue({ count: 0 });
     prismaService.device.findFirst.mockResolvedValue({
       id: 'device-1',
       remoteControlEnabled: false,
@@ -234,6 +236,7 @@ describe('RemoteControlService', () => {
   });
 
   it('rejects command creation for a foreign device', async () => {
+    prismaService.device.updateMany.mockResolvedValue({ count: 0 });
     prismaService.device.findFirst.mockResolvedValue(null);
 
     await expect(
@@ -296,10 +299,6 @@ describe('RemoteControlService', () => {
   });
 
   it('queues a valid route command with the default expiry', async () => {
-    prismaService.device.findFirst.mockResolvedValue({
-      id: 'device-1',
-      remoteControlEnabled: true,
-    });
     prismaService.remoteCommand.create.mockResolvedValue(
       createRemoteCommandRecord({
         payload: {
@@ -334,9 +333,13 @@ describe('RemoteControlService', () => {
       status: RemoteCommandStatus.QUEUED,
       type: RemoteCommandType.START_ROUTE,
     });
-    expect(prismaService.device.findFirst.mock.calls[0]?.[0]).toMatchObject({
+    expect(prismaService.device.updateMany.mock.calls[0]?.[0]).toMatchObject({
+      data: {
+        remoteControlEnabled: true,
+      },
       where: {
         platform: DevicePlatform.ANDROID,
+        remoteControlEnabled: true,
       },
     });
     expect(prismaService.remoteCommand.create.mock.calls[0]?.[0]).toMatchObject(
@@ -745,6 +748,10 @@ function createMockPrismaService(): MockPrismaService {
         Promise<{ id: string }>,
         [unknown]
       >().mockResolvedValue({ id: 'device-1' }),
+      updateMany: createMock<
+        Promise<{ count: number }>,
+        [unknown]
+      >().mockResolvedValue({ count: 1 }),
       upsert: createMock<Promise<MockRemoteDeviceRecord>, [unknown]>(),
     },
     remoteCommand: {
