@@ -124,6 +124,34 @@ describe('RemoteControlService', () => {
     });
   });
 
+  it('expires queued commands when Android disables remote control', async () => {
+    prismaService.device.upsert.mockResolvedValue(
+      createRemoteDeviceRecord({ remoteControlEnabled: false }),
+    );
+
+    const result = await remoteControlService.registerDevice('user-1', {
+      appVersion: '1.2.3',
+      clientDeviceId: 'android-stable-id',
+      name: 'Pixel',
+      remoteControlEnabled: false,
+    });
+
+    expect(result).toMatchObject({ remoteControlEnabled: false });
+    expect(
+      prismaService.remoteCommand.updateMany.mock.calls[0]?.[0],
+    ).toMatchObject({
+      data: {
+        errorMessage: 'remote control disabled',
+        status: RemoteCommandStatus.EXPIRED,
+      },
+      where: {
+        deviceId: 'device-1',
+        status: RemoteCommandStatus.QUEUED,
+        userId: 'user-1',
+      },
+    });
+  });
+
   it('rejects command creation for a disabled device', async () => {
     prismaService.device.findFirst.mockResolvedValue({
       id: 'device-1',
@@ -254,15 +282,9 @@ describe('RemoteControlService', () => {
       id: 'device-1',
       remoteControlEnabled: true,
     });
-    prismaService.remoteCommand.findMany
-      .mockResolvedValueOnce([createRemoteCommandRecord({ id: 'command-1' })])
-      .mockResolvedValueOnce([
-        createRemoteCommandRecord({
-          deliveredAt: new Date('2026-06-20T08:00:00.000Z'),
-          id: 'command-1',
-          status: RemoteCommandStatus.DELIVERED,
-        }),
-      ]);
+    prismaService.remoteCommand.findMany.mockResolvedValueOnce([
+      createRemoteCommandRecord({ id: 'command-1' }),
+    ]);
     prismaService.remoteCommand.updateMany
       .mockResolvedValueOnce({ count: 0 })
       .mockResolvedValueOnce({ count: 0 })

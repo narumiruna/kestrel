@@ -41,33 +41,50 @@ export class RemoteControlService {
   async registerDevice(userId: string, body: unknown) {
     const input = parseRegisterDeviceInput(body);
     const now = new Date();
-    const device = await this.prismaService.device.upsert({
-      create: {
-        appVersion: input.appVersion,
-        clientDeviceId: input.clientDeviceId,
-        lastSeenAt: now,
-        name: input.name,
-        platform: DevicePlatform.ANDROID,
-        remoteControlEnabled: input.remoteControlEnabled,
-        userId,
-      },
-      select: remoteDeviceSelect,
-      update: {
-        appVersion: input.appVersion,
-        lastSeenAt: now,
-        name: input.name,
-        platform: DevicePlatform.ANDROID,
-        remoteControlEnabled: input.remoteControlEnabled,
-      },
-      where: {
-        userId_clientDeviceId: {
+
+    return this.prismaService.$transaction(async (tx) => {
+      const device = await tx.device.upsert({
+        create: {
+          appVersion: input.appVersion,
           clientDeviceId: input.clientDeviceId,
+          lastSeenAt: now,
+          name: input.name,
+          platform: DevicePlatform.ANDROID,
+          remoteControlEnabled: input.remoteControlEnabled,
           userId,
         },
-      },
-    });
+        select: remoteDeviceSelect,
+        update: {
+          appVersion: input.appVersion,
+          lastSeenAt: now,
+          name: input.name,
+          platform: DevicePlatform.ANDROID,
+          remoteControlEnabled: input.remoteControlEnabled,
+        },
+        where: {
+          userId_clientDeviceId: {
+            clientDeviceId: input.clientDeviceId,
+            userId,
+          },
+        },
+      });
 
-    return mapRemoteDevice(device, now);
+      if (!input.remoteControlEnabled) {
+        await tx.remoteCommand.updateMany({
+          data: {
+            errorMessage: REMOTE_CONTROL_DISABLED_MESSAGE,
+            status: RemoteCommandStatus.EXPIRED,
+          },
+          where: {
+            deviceId: device.id,
+            status: RemoteCommandStatus.QUEUED,
+            userId,
+          },
+        });
+      }
+
+      return mapRemoteDevice(device, now);
+    });
   }
 
   async listDevices(userId: string) {
