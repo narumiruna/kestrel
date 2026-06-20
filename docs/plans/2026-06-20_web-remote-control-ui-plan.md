@@ -28,7 +28,7 @@
 
 ## Plan
 
-- [ ] 在 `web/lib/api` 型別或 dashboard local types 新增 remote-control DTO：`RemoteDevice`、`RemoteCommand`、`CreateRemoteCommandRequest`；驗證方式為 `cd web && npm run typecheck`。
+- [ ] 在 `web/lib/api.ts` 型別或 dashboard local types 新增 remote-control DTO：`RemoteDevice`、`RemoteCommand`、`CreateRemoteCommandRequest`；驗證方式為 `cd web && npm run typecheck`。
 - [ ] 新增 `web/components/dashboard/useRemoteDevices.ts`，封裝 `GET /devices`、`POST /devices/:id/commands`、command status polling；驗證方式為 lint/typecheck 與 hook call sites compile。
 - [ ] 在 Places dashboard 的 selected place card 加 `Mock on device` 控制：device picker、submit button、queued/applied/failed/offline status；payload 使用 selected place latitude/longitude snapshot；驗證方式為 `cd web && npm run lint && npm run typecheck`，並手動用 mocked/real backend 建 command。
 - [ ] 在 Routes dashboard 的 selected route card 加 `Play on device` 控制：device picker、submit button、status；payload 使用 currentRevision waypoints、`speedKmh`（取自 route 的 defaultSpeedKmh）、mode snapshot；route 無 currentRevision 或 waypoints < 2 時 disabled 並顯示 reason；驗證方式為 lint/typecheck 與手動 UI review。
