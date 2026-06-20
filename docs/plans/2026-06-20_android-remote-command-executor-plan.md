@@ -24,7 +24,7 @@
 - [ ] 擴充 `CloudApiClient` / `CloudModels.kt` 支援 backend remote-control endpoints：register device、poll commands、ack command；驗證方式為新增純 Kotlin serialization/unit tests 或 mock client tests，命令 `JAVA_HOME=… ./gradlew :app:testDebugUnitTest --tests '*RemoteControl*'`。
 - [ ] 新增 `RemoteControlRepository`，負責確保 device registration、定期 poll、expiry-aware ack、access token refresh；驗證方式為 unit tests 覆蓋 disabled/no-session/no-device/register/poll/ack failure path。
 - [ ] 新增 command executor：`SET_POINT` 驗證 lat/lng 後呼叫 `LocationService.setLocation(context, point)`；`START_ROUTE` 驗證 waypoint >= 2、speed/mode 後呼叫 `LocationService.startRoute(context, waypoints, speedKmh, mode)`；`STOP` 呼叫 `LocationService.stop(context)`；驗證方式為 unit tests 使用 fake executor 或 facade 確認不先送 `stop()` 再 set/start。
-- [ ] 在 `OptionsScreen` 加 `Web remote control` card/toggle，預設 off，說明「Kestrel must be open or mock service running」與目前 device name/last status；驗證方式為 `just android-check` 與手動 UI review。
+- [ ] 在 `OptionsScreen` 加 `Web remote control` card/toggle，預設 off，說明「Kestrel must be open or mock service running」與目前 device name/last status；驗證方式為 `just build && just android-check` 與手動 UI review。
 - [ ] 在 `MainActivity` lifecycle foreground observer 啟動/停止 polling；如果 `LocationService.runtimeState` 進入 active mock，保持較低頻 polling；驗證方式為讀碼確認不會在未登入或 disabled 時 polling，並用 filtered logs 確認 foreground 開始 polling。
 - [ ] 實作 error/ack mapping：mock permission 不足、invalid payload、route too short、service start exception 都 ack `FAILED`；成功 ack `APPLIED`；驗證方式為 unit tests 與 non-destructive device smoke。
 - [ ] 執行 Android quality gates：`just check && just lint`，以及新增 unit tests；手動 smoke 不使用 `just reset` 或清 app data。
