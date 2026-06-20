@@ -223,6 +223,8 @@ fun MapScreen(
     modifier: Modifier = Modifier,
     pendingFavoriteApply: LibraryItemWithContent? = null,
     onFavoriteApplyConsumed: () -> Unit = {},
+    pendingMapLinkPoint: LatLng? = null,
+    onMapLinkPointConsumed: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val permissions =
@@ -272,7 +274,7 @@ fun MapScreen(
 
     LaunchedEffect(Unit) {
         if (startupResolved) return@LaunchedEffect
-        if (pendingFavoriteApply != null) {
+        if (pendingFavoriteApply != null || pendingMapLinkPoint != null) {
             startupResolved = true
             return@LaunchedEffect
         }
@@ -366,6 +368,13 @@ fun MapScreen(
         pendingFavoriteApply?.let {
             applyItem(it)
             onFavoriteApplyConsumed()
+        }
+    }
+
+    LaunchedEffect(pendingMapLinkPoint) {
+        pendingMapLinkPoint?.let {
+            applyPoint(it)
+            onMapLinkPointConsumed()
         }
     }
 
