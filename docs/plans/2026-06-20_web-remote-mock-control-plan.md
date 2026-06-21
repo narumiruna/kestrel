@@ -29,7 +29,7 @@
 
 ## Plan
 
-- [ ] 實作 `docs/plans/2026-06-20_remote-control-backend-command-queue-plan.md`，提供 authenticated command queue API；驗證方式為 backend unit tests、`cd backend && npm run test && npm run typecheck && npm run lint && npm run build`。
+- [x] 實作 `docs/plans/archived/2026-06-20_remote-control-backend-command-queue-plan.md`，提供 authenticated command queue API；已由 backend unit tests、`cd backend && npm run test && npm run typecheck && npm run lint && npm run build` 驗證。
 - [ ] 實作 `docs/plans/2026-06-20_android-remote-command-executor-plan.md`，讓 Android opt-in、註冊 device、poll/ack command、呼叫 `LocationService`；驗證方式為 Android unit tests（`just android-test`）、`just check && just lint`、非破壞性 manual smoke。
 - [ ] 實作 `docs/plans/2026-06-20_web-remote-control-ui-plan.md`，在 Web places/routes 加 device picker 與 mock/play buttons；驗證方式為 `cd web && npm run lint && npm run typecheck`、manual smoke。
 - [ ] 做端到端 smoke：Web `Mock on device` place → Android mock dot/foreground notification 進入 single point；Web `Play on device` route → Android route playing；驗證方式為測試 device 畫面、backend command 狀態、必要時 filtered `just logf`。不可使用 `just reset` 或清 app data。
@@ -43,7 +43,7 @@
 
 ## Completion Checklist
 
-- [ ] Backend command queue API 已由 backend tests/typecheck/lint/build 驗證，且涵蓋 client device id、remote-control opt-out、delivery、expiry。
+- [x] Backend command queue API 已由 backend tests/typecheck/lint/build 驗證，且涵蓋 client device id、remote-control opt-out、delivery、expiry。
 - [ ] Android remote executor 已由 Android tests/check/lint 與非破壞性 device smoke 驗證，且只在 result-aware 狀態確認後 ack `APPLIED`。
 - [ ] Web remote control UI 已由 web lint/typecheck 與 manual smoke 驗證，且只對 online + enabled device 送 command。
 - [ ] Web → backend → Android 的 `SET_POINT` 與 `START_ROUTE` 端到端流程已在測試 device 驗證。

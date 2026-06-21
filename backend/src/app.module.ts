@@ -7,6 +7,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { SyncModule } from './sync/sync.module';
 import { SharingModule } from './sharing/sharing.module';
+import { RemoteControlModule } from './remote-control/remote-control.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { SharingModule } from './sharing/sharing.module';
     LibraryModule,
     SyncModule,
     SharingModule,
+    RemoteControlModule,
   ],
   controllers: [AppController],
   providers: [AppService],

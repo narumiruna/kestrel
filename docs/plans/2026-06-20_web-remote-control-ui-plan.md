@@ -7,7 +7,7 @@
 ## Context
 
 - Web 已有 Places / Routes dashboard 與 `auth.apiRequest()`。
-- Backend remote-control API 由 `docs/plans/2026-06-20_remote-control-backend-command-queue-plan.md` 提供。
+- Backend remote-control API 由 `docs/remote-control-api.md` 提供；實作記錄在 `docs/plans/archived/2026-06-20_remote-control-backend-command-queue-plan.md`。
 - Android executor 由 `docs/plans/2026-06-20_android-remote-command-executor-plan.md` 提供。
 - 第一版不做 realtime；Web 可以在建立 command 後短輪詢 command 狀態數次。
 
