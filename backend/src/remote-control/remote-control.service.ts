@@ -172,15 +172,23 @@ export class RemoteControlService {
     const now = new Date();
 
     return this.prismaService.$transaction(async (tx) => {
-      const device = await this.assertOwnDevice(
-        tx,
-        userId,
-        deviceId,
-        input.clientDeviceId,
-      );
+      await this.assertOwnDevice(tx, userId, deviceId, input.clientDeviceId);
       await this.expireStaleCommands(tx, now, { deviceId, userId });
 
-      if (!device.remoteControlEnabled) {
+      const enabled = await tx.device.updateMany({
+        data: {
+          lastSeenAt: now,
+        },
+        where: {
+          clientDeviceId: input.clientDeviceId,
+          id: deviceId,
+          platform: DevicePlatform.ANDROID,
+          remoteControlEnabled: true,
+          userId,
+        },
+      });
+
+      if (enabled.count === 0) {
         await tx.remoteCommand.updateMany({
           data: {
             errorMessage: REMOTE_CONTROL_DISABLED_MESSAGE,
@@ -240,15 +248,6 @@ export class RemoteControlService {
           deliveredCommands.push(command);
         }
       }
-
-      await tx.device.update({
-        data: {
-          lastSeenAt: now,
-        },
-        where: {
-          id: deviceId,
-        },
-      });
 
       return {
         commands: deliveredCommands.map((command) =>
