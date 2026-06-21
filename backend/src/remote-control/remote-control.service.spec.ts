@@ -396,8 +396,12 @@ describe('RemoteControlService', () => {
       },
       where: { status: RemoteCommandStatus.QUEUED },
     });
-    expect(prismaService.device.update.mock.calls[0]?.[0]).toMatchObject({
+    expect(prismaService.device.updateMany.mock.calls[0]?.[0]).toMatchObject({
       data: { lastSeenAt: new Date('2026-06-20T08:00:00.000Z') },
+      where: {
+        clientDeviceId: 'client-1',
+        remoteControlEnabled: true,
+      },
     });
   });
 
@@ -459,6 +463,7 @@ describe('RemoteControlService', () => {
   });
 
   it('expires queued commands and returns nothing when remote control is disabled', async () => {
+    prismaService.device.updateMany.mockResolvedValue({ count: 0 });
     prismaService.device.findFirst.mockResolvedValue({
       id: 'device-1',
       remoteControlEnabled: false,
