@@ -285,6 +285,12 @@ describe('RemoteControlService', () => {
         type: 'STOP',
       }),
     ).rejects.toThrow('payload must be an object');
+    await expect(
+      remoteControlService.createCommand('user-1', 'device-1', {
+        payload: { ignored: true },
+        type: 'STOP',
+      }),
+    ).rejects.toThrow('STOP payload must be empty');
   });
 
   it('rejects caller-supplied expiry beyond the bounded ttl', async () => {

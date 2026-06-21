@@ -134,9 +134,18 @@ function parsePayload(
     case RemoteCommandType.START_ROUTE:
       return parseStartRoutePayload(payload);
     case RemoteCommandType.STOP:
-      parseRecord(payload, 'payload must be an object');
-      return {};
+      return parseStopPayload(payload);
   }
+}
+
+function parseStopPayload(payload: unknown): Record<string, never> {
+  const record = parseRecord(payload, 'payload must be an object');
+
+  if (Object.keys(record).length > 0) {
+    throw new BadRequestException('STOP payload must be empty');
+  }
+
+  return {};
 }
 
 function parseSetPointPayload(payload: unknown): { point: RemotePoint } {
