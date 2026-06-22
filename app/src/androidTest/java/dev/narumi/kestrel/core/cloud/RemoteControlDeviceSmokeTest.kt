@@ -1,7 +1,10 @@
 package dev.narumi.kestrel.core.cloud
 
+import android.Manifest
 import android.content.Context
 import android.content.Intent
+import android.os.Build
+import android.util.Base64
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -28,6 +31,7 @@ import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
 import java.nio.ByteBuffer
+import java.nio.charset.StandardCharsets
 import java.util.Locale
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
@@ -61,6 +65,8 @@ class RemoteControlDeviceSmokeTest {
             val authRepository = CloudAuthRepository.getInstance(context)
             val repository = RemoteControlRepository.getInstance(context)
             val poller = RemoteControlPoller.getInstance(context)
+
+            grantSmokePermissions()
 
             try {
                 val username = "android-smoke-${System.currentTimeMillis()}-${Random.nextInt(1000, 9999)}"
@@ -111,6 +117,89 @@ class RemoteControlDeviceSmokeTest {
                 prefs.setRemoteControlSettings(previousRemoteSettings)
             }
         }
+
+    @Test
+    fun webDashboardCommandsArePolledAppliedAndAcked() =
+        runBlocking {
+            val args = InstrumentationRegistry.getArguments()
+            assumeTrue(args.getString("remoteWebSmoke") == "true")
+            smokeStarted = true
+            val baseUrl = normalizeCloudApiBaseUrl(args.getString("baseUrl") ?: DEFAULT_BASE_URL)
+            val session = decodeSmokeSession(requireNotNull(args.getString("sessionBase64")))
+            val store = CloudSessionStore(context)
+            val previousSession = store.load()
+            val previousApiBaseUrl = prefs.cloudSettingsValue().apiBaseUrl
+            val previousRemoteSettings = prefs.remoteControlSettings.first()
+            val authRepository = CloudAuthRepository.getInstance(context)
+            val repository = RemoteControlRepository.getInstance(context)
+            val poller = RemoteControlPoller.getInstance(context)
+
+            grantSmokePermissions()
+
+            try {
+                store.save(session)
+                authRepository.refreshSessionPresence()
+                prefs.setCloudApiBaseUrl(baseUrl)
+                prefs.setRemoteControlSettings(RemoteControlSettings(enabled = false, deviceName = "Android web smoke"))
+
+                repository.setEnabled(true)
+                context.startActivity(
+                    Intent(context, MainActivity::class.java)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        .putExtra(MainActivity.EXTRA_SKIP_CLOUD_SYNC_ON_FOREGROUND, true),
+                )
+                delay(1_000)
+                val settings = prefs.remoteControlSettings.first()
+                val deviceId = requireNotNull(settings.serverDeviceId) { "missing smoke device id" }
+                poller.setForegroundActive(true)
+                println("REMOTE_WEB_SMOKE_READY deviceId=$deviceId username=${session.username}")
+
+                try {
+                    waitForAppliedCommandType(baseUrl, session.accessToken, deviceId, RemoteCommandType.SET_POINT)
+                    waitForRuntimeState("SET_POINT", RuntimeState.Single::class.java)
+
+                    waitForAppliedCommandType(baseUrl, session.accessToken, deviceId, RemoteCommandType.START_ROUTE)
+                    waitForRuntimeState("START_ROUTE", RuntimeState.Route::class.java)
+
+                    waitForAppliedCommandType(baseUrl, session.accessToken, deviceId, RemoteCommandType.STOP)
+                    waitForRuntimeState("STOP", RuntimeState.Idle::class.java)
+                } finally {
+                    poller.setForegroundActive(false)
+                    runCatching { repository.setEnabled(false) }
+                }
+            } finally {
+                if (previousSession == null) {
+                    store.clear()
+                } else {
+                    store.save(previousSession)
+                }
+                authRepository.refreshSessionPresence()
+                prefs.setCloudApiBaseUrl(previousApiBaseUrl)
+                prefs.setRemoteControlSettings(previousRemoteSettings)
+            }
+        }
+
+    private fun grantSmokePermissions() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val packageName = context.packageName
+        listOf(
+            Manifest.permission.ACCESS_COARSE_LOCATION,
+            Manifest.permission.ACCESS_FINE_LOCATION,
+        ).forEach { permission ->
+            runCatching { instrumentation.uiAutomation.grantRuntimePermission(packageName, permission) }
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            runCatching {
+                instrumentation.uiAutomation.grantRuntimePermission(
+                    packageName,
+                    Manifest.permission.POST_NOTIFICATIONS,
+                )
+            }
+        }
+        instrumentation.uiAutomation
+            .executeShellCommand("appops set $packageName android:mock_location allow")
+            .close()
+    }
 
     private fun createSmokeSession(
         baseUrl: String,
@@ -250,6 +339,36 @@ class RemoteControlDeviceSmokeTest {
         error("command $commandId did not reach $status; last=$lastCommand; runtime=${LocationService.runtimeState.value}; repo=${RemoteControlRepository.getInstance(context).runtimeStatus.value}")
     }
 
+    private suspend fun waitForAppliedCommandType(
+        baseUrl: String,
+        accessToken: String,
+        deviceId: String,
+        type: RemoteCommandType,
+    ): SmokeCommand {
+        var lastCommand: SmokeCommand? = null
+        repeat(120) {
+            val observed = getLastCommand(baseUrl, accessToken, deviceId)
+            lastCommand = observed
+            if (observed?.type == type && observed.status == RemoteCommandStatus.APPLIED) return observed
+            if (observed?.type == type && observed.status == RemoteCommandStatus.FAILED) {
+                error("web command $type failed: ${observed.errorMessage}")
+            }
+            delay(500)
+        }
+        error("web command $type was not applied; last=$lastCommand; runtime=${LocationService.runtimeState.value}; repo=${RemoteControlRepository.getInstance(context).runtimeStatus.value}")
+    }
+
+    private suspend fun waitForRuntimeState(
+        commandLabel: String,
+        expectedType: Class<out RuntimeState>,
+    ) {
+        repeat(20) {
+            if (expectedType.isInstance(LocationService.runtimeState.value)) return
+            delay(250)
+        }
+        error("$commandLabel acked but runtime state was ${LocationService.runtimeState.value}")
+    }
+
     private fun getLastCommand(
         baseUrl: String,
         accessToken: String,
@@ -339,6 +458,15 @@ class RemoteControlDeviceSmokeTest {
         return output.toByteArray()
     }
 
+    private fun decodeSmokeSession(encodedSession: String): CloudSession {
+        val sessionJson =
+            String(
+                Base64.decode(encodedSession, Base64.NO_WRAP),
+                StandardCharsets.UTF_8,
+            )
+        return json.decodeFromString(CloudSession.serializer(), sessionJson)
+    }
+
     @Serializable
     private object UnitResponse
 
@@ -371,6 +499,7 @@ class RemoteControlDeviceSmokeTest {
     private data class SmokeCommand(
         val id: String,
         val status: RemoteCommandStatus,
+        val type: RemoteCommandType,
         val errorMessage: String? = null,
     )
 

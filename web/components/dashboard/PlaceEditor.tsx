@@ -3,6 +3,7 @@
 import dynamic from 'next/dynamic';
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/components/AuthProvider';
+import { PlaceRemoteControlPanel } from '@/components/dashboard/RemoteControlPanel';
 import {
   formatError,
   normalizeNullable,
@@ -151,6 +152,7 @@ export default function PlaceEditor({
         Description
         <textarea value={description} onChange={(event) => setDescription(event.target.value)} />
       </label>
+      <PlaceRemoteControlPanel place={place} />
       <details className="route-editor-section route-editor-collapsible route-editor-secondary-section place-editor-share-section">
         <summary>
           <span>Publishing / share</span>
