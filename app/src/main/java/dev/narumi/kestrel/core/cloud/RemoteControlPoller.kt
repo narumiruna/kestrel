@@ -16,6 +16,7 @@ internal class RemoteControlPoller private constructor(
     context: Context,
 ) {
     private val repository = RemoteControlRepository.getInstance(context.applicationContext)
+    private val authRepository = CloudAuthRepository.getInstance(context.applicationContext)
     private val prefs = KestrelPrefs(context.applicationContext)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val lock = Any()
@@ -41,7 +42,7 @@ internal class RemoteControlPoller private constructor(
                 val wasRunning = job?.isActive == true
                 foregroundLease = active
                 updateJobLocked()
-                active && wasRunning && remoteControlEnabled
+                active && wasRunning && canPollLocked()
             }
         if (shouldPollNow) pollNow()
     }
@@ -52,7 +53,7 @@ internal class RemoteControlPoller private constructor(
                 val wasRunning = job?.isActive == true
                 serviceLease = active
                 updateJobLocked()
-                active && wasRunning && remoteControlEnabled
+                active && wasRunning && canPollLocked()
             }
         if (shouldPollNow) pollNow()
     }
@@ -63,7 +64,7 @@ internal class RemoteControlPoller private constructor(
     }
 
     private fun updateJobLocked() {
-        if (hasLeaseLocked() && remoteControlEnabled && job?.isActive != true) {
+        if (canPollLocked() && job?.isActive != true) {
             startJobLocked()
         }
     }
@@ -90,7 +91,9 @@ internal class RemoteControlPoller private constructor(
         }
     }
 
-    private fun shouldPoll(): Boolean = synchronized(lock) { hasLeaseLocked() && remoteControlEnabled }
+    private fun shouldPoll(): Boolean = synchronized(lock) { canPollLocked() }
+
+    private fun canPollLocked(): Boolean = hasLeaseLocked() && remoteControlEnabled && authRepository.currentSession() != null
 
     private fun hasLeaseLocked(): Boolean = foregroundLease || serviceLease
 
