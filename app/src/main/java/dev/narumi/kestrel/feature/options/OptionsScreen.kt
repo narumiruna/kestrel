@@ -276,7 +276,7 @@ private fun CloudSettingsSection() {
                 setError = { cloudError = it },
                 setMessage = { cloudMessage = it },
             ) {
-                runCatching { remoteControlRepository.setEnabled(false) }
+                remoteControlRepository.setEnabled(false)
                 authRepository.logout()
                 cloudSession = null
                 cloudMessage = "Signed out"

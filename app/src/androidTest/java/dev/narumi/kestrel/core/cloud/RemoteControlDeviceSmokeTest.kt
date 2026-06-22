@@ -54,40 +54,54 @@ class RemoteControlDeviceSmokeTest {
             assumeTrue(args.getString("remoteSmoke") == "true")
             smokeStarted = true
             val baseUrl = normalizeCloudApiBaseUrl(args.getString("baseUrl") ?: DEFAULT_BASE_URL)
-            val username = "android-smoke-${System.currentTimeMillis()}-${Random.nextInt(1000, 9999)}"
-            val password = "KestrelSmoke-${System.currentTimeMillis()}!"
-            val session = createSmokeSession(baseUrl, username, password)
             val store = CloudSessionStore(context)
-            store.save(session)
-            prefs.setCloudApiBaseUrl(baseUrl)
-            prefs.setRemoteControlSettings(RemoteControlSettings(enabled = false, deviceName = "Android smoke"))
-
+            val previousSession = store.load()
+            val previousApiBaseUrl = prefs.cloudSettingsValue().apiBaseUrl
+            val previousRemoteSettings = prefs.remoteControlSettings.first()
             val repository = RemoteControlRepository.getInstance(context)
             val poller = RemoteControlPoller.getInstance(context)
-            repository.setEnabled(true)
-            context.startActivity(Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-            delay(1_000)
-            val settings = prefs.remoteControlSettings.first()
-            val deviceId = requireNotNull(settings.serverDeviceId) { "missing smoke device id" }
 
             try {
-                val setPoint = createSetPointCommand(baseUrl, session.accessToken, deviceId)
-                poller.setForegroundActive(true)
-                waitForCommandStatus(baseUrl, session.accessToken, deviceId, setPoint.id, RemoteCommandStatus.APPLIED)
-                check(LocationService.runtimeState.value is RuntimeState.Single) { "SET_POINT did not reach single state" }
+                val username = "android-smoke-${System.currentTimeMillis()}-${Random.nextInt(1000, 9999)}"
+                val password = "KestrelSmoke-${System.currentTimeMillis()}!"
+                val session = createSmokeSession(baseUrl, username, password)
+                store.save(session)
+                prefs.setCloudApiBaseUrl(baseUrl)
+                prefs.setRemoteControlSettings(RemoteControlSettings(enabled = false, deviceName = "Android smoke"))
 
-                val startRoute = createStartRouteCommand(baseUrl, session.accessToken, deviceId)
-                poller.setForegroundActive(true)
-                waitForCommandStatus(baseUrl, session.accessToken, deviceId, startRoute.id, RemoteCommandStatus.APPLIED)
-                check(LocationService.runtimeState.value is RuntimeState.Route) { "START_ROUTE did not reach route state" }
+                repository.setEnabled(true)
+                context.startActivity(Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                delay(1_000)
+                val settings = prefs.remoteControlSettings.first()
+                val deviceId = requireNotNull(settings.serverDeviceId) { "missing smoke device id" }
 
-                poller.setForegroundActive(false)
-                val stop = createStopCommand(baseUrl, session.accessToken, deviceId)
-                waitForCommandStatus(baseUrl, session.accessToken, deviceId, stop.id, RemoteCommandStatus.APPLIED)
-                check(LocationService.runtimeState.value is RuntimeState.Idle) { "STOP did not reach idle state" }
+                try {
+                    val setPoint = createSetPointCommand(baseUrl, session.accessToken, deviceId)
+                    poller.setForegroundActive(true)
+                    waitForCommandStatus(baseUrl, session.accessToken, deviceId, setPoint.id, RemoteCommandStatus.APPLIED)
+                    check(LocationService.runtimeState.value is RuntimeState.Single) { "SET_POINT did not reach single state" }
+
+                    val startRoute = createStartRouteCommand(baseUrl, session.accessToken, deviceId)
+                    poller.setForegroundActive(true)
+                    waitForCommandStatus(baseUrl, session.accessToken, deviceId, startRoute.id, RemoteCommandStatus.APPLIED)
+                    check(LocationService.runtimeState.value is RuntimeState.Route) { "START_ROUTE did not reach route state" }
+
+                    poller.setForegroundActive(false)
+                    val stop = createStopCommand(baseUrl, session.accessToken, deviceId)
+                    waitForCommandStatus(baseUrl, session.accessToken, deviceId, stop.id, RemoteCommandStatus.APPLIED)
+                    check(LocationService.runtimeState.value is RuntimeState.Idle) { "STOP did not reach idle state" }
+                } finally {
+                    poller.setForegroundActive(false)
+                    runCatching { repository.setEnabled(false) }
+                }
             } finally {
-                poller.setForegroundActive(false)
-                repository.setEnabled(false)
+                if (previousSession == null) {
+                    store.clear()
+                } else {
+                    store.save(previousSession)
+                }
+                prefs.setCloudApiBaseUrl(previousApiBaseUrl)
+                prefs.setRemoteControlSettings(previousRemoteSettings)
             }
         }
 
