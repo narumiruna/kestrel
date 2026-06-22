@@ -150,6 +150,23 @@ class RemoteControlRepositoryTest {
         }
 
     @Test
+    fun accountSwitchDropsPendingAcksBeforePolling() =
+        runBlocking {
+            val auth = FakeAuth(session)
+            val api = FakeRemoteApi(commands = mutableListOf(setPointCommand("command-1")), failAck = true)
+            val repository = repository(auth = auth, api = api, store = MemorySettingsStore(registeredSettings(enabled = true)))
+
+            repository.pollOnce()
+            auth.session = session.copy(userId = "user-2")
+            api.failAck = false
+            api.commands += setPointCommand("command-2")
+            repository.pollOnce()
+
+            assertEquals(2, api.pollCount)
+            assertEquals(listOf("command-1", "command-2"), api.ackCalls.map { it.commandId })
+        }
+
+    @Test
     fun pollExecutesAndAcksCommand() =
         runBlocking {
             val api = FakeRemoteApi(commands = mutableListOf(setPointCommand("command-1")))
