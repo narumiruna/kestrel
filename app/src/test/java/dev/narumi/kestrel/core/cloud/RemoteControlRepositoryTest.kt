@@ -132,6 +132,20 @@ class RemoteControlRepositoryTest {
         }
 
     @Test
+    fun disablingRetriesPendingAcksBeforeOptOut() =
+        runBlocking {
+            val api = FakeRemoteApi(commands = mutableListOf(setPointCommand("command-1")), failAck = true)
+            val repository = repository(api = api, store = MemorySettingsStore(registeredSettings(enabled = true)))
+
+            repository.pollOnce()
+            api.failAck = false
+            repository.setEnabled(false)
+
+            assertEquals(listOf("command-1", "command-1"), api.ackCalls.map { it.commandId })
+            assertEquals(false, api.registerRequests.single().remoteControlEnabled)
+        }
+
+    @Test
     fun accountSwitchRegistersBeforePolling() =
         runBlocking {
             val switchedSession = session.copy(userId = "user-2")
@@ -247,6 +261,21 @@ class RemoteControlRepositoryTest {
             assertEquals(refreshedSession, auth.session)
             assertEquals(listOf("access-1", "access-2", "access-2"), api.ackAccessTokens)
             assertEquals(listOf("command-1", "command-2"), api.ackCalls.map { it.commandId })
+        }
+
+    @Test
+    fun pendingAckRetryDoesNotSwitchToDifferentSession() =
+        runBlocking {
+            val auth = FakeAuth(session = session)
+            val api = FakeRemoteApi(commands = mutableListOf(setPointCommand("command-1")), failAck = true)
+            val repository = repository(auth = auth, api = api, store = MemorySettingsStore(registeredSettings(enabled = true)))
+
+            repository.pollOnce()
+            auth.session = session.copy(accessToken = "other-access", sessionId = "other-session", userId = "user-2")
+            api.failAck = false
+            repository.setEnabled(false)
+
+            assertEquals(listOf("access-1"), api.ackAccessTokens.takeLast(1))
         }
 
     private fun repository(
