@@ -23,7 +23,9 @@ export type PollCommandStatusOptions = {
 
 export function useRemoteDevices() {
   const auth = useAuth();
+  const isAuthReady = auth.isHydrated && auth.isAuthenticated;
   const mountedRef = useRef(false);
+  const authReadyRef = useRef(isAuthReady);
   const [devices, setDevices] = useState<RemoteDevice[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -41,9 +43,19 @@ export function useRemoteDevices() {
     };
   }, []);
 
+  useEffect(() => {
+    authReadyRef.current = isAuthReady;
+
+    if (!isAuthReady) {
+      setDevices([]);
+      setError(null);
+      setIsLoading(false);
+    }
+  }, [isAuthReady]);
+
   const loadDevices = useCallback(
     async ({ showLoading = true }: { showLoading?: boolean } = {}): Promise<RemoteDevice[]> => {
-      if (!auth.isHydrated || !auth.isAuthenticated) {
+      if (!authReadyRef.current) {
         return [];
       }
 
@@ -51,26 +63,26 @@ export function useRemoteDevices() {
         setIsLoading(true);
       }
 
-      if (mountedRef.current) {
+      if (mountedRef.current && authReadyRef.current) {
         setError(null);
       }
 
       try {
         const response = await auth.apiRequest<RemoteDevicesResponse>('/devices');
 
-        if (mountedRef.current) {
+        if (mountedRef.current && authReadyRef.current) {
           setDevices(response.devices);
         }
 
         return response.devices;
       } catch (nextError) {
-        if (mountedRef.current) {
+        if (mountedRef.current && authReadyRef.current) {
           setError(formatError(nextError));
         }
 
         throw nextError;
       } finally {
-        if (showLoading && mountedRef.current) {
+        if (showLoading && mountedRef.current && authReadyRef.current) {
           setIsLoading(false);
         }
       }
@@ -79,15 +91,14 @@ export function useRemoteDevices() {
   );
 
   useEffect(() => {
-    if (!auth.isHydrated || !auth.isAuthenticated) {
-      setDevices([]);
+    if (!isAuthReady) {
       return;
     }
 
     void loadDevices().catch(() => {
       // The hook stores the formatted error for the caller.
     });
-  }, [auth.isAuthenticated, auth.isHydrated, loadDevices]);
+  }, [isAuthReady, loadDevices]);
 
   const createCommand = useCallback(
     async (deviceId: string, request: CreateRemoteCommandRequest): Promise<RemoteCommand> => {
@@ -122,6 +133,10 @@ export function useRemoteDevices() {
       for (let attempt = 0; attempt < attempts; attempt += 1) {
         if (attempt > 0) {
           await wait(intervalMs);
+        }
+
+        if (!mountedRef.current || !authReadyRef.current) {
+          return latestCommand;
         }
 
         const nextDevices = await loadDevices({ showLoading: false });

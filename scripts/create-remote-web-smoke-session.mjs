@@ -9,6 +9,7 @@ const DEFAULT_WEB_URL = 'http://localhost:3301';
 const options = parseArgs(process.argv.slice(2));
 const backendUrl = trimTrailingSlash(options.backendUrl ?? DEFAULT_BACKEND_URL);
 const webUrl = trimTrailingSlash(options.webUrl ?? DEFAULT_WEB_URL);
+const androidBaseUrl = trimTrailingSlash(options.androidBaseUrl ?? toAndroidBaseUrl(backendUrl));
 const now = Date.now();
 const username = `web-physical-smoke-${now}-${randomInt(1000, 9999)}`;
 const password = `KestrelSmoke-${now}!`;
@@ -55,7 +56,7 @@ const route = await post(backendUrl, '/routes', {
 
 const output = {
   android: {
-    baseUrl: 'http://127.0.0.1:3300',
+    baseUrl: androidBaseUrl,
     sessionBase64: Buffer.from(JSON.stringify(session), 'utf8').toString('base64'),
   },
   backendUrl,
@@ -179,6 +180,8 @@ function parseArgs(args) {
     const arg = args[index];
     if (arg === '--backend-url') {
       parsed.backendUrl = requireValue(args, (index += 1), arg);
+    } else if (arg === '--android-base-url') {
+      parsed.androidBaseUrl = requireValue(args, (index += 1), arg);
     } else if (arg === '--web-url') {
       parsed.webUrl = requireValue(args, (index += 1), arg);
     } else if (arg === '--out') {
@@ -196,6 +199,14 @@ function requireValue(args, index, flag) {
     throw new Error(`${flag} requires a value`);
   }
   return value;
+}
+
+function toAndroidBaseUrl(value) {
+  const url = new URL(value);
+  if (url.hostname === 'localhost') {
+    url.hostname = '127.0.0.1';
+  }
+  return url.toString();
 }
 
 function trimTrailingSlash(value) {

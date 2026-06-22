@@ -117,6 +117,15 @@ function RemoteControlPanel({
     });
   }, [remote.controllableDevices, remote.devices]);
 
+  useEffect(() => {
+    setCommand((currentCommand) =>
+      currentCommand == null || currentCommand.deviceId === selectedDeviceId
+        ? currentCommand
+        : null,
+    );
+    setCommandError(null);
+  }, [selectedDeviceId]);
+
   async function sendCommand(
     request: CreateRemoteCommandRequest,
     nextPendingAction: PendingAction,
