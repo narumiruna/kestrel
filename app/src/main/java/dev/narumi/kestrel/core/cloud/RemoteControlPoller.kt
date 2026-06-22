@@ -21,19 +21,25 @@ internal class RemoteControlPoller private constructor(
     private var job: Job? = null
 
     fun setForegroundActive(active: Boolean) {
-        synchronized(lock) {
-            foregroundLease = active
-            updateJobLocked()
-        }
-        if (active) pollNow()
+        val shouldPollNow =
+            synchronized(lock) {
+                val wasRunning = job?.isActive == true
+                foregroundLease = active
+                updateJobLocked()
+                active && wasRunning
+            }
+        if (shouldPollNow) pollNow()
     }
 
     fun setServiceActive(active: Boolean) {
-        synchronized(lock) {
-            serviceLease = active
-            updateJobLocked()
-        }
-        if (active) pollNow()
+        val shouldPollNow =
+            synchronized(lock) {
+                val wasRunning = job?.isActive == true
+                serviceLease = active
+                updateJobLocked()
+                active && wasRunning
+            }
+        if (shouldPollNow) pollNow()
     }
 
     private fun pollNow() {

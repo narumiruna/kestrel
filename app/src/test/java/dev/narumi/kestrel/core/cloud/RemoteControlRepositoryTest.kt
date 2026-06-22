@@ -101,6 +101,23 @@ class RemoteControlRepositoryTest {
         }
 
     @Test
+    fun disablingWhileSignedOutShowsServerOptOutWarning() =
+        runBlocking {
+            val api = FakeRemoteApi()
+            val store = MemorySettingsStore(registeredSettings(enabled = true))
+            val repository = repository(auth = FakeAuth(session = null), api = api, store = store)
+
+            repository.setEnabled(false)
+
+            assertFalse(store.settings.enabled)
+            assertEquals(0, api.registerRequests.size)
+            assertEquals(
+                "Sign in to cloud to disable remote control on the server",
+                repository.runtimeStatus.value.error,
+            )
+        }
+
+    @Test
     fun accountSwitchRegistersBeforePolling() =
         runBlocking {
             val switchedSession = session.copy(userId = "user-2")
@@ -182,6 +199,25 @@ class RemoteControlRepositoryTest {
             assertEquals("command-2", api.ackCalls.last().commandId)
         }
 
+    @Test
+    fun pendingAckRetryUsesRefreshedSessionForRemainingAcks() =
+        runBlocking {
+            val refreshedSession = session.copy(accessToken = "access-2", refreshToken = "refresh-2")
+            val auth = FakeAuth(session = session, refreshedSession = refreshedSession)
+            val api =
+                FakeRemoteApi(
+                    commands = mutableListOf(setPointCommand("command-1"), setPointCommand("command-2")),
+                    expiredAccessTokens = mutableSetOf("access-1"),
+                )
+            val repository = repository(auth = auth, api = api, store = MemorySettingsStore(registeredSettings(enabled = true)))
+
+            repository.pollOnce()
+
+            assertEquals(refreshedSession, auth.session)
+            assertEquals(listOf("access-1", "access-2", "access-2"), api.ackAccessTokens)
+            assertEquals(listOf("command-1", "command-2"), api.ackCalls.map { it.commandId })
+        }
+
     private fun repository(
         auth: FakeAuth = FakeAuth(session),
         api: FakeRemoteApi = FakeRemoteApi(),
@@ -207,10 +243,16 @@ class RemoteControlRepositoryTest {
 
     private class FakeAuth(
         var session: CloudSession?,
+        private val refreshedSession: CloudSession? = session,
     ) : CloudSyncSessionProvider {
         override fun currentSession(): CloudSession? = session
 
-        override suspend fun refreshSessionIfCurrent(expectedSession: CloudSession): CloudSession? = session
+        override suspend fun refreshSessionIfCurrent(expectedSession: CloudSession): CloudSession? =
+            if (session == expectedSession) {
+                refreshedSession.also { session = it }
+            } else {
+                null
+            }
     }
 
     private class MemorySettingsStore(
@@ -231,9 +273,11 @@ class RemoteControlRepositoryTest {
         val commands: MutableList<RemoteCommandPayload> = mutableListOf(),
         var failAck: Boolean = false,
         var failRegister: Boolean = false,
+        val expiredAccessTokens: MutableSet<String> = mutableSetOf(),
     ) : CloudRemoteControlApi {
         val registerRequests = mutableListOf<RegisterRemoteDeviceRequest>()
         val ackCalls = mutableListOf<AckCall>()
+        val ackAccessTokens = mutableListOf<String>()
         var pollCount = 0
 
         override suspend fun registerDevice(
@@ -269,6 +313,10 @@ class RemoteControlRepositoryTest {
             commandId: String,
             request: AckRemoteCommandRequest,
         ): RemoteCommandPayload {
+            ackAccessTokens += accessToken
+            if (accessToken in expiredAccessTokens) {
+                throw CloudApiException(statusCode = 401, code = "UNAUTHORIZED", message = "expired")
+            }
             ackCalls += AckCall(commandId, request)
             if (failAck) error("ack failed")
             return setPointCommand(commandId).copy(status = request.status, errorMessage = request.errorMessage)
