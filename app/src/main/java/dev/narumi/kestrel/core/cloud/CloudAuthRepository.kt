@@ -49,8 +49,11 @@ internal class CloudAuthRepository private constructor(
     override suspend fun refreshSessionIfCurrent(expectedSession: CloudSession): CloudSession? =
         refreshMutex.withLock {
             val currentSession = sessionStore.load() ?: return@withLock null
-            if (currentSession.sessionId != expectedSession.sessionId || currentSession.refreshToken != expectedSession.refreshToken) {
+            if (currentSession.sessionId != expectedSession.sessionId) {
                 return@withLock null
+            }
+            if (currentSession.refreshToken != expectedSession.refreshToken) {
+                return@withLock currentSession
             }
             runCatching {
                 apiClient.refresh(currentSession.refreshToken)

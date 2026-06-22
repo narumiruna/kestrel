@@ -38,10 +38,13 @@ class RemoteControlDeviceSmokeTest {
     private val context: Context = ApplicationProvider.getApplicationContext()
     private val prefs = KestrelPrefs(context)
     private val json = Json { ignoreUnknownKeys = true }
+    private var smokeStarted = false
 
     @After
     fun stopService() {
-        LocationService.stop(context)
+        if (smokeStarted) {
+            LocationService.stop(context)
+        }
     }
 
     @Test
@@ -49,6 +52,7 @@ class RemoteControlDeviceSmokeTest {
         runBlocking {
             val args = InstrumentationRegistry.getArguments()
             assumeTrue(args.getString("remoteSmoke") == "true")
+            smokeStarted = true
             val baseUrl = normalizeCloudApiBaseUrl(args.getString("baseUrl") ?: DEFAULT_BASE_URL)
             val username = "android-smoke-${System.currentTimeMillis()}-${Random.nextInt(1000, 9999)}"
             val password = "KestrelSmoke-${System.currentTimeMillis()}!"
