@@ -462,7 +462,12 @@ export default function RouteEditor({
         </div>
       </details>
 
-      <RouteRemoteControlPanel route={route} />
+      <RouteRemoteControlPanel
+        mode={mode}
+        route={route}
+        speedKmh={Number(defaultSpeedKmh)}
+        waypoints={waypoints}
+      />
 
       <details className="route-editor-section route-editor-collapsible route-editor-secondary-section route-editor-share-section">
         <summary>

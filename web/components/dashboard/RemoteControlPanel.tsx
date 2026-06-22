@@ -14,6 +14,8 @@ import type {
   RemoteCommandStatus,
   RemoteDevice,
   Route,
+  RouteMode,
+  RouteWaypoint,
 } from '@/lib/api';
 
 type RemoteControlPanelProps = {
@@ -53,27 +55,39 @@ export function PlaceRemoteControlPanel({ place }: { place: Place | null }) {
   );
 }
 
-export function RouteRemoteControlPanel({ route }: { route: Route | null }) {
-  const routeDisabledReason = getRouteDisabledReason(route);
+export function RouteRemoteControlPanel({
+  mode,
+  route,
+  speedKmh,
+  waypoints,
+}: {
+  mode: RouteMode;
+  route: Route | null;
+  speedKmh: number;
+  waypoints: RouteWaypoint[];
+}) {
+  const routeDisabledReason = getRouteDisabledReason(route, waypoints, speedKmh);
 
   return (
     <RemoteControlPanel
       buildPrimaryCommand={() => {
-        const revision = route?.currentRevision;
-
-        if (route == null || revision == null) {
+        if (route == null) {
           throw new Error('Save this route before sending it to Android.');
         }
 
-        if (revision.waypoints.length < 2) {
+        if (waypoints.length < 2) {
           throw new Error('Add at least 2 waypoints before playing this route.');
+        }
+
+        if (!Number.isFinite(speedKmh) || speedKmh <= 0) {
+          throw new Error('Enter a positive default speed before playing this route.');
         }
 
         return {
           payload: {
-            mode: revision.mode,
-            speedKmh: route.defaultSpeedKmh,
-            waypoints: revision.waypoints.map((waypoint) => ({
+            mode,
+            speedKmh,
+            waypoints: waypoints.map((waypoint) => ({
               latitude: waypoint.latitude,
               longitude: waypoint.longitude,
             })),
@@ -274,13 +288,21 @@ function DeviceStatus({ device }: { device: RemoteDevice | null }) {
   );
 }
 
-function getRouteDisabledReason(route: Route | null): string | null {
-  if (route == null || route.currentRevision == null) {
+function getRouteDisabledReason(
+  route: Route | null,
+  waypoints: RouteWaypoint[],
+  speedKmh: number,
+): string | null {
+  if (route == null) {
     return 'Save this route before sending it to Android.';
   }
 
-  if (route.currentRevision.waypoints.length < 2) {
+  if (waypoints.length < 2) {
     return 'Add at least 2 waypoints before playing this route.';
+  }
+
+  if (!Number.isFinite(speedKmh) || speedKmh <= 0) {
+    return 'Enter a positive default speed before playing this route.';
   }
 
   return null;
