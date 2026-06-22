@@ -70,7 +70,11 @@ class RemoteControlDeviceSmokeTest {
                 prefs.setRemoteControlSettings(RemoteControlSettings(enabled = false, deviceName = "Android smoke"))
 
                 repository.setEnabled(true)
-                context.startActivity(Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                context.startActivity(
+                    Intent(context, MainActivity::class.java)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        .putExtra(MainActivity.EXTRA_SKIP_CLOUD_SYNC_ON_FOREGROUND, true),
+                )
                 delay(1_000)
                 val settings = prefs.remoteControlSettings.first()
                 val deviceId = requireNotNull(settings.serverDeviceId) { "missing smoke device id" }
