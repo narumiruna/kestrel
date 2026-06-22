@@ -34,6 +34,7 @@ import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import dev.narumi.kestrel.core.cloud.CloudSyncRepository
+import dev.narumi.kestrel.core.cloud.RemoteControlPoller
 import dev.narumi.kestrel.core.library.LibraryItemWithContent
 import dev.narumi.kestrel.core.location.LatLng
 import dev.narumi.kestrel.core.location.parseCoordInput
@@ -84,14 +85,20 @@ fun KestrelApp(
     val lifecycleOwner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
     val syncRepository = remember { CloudSyncRepository.getInstance(context) }
+    val remoteControlPoller = remember { RemoteControlPoller.getInstance(context) }
 
     DisposableEffect(lifecycleOwner, syncRepository) {
         val observer =
             object : DefaultLifecycleObserver {
                 override fun onStart(owner: LifecycleOwner) {
+                    remoteControlPoller.setForegroundActive(true)
                     scope.launch {
                         syncRepository.syncOnForeground()
                     }
+                }
+
+                override fun onStop(owner: LifecycleOwner) {
+                    remoteControlPoller.setForegroundActive(false)
                 }
             }
         lifecycleOwner.lifecycle.addObserver(observer)

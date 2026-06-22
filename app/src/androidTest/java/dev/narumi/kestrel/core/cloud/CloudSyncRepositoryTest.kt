@@ -460,7 +460,7 @@ private class FakeCloudSyncSessionProvider(
 ) : CloudSyncSessionProvider {
     override fun currentSession(): CloudSession? = session
 
-    override suspend fun refreshSession(): CloudSession? = session
+    override suspend fun refreshSessionIfCurrent(expectedSession: CloudSession): CloudSession? = session
 }
 
 private class FakeCloudSyncApi : CloudSyncApi {

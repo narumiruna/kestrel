@@ -2,6 +2,8 @@ package dev.narumi.kestrel.core.cloud
 
 import android.content.Context
 import dev.narumi.kestrel.core.data.KestrelPrefs
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 internal class CloudAuthRepository private constructor(
     context: Context,
@@ -10,6 +12,7 @@ internal class CloudAuthRepository private constructor(
     private val prefs = KestrelPrefs(applicationContext)
     private val sessionStore = CloudSessionStore(applicationContext)
     private val apiClient = CloudApiClient(baseUrlProvider = { prefs.cloudSettingsValue().apiBaseUrl })
+    private val refreshMutex = Mutex()
 
     override fun currentSession(): CloudSession? = sessionStore.load()
 
@@ -17,46 +20,57 @@ internal class CloudAuthRepository private constructor(
         username: String,
         password: String,
         totpCode: String,
-    ): CloudSession {
-        val session = apiClient.loginWithTotp(username = username, password = password, totpCode = totpCode)
-        sessionStore.save(session)
-        return session
-    }
+    ): CloudSession =
+        refreshMutex.withLock {
+            apiClient
+                .loginWithTotp(username = username, password = password, totpCode = totpCode)
+                .also(sessionStore::save)
+        }
 
     suspend fun loginWithRecoveryCode(
         username: String,
         password: String,
         recoveryCode: String,
-    ): CloudSession {
-        val session =
-            apiClient.loginWithRecoveryCode(
-                username = username,
-                password = password,
-                recoveryCode = recoveryCode,
-            )
-        sessionStore.save(session)
-        return session
+    ): CloudSession =
+        refreshMutex.withLock {
+            apiClient
+                .loginWithRecoveryCode(
+                    username = username,
+                    password = password,
+                    recoveryCode = recoveryCode,
+                ).also(sessionStore::save)
+        }
+
+    suspend fun refreshSession(): CloudSession? {
+        val currentSession = sessionStore.load() ?: return null
+        return refreshSessionIfCurrent(currentSession)
     }
 
-    override suspend fun refreshSession(): CloudSession? {
-        val currentSession = sessionStore.load() ?: return null
-        return runCatching {
-            apiClient.refresh(currentSession.refreshToken)
-        }.getOrNull()?.also(sessionStore::save)
-            ?: run {
-                sessionStore.clear()
-                null
+    override suspend fun refreshSessionIfCurrent(expectedSession: CloudSession): CloudSession? =
+        refreshMutex.withLock {
+            val currentSession = sessionStore.load() ?: return@withLock null
+            if (currentSession.sessionId != expectedSession.sessionId || currentSession.refreshToken != expectedSession.refreshToken) {
+                return@withLock null
             }
-    }
+            runCatching {
+                apiClient.refresh(currentSession.refreshToken)
+            }.getOrNull()?.also(sessionStore::save)
+                ?: run {
+                    sessionStore.clear()
+                    null
+                }
+        }
 
     suspend fun logout() {
-        val currentSession = sessionStore.load()
-        runCatching {
-            if (currentSession != null) {
-                apiClient.revokeSession(currentSession.accessToken)
+        refreshMutex.withLock {
+            val currentSession = sessionStore.load()
+            runCatching {
+                if (currentSession != null) {
+                    apiClient.revokeSession(currentSession.accessToken)
+                }
             }
+            sessionStore.clear()
         }
-        sessionStore.clear()
     }
 
     companion object {

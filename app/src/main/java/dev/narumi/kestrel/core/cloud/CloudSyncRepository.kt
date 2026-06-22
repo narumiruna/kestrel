@@ -593,7 +593,7 @@ class CloudSyncRepository internal constructor(
             if (error.statusCode != 401) {
                 throw error
             }
-            val refreshedSession = authRepository.refreshSession() ?: error("Session expired. Please sign in again.")
+            val refreshedSession = authRepository.refreshSessionIfCurrent(currentSession) ?: error("Session expired. Please sign in again.")
             block(refreshedSession)
         }
     }

@@ -3,7 +3,7 @@ package dev.narumi.kestrel.core.cloud
 internal interface CloudSyncSessionProvider {
     fun currentSession(): CloudSession?
 
-    suspend fun refreshSession(): CloudSession?
+    suspend fun refreshSessionIfCurrent(expectedSession: CloudSession): CloudSession?
 }
 
 internal interface CloudSyncApi {
@@ -18,4 +18,24 @@ internal interface CloudSyncApi {
         accessToken: String,
         request: CloudSyncUploadRequest,
     ): CloudSyncUploadResponse
+}
+
+internal interface CloudRemoteControlApi {
+    suspend fun registerDevice(
+        accessToken: String,
+        request: RegisterRemoteDeviceRequest,
+    ): RemoteDevicePayload
+
+    suspend fun pollCommands(
+        accessToken: String,
+        deviceId: String,
+        request: PollRemoteCommandsRequest,
+    ): RemoteCommandsPollResponse
+
+    suspend fun ackCommand(
+        accessToken: String,
+        deviceId: String,
+        commandId: String,
+        request: AckRemoteCommandRequest,
+    ): RemoteCommandPayload
 }

@@ -16,6 +16,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -42,10 +43,13 @@ import dev.narumi.kestrel.core.cloud.CloudPlaceConflict
 import dev.narumi.kestrel.core.cloud.CloudSession
 import dev.narumi.kestrel.core.cloud.CloudSyncRepository
 import dev.narumi.kestrel.core.cloud.CloudSyncState
+import dev.narumi.kestrel.core.cloud.RemoteControlRepository
+import dev.narumi.kestrel.core.cloud.RemoteControlRuntimeStatus
 import dev.narumi.kestrel.core.data.CloudSettings
 import dev.narumi.kestrel.core.data.KestrelPrefs
 import dev.narumi.kestrel.core.data.MockPlaybackSettings
 import dev.narumi.kestrel.core.data.RandomRoutePreference
+import dev.narumi.kestrel.core.data.RemoteControlSettings
 import dev.narumi.kestrel.core.data.StartupPreference
 import dev.narumi.kestrel.core.library.LibraryItemKind
 import dev.narumi.kestrel.core.library.LibraryItemWithContent
@@ -174,11 +178,14 @@ private fun CloudSettingsSection() {
     val prefs = remember { KestrelPrefs(context) }
     val authRepository = remember { CloudAuthRepository.getInstance(context) }
     val syncRepository = remember { CloudSyncRepository.getInstance(context) }
+    val remoteControlRepository = remember { RemoteControlRepository.getInstance(context) }
     val scope = rememberCoroutineScope()
 
     val cloudSettings by prefs.cloudSettings.collectAsStateWithLifecycle(CloudSettings())
     val cloudSyncState by syncRepository.syncState.collectAsStateWithLifecycle(CloudSyncState())
     val placeConflicts by syncRepository.placeConflicts.collectAsStateWithLifecycle(emptyList())
+    val remoteControlSettings by prefs.remoteControlSettings.collectAsStateWithLifecycle(RemoteControlSettings())
+    val remoteControlStatus by remoteControlRepository.runtimeStatus.collectAsStateWithLifecycle(RemoteControlRuntimeStatus())
 
     var loginForm by remember { mutableStateOf(CloudLoginForm()) }
     var cloudSession by remember { mutableStateOf<CloudSession?>(null) }
@@ -269,6 +276,7 @@ private fun CloudSettingsSection() {
                 setError = { cloudError = it },
                 setMessage = { cloudMessage = it },
             ) {
+                runCatching { remoteControlRepository.setEnabled(false) }
                 authRepository.logout()
                 cloudSession = null
                 cloudMessage = "Signed out"
@@ -283,6 +291,23 @@ private fun CloudSettingsSection() {
             ) {
                 syncRepository.syncNow()
                 cloudMessage = "Sync complete"
+            }
+        },
+    )
+
+    RemoteControlSettingsCard(
+        settings = remoteControlSettings,
+        status = remoteControlStatus,
+        signedIn = cloudSession != null,
+        loading = cloudLoading,
+        onEnabledChange = { enabled ->
+            launchCloudUiAction(
+                scope = scope,
+                setLoading = { cloudLoading = it },
+                setError = { cloudError = it },
+                setMessage = { cloudMessage = it },
+            ) {
+                remoteControlRepository.setEnabled(enabled)
             }
         },
     )
@@ -380,6 +405,58 @@ private fun CloudSettingsCard(
             message = uiState.message,
             error = uiState.error,
         )
+    }
+}
+
+@Composable
+private fun RemoteControlSettingsCard(
+    settings: RemoteControlSettings,
+    status: RemoteControlRuntimeStatus,
+    signedIn: Boolean,
+    loading: Boolean,
+    onEnabledChange: (Boolean) -> Unit,
+) {
+    OptionsCard(
+        title = "Web remote control",
+        subtitle = "Let the web dashboard send mock commands to this Android device.",
+    ) {
+        ListItem(
+            headlineContent = { Text("Allow web remote control") },
+            supportingContent = {
+                Text("Kestrel must be open or the mock service must be running.")
+            },
+            trailingContent = {
+                Switch(
+                    checked = settings.enabled,
+                    onCheckedChange = onEnabledChange,
+                    enabled = !loading && (signedIn || settings.enabled),
+                )
+            },
+        )
+        Text(
+            text = "Device: ${settings.deviceName ?: "Not registered"}",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = "Last status: ${status.lastCommandStatus?.name ?: status.message ?: "Idle"}",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (!signedIn) {
+            Text(
+                text = "Sign in to cloud sync before enabling remote control.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
+        status.error?.let {
+            Text(
+                text = it,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
     }
 }
 
