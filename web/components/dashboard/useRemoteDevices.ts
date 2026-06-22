@@ -11,7 +11,7 @@ import type {
   RemoteDevicesResponse,
 } from '@/lib/api';
 
-const COMMAND_POLL_ATTEMPTS = 12;
+const COMMAND_POLL_ATTEMPTS = 75;
 const COMMAND_POLL_INTERVAL_MS = 2_000;
 const TERMINAL_COMMAND_STATUSES = new Set<RemoteCommandStatus>(['APPLIED', 'FAILED', 'EXPIRED']);
 
@@ -114,7 +114,9 @@ export function useRemoteDevices() {
         method: 'POST',
       });
 
-      await loadDevices({ showLoading: false });
+      void loadDevices({ showLoading: false }).catch(() => {
+        // Keep the queued command; polling will surface later refresh failures.
+      });
 
       return command;
     },
