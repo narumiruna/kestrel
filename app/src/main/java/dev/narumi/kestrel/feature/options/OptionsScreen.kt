@@ -276,10 +276,13 @@ private fun CloudSettingsSection() {
                 setError = { cloudError = it },
                 setMessage = { cloudMessage = it },
             ) {
-                remoteControlRepository.setEnabled(false)
+                val optOutFailure = runCatching { remoteControlRepository.setEnabled(false) }.exceptionOrNull()
                 authRepository.logout()
                 cloudSession = null
                 cloudMessage = "Signed out"
+                if (optOutFailure != null) {
+                    cloudError = "Remote control server opt-out failed: ${optOutFailure.toCloudErrorMessage()}"
+                }
             }
         },
         onSyncNow = {
