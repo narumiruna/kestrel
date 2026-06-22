@@ -52,12 +52,20 @@ export type RemotePoint = {
   longitude: number;
 };
 
-export type RemoteCommandPayload =
-  | { point: RemotePoint }
-  | { mode: RouteMode; speedKmh: number; waypoints: RemotePoint[] }
-  | Record<string, never>;
+export type RemoteSetPointPayload = { point: RemotePoint };
+export type RemoteStartRoutePayload = {
+  mode: RouteMode;
+  speedKmh: number;
+  waypoints: RemotePoint[];
+};
+export type RemoteStopPayload = Record<string, never>;
 
-export type RemoteCommand = {
+export type RemoteCommandPayload =
+  | RemoteSetPointPayload
+  | RemoteStartRoutePayload
+  | RemoteStopPayload;
+
+type RemoteCommandBase = {
   appliedAt: string | null;
   createdAt: string;
   deliveredAt: string | null;
@@ -65,10 +73,22 @@ export type RemoteCommand = {
   errorMessage: string | null;
   expiresAt: string;
   id: string;
-  payload: RemoteCommandPayload;
   status: RemoteCommandStatus;
-  type: RemoteCommandType;
 };
+
+export type RemoteCommand =
+  | (RemoteCommandBase & {
+      payload: RemoteSetPointPayload;
+      type: 'SET_POINT';
+    })
+  | (RemoteCommandBase & {
+      payload: RemoteStartRoutePayload;
+      type: 'START_ROUTE';
+    })
+  | (RemoteCommandBase & {
+      payload: RemoteStopPayload;
+      type: 'STOP';
+    });
 
 export type RemoteDevice = {
   appVersion: string | null;
