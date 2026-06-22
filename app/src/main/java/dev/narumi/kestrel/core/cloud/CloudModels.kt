@@ -207,6 +207,83 @@ internal enum class CloudLibraryItemKind { PLACE, ROUTE }
 internal enum class CloudRouteMode { ONCE, LOOP, PING_PONG }
 
 @Serializable
+internal data class RegisterRemoteDeviceRequest(
+    val clientDeviceId: String,
+    val name: String,
+    val appVersion: String? = null,
+    val remoteControlEnabled: Boolean,
+)
+
+@Serializable
+internal data class PollRemoteCommandsRequest(
+    val clientDeviceId: String,
+)
+
+@Serializable
+internal data class AckRemoteCommandRequest(
+    val clientDeviceId: String,
+    val status: RemoteCommandStatus,
+    val errorMessage: String? = null,
+)
+
+@Serializable
+internal data class RemoteCommandsPollResponse(
+    val commands: List<RemoteCommandPayload> = emptyList(),
+    val serverTime: String,
+)
+
+@Serializable
+internal data class RemoteCommandPayload(
+    val appliedAt: String? = null,
+    val createdAt: String,
+    val deliveredAt: String? = null,
+    val deviceId: String,
+    val errorMessage: String? = null,
+    val expiresAt: String,
+    val id: String,
+    val payload: kotlinx.serialization.json.JsonElement,
+    val status: RemoteCommandStatus,
+    val type: RemoteCommandType,
+)
+
+@Serializable
+internal data class RemoteDevicePayload(
+    val appVersion: String? = null,
+    val createdAt: String,
+    val id: String,
+    val lastCommand: RemoteCommandPayload? = null,
+    val lastSeenAt: String,
+    val name: String,
+    val online: Boolean = false,
+    val platform: String,
+    val remoteControlEnabled: Boolean,
+)
+
+@Serializable
+internal data class RemotePointPayload(
+    val latitude: Double,
+    val longitude: Double,
+)
+
+@Serializable
+internal data class RemoteSetPointPayload(
+    val point: RemotePointPayload,
+)
+
+@Serializable
+internal data class RemoteStartRoutePayload(
+    val waypoints: List<RemotePointPayload> = emptyList(),
+    val speedKmh: Double,
+    val mode: CloudRouteMode,
+)
+
+@Serializable
+internal enum class RemoteCommandType { SET_POINT, START_ROUTE, STOP }
+
+@Serializable
+internal enum class RemoteCommandStatus { QUEUED, DELIVERED, APPLIED, FAILED, EXPIRED }
+
+@Serializable
 internal enum class CloudSyncEntityType { PLACE, ROUTE, ROUTE_REVISION, LIBRARY_ITEM, DEVICE_STATE }
 
 @Serializable

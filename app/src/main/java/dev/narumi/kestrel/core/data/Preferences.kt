@@ -115,6 +115,15 @@ data class CloudSettings(
     }
 }
 
+@Serializable
+data class RemoteControlSettings(
+    val enabled: Boolean = false,
+    val clientDeviceId: String? = null,
+    val serverDeviceId: String? = null,
+    val deviceName: String? = null,
+    val registeredUserId: String? = null,
+)
+
 private val Context.prefStore by preferencesDataStore("kestrel_prefs")
 
 private object Keys {
@@ -127,6 +136,7 @@ private object Keys {
     val RANDOM_ROUTE_PREF = stringPreferencesKey("random_route_pref_json")
     val MOCK_PLAYBACK_SETTINGS = stringPreferencesKey("mock_playback_settings_json")
     val CLOUD_SETTINGS = stringPreferencesKey("cloud_settings_json")
+    val REMOTE_CONTROL_SETTINGS = stringPreferencesKey("remote_control_settings_json")
 }
 
 class KestrelPrefs(
@@ -145,6 +155,8 @@ class KestrelPrefs(
     val mockPlaybackSettings: Flow<MockPlaybackSettings> =
         store.data.map { it.toMockPlaybackSettings(json) }
     val cloudSettings: Flow<CloudSettings> = store.data.map { it.toCloudSettings(json) }
+    val remoteControlSettings: Flow<RemoteControlSettings> =
+        store.data.map { it.toRemoteControlSettings(json) }
 
     suspend fun setLastCamera(snap: CameraSnapshot) {
         store.edit {
@@ -240,6 +252,13 @@ class KestrelPrefs(
         }
     }
 
+    suspend fun setRemoteControlSettings(settings: RemoteControlSettings) {
+        store.edit {
+            it[Keys.REMOTE_CONTROL_SETTINGS] =
+                json.encodeToString(RemoteControlSettings.serializer(), settings)
+        }
+    }
+
     suspend fun startupPreferenceValue(): StartupPreference = startupPreference.first()
 
     suspend fun cloudSettingsValue(): CloudSettings = cloudSettings.first()
@@ -292,4 +311,11 @@ class KestrelPrefs(
             json.decodeFromString(CloudSettings.serializer(), raw)
         }.getOrDefault(CloudSettings())
     }
+}
+
+private fun Preferences.toRemoteControlSettings(json: Json): RemoteControlSettings {
+    val raw = this[Keys.REMOTE_CONTROL_SETTINGS] ?: return RemoteControlSettings()
+    return runCatching {
+        json.decodeFromString(RemoteControlSettings.serializer(), raw)
+    }.getOrDefault(RemoteControlSettings())
 }
