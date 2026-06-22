@@ -64,9 +64,9 @@ internal class RemoteControlRepository internal constructor(
                 RemoteControlRuntimeStatus(message = "Remote control enabled for ${registered.deviceName}")
         }
 
-    suspend fun pollOnce() {
+    suspend fun pollOnce(canExecuteCommands: () -> Boolean = { true }) {
         stateMutex.withLock {
-            val failure = runCatching { pollOnceOrThrow() }.exceptionOrNull()
+            val failure = runCatching { pollOnceOrThrow(canExecuteCommands) }.exceptionOrNull()
             if (failure is CancellationException) throw failure
             if (failure != null) {
                 _runtimeStatus.value = RemoteControlRuntimeStatus(error = failure.toRemoteControlMessage())
@@ -74,7 +74,7 @@ internal class RemoteControlRepository internal constructor(
         }
     }
 
-    private suspend fun pollOnceOrThrow() {
+    private suspend fun pollOnceOrThrow(canExecuteCommands: () -> Boolean) {
         val settings = loadSettings()
         pendingAcks = settings.pendingAcks.toPendingRemoteAcks()
         if (settings.enabled) {
@@ -82,7 +82,7 @@ internal class RemoteControlRepository internal constructor(
             if (session == null) {
                 _runtimeStatus.value = RemoteControlRuntimeStatus(error = "Sign in to cloud to use web remote control")
             } else {
-                pollWithSession(settings, session)
+                pollWithSession(settings, session, canExecuteCommands)
             }
         }
     }
@@ -90,6 +90,7 @@ internal class RemoteControlRepository internal constructor(
     private suspend fun pollWithSession(
         settings: RemoteControlSettings,
         session: CloudSession,
+        canExecuteCommands: () -> Boolean,
     ) {
         val registered = ensureRegistered(settings, session)
         retryPendingAcks(session)
@@ -105,7 +106,7 @@ internal class RemoteControlRepository internal constructor(
             if (response.commands.isEmpty()) {
                 _runtimeStatus.value = RemoteControlRuntimeStatus(message = "Waiting for web commands")
             } else {
-                executeCommands(response.commands, registered, session)
+                executeCommands(response.commands, registered, session, canExecuteCommands)
             }
         }
     }
@@ -114,18 +115,22 @@ internal class RemoteControlRepository internal constructor(
         commands: List<RemoteCommandPayload>,
         registered: RemoteControlSettings,
         session: CloudSession,
+        canExecuteCommands: () -> Boolean,
     ) {
         for (command in commands) {
-            if (loadSettings().enabled) {
-                val result = executor.execute(command)
-                command.addPendingAck(registered, session, result)
-                _runtimeStatus.value =
-                    RemoteControlRuntimeStatus(
-                        message = "Command ${command.type} ${result.status.name.lowercase(Locale.US)}",
-                        error = result.errorMessage,
-                        lastCommandStatus = result.status,
-                    )
-            }
+            val result =
+                if (loadSettings().enabled && canExecuteCommands()) {
+                    executor.execute(command)
+                } else {
+                    RemoteCommandExecutionResult.failed("Remote control is no longer active")
+                }
+            command.addPendingAck(registered, session, result)
+            _runtimeStatus.value =
+                RemoteControlRuntimeStatus(
+                    message = "Command ${command.type} ${result.status.name.lowercase(Locale.US)}",
+                    error = result.errorMessage,
+                    lastCommandStatus = result.status,
+                )
         }
         retryPendingAcks(session)
     }

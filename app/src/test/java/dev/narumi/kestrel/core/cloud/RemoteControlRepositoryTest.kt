@@ -255,6 +255,20 @@ class RemoteControlRepositoryTest {
         }
 
     @Test
+    fun inactiveLeaseAcksDeliveredCommandsFailed() =
+        runBlocking {
+            val api = FakeRemoteApi(commands = mutableListOf(setPointCommand("command-1"), setPointCommand("command-2")))
+            val applier = FakeApplier()
+            val repository = repository(api = api, applier = applier, store = MemorySettingsStore(registeredSettings(enabled = true)))
+
+            repository.pollOnce(canExecuteCommands = { false })
+
+            assertEquals(emptyList<String>(), applier.calls)
+            assertEquals(listOf("command-1", "command-2"), api.ackCalls.map { it.commandId })
+            assertEquals(listOf(RemoteCommandStatus.FAILED, RemoteCommandStatus.FAILED), api.ackCalls.map { it.request.status })
+        }
+
+    @Test
     fun ackFailureRetriesBeforePollingNewCommands() =
         runBlocking {
             val api = FakeRemoteApi(commands = mutableListOf(setPointCommand("command-1")), failAck = true)
