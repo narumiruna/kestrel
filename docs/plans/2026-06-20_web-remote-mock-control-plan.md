@@ -30,10 +30,10 @@
 ## Plan
 
 - [x] 實作 `docs/plans/archived/2026-06-20_remote-control-backend-command-queue-plan.md`，提供 authenticated command queue API；已由 backend unit tests、`cd backend && npm run test && npm run typecheck && npm run lint && npm run build` 驗證。
-- [ ] 實作 `docs/plans/2026-06-20_android-remote-command-executor-plan.md`，讓 Android opt-in、註冊 device、poll/ack command、呼叫 `LocationService`；驗證方式為 Android unit tests（`just android-test`）、`just check && just lint`、非破壞性 manual smoke。
-- [ ] 實作 `docs/plans/2026-06-20_web-remote-control-ui-plan.md`，在 Web places/routes 加 device picker 與 mock/play buttons；驗證方式為 `cd web && npm run lint && npm run typecheck`、manual smoke。
-- [ ] 做端到端 smoke：Web `Mock on device` place → Android mock dot/foreground notification 進入 single point；Web `Play on device` route → Android route playing；驗證方式為測試 device 畫面、backend command 狀態、必要時 filtered `just logf`。不可使用 `just reset` 或清 app data。
-- [ ] 更新 README 或 PR 描述記錄第一版限制：remote control requires Android app foreground or active Kestrel service, command expires after bounded time, Google/web cannot wake killed app；驗證方式為文件 diff 或 PR description。
+- [x] 實作 `docs/plans/2026-06-20_android-remote-command-executor-plan.md`，讓 Android opt-in、註冊 device、poll/ack command、呼叫 `LocationService`；已由 Android unit tests（`just android-test`）、`just check && just lint`、非破壞性 manual smoke 驗證。
+- [x] 實作 `docs/plans/2026-06-20_web-remote-control-ui-plan.md`，在 Web places/routes 加 device picker 與 mock/play buttons；已由 `cd web && npm run lint && npm run typecheck`、`just check && just lint`、mocked browser smoke 驗證。
+- [x] 做端到端 smoke：Web `Mock on device` place → Android mock dot/foreground notification 進入 single point；Web `Play on device` route → Android route playing；驗證方式為測試 device 畫面、backend command 狀態、必要時 filtered `just logf`。不可使用 `just reset` 或清 app data。已由 attached `moto g34 5G - 15` / `ZY32L6DLW8` 上的 `RemoteControlDeviceSmokeTest#webDashboardCommandsArePolledAppliedAndAcked` 驗證：fresh Web smoke user 建立 `SET_POINT` / `START_ROUTE` / `STOP`，Android polling 套用到 `RuntimeState.Single` / `Route` / `Idle`，backend 最終皆為 `APPLIED`；未使用 `just reset` 或 `pm clear`。
+- [x] 更新 README 或 PR 描述記錄第一版限制：remote control requires Android app foreground or active Kestrel service, command expires after bounded time, Google/web cannot wake killed app；已由 README diff 驗證。
 
 ## Risks
 
@@ -41,10 +41,19 @@
 - Web command payload 如果只放 remote route id，Android sync 延遲會造成失敗；用 route snapshot 降低耦合。
 - Remote mock 是敏感能力；必須有 Android opt-in、same-user device ownership check、stable client device identity、command expiry、ack/failure audit。
 
+## Physical Smoke Validation
+
+- Local Docker dev stack was already running (`backend`/`web` on `localhost:3300`/`:3301`).
+- `node scripts/create-remote-web-smoke-session.mjs --out /private/tmp/kestrel-remote-web-physical-smoke.json` created a fresh smoke user, saved place, saved route, and separate Android/Web sessions so Web refresh-token rotation cannot invalidate Android mid-smoke.
+- Ran `adb reverse tcp:3300 tcp:3300` and only `RemoteControlDeviceSmokeTest#webDashboardCommandsArePolledAppliedAndAcked` with `remoteWebSmoke=true`, `baseUrl=http://127.0.0.1:3300`, and the generated `sessionBase64`.
+- The harness grants runtime location/notification permission plus mock-location appop before polling starts, then temporarily writes the throwaway cloud session and remote-control settings and restores them in `finally`.
+- A Web-authenticated smoke session created `SET_POINT`, `START_ROUTE`, and `STOP` commands; Android reached `RuntimeState.Single`, `RuntimeState.Route`, and `RuntimeState.Idle`; backend device `lastCommand` reached `APPLIED` for each. Gradle result: `BUILD SUCCESSFUL in 39s`.
+- Removed the reverse tunnel and deleted temporary token/session files after the run. `just reset` / `pm clear` were not used; the Gradle connected test uninstalled its test install at teardown, so the debug app was reinstalled afterward.
+
 ## Completion Checklist
 
 - [x] Backend command queue API 已由 backend tests/typecheck/lint/build 驗證，且涵蓋 client device id、remote-control opt-out、delivery、expiry。
-- [ ] Android remote executor 已由 Android tests/check/lint 與非破壞性 device smoke 驗證，且只在 result-aware 狀態確認後 ack `APPLIED`。
-- [ ] Web remote control UI 已由 web lint/typecheck 與 manual smoke 驗證，且只對 online + enabled device 送 command。
-- [ ] Web → backend → Android 的 `SET_POINT` 與 `START_ROUTE` 端到端流程已在測試 device 驗證。
-- [ ] 第一版限制與安全模型已記錄在 PR 描述或文件中。
+- [x] Android remote executor 已由 Android tests/check/lint 與非破壞性 device smoke 驗證，且只在 result-aware 狀態確認後 ack `APPLIED`。
+- [x] Web remote control UI 已由 web lint/typecheck 與 manual smoke 驗證，且只對 online + enabled device 送 command。
+- [x] Web → backend → Android 的 `SET_POINT` 與 `START_ROUTE` 端到端流程已在測試 device 驗證。
+- [x] 第一版限制與安全模型已記錄在 PR 描述或文件中。

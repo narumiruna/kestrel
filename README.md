@@ -34,6 +34,8 @@ Kestrel uses the Android platform APIs `LocationManager.addTestProvider()` and `
 
 A **foreground service** (type `location`) keeps the mock alive while the UI is in the background. Movement is driven by a 1 Hz tick that advances `MovementEngine` along the route and pushes each sample through `MockProviderManager`.
 
+The web console can remote-control an Android device only after the Android app is signed in and the user enables **Options → Web remote control**. First-version remote control uses the cloud command queue plus Android polling: Kestrel must be open in the foreground or already running its mock-location foreground service to receive commands. Commands expire after a bounded window if they are not delivered, and neither the web console, Google services, nor the backend can wake an app process that Android has killed.
+
 > ⚠️ **Note:** Apps protected by Play Integrity or SafetyNet can still detect mock locations — this is a system-level behaviour that Kestrel does not attempt to bypass.
 
 ---

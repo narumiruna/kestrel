@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '@/components/AuthProvider';
+import { RouteRemoteControlPanel } from '@/components/dashboard/RemoteControlPanel';
 import {
   formatError,
   normalizeNullable,
@@ -460,6 +461,13 @@ export default function RouteEditor({
           </button>
         </div>
       </details>
+
+      <RouteRemoteControlPanel
+        mode={mode}
+        route={route}
+        speedKmh={Number(defaultSpeedKmh)}
+        waypoints={waypoints}
+      />
 
       <details className="route-editor-section route-editor-collapsible route-editor-secondary-section route-editor-share-section">
         <summary>
