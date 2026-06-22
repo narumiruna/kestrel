@@ -7,6 +7,10 @@ const DEFAULT_BACKEND_URL = 'http://localhost:3300';
 const DEFAULT_WEB_URL = 'http://localhost:3301';
 
 const options = parseArgs(process.argv.slice(2));
+if (options.out == null) {
+  throw new Error('--out is required because smoke output contains access and refresh tokens');
+}
+
 const backendUrl = trimTrailingSlash(options.backendUrl ?? DEFAULT_BACKEND_URL);
 const webUrl = trimTrailingSlash(options.webUrl ?? DEFAULT_WEB_URL);
 const androidBaseUrl = trimTrailingSlash(options.androidBaseUrl ?? toAndroidBaseUrl(backendUrl));
@@ -70,23 +74,19 @@ const output = {
   },
 };
 
-if (options.out == null) {
-  console.log(JSON.stringify(output, null, 2));
-} else {
-  writeFileSync(options.out, `${JSON.stringify(output, null, 2)}\n`, { mode: 0o600 });
-  console.log(
-    JSON.stringify(
-      {
-        out: options.out,
-        placeId: place.id,
-        routeId: route.id,
-        username,
-      },
-      null,
-      2,
-    ),
-  );
-}
+writeFileSync(options.out, `${JSON.stringify(output, null, 2)}\n`, { mode: 0o600 });
+console.log(
+  JSON.stringify(
+    {
+      out: options.out,
+      placeId: place.id,
+      routeId: route.id,
+      username,
+    },
+    null,
+    2,
+  ),
+);
 
 async function createSmokeAccount(baseUrl, username, password) {
   await post(baseUrl, '/auth/register', {
