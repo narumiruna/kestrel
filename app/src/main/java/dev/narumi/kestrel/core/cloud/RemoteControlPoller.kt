@@ -2,11 +2,13 @@ package dev.narumi.kestrel.core.cloud
 
 import android.content.Context
 import android.util.Log
+import dev.narumi.kestrel.core.data.KestrelPrefs
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
@@ -14,11 +16,24 @@ internal class RemoteControlPoller private constructor(
     context: Context,
 ) {
     private val repository = RemoteControlRepository.getInstance(context.applicationContext)
+    private val prefs = KestrelPrefs(context.applicationContext)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val lock = Any()
     private var foregroundLease = false
     private var serviceLease = false
+    private var remoteControlEnabled = false
     private var job: Job? = null
+
+    init {
+        scope.launch {
+            prefs.remoteControlSettings.collect { settings ->
+                synchronized(lock) {
+                    remoteControlEnabled = settings.enabled
+                    updateJobLocked()
+                }
+            }
+        }
+    }
 
     fun setForegroundActive(active: Boolean) {
         val shouldPollNow =
@@ -26,7 +41,7 @@ internal class RemoteControlPoller private constructor(
                 val wasRunning = job?.isActive == true
                 foregroundLease = active
                 updateJobLocked()
-                active && wasRunning
+                active && wasRunning && remoteControlEnabled
             }
         if (shouldPollNow) pollNow()
     }
@@ -37,7 +52,7 @@ internal class RemoteControlPoller private constructor(
                 val wasRunning = job?.isActive == true
                 serviceLease = active
                 updateJobLocked()
-                active && wasRunning
+                active && wasRunning && remoteControlEnabled
             }
         if (shouldPollNow) pollNow()
     }
@@ -48,8 +63,11 @@ internal class RemoteControlPoller private constructor(
     }
 
     private fun updateJobLocked() {
-        if (hasLeaseLocked() && job?.isActive != true) {
-            startJobLocked()
+        if (hasLeaseLocked() && remoteControlEnabled) {
+            if (job?.isActive != true) startJobLocked()
+        } else {
+            job?.cancel()
+            job = null
         }
     }
 
@@ -57,9 +75,9 @@ internal class RemoteControlPoller private constructor(
         val newJob =
             scope.launch {
                 Log.i(TAG, "Remote control polling loop started")
-                while (isActive && hasLease()) {
+                while (isActive && shouldPoll()) {
                     repository.pollOnce()
-                    if (hasLease()) {
+                    if (shouldPoll()) {
                         delay(pollDelayMillis())
                     }
                 }
@@ -75,7 +93,7 @@ internal class RemoteControlPoller private constructor(
         }
     }
 
-    private fun hasLease(): Boolean = synchronized(lock) { hasLeaseLocked() }
+    private fun shouldPoll(): Boolean = synchronized(lock) { hasLeaseLocked() && remoteControlEnabled }
 
     private fun hasLeaseLocked(): Boolean = foregroundLease || serviceLease
 
