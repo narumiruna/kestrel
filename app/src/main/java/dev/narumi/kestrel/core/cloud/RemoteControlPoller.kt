@@ -63,11 +63,8 @@ internal class RemoteControlPoller private constructor(
     }
 
     private fun updateJobLocked() {
-        if (hasLeaseLocked() && remoteControlEnabled) {
-            if (job?.isActive != true) startJobLocked()
-        } else {
-            job?.cancel()
-            job = null
+        if (hasLeaseLocked() && remoteControlEnabled && job?.isActive != true) {
+            startJobLocked()
         }
     }
 

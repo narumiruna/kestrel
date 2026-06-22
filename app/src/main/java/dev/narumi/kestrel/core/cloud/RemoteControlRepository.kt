@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import dev.narumi.kestrel.core.data.KestrelPrefs
+import dev.narumi.kestrel.core.data.RemoteControlPendingAck
 import dev.narumi.kestrel.core.data.RemoteControlSettings
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -75,6 +76,7 @@ internal class RemoteControlRepository internal constructor(
 
     private suspend fun pollOnceOrThrow() {
         val settings = loadSettings()
+        pendingAcks = settings.pendingAcks.toPendingRemoteAcks()
         if (settings.enabled) {
             val session = authRepository.currentSession()
             if (session == null) {
@@ -116,7 +118,7 @@ internal class RemoteControlRepository internal constructor(
         for (command in commands) {
             if (loadSettings().enabled) {
                 val result = executor.execute(command)
-                pendingAcks = pendingAcks + command.toPendingAck(registered, session, result)
+                command.addPendingAck(registered, session, result)
                 _runtimeStatus.value =
                     RemoteControlRuntimeStatus(
                         message = "Command ${command.type} ${result.status.name.lowercase(Locale.US)}",
@@ -132,8 +134,8 @@ internal class RemoteControlRepository internal constructor(
         val settings = loadSettings()
         val clientDeviceId = settings.clientDeviceId
         if (clientDeviceId == null) {
-            settingsStore.save(settings.copy(enabled = false))
-            pendingAcks = emptyList()
+            setPendingAcks(emptyList())
+            settingsStore.save(loadSettings().copy(enabled = false))
             _runtimeStatus.value = RemoteControlRuntimeStatus(message = "Remote control disabled")
             return
         }
@@ -159,7 +161,7 @@ internal class RemoteControlRepository internal constructor(
             return settings
         }
         if (settings.registeredUserId != null && settings.registeredUserId != session.userId) {
-            pendingAcks = emptyList()
+            setPendingAcks(emptyList())
         }
         return register(settingsWithClientId(settings.copy(serverDeviceId = null)), session)
     }
@@ -198,10 +200,7 @@ internal class RemoteControlRepository internal constructor(
         val stillPending = mutableListOf<PendingRemoteAck>()
         var latestSession = currentStoredSessionWithSameId(session)
         for (ack in pendingAcks) {
-            if (ack.sessionId != session.sessionId) {
-                stillPending += ack
-                continue
-            }
+            if (ack.sessionId != session.sessionId) continue
             latestSession = currentStoredSessionWithSameId(latestSession)
             val sent =
                 runCatching {
@@ -223,7 +222,12 @@ internal class RemoteControlRepository internal constructor(
             latestSession = currentStoredSessionWithSameId(latestSession)
             if (!sent) stillPending += ack
         }
-        pendingAcks = stillPending
+        setPendingAcks(stillPending)
+    }
+
+    private suspend fun setPendingAcks(acks: List<PendingRemoteAck>) {
+        pendingAcks = acks
+        settingsStore.save(loadSettings().copy(pendingAcks = acks.map { it.toStoredAck() }))
     }
 
     private fun currentStoredSessionWithSameId(session: CloudSession): CloudSession = authRepository.currentSession()?.takeIf { it.sessionId == session.sessionId } ?: session
@@ -254,19 +258,47 @@ internal class RemoteControlRepository internal constructor(
 
     private fun requireSession(): CloudSession = authRepository.currentSession() ?: error("Sign in to cloud first")
 
-    private fun RemoteCommandPayload.toPendingAck(
+    private suspend fun RemoteCommandPayload.addPendingAck(
         settings: RemoteControlSettings,
         session: CloudSession,
         result: RemoteCommandExecutionResult,
-    ): PendingRemoteAck =
-        PendingRemoteAck(
-            deviceId = settings.serverDeviceId ?: deviceId,
-            commandId = id,
-            clientDeviceId = settings.clientDeviceId ?: error("Missing client device id"),
-            sessionId = session.sessionId,
-            status = result.status,
-            errorMessage = result.errorMessage,
+    ) {
+        setPendingAcks(
+            pendingAcks +
+                PendingRemoteAck(
+                    deviceId = settings.serverDeviceId ?: deviceId,
+                    commandId = id,
+                    clientDeviceId = settings.clientDeviceId ?: error("Missing client device id"),
+                    sessionId = session.sessionId,
+                    status = result.status,
+                    errorMessage = result.errorMessage,
+                ),
         )
+    }
+
+    private fun PendingRemoteAck.toStoredAck(): RemoteControlPendingAck =
+        RemoteControlPendingAck(
+            deviceId = deviceId,
+            commandId = commandId,
+            clientDeviceId = clientDeviceId,
+            sessionId = sessionId,
+            status = status.name,
+            errorMessage = errorMessage,
+        )
+
+    private fun List<RemoteControlPendingAck>.toPendingRemoteAcks(): List<PendingRemoteAck> =
+        mapNotNull { ack ->
+            runCatching {
+                PendingRemoteAck(
+                    deviceId = ack.deviceId,
+                    commandId = ack.commandId,
+                    clientDeviceId = ack.clientDeviceId,
+                    sessionId = ack.sessionId,
+                    status = RemoteCommandStatus.valueOf(ack.status),
+                    errorMessage = ack.errorMessage,
+                )
+            }.getOrNull()
+        }
 
     private fun Throwable.toRemoteControlMessage(): String =
         when (this) {

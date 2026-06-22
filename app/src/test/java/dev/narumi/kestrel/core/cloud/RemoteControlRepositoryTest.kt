@@ -1,5 +1,6 @@
 package dev.narumi.kestrel.core.cloud
 
+import dev.narumi.kestrel.core.data.RemoteControlPendingAck
 import dev.narumi.kestrel.core.data.RemoteControlSettings
 import dev.narumi.kestrel.core.location.LatLng
 import dev.narumi.kestrel.core.location.MovementEngine
@@ -242,6 +243,22 @@ class RemoteControlRepositoryTest {
             assertEquals(2, api.pollCount)
             assertEquals(listOf("setPoint", "setPoint"), applier.calls)
             assertEquals("command-2", api.ackCalls.last().commandId)
+        }
+
+    @Test
+    fun pendingAckSurvivesRepositoryRecreation() =
+        runBlocking {
+            val api = FakeRemoteApi(commands = mutableListOf(setPointCommand("command-1")), failAck = true)
+            val store = MemorySettingsStore(registeredSettings(enabled = true))
+            repository(api = api, store = store).pollOnce()
+
+            assertEquals(1, store.settings.pendingAcks.size)
+
+            api.failAck = false
+            repository(api = api, store = store).pollOnce()
+
+            assertEquals(listOf("command-1", "command-1"), api.ackCalls.map { it.commandId })
+            assertEquals(emptyList<RemoteControlPendingAck>(), store.settings.pendingAcks)
         }
 
     @Test

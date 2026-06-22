@@ -18,6 +18,7 @@ class RemoteControlSettingsSerializationTest {
         assertNull(decoded.serverDeviceId)
         assertNull(decoded.deviceName)
         assertNull(decoded.registeredUserId)
+        assertEquals(emptyList<RemoteControlPendingAck>(), decoded.pendingAcks)
     }
 
     @Test
@@ -29,6 +30,16 @@ class RemoteControlSettingsSerializationTest {
                 serverDeviceId = "device-1",
                 deviceName = "Pixel",
                 registeredUserId = "user-1",
+                pendingAcks =
+                    listOf(
+                        RemoteControlPendingAck(
+                            deviceId = "device-1",
+                            commandId = "command-1",
+                            clientDeviceId = "client-1",
+                            sessionId = "session-1",
+                            status = "APPLIED",
+                        ),
+                    ),
             )
 
         val decoded = json.decodeFromString(RemoteControlSettings.serializer(), json.encodeToString(RemoteControlSettings.serializer(), settings))
