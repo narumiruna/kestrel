@@ -46,15 +46,17 @@ import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     private var pendingMapLinkPoint by mutableStateOf<LatLng?>(null)
+    private var skipCloudSyncOnForeground by mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        consumeMapLinkIntent(intent)
+        consumeMainIntent(intent)
         enableEdgeToEdge()
         setContent {
             KestrelTheme {
                 KestrelApp(
                     pendingMapLinkPoint = pendingMapLinkPoint,
+                    skipCloudSyncOnForeground = skipCloudSyncOnForeground,
                     onMapLinkPointConsumed = { pendingMapLinkPoint = null },
                 )
             }
@@ -64,6 +66,11 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        consumeMainIntent(intent)
+    }
+
+    private fun consumeMainIntent(intent: Intent?) {
+        skipCloudSyncOnForeground = intent?.getBooleanExtra(EXTRA_SKIP_CLOUD_SYNC_ON_FOREGROUND, false) == true
         consumeMapLinkIntent(intent)
     }
 
@@ -81,6 +88,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun KestrelApp(
     pendingMapLinkPoint: LatLng? = null,
+    skipCloudSyncOnForeground: Boolean = false,
     onMapLinkPointConsumed: () -> Unit = {},
 ) {
     var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.HOME) }
@@ -90,10 +98,9 @@ fun KestrelApp(
     val scope = rememberCoroutineScope()
     val syncRepository = remember { CloudSyncRepository.getInstance(context) }
     val remoteControlPoller = remember { RemoteControlPoller.getInstance(context) }
-    val syncOnForeground =
-        (context as? MainActivity)?.intent?.getBooleanExtra(MainActivity.EXTRA_SKIP_CLOUD_SYNC_ON_FOREGROUND, false) != true
+    val syncOnForeground = !skipCloudSyncOnForeground
 
-    DisposableEffect(lifecycleOwner, syncRepository) {
+    DisposableEffect(lifecycleOwner, syncRepository, remoteControlPoller, syncOnForeground) {
         val observer =
             object : DefaultLifecycleObserver {
                 override fun onStart(owner: LifecycleOwner) {

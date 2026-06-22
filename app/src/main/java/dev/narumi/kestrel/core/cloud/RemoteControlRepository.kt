@@ -132,6 +132,7 @@ internal class RemoteControlRepository internal constructor(
 
     private suspend fun disableRemoteControl() {
         val settings = loadSettings()
+        pendingAcks = settings.pendingAcks.toPendingRemoteAcks()
         val clientDeviceId = settings.clientDeviceId
         if (clientDeviceId == null) {
             setPendingAcks(emptyList())

@@ -149,6 +149,35 @@ class RemoteControlRepositoryTest {
         }
 
     @Test
+    fun disablingRetriesPersistedPendingAcksBeforeOptOut() =
+        runBlocking {
+            val api = FakeRemoteApi()
+            val store =
+                MemorySettingsStore(
+                    registeredSettings(enabled = true).copy(
+                        pendingAcks =
+                            listOf(
+                                RemoteControlPendingAck(
+                                    deviceId = "device-1",
+                                    commandId = "command-1",
+                                    clientDeviceId = "client-1",
+                                    sessionId = "session-1",
+                                    userId = "user-1",
+                                    status = RemoteCommandStatus.APPLIED.name,
+                                ),
+                            ),
+                    ),
+                )
+            val repository = repository(api = api, store = store)
+
+            repository.setEnabled(false)
+
+            assertEquals(listOf("command-1"), api.ackCalls.map { it.commandId })
+            assertEquals(false, api.registerRequests.single().remoteControlEnabled)
+            assertEquals(emptyList<RemoteControlPendingAck>(), store.settings.pendingAcks)
+        }
+
+    @Test
     fun accountSwitchRegistersBeforePolling() =
         runBlocking {
             val switchedSession = session.copy(userId = "user-2")
