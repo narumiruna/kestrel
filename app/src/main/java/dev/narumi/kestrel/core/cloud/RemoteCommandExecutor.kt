@@ -3,6 +3,7 @@ package dev.narumi.kestrel.core.cloud
 import dev.narumi.kestrel.core.location.LatLng
 import dev.narumi.kestrel.core.location.MovementEngine
 import dev.narumi.kestrel.core.location.haversineMeters
+import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.decodeFromJsonElement
@@ -42,10 +43,14 @@ internal class RemoteCommandExecutor(
                 RemoteCommandType.START_ROUTE -> executeStartRoute(command)
                 RemoteCommandType.STOP -> applier.stop()
             }
+        } catch (error: CancellationException) {
+            throw error
         } catch (error: SerializationException) {
             RemoteCommandExecutionResult.failed(error.message ?: "Invalid command payload")
         } catch (error: IllegalArgumentException) {
             RemoteCommandExecutionResult.failed(error.message ?: "Invalid command payload")
+        } catch (error: IllegalStateException) {
+            RemoteCommandExecutionResult.failed(error.message ?: "Command execution failed")
         }
 
     private suspend fun executeSetPoint(command: RemoteCommandPayload): RemoteCommandExecutionResult {

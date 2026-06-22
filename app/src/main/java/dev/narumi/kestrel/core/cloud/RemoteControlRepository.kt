@@ -152,12 +152,15 @@ internal class RemoteControlRepository internal constructor(
     private suspend fun ensureRegistered(
         settings: RemoteControlSettings,
         session: CloudSession,
-    ): RemoteControlSettings =
+    ): RemoteControlSettings {
         if (settings.serverDeviceId != null && settings.clientDeviceId != null && settings.registeredUserId == session.userId) {
-            settings
-        } else {
-            register(settingsWithClientId(settings.copy(serverDeviceId = null)), session)
+            return settings
         }
+        if (settings.registeredUserId != null && settings.registeredUserId != session.userId) {
+            pendingAcks = emptyList()
+        }
+        return register(settingsWithClientId(settings.copy(serverDeviceId = null)), session)
+    }
 
     private suspend fun register(
         settings: RemoteControlSettings,

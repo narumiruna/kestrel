@@ -118,6 +118,19 @@ class RemoteCommandExecutorTest {
             assertEquals(listOf("stop"), applier.calls)
         }
 
+    @Test
+    fun applierExceptionFailsCommand() =
+        runBlocking {
+            val applier = FakeApplier(failure = IllegalStateException("service start failed"))
+            val command = command(type = RemoteCommandType.STOP, payload = emptyMap<String, String>())
+
+            val result = RemoteCommandExecutor(applier).execute(command)
+
+            assertEquals(RemoteCommandStatus.FAILED, result.status)
+            assertEquals("service start failed", result.errorMessage)
+            assertEquals(listOf("stop"), applier.calls)
+        }
+
     private inline fun <reified T> command(
         type: RemoteCommandType,
         payload: T,
@@ -132,13 +145,16 @@ class RemoteCommandExecutorTest {
             type = type,
         )
 
-    private class FakeApplier : MockCommandApplier {
+    private class FakeApplier(
+        private val failure: RuntimeException? = null,
+    ) : MockCommandApplier {
         val calls = mutableListOf<String>()
         var lastPoint: LatLng? = null
         var lastMode: MovementEngine.Mode? = null
 
         override suspend fun setPoint(point: LatLng): RemoteCommandExecutionResult {
             calls += "setPoint"
+            failure?.let { throw it }
             lastPoint = point
             return RemoteCommandExecutionResult.applied()
         }
@@ -149,12 +165,14 @@ class RemoteCommandExecutorTest {
             mode: MovementEngine.Mode,
         ): RemoteCommandExecutionResult {
             calls += "startRoute"
+            failure?.let { throw it }
             lastMode = mode
             return RemoteCommandExecutionResult.applied()
         }
 
         override suspend fun stop(): RemoteCommandExecutionResult {
             calls += "stop"
+            failure?.let { throw it }
             return RemoteCommandExecutionResult.applied()
         }
     }
