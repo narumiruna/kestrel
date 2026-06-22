@@ -136,7 +136,8 @@ class RemoteControlRepositoryTest {
     fun disablingRetriesPendingAcksBeforeOptOut() =
         runBlocking {
             val api = FakeRemoteApi(commands = mutableListOf(setPointCommand("command-1")), failAck = true)
-            val repository = repository(api = api, store = MemorySettingsStore(registeredSettings(enabled = true)))
+            val store = MemorySettingsStore(registeredSettings(enabled = true))
+            val repository = repository(api = api, store = store)
 
             repository.pollOnce()
             api.failAck = false
@@ -144,6 +145,7 @@ class RemoteControlRepositoryTest {
 
             assertEquals(listOf("command-1", "command-1"), api.ackCalls.map { it.commandId })
             assertEquals(false, api.registerRequests.single().remoteControlEnabled)
+            assertEquals(emptyList<RemoteControlPendingAck>(), store.settings.pendingAcks)
         }
 
     @Test

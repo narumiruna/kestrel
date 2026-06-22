@@ -186,7 +186,8 @@ internal class RemoteControlRepository internal constructor(
                 )
             }
         val updated =
-            settings.copy(
+            loadSettings().copy(
+                enabled = settings.enabled,
                 clientDeviceId = clientDeviceId,
                 serverDeviceId = device.id,
                 deviceName = device.name,
