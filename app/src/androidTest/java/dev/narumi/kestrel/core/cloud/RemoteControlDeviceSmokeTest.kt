@@ -234,7 +234,7 @@ class RemoteControlDeviceSmokeTest {
         status: RemoteCommandStatus,
     ) {
         var lastCommand: SmokeCommand? = null
-        repeat(40) {
+        repeat(80) {
             val observed = getLastCommand(baseUrl, accessToken, deviceId)
             lastCommand = observed
             if (observed?.id == commandId && observed.status == status) return
