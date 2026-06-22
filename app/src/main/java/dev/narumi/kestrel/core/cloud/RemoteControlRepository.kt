@@ -132,7 +132,15 @@ internal class RemoteControlRepository internal constructor(
         pendingAcks = emptyList()
         _runtimeStatus.value = RemoteControlRuntimeStatus(message = "Remote control disabled")
         val clientDeviceId = settings.clientDeviceId ?: return
-        val session = authRepository.currentSession() ?: return
+        val session = authRepository.currentSession()
+        if (session == null) {
+            _runtimeStatus.value =
+                RemoteControlRuntimeStatus(
+                    message = "Remote control disabled on this device",
+                    error = "Sign in to cloud to disable remote control on the server",
+                )
+            return
+        }
         register(settings.copy(enabled = false, clientDeviceId = clientDeviceId), session)
     }
 
@@ -178,12 +186,15 @@ internal class RemoteControlRepository internal constructor(
 
     private suspend fun retryPendingAcks(session: CloudSession) {
         val stillPending = mutableListOf<PendingRemoteAck>()
+        var latestSession = authRepository.currentSession() ?: session
         for (ack in pendingAcks) {
+            latestSession = authRepository.currentSession() ?: latestSession
             val sent =
                 runCatching {
-                    withAuthorizedSession(session) {
+                    withAuthorizedSession(latestSession) { authorizedSession ->
+                        latestSession = authorizedSession
                         apiClient.ackCommand(
-                            accessToken = it.accessToken,
+                            accessToken = authorizedSession.accessToken,
                             deviceId = ack.deviceId,
                             commandId = ack.commandId,
                             request =
@@ -195,6 +206,7 @@ internal class RemoteControlRepository internal constructor(
                         )
                     }
                 }.isSuccess
+            latestSession = authRepository.currentSession() ?: latestSession
             if (!sent) stillPending += ack
         }
         pendingAcks = stillPending
