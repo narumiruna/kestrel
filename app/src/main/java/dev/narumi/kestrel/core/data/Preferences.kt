@@ -122,6 +122,17 @@ data class RemoteControlSettings(
     val serverDeviceId: String? = null,
     val deviceName: String? = null,
     val registeredUserId: String? = null,
+    val pendingAcks: List<RemoteControlPendingAck> = emptyList(),
+)
+
+@Serializable
+data class RemoteControlPendingAck(
+    val deviceId: String,
+    val commandId: String,
+    val clientDeviceId: String,
+    val sessionId: String,
+    val status: String,
+    val errorMessage: String? = null,
 )
 
 private val Context.prefStore by preferencesDataStore("kestrel_prefs")
