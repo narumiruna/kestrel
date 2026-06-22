@@ -19,11 +19,16 @@ class CloudSessionStore(
     private val json = Json { ignoreUnknownKeys = true }
     private val prefs = applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
+    fun hasSession(): Boolean = load() != null
+
     fun load(): CloudSession? {
         val encodedValue = prefs.getString(KEY_SESSION, null) ?: return null
         return runCatching {
             json.decodeFromString(CloudSession.serializer(), decrypt(encodedValue))
-        }.getOrNull()
+        }.getOrElse {
+            clear()
+            null
+        }
     }
 
     fun save(session: CloudSession) {

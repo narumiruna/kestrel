@@ -34,6 +34,7 @@ import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import dev.narumi.kestrel.core.cloud.CloudSyncRepository
+import dev.narumi.kestrel.core.cloud.RemoteControlPoller
 import dev.narumi.kestrel.core.library.LibraryItemWithContent
 import dev.narumi.kestrel.core.location.LatLng
 import dev.narumi.kestrel.core.location.parseCoordInput
@@ -45,15 +46,17 @@ import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     private var pendingMapLinkPoint by mutableStateOf<LatLng?>(null)
+    private var skipCloudSyncOnForeground by mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        consumeMapLinkIntent(intent)
+        consumeMainIntent(intent)
         enableEdgeToEdge()
         setContent {
             KestrelTheme {
                 KestrelApp(
                     pendingMapLinkPoint = pendingMapLinkPoint,
+                    skipCloudSyncOnForeground = skipCloudSyncOnForeground,
                     onMapLinkPointConsumed = { pendingMapLinkPoint = null },
                 )
             }
@@ -63,6 +66,11 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        consumeMainIntent(intent)
+    }
+
+    private fun consumeMainIntent(intent: Intent?) {
+        skipCloudSyncOnForeground = intent?.getBooleanExtra(EXTRA_SKIP_CLOUD_SYNC_ON_FOREGROUND, false) == true
         consumeMapLinkIntent(intent)
     }
 
@@ -70,12 +78,17 @@ class MainActivity : ComponentActivity() {
         if (intent?.action != Intent.ACTION_VIEW) return
         pendingMapLinkPoint = intent.dataString?.let(::parseCoordInput)
     }
+
+    companion object {
+        const val EXTRA_SKIP_CLOUD_SYNC_ON_FOREGROUND = "dev.narumi.kestrel.SKIP_CLOUD_SYNC_ON_FOREGROUND"
+    }
 }
 
 @PreviewScreenSizes
 @Composable
 fun KestrelApp(
     pendingMapLinkPoint: LatLng? = null,
+    skipCloudSyncOnForeground: Boolean = false,
     onMapLinkPointConsumed: () -> Unit = {},
 ) {
     var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.HOME) }
@@ -84,14 +97,23 @@ fun KestrelApp(
     val lifecycleOwner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
     val syncRepository = remember { CloudSyncRepository.getInstance(context) }
+    val remoteControlPoller = remember { RemoteControlPoller.getInstance(context) }
+    val syncOnForeground = !skipCloudSyncOnForeground
 
-    DisposableEffect(lifecycleOwner, syncRepository) {
+    DisposableEffect(lifecycleOwner, syncRepository, remoteControlPoller, syncOnForeground) {
         val observer =
             object : DefaultLifecycleObserver {
                 override fun onStart(owner: LifecycleOwner) {
-                    scope.launch {
-                        syncRepository.syncOnForeground()
+                    remoteControlPoller.setForegroundActive(true)
+                    if (syncOnForeground) {
+                        scope.launch {
+                            syncRepository.syncOnForeground()
+                        }
                     }
+                }
+
+                override fun onStop(owner: LifecycleOwner) {
+                    remoteControlPoller.setForegroundActive(false)
                 }
             }
         lifecycleOwner.lifecycle.addObserver(observer)
