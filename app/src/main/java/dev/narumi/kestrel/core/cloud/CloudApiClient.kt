@@ -15,7 +15,8 @@ import java.time.Instant
 
 internal class CloudApiClient(
     private val baseUrlProvider: suspend () -> String,
-) : CloudSyncApi {
+) : CloudSyncApi,
+    CloudRemoteControlApi {
     private val json = Json { ignoreUnknownKeys = true }
 
     suspend fun loginWithTotp(
@@ -77,6 +78,39 @@ internal class CloudApiClient(
     ): CloudSyncUploadResponse =
         postJson<CloudSyncUploadRequest, CloudSyncUploadResponse>(
             path = "/sync/upload",
+            body = request,
+            accessToken = accessToken,
+        )
+
+    override suspend fun registerDevice(
+        accessToken: String,
+        request: RegisterRemoteDeviceRequest,
+    ): RemoteDevicePayload =
+        postJson<RegisterRemoteDeviceRequest, RemoteDevicePayload>(
+            path = "/devices/register",
+            body = request,
+            accessToken = accessToken,
+        )
+
+    override suspend fun pollCommands(
+        accessToken: String,
+        deviceId: String,
+        request: PollRemoteCommandsRequest,
+    ): RemoteCommandsPollResponse =
+        postJson<PollRemoteCommandsRequest, RemoteCommandsPollResponse>(
+            path = "/devices/$deviceId/commands/poll",
+            body = request,
+            accessToken = accessToken,
+        )
+
+    override suspend fun ackCommand(
+        accessToken: String,
+        deviceId: String,
+        commandId: String,
+        request: AckRemoteCommandRequest,
+    ): RemoteCommandPayload =
+        postJson<AckRemoteCommandRequest, RemoteCommandPayload>(
+            path = "/devices/$deviceId/commands/$commandId/ack",
             body = request,
             accessToken = accessToken,
         )
