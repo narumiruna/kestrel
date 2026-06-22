@@ -58,6 +58,7 @@ class RemoteControlDeviceSmokeTest {
             val previousSession = store.load()
             val previousApiBaseUrl = prefs.cloudSettingsValue().apiBaseUrl
             val previousRemoteSettings = prefs.remoteControlSettings.first()
+            val authRepository = CloudAuthRepository.getInstance(context)
             val repository = RemoteControlRepository.getInstance(context)
             val poller = RemoteControlPoller.getInstance(context)
 
@@ -66,6 +67,7 @@ class RemoteControlDeviceSmokeTest {
                 val password = "KestrelSmoke-${System.currentTimeMillis()}!"
                 val session = createSmokeSession(baseUrl, username, password)
                 store.save(session)
+                authRepository.refreshSessionPresence()
                 prefs.setCloudApiBaseUrl(baseUrl)
                 prefs.setRemoteControlSettings(RemoteControlSettings(enabled = false, deviceName = "Android smoke"))
 
@@ -104,6 +106,7 @@ class RemoteControlDeviceSmokeTest {
                 } else {
                     store.save(previousSession)
                 }
+                authRepository.refreshSessionPresence()
                 prefs.setCloudApiBaseUrl(previousApiBaseUrl)
                 prefs.setRemoteControlSettings(previousRemoteSettings)
             }

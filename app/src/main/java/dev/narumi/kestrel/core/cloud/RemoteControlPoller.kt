@@ -23,6 +23,7 @@ internal class RemoteControlPoller private constructor(
     private var foregroundLease = false
     private var serviceLease = false
     private var remoteControlEnabled = false
+    private var hasSession = authRepository.hasSession.value
     private var job: Job? = null
 
     init {
@@ -30,6 +31,14 @@ internal class RemoteControlPoller private constructor(
             prefs.remoteControlSettings.collect { settings ->
                 synchronized(lock) {
                     remoteControlEnabled = settings.enabled
+                    updateJobLocked()
+                }
+            }
+        }
+        scope.launch {
+            authRepository.hasSession.collect { sessionAvailable ->
+                synchronized(lock) {
+                    hasSession = sessionAvailable
                     updateJobLocked()
                 }
             }
@@ -93,7 +102,7 @@ internal class RemoteControlPoller private constructor(
 
     private fun shouldPoll(): Boolean = synchronized(lock) { canPollLocked() }
 
-    private fun canPollLocked(): Boolean = hasLeaseLocked() && remoteControlEnabled && authRepository.currentSession() != null
+    private fun canPollLocked(): Boolean = hasLeaseLocked() && remoteControlEnabled && hasSession
 
     private fun hasLeaseLocked(): Boolean = foregroundLease || serviceLease
 
