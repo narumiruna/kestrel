@@ -43,6 +43,67 @@ export type RouteWaypoint = {
   speedKmh?: number | null;
 };
 
+export type RemoteCommandType = 'SET_POINT' | 'START_ROUTE' | 'STOP';
+
+export type RemoteCommandStatus = 'QUEUED' | 'DELIVERED' | 'APPLIED' | 'FAILED' | 'EXPIRED';
+
+export type RemotePoint = {
+  latitude: number;
+  longitude: number;
+};
+
+export type RemoteCommandPayload =
+  | { point: RemotePoint }
+  | { mode: RouteMode; speedKmh: number; waypoints: RemotePoint[] }
+  | Record<string, never>;
+
+export type RemoteCommand = {
+  appliedAt: string | null;
+  createdAt: string;
+  deliveredAt: string | null;
+  deviceId: string;
+  errorMessage: string | null;
+  expiresAt: string;
+  id: string;
+  payload: RemoteCommandPayload;
+  status: RemoteCommandStatus;
+  type: RemoteCommandType;
+};
+
+export type RemoteDevice = {
+  appVersion: string | null;
+  createdAt: string;
+  id: string;
+  lastCommand: RemoteCommand | null;
+  lastSeenAt: string;
+  name: string;
+  online: boolean;
+  platform: 'ANDROID';
+  remoteControlEnabled: boolean;
+};
+
+export type RemoteDevicesResponse = {
+  devices: RemoteDevice[];
+  serverTime: string;
+};
+
+export type CreateRemoteCommandRequest =
+  | {
+      expiresAt?: string;
+      payload: { point: RemotePoint };
+      type: 'SET_POINT';
+    }
+  | {
+      expiresAt?: string;
+      payload: { mode: RouteMode; speedKmh: number; waypoints: RemotePoint[] };
+      type: 'START_ROUTE';
+    }
+  | {
+      expiresAt?: string;
+      payload: Record<string, never>;
+      type: 'STOP';
+    };
+
 export type ShareLink = {
   createdAt: string;
   disabledAt: string | null;
