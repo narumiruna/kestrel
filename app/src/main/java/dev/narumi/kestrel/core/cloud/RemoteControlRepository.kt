@@ -128,20 +128,25 @@ internal class RemoteControlRepository internal constructor(
 
     private suspend fun disableRemoteControl() {
         val settings = loadSettings()
-        settingsStore.save(settings.copy(enabled = false))
-        pendingAcks = emptyList()
-        _runtimeStatus.value = RemoteControlRuntimeStatus(message = "Remote control disabled")
-        val clientDeviceId = settings.clientDeviceId ?: return
+        val clientDeviceId = settings.clientDeviceId
+        if (clientDeviceId == null) {
+            settingsStore.save(settings.copy(enabled = false))
+            pendingAcks = emptyList()
+            _runtimeStatus.value = RemoteControlRuntimeStatus(message = "Remote control disabled")
+            return
+        }
         val session = authRepository.currentSession()
         if (session == null) {
             _runtimeStatus.value =
                 RemoteControlRuntimeStatus(
-                    message = "Remote control disabled on this device",
+                    message = "Remote control is still enabled on the server",
                     error = "Sign in to cloud to disable remote control on the server",
                 )
             return
         }
         register(settings.copy(enabled = false, clientDeviceId = clientDeviceId), session)
+        pendingAcks = emptyList()
+        _runtimeStatus.value = RemoteControlRuntimeStatus(message = "Remote control disabled")
     }
 
     private suspend fun ensureRegistered(
@@ -229,8 +234,11 @@ internal class RemoteControlRepository internal constructor(
             block(session)
         } catch (error: CloudApiException) {
             if (error.statusCode != 401) throw error
-            val refreshedSession = authRepository.refreshSessionIfCurrent(session) ?: error("Session expired. Please sign in again.")
-            block(refreshedSession)
+            val authorizedSession =
+                authRepository.refreshSessionIfCurrent(session)
+                    ?: authRepository.currentSession()?.takeIf { it.sessionId == session.sessionId }
+                    ?: error("Session expired. Please sign in again.")
+            block(authorizedSession)
         }
 
     private fun requireSession(): CloudSession = authRepository.currentSession() ?: error("Sign in to cloud first")

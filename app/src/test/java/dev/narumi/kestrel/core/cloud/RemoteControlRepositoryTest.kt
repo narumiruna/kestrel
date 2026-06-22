@@ -109,12 +109,26 @@ class RemoteControlRepositoryTest {
 
             repository.setEnabled(false)
 
-            assertFalse(store.settings.enabled)
+            assertTrue(store.settings.enabled)
             assertEquals(0, api.registerRequests.size)
             assertEquals(
                 "Sign in to cloud to disable remote control on the server",
                 repository.runtimeStatus.value.error,
             )
+        }
+
+    @Test
+    fun optOutFailureKeepsRemoteControlEnabledForRetry() =
+        runBlocking {
+            val api = FakeRemoteApi(failRegister = true)
+            val store = MemorySettingsStore(registeredSettings(enabled = true))
+            val repository = repository(api = api, store = store)
+
+            val failed = runCatching { repository.setEnabled(false) }
+
+            assertTrue(failed.isFailure)
+            assertTrue(store.settings.enabled)
+            assertEquals(false, api.registerRequests.single().remoteControlEnabled)
         }
 
     @Test
