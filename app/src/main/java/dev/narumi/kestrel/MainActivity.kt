@@ -71,6 +71,10 @@ class MainActivity : ComponentActivity() {
         if (intent?.action != Intent.ACTION_VIEW) return
         pendingMapLinkPoint = intent.dataString?.let(::parseCoordInput)
     }
+
+    companion object {
+        const val EXTRA_SKIP_CLOUD_SYNC_ON_FOREGROUND = "dev.narumi.kestrel.SKIP_CLOUD_SYNC_ON_FOREGROUND"
+    }
 }
 
 @PreviewScreenSizes
@@ -86,14 +90,18 @@ fun KestrelApp(
     val scope = rememberCoroutineScope()
     val syncRepository = remember { CloudSyncRepository.getInstance(context) }
     val remoteControlPoller = remember { RemoteControlPoller.getInstance(context) }
+    val syncOnForeground =
+        (context as? MainActivity)?.intent?.getBooleanExtra(MainActivity.EXTRA_SKIP_CLOUD_SYNC_ON_FOREGROUND, false) != true
 
     DisposableEffect(lifecycleOwner, syncRepository) {
         val observer =
             object : DefaultLifecycleObserver {
                 override fun onStart(owner: LifecycleOwner) {
                     remoteControlPoller.setForegroundActive(true)
-                    scope.launch {
-                        syncRepository.syncOnForeground()
+                    if (syncOnForeground) {
+                        scope.launch {
+                            syncRepository.syncOnForeground()
+                        }
                     }
                 }
 

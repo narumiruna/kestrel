@@ -283,7 +283,23 @@ class RemoteControlRepositoryTest {
         }
 
     @Test
-    fun pendingAckRetryDoesNotSwitchToDifferentSession() =
+    fun pendingAckRetrySurvivesSameUserRelogin() =
+        runBlocking {
+            val auth = FakeAuth(session = session)
+            val api = FakeRemoteApi(commands = mutableListOf(setPointCommand("command-1")), failAck = true)
+            val repository = repository(auth = auth, api = api, store = MemorySettingsStore(registeredSettings(enabled = true)))
+
+            repository.pollOnce()
+            auth.session = session.copy(accessToken = "access-2", sessionId = "session-2")
+            api.failAck = false
+            repository.pollOnce()
+
+            assertEquals(listOf("access-1", "access-2"), api.ackAccessTokens)
+            assertEquals(listOf("command-1", "command-1"), api.ackCalls.map { it.commandId })
+        }
+
+    @Test
+    fun pendingAckRetryDoesNotSwitchToDifferentUser() =
         runBlocking {
             val auth = FakeAuth(session = session)
             val api = FakeRemoteApi(commands = mutableListOf(setPointCommand("command-1")), failAck = true)

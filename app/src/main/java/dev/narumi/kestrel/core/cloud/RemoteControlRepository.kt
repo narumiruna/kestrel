@@ -201,7 +201,7 @@ internal class RemoteControlRepository internal constructor(
         val stillPending = mutableListOf<PendingRemoteAck>()
         var latestSession = currentStoredSessionWithSameId(session)
         for (ack in pendingAcks) {
-            if (ack.sessionId != session.sessionId) continue
+            if (ack.userId != null && ack.userId != session.userId) continue
             latestSession = currentStoredSessionWithSameId(latestSession)
             val sent =
                 runCatching {
@@ -271,6 +271,7 @@ internal class RemoteControlRepository internal constructor(
                     commandId = id,
                     clientDeviceId = settings.clientDeviceId ?: error("Missing client device id"),
                     sessionId = session.sessionId,
+                    userId = session.userId,
                     status = result.status,
                     errorMessage = result.errorMessage,
                 ),
@@ -284,6 +285,7 @@ internal class RemoteControlRepository internal constructor(
             clientDeviceId = clientDeviceId,
             sessionId = sessionId,
             status = status.name,
+            userId = userId,
             errorMessage = errorMessage,
         )
 
@@ -295,6 +297,7 @@ internal class RemoteControlRepository internal constructor(
                     commandId = ack.commandId,
                     clientDeviceId = ack.clientDeviceId,
                     sessionId = ack.sessionId,
+                    userId = ack.userId,
                     status = RemoteCommandStatus.valueOf(ack.status),
                     errorMessage = ack.errorMessage,
                 )
@@ -314,6 +317,7 @@ internal class RemoteControlRepository internal constructor(
         val commandId: String,
         val clientDeviceId: String,
         val sessionId: String,
+        val userId: String?,
         val status: RemoteCommandStatus,
         val errorMessage: String?,
     )

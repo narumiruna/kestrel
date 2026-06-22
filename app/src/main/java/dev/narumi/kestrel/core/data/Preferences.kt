@@ -132,6 +132,7 @@ data class RemoteControlPendingAck(
     val clientDeviceId: String,
     val sessionId: String,
     val status: String,
+    val userId: String? = null,
     val errorMessage: String? = null,
 )
 
