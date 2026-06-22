@@ -28,13 +28,13 @@
 
 ## Plan
 
-- [ ] 在 `web/lib/api.ts` 型別或 dashboard local types 新增 remote-control DTO：`RemoteDevice`（含 `remoteControlEnabled`）、`RemoteCommandStatus`（`QUEUED|DELIVERED|APPLIED|FAILED|EXPIRED`）、`RemoteCommand`、`CreateRemoteCommandRequest`；驗證方式為 `cd web && npm run typecheck`。
-- [ ] 新增 `web/components/dashboard/useRemoteDevices.ts`，封裝 `GET /devices`、`POST /devices/:id/commands`、command status polling；送 command 前只允許 `online && remoteControlEnabled` device；驗證方式為 lint/typecheck 與 hook call sites compile。
-- [ ] 在 Places dashboard 的 selected place card 加 `Mock on device` 控制：device picker、submit button、queued/delivered/applied/failed/expired/offline status；payload 使用 selected place latitude/longitude snapshot；驗證方式為 `cd web && npm run lint && npm run typecheck`，並手動用 mocked/real backend 建 command。
-- [ ] 在 Routes dashboard 的 selected route card 加 `Play on device` 控制：device picker、submit button、status；payload 使用 currentRevision waypoints、`speedKmh`（取自 route 的 defaultSpeedKmh）、`mode` API enum snapshot（`ONCE|LOOP|PING_PONG`）；route 無 currentRevision 或 waypoints < 2 時 disabled 並顯示 reason；驗證方式為 lint/typecheck 與手動 UI review。
-- [ ] 加入 `Stop on device` 作為次要 action（若 backend/Android 已支援 `STOP`），讓使用者能從 Web 停掉 remote mock；驗證方式為 command create smoke 與 UI disabled 狀態。
-- [ ] 為 offline/delivered/expired 狀態加清楚文案：`Open Kestrel on Android to receive commands`、`Command delivered; waiting for result`；驗證方式為 manual review。
-- [ ] 執行 Web quality gates：`cd web && npm run lint && npm run typecheck`，以及 repo-level `just check && just lint`。
+- [x] 在 `web/lib/api.ts` 型別或 dashboard local types 新增 remote-control DTO：`RemoteDevice`（含 `remoteControlEnabled`）、`RemoteCommandStatus`（`QUEUED|DELIVERED|APPLIED|FAILED|EXPIRED`）、`RemoteCommand`、`CreateRemoteCommandRequest`；已由 `cd web && npm run typecheck` 驗證。
+- [x] 新增 `web/components/dashboard/useRemoteDevices.ts`，封裝 `GET /devices`、`POST /devices/:id/commands`、command status polling；送 command 前只允許 `online && remoteControlEnabled` device；已由 `cd web && npm run lint && npm run typecheck`、`just check && just lint` 驗證。
+- [x] 在 Places dashboard 的 selected place card 加 `Mock on device` 控制：device picker、submit button、queued/delivered/applied/failed/expired/offline status；payload 使用 selected place latitude/longitude snapshot；已由 mocked browser smoke 建立 `SET_POINT` command 並看到 `DELIVERED` / `APPLIED` 狀態。
+- [x] 在 Routes dashboard 的 selected route card 加 `Play on device` 控制：device picker、submit button、status；payload 使用 currentRevision waypoints、`speedKmh`（取自 route 的 defaultSpeedKmh）、`mode` API enum snapshot（`ONCE|LOOP|PING_PONG`）；route 無 currentRevision 或 waypoints < 2 時 disabled 並顯示 reason；已由 mocked browser smoke 建立 `START_ROUTE` command，並以一個 waypoint 的 mocked route 驗證 disabled reason。
+- [x] 加入 `Stop on device` 作為次要 action（若 backend/Android 已支援 `STOP`），讓使用者能從 Web 停掉 remote mock；已由 mocked browser smoke 建立 `STOP` command 並看到 `DELIVERED` / `APPLIED` 狀態。
+- [x] 為 offline/delivered/expired 狀態加清楚文案：`Open Kestrel on Android to receive commands`、`Command delivered; waiting for result`；已由 source review 與 mocked browser smoke 驗證 delivered 文案。
+- [x] 執行 Web quality gates：`cd web && npm run lint && npm run typecheck`，以及 repo-level `just check && just lint`。
 
 ## Risks
 
@@ -42,10 +42,19 @@
 - Device picker 如果沒有 devices，空狀態要指引 Android Options 開啟 remote control。
 - Command 成功建立不代表 Android 已執行；UI 必須分開 queued/delivered/applied/failed/expired。
 
+## Validation
+
+- `cd web && npm run lint` ✅
+- `cd web && npm run typecheck` ✅
+- `just check` ✅
+- `just lint` ✅
+- Mocked browser smoke on local Next dev server (`http://localhost:3301`) ✅: seeded a Web session and mocked `/api/backend/*`, verified device picker `1/1 ready`, Places `Mock on device` created `{"type":"SET_POINT","payload":{"point":{"latitude":25.033,"longitude":121.5654}}}` and reached `APPLIED`, Routes `Play on device` created `{"type":"START_ROUTE","payload":{"mode":"PING_PONG","speedKmh":20,"waypoints":[...]}}` and reached `APPLIED`, `Stop on device` created `{"type":"STOP","payload":{}}` and reached `APPLIED`, and a one-waypoint saved route disabled `Play on device` with `Add at least 2 waypoints before playing this route.`
+- Real backend browser smoke on Docker dev stack (`http://localhost:3301` → `http://localhost:3300`) ✅: created a fresh smoke user, saved place/route, and registered a synthetic Android device through the backend; the real Web UI showed `1/1 ready`, Places `Mock on device` created a backend `SET_POINT` command with `{"point":{"latitude":25.033,"longitude":121.5654}}`, Routes `Play on device` created a backend `START_ROUTE` command with `{"mode":"PING_PONG","speedKmh":20,"waypoints":[{"latitude":25.033,"longitude":121.5654},{"latitude":25.0478,"longitude":121.5319}]}`, `Stop on device` created `{"type":"STOP","payload":{}}`, and all three commands reached `APPLIED` after synthetic device poll/ack.
+
 ## Completion Checklist
 
-- [ ] Web 可列出 devices 並顯示 online/offline 與 remote-control enabled/disabled 狀態，已由 API smoke 或 mocked backend 驗證。
-- [ ] Places `Mock on device` 建立 `SET_POINT` command 並顯示 queued/delivered/applied/failed/expired 狀態，已由 manual smoke 驗證。
-- [ ] Routes `Play on device` 建立 `START_ROUTE` command，mode 使用 `ONCE|LOOP|PING_PONG` API enum，waypoints 不足時 disabled 並有原因，已由 manual smoke/UI review 驗證。
-- [ ] `STOP` action 若納入第一版，已由 command create smoke 驗證；若 backend/Android 未支援，明確標記 not applicable。
-- [ ] Web quality gates 通過：`cd web && npm run lint && npm run typecheck`，repo-level `just check && just lint` 通過。
+- [x] Web 可列出 devices 並顯示 online/offline 與 remote-control enabled/disabled 狀態，已由 mocked backend smoke 驗證。
+- [x] Places `Mock on device` 建立 `SET_POINT` command 並顯示 queued/delivered/applied/failed/expired 狀態，已由 manual smoke 驗證。
+- [x] Routes `Play on device` 建立 `START_ROUTE` command，mode 使用 `ONCE|LOOP|PING_PONG` API enum，waypoints 不足時 disabled 並有原因，已由 manual smoke/UI review 驗證。
+- [x] `STOP` action 已納入第一版，且已由 command create smoke 驗證。
+- [x] Web quality gates 通過：`cd web && npm run lint && npm run typecheck`，repo-level `just check && just lint` 通過。

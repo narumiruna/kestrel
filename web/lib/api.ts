@@ -43,6 +43,87 @@ export type RouteWaypoint = {
   speedKmh?: number | null;
 };
 
+export type RemoteCommandType = 'SET_POINT' | 'START_ROUTE' | 'STOP';
+
+export type RemoteCommandStatus = 'QUEUED' | 'DELIVERED' | 'APPLIED' | 'FAILED' | 'EXPIRED';
+
+export type RemotePoint = {
+  latitude: number;
+  longitude: number;
+};
+
+export type RemoteSetPointPayload = { point: RemotePoint };
+export type RemoteStartRoutePayload = {
+  mode: RouteMode;
+  speedKmh: number;
+  waypoints: RemotePoint[];
+};
+export type RemoteStopPayload = Record<string, never>;
+
+export type RemoteCommandPayload =
+  | RemoteSetPointPayload
+  | RemoteStartRoutePayload
+  | RemoteStopPayload;
+
+type RemoteCommandBase = {
+  appliedAt: string | null;
+  createdAt: string;
+  deliveredAt: string | null;
+  deviceId: string;
+  errorMessage: string | null;
+  expiresAt: string;
+  id: string;
+  status: RemoteCommandStatus;
+};
+
+export type RemoteCommand =
+  | (RemoteCommandBase & {
+      payload: RemoteSetPointPayload;
+      type: 'SET_POINT';
+    })
+  | (RemoteCommandBase & {
+      payload: RemoteStartRoutePayload;
+      type: 'START_ROUTE';
+    })
+  | (RemoteCommandBase & {
+      payload: RemoteStopPayload;
+      type: 'STOP';
+    });
+
+export type RemoteDevice = {
+  appVersion: string | null;
+  createdAt: string;
+  id: string;
+  lastCommand: RemoteCommand | null;
+  lastSeenAt: string;
+  name: string;
+  online: boolean;
+  platform: 'ANDROID';
+  remoteControlEnabled: boolean;
+};
+
+export type RemoteDevicesResponse = {
+  devices: RemoteDevice[];
+  serverTime: string;
+};
+
+export type CreateRemoteCommandRequest =
+  | {
+      expiresAt?: string;
+      payload: { point: RemotePoint };
+      type: 'SET_POINT';
+    }
+  | {
+      expiresAt?: string;
+      payload: { mode: RouteMode; speedKmh: number; waypoints: RemotePoint[] };
+      type: 'START_ROUTE';
+    }
+  | {
+      expiresAt?: string;
+      payload: Record<string, never>;
+      type: 'STOP';
+    };
+
 export type ShareLink = {
   createdAt: string;
   disabledAt: string | null;
