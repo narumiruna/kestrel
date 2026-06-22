@@ -59,7 +59,7 @@ internal class RemoteControlPoller private constructor(
 
     private fun pollNow() {
         Log.i(TAG, "Remote control poll requested")
-        scope.launch { repository.pollOnce() }
+        scope.launch { repository.pollOnce(::shouldPoll) }
     }
 
     private fun updateJobLocked() {
@@ -73,7 +73,7 @@ internal class RemoteControlPoller private constructor(
             scope.launch {
                 Log.i(TAG, "Remote control polling loop started")
                 while (isActive && shouldPoll()) {
-                    repository.pollOnce()
+                    repository.pollOnce(::shouldPoll)
                     if (shouldPoll()) {
                         delay(pollDelayMillis())
                     }
