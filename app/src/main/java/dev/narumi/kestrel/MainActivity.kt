@@ -75,8 +75,13 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun consumeMapLinkIntent(intent: Intent?) {
-        if (intent?.action != Intent.ACTION_VIEW) return
-        pendingMapLinkPoint = intent.dataString?.let(::parseCoordInput)
+        val raw =
+            when (intent?.action) {
+                Intent.ACTION_VIEW -> intent.dataString
+                Intent.ACTION_SEND -> intent.getStringExtra(Intent.EXTRA_TEXT)
+                else -> null
+            }
+        pendingMapLinkPoint = raw?.let(::parseCoordInput)
     }
 
     companion object {
