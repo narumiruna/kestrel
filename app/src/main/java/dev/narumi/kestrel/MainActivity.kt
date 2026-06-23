@@ -78,7 +78,7 @@ class MainActivity : ComponentActivity() {
         val raw =
             when (intent?.action) {
                 Intent.ACTION_VIEW -> intent.dataString
-                Intent.ACTION_SEND -> intent.getStringExtra(Intent.EXTRA_TEXT)
+                Intent.ACTION_SEND -> intent.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString()
                 else -> null
             }
         pendingMapLinkPoint = raw?.let(::parseCoordInput)
