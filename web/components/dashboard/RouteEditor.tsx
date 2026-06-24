@@ -4,7 +4,7 @@ import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '@/components/AuthProvider';
-import { RouteRemoteControlPanel } from '@/components/dashboard/RemoteControlPanel';
+import { RouteRemoteControlAction } from '@/components/dashboard/RemoteControlPanel';
 import {
   formatError,
   formatMode,
@@ -71,7 +71,9 @@ export default function RouteEditor({
   const [error, setError] = useState<string | null>(null);
   const [saveNotice, setSaveNotice] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const saveNoticeTimeoutRef = useRef<number | null>(null);
+  const shareDialogRef = useRef<HTMLDialogElement | null>(null);
   const waypoints = controlledWaypoints ?? internalWaypoints;
   const selectedWaypointIndex =
     controlledSelectedWaypointIndex === undefined
@@ -116,6 +118,23 @@ export default function RouteEditor({
     },
     [],
   );
+
+  useEffect(() => {
+    const dialog = shareDialogRef.current;
+
+    if (dialog == null) {
+      return;
+    }
+
+    if (isShareDialogOpen && !dialog.open) {
+      dialog.showModal();
+      return;
+    }
+
+    if (!isShareDialogOpen && dialog.open) {
+      dialog.close();
+    }
+  }, [isShareDialogOpen]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -262,8 +281,16 @@ export default function RouteEditor({
 
       <section className="route-editor-section route-summary-section">
         <div className="route-section-heading">
-          <h3>Route summary</h3>
-          <span className="chip rev-chip">{revisionLabel}</span>
+          <div className="route-section-title">
+            <h3>Route summary</h3>
+            <span className="chip rev-chip">{revisionLabel}</span>
+          </div>
+          <RouteRemoteControlAction
+            mode={mode}
+            route={route}
+            speedKmh={Number(defaultSpeedKmh)}
+            waypoints={waypoints}
+          />
         </div>
         <div className="route-mode-hint">
           <InfoIcon />
@@ -507,52 +534,73 @@ export default function RouteEditor({
         </div>
       </details>
 
-      <RouteRemoteControlPanel
-        mode={mode}
-        route={route}
-        speedKmh={Number(defaultSpeedKmh)}
-        waypoints={waypoints}
-      />
-
-      <details className="route-editor-section route-editor-collapsible route-editor-secondary-section route-editor-share-section">
-        <summary>
-          <span>Publish / share</span>
-          <span className="muted">Privacy and public link settings</span>
-        </summary>
-        <div className="route-editor-collapsible-content">
-          <label className="row">
-            <input
-              checked={isPublic}
-              className="inline-control"
-              type="checkbox"
-              onChange={(event) => setIsPublic(event.target.checked)}
-            />
-            Public route
-          </label>
-          <RouteSharePanel route={route} />
-        </div>
-      </details>
-
       <footer className="route-editor-footer">
-        <div className="route-save-actions">
-          {saveDisabledReason == null ? null : (
-            <p className="muted no-margin">{saveDisabledReason}</p>
-          )}
-          <button
-            className={isSaving ? 'is-loading' : saveNotice == null ? '' : 'is-saved'}
-            disabled={isSaving || saveDisabledReason != null}
-            type="submit"
-          >
-            {isSaving ? 'Saving…' : saveNotice == null ? 'Save route' : 'Saved ✓'}
-          </button>
-        </div>
-        {onDelete == null ? null : (
+        <div className="route-editor-footer-actions">
           <div className="route-danger-zone">
-            <button className="danger" disabled={isSaving} type="button" onClick={confirmDelete}>
-              Delete route
-            </button>
+            {onDelete == null ? null : (
+              <button className="danger" disabled={isSaving} type="button" onClick={confirmDelete}>
+                Delete route
+              </button>
+            )}
           </div>
-        )}
+          <div className="route-save-actions">
+            {saveDisabledReason == null ? null : (
+              <p className="muted no-margin">{saveDisabledReason}</p>
+            )}
+            <div className="route-editor-save-buttons">
+              <button
+                aria-haspopup="dialog"
+                className="secondary"
+                type="button"
+                onClick={() => setIsShareDialogOpen(true)}
+              >
+                Share
+              </button>
+              <button
+                className={isSaving ? 'is-loading' : saveNotice == null ? '' : 'is-saved'}
+                disabled={isSaving || saveDisabledReason != null}
+                type="submit"
+              >
+                {isSaving ? 'Saving…' : saveNotice == null ? 'Save route' : 'Saved ✓'}
+              </button>
+            </div>
+          </div>
+        </div>
+        <dialog
+          aria-labelledby="route-share-dialog-title"
+          className="place-action-dialog"
+          ref={shareDialogRef}
+          onCancel={() => setIsShareDialogOpen(false)}
+          onClose={() => setIsShareDialogOpen(false)}
+        >
+          <div className="place-action-dialog-card">
+            <header>
+              <div>
+                <p className="field-kicker font-mono">secondary action</p>
+                <h3 className="font-serif" id="route-share-dialog-title">
+                  Share route
+                </h3>
+              </div>
+              <button
+                className="secondary"
+                type="button"
+                onClick={() => setIsShareDialogOpen(false)}
+              >
+                Close
+              </button>
+            </header>
+            <label className="row">
+              <input
+                checked={isPublic}
+                className="inline-control"
+                type="checkbox"
+                onChange={(event) => setIsPublic(event.target.checked)}
+              />
+              Public route
+            </label>
+            <RouteSharePanel route={route} />
+          </div>
+        </dialog>
       </footer>
     </form>
   );
@@ -879,6 +927,10 @@ function RouteSharePanel({ route }: { route: Route | null }) {
       <p className="muted no-margin">
         Visitors can open the public page without login. Signed-in users can copy the visible route
         snapshot into their own library.
+      </p>
+      <p className="muted no-margin">
+        Public link:{' '}
+        {shareLink == null ? 'Not created' : shareLink.disabledAt == null ? 'Active' : 'Disabled'}
       </p>
       {error == null ? null : <div className="error">{error}</div>}
       {notice == null ? null : <div className="success">{notice}</div>}
