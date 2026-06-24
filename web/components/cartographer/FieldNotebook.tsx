@@ -25,31 +25,13 @@ export function FieldNotebook({
   return (
     <aside className="field-notebook" aria-label={`${activeSection} field notebook`}>
       <div aria-hidden className="field-notebook-spine" />
-      <nav aria-label="Cartographer sections" className="notebook-nav">
-        <Link
-          aria-current={activeSection === 'places' ? 'page' : undefined}
-          className={activeSection === 'places' ? 'active' : ''}
-          href="/dashboard/places"
-        >
-          <span>Places</span>
-        </Link>
-        <Link
-          aria-current={activeSection === 'routes' ? 'page' : undefined}
-          className={activeSection === 'routes' ? 'active' : ''}
-          href="/dashboard/routes"
-        >
-          <span>Routes</span>
-        </Link>
-      </nav>
-      <label className="notebook-search font-mono">
-        <span className="sr-only">Search</span>
-        <input
-          ref={searchRef}
-          placeholder={searchPlaceholder}
-          value={searchValue}
-          onChange={(event) => onSearchChange(event.target.value)}
-        />
-      </label>
+      <SidebarTabs activeSection={activeSection} />
+      <SidebarSearch
+        searchPlaceholder={searchPlaceholder}
+        searchRef={searchRef}
+        searchValue={searchValue}
+        onSearchChange={onSearchChange}
+      />
       <button className="notebook-new-entry" type="button" onClick={onNewEntry}>
         <span aria-hidden className="notebook-new-entry-icon">
           +
@@ -65,5 +47,50 @@ export function FieldNotebook({
       </button>
       <div className="notebook-list">{children}</div>
     </aside>
+  );
+}
+
+function SidebarTabs({ activeSection }: { activeSection: 'places' | 'routes' }) {
+  return (
+    <nav aria-label="Cartographer sections" className="sidebar-tabs">
+      <Link
+        aria-current={activeSection === 'places' ? 'page' : undefined}
+        className={activeSection === 'places' ? 'active' : ''}
+        href="/dashboard/places"
+      >
+        <span>Places</span>
+      </Link>
+      <Link
+        aria-current={activeSection === 'routes' ? 'page' : undefined}
+        className={activeSection === 'routes' ? 'active' : ''}
+        href="/dashboard/routes"
+      >
+        <span>Routes</span>
+      </Link>
+    </nav>
+  );
+}
+
+function SidebarSearch({
+  onSearchChange,
+  searchPlaceholder,
+  searchRef,
+  searchValue,
+}: {
+  onSearchChange: (value: string) => void;
+  searchPlaceholder: string;
+  searchRef?: RefObject<HTMLInputElement | null>;
+  searchValue: string;
+}) {
+  return (
+    <label className="sidebar-search font-mono">
+      <span className="sr-only">Search</span>
+      <input
+        ref={searchRef}
+        placeholder={searchPlaceholder}
+        value={searchValue}
+        onChange={(event) => onSearchChange(event.target.value)}
+      />
+    </label>
   );
 }
