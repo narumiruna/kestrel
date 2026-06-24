@@ -1,0 +1,56 @@
+# Local browser-test stack.
+# Uses built images (no source bind mounts) so Docker won't leave root-owned
+# backend/dist or web/.next files on the host.
+name: kestrel-webtest
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-kestrel}
+      POSTGRES_USER: ${POSTGRES_USER:-kestrel}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-kestrel}
+    ports:
+      - "${KESTREL_WEBTEST_POSTGRES_PORT:-15433}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - webtest-postgres-data:/var/lib/postgresql/data
+
+  backend:
+    build:
+      context: ./backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-kestrel}:${POSTGRES_PASSWORD:-kestrel}@postgres:5432/${POSTGRES_DB:-kestrel}?schema=public
+      AUTH_ACCESS_TOKEN_SECRET: ${AUTH_ACCESS_TOKEN_SECRET:-webtest-local-access-token-secret}
+      AUTH_ACCESS_TOKEN_TTL_SECONDS: "900"
+      AUTH_DEV_DEFAULT_LOGIN_ENABLED: "true"
+      AUTH_RATE_LIMIT_MAX_ATTEMPTS: "5"
+      AUTH_RATE_LIMIT_WINDOW_SECONDS: "900"
+      AUTH_RATE_LIMIT_BLOCK_SECONDS: "900"
+      AUTH_TOTP_ENCRYPTION_KEY: ${AUTH_TOTP_ENCRYPTION_KEY:-MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=}
+      AUTH_TOTP_ISSUER: Kestrel Cloud Webtest
+      PORT: "3300"
+    ports:
+      - "${KESTREL_WEBTEST_BACKEND_PORT:-3400}:3300"
+    command: sh -c "npx prisma migrate deploy && npm run start:prod"
+
+  web:
+    build:
+      context: ./web
+    depends_on:
+      backend:
+        condition: service_started
+    environment:
+      KESTREL_API_BASE_URL: http://backend:3300
+    ports:
+      - "${KESTREL_WEBTEST_WEB_PORT:-3401}:3301"
+
+volumes:
+  webtest-postgres-data:
