@@ -80,6 +80,18 @@ cloud-down:
 cloud-log:
     docker compose logs -f web backend postgres
 
+# start built-image web browser-test stack on localhost:3401
+webtest-up:
+    docker compose -f compose.webtest.yaml up --build
+
+# stop web browser-test stack, keeping its database volume
+webtest-down:
+    docker compose -f compose.webtest.yaml down
+
+# follow logs for the web browser-test stack
+webtest-log:
+    docker compose -f compose.webtest.yaml logs -f web backend postgres
+
 # regenerate detekt baseline (accept current warnings as-is)
 lint-baseline:
     JAVA_HOME="{{java_home}}" PATH="{{java_home}}/bin:$PATH" ./gradlew detektBaseline
