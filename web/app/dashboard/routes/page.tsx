@@ -13,7 +13,11 @@ import { UserMark } from '@/components/cartographer/UserMark';
 import { useKeyboardShortcuts } from '@/components/cartographer/useKeyboardShortcuts';
 import RouteEditor from '@/components/dashboard/RouteEditor';
 import { useDashboardAuth } from '@/components/dashboard/useDashboardAuth';
-import { formatError, formatMode } from '@/components/dashboard/utils';
+import {
+  formatError,
+  formatMode,
+  formatRouteDistanceFromWaypoints,
+} from '@/components/dashboard/utils';
 import type { RouteMapControls } from '@/components/RouteMapEditor';
 import type { Place, Route, RouteInput, RouteWaypoint } from '@/lib/api';
 
@@ -286,38 +290,7 @@ function NotebookSkeleton() {
 }
 
 function formatRouteDistance(route: Route): string {
-  const waypoints = route.currentRevision?.waypoints ?? [];
-  const distanceKm = waypoints.slice(1).reduce((totalDistance, waypoint, index) => {
-    const previousWaypoint = waypoints[index];
-
-    return totalDistance + getDistanceKm(previousWaypoint, waypoint);
-  }, 0);
-
-  if (distanceKm < 10) {
-    return `${distanceKm.toFixed(1)} km`;
-  }
-
-  return `${Math.round(distanceKm)} km`;
-}
-
-function getDistanceKm(
-  from: { latitude: number; longitude: number },
-  to: { latitude: number; longitude: number },
-): number {
-  const earthRadiusKm = 6371;
-  const deltaLatitude = toRadians(to.latitude - from.latitude);
-  const deltaLongitude = toRadians(to.longitude - from.longitude);
-  const fromLatitude = toRadians(from.latitude);
-  const toLatitude = toRadians(to.latitude);
-  const haversine =
-    Math.sin(deltaLatitude / 2) ** 2 +
-    Math.cos(fromLatitude) * Math.cos(toLatitude) * Math.sin(deltaLongitude / 2) ** 2;
-
-  return 2 * earthRadiusKm * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
-}
-
-function toRadians(degrees: number): number {
-  return (degrees * Math.PI) / 180;
+  return formatRouteDistanceFromWaypoints(route.currentRevision?.waypoints ?? []);
 }
 
 function useRelativeUpdatedLabel(lastUpdatedAt: Date | null): string | null {
