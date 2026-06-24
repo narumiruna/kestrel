@@ -5955,3 +5955,55 @@ button.is-loading {
 .route-marker.route-marker-compact:not(.selected):focus-visible::after {
   opacity: 1;
 }
+
+/* Keep place actions reachable when accordions expand. */
+.index-card .place-editor-embedded {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.place-editor-content {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding-bottom: 16px;
+  scrollbar-gutter: stable;
+}
+
+.index-card .place-editor-footer {
+  background: var(--overlay-surface);
+  border-top: 1px solid var(--cloud-border-soft, var(--border));
+  box-shadow: 0 -10px 24px rgb(34 24 15 / 7%);
+  flex-shrink: 0;
+  margin: 0;
+  padding: 12px 0 0;
+  position: relative;
+  z-index: 45;
+}
+
+.index-card .place-editor-footer .row {
+  justify-content: space-between;
+}
+
+@media (max-width: 1023px) {
+  .index-card .place-editor-embedded {
+    height: auto;
+    overflow: visible;
+  }
+
+  .place-editor-content {
+    overflow: visible;
+  }
+
+  .index-card .place-editor-footer {
+    bottom: 0;
+    margin-inline: -14px;
+    padding: 12px 14px;
+    position: sticky;
+  }
+}

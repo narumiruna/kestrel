@@ -109,59 +109,61 @@ export default function PlaceEditor({
           <h2>{place == null ? 'New place' : place.name}</h2>
         </header>
       ) : null}
-      {error == null ? null : <div className="error">{error}</div>}
-      {showMap ? (
-        <PlaceMapEditor
-          latitude={mapCoords.latitude}
-          longitude={mapCoords.longitude}
-          onChange={(coords) => {
-            setLatitude(formatCoordinateInput(coords.latitude));
-            setLongitude(formatCoordinateInput(coords.longitude));
-          }}
-        />
-      ) : null}
-      <label>
-        Name
-        <input required value={name} onChange={(event) => setName(event.target.value)} />
-      </label>
-      <div className="split">
-        <label>
-          Latitude
-          <input
-            required
-            inputMode="decimal"
-            value={latitude}
-            onChange={(event) => setLatitude(event.target.value)}
+      <div className="place-editor-content stack">
+        {error == null ? null : <div className="error">{error}</div>}
+        {showMap ? (
+          <PlaceMapEditor
+            latitude={mapCoords.latitude}
+            longitude={mapCoords.longitude}
+            onChange={(coords) => {
+              setLatitude(formatCoordinateInput(coords.latitude));
+              setLongitude(formatCoordinateInput(coords.longitude));
+            }}
           />
-        </label>
+        ) : null}
         <label>
-          Longitude
-          <input
-            required
-            inputMode="decimal"
-            value={longitude}
-            onChange={(event) => setLongitude(event.target.value)}
-          />
+          Name
+          <input required value={name} onChange={(event) => setName(event.target.value)} />
         </label>
-      </div>
-      <label>
-        Tags (comma separated)
-        <input value={tags} onChange={(event) => setTags(event.target.value)} />
-      </label>
-      <label>
-        Description
-        <textarea value={description} onChange={(event) => setDescription(event.target.value)} />
-      </label>
-      <PlaceRemoteControlPanel place={place} />
-      <details className="route-editor-section route-editor-collapsible route-editor-secondary-section place-editor-share-section">
-        <summary>
-          <span>Publishing / share</span>
-          <span className="muted">Public link settings</span>
-        </summary>
-        <div className="route-editor-collapsible-content">
-          <PlaceSharePanel place={place} />
+        <div className="split">
+          <label>
+            Latitude
+            <input
+              required
+              inputMode="decimal"
+              value={latitude}
+              onChange={(event) => setLatitude(event.target.value)}
+            />
+          </label>
+          <label>
+            Longitude
+            <input
+              required
+              inputMode="decimal"
+              value={longitude}
+              onChange={(event) => setLongitude(event.target.value)}
+            />
+          </label>
         </div>
-      </details>
+        <label>
+          Tags (comma separated)
+          <input value={tags} onChange={(event) => setTags(event.target.value)} />
+        </label>
+        <label>
+          Description
+          <textarea value={description} onChange={(event) => setDescription(event.target.value)} />
+        </label>
+        <PlaceRemoteControlPanel place={place} />
+        <details className="route-editor-section route-editor-collapsible route-editor-secondary-section place-editor-share-section">
+          <summary>
+            <span>Publishing / share</span>
+            <span className="muted">Public link settings</span>
+          </summary>
+          <div className="route-editor-collapsible-content">
+            <PlaceSharePanel place={place} />
+          </div>
+        </details>
+      </div>
       <footer className="route-editor-footer place-editor-footer">
         <div className="row">
           {onDelete == null ? null : (
