@@ -6154,7 +6154,8 @@ button.is-loading {
     bottom: auto;
     display: flex;
     flex-direction: column;
-    max-height: calc(100dvh - var(--cloud-topbar-height) - 32px);
+    max-height: min(calc(100dvh - 24px), calc(100dvh - var(--cloud-topbar-height) - 32px));
+    overflow: hidden;
   }
 
   .index-card.index-card-place .index-card-body {
@@ -6166,22 +6167,121 @@ button.is-loading {
     flex: 1 1 auto;
     height: auto;
   }
+
+  .index-card.index-card-place .place-editor-footer {
+    bottom: auto;
+    margin: 0;
+    padding: 12px 0 max(12px, env(safe-area-inset-bottom));
+    position: relative;
+    width: 100%;
+  }
 }
 
 @media (max-width: 1023px) {
-  .index-card .place-editor-embedded {
+  .index-card-place {
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100dvh - 24px);
+    overflow: hidden;
+  }
+
+  .index-card.index-card-place .index-card-body {
+    display: flex;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .index-card.index-card-place .place-editor-embedded {
+    flex: 1 1 auto;
     height: auto;
-    overflow: visible;
+    min-height: 0;
+    overflow: hidden;
   }
 
-  .place-editor-content {
-    overflow: visible;
+  .index-card.index-card-place .place-editor-content {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
   }
 
-  .index-card .place-editor-footer {
-    bottom: 0;
-    margin-inline: -14px;
-    padding: 12px 14px;
-    position: sticky;
+  .index-card.index-card-place .place-editor-footer {
+    bottom: auto;
+    margin: 0;
+    padding: 12px 0 max(12px, env(safe-area-inset-bottom));
+    position: relative;
+    width: 100%;
+  }
+}
+
+.cartographer-stage .index-card-pin {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .map-control-stack {
+    right: calc(var(--cloud-editor-width) + 32px);
+  }
+
+  .index-card-route .route-editor {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    overflow: hidden;
+    scrollbar-gutter: auto;
+  }
+
+  .index-card-route .route-editor-content {
+    display: grid;
+    flex: 1 1 auto;
+    gap: 14px;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding: 0 2px 0 0;
+    scrollbar-gutter: stable;
+  }
+
+  .index-card-route .route-editor-footer {
+    bottom: auto;
+    flex-shrink: 0;
+    margin: 0 -18px -18px;
+    position: relative;
+    width: auto;
+  }
+}
+
+@media (min-width: 1024px) and (max-width: 1199px) {
+  .map-control-stack {
+    right: calc(var(--cloud-editor-width) + 26px);
+  }
+
+  .map-style-trigger {
+    min-width: 78px;
+  }
+}
+
+@media (max-width: 1023px) {
+  .cartographer-map-layer {
+    grid-column: 1;
+  }
+
+  .map-control-stack {
+    align-self: end;
+    bottom: auto;
+    grid-column: 1;
+    grid-row: 2;
+    justify-self: end;
+    margin: 0 16px 16px 0;
+    position: relative;
+    right: auto;
+    top: auto;
+  }
+}
+
+@media (max-width: 639px) {
+  .map-control-stack {
+    margin: 0 8px 8px 0;
   }
 }

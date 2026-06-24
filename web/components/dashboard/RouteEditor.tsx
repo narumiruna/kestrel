@@ -277,262 +277,266 @@ export default function RouteEditor({
           </div>
         </header>
       )}
-      {error == null ? null : <div className="error route-editor-error">{error}</div>}
+      <div className="route-editor-content">
+        {error == null ? null : <div className="error route-editor-error">{error}</div>}
 
-      <section className="route-editor-section route-summary-section">
-        <div className="route-section-heading">
-          <div className="route-section-title">
-            <h3>Route summary</h3>
-            <span className="chip rev-chip">{revisionLabel}</span>
+        <section className="route-editor-section route-summary-section">
+          <div className="route-section-heading">
+            <div className="route-section-title">
+              <h3>Route summary</h3>
+              <span className="chip rev-chip">{revisionLabel}</span>
+            </div>
+            <RouteRemoteControlAction
+              mode={mode}
+              route={route}
+              speedKmh={Number(defaultSpeedKmh)}
+              waypoints={waypoints}
+            />
           </div>
-          <RouteRemoteControlAction
-            mode={mode}
-            route={route}
-            speedKmh={Number(defaultSpeedKmh)}
-            waypoints={waypoints}
-          />
-        </div>
-        <div className="route-mode-hint">
-          <InfoIcon />
-          <span>{routeBuilderHint}</span>
-        </div>
-        <div className="route-summary-grid">
-          <span>
-            <small>Waypoints</small>
-            <strong>{waypoints.length}</strong>
-          </span>
-          <span>
-            <small>Distance</small>
-            <strong>{distanceLabel}</strong>
-          </span>
-          <span>
-            <small>Speed</small>
-            <strong>{defaultSpeedKmh || '—'} km/h</strong>
-          </span>
-          <span>
-            <small>Mode</small>
-            <strong>{formatMode(mode)}</strong>
-          </span>
-        </div>
-      </section>
+          <div className="route-mode-hint">
+            <InfoIcon />
+            <span>{routeBuilderHint}</span>
+          </div>
+          <div className="route-summary-grid">
+            <span>
+              <small>Waypoints</small>
+              <strong>{waypoints.length}</strong>
+            </span>
+            <span>
+              <small>Distance</small>
+              <strong>{distanceLabel}</strong>
+            </span>
+            <span>
+              <small>Speed</small>
+              <strong>{defaultSpeedKmh || '—'} km/h</strong>
+            </span>
+            <span>
+              <small>Mode</small>
+              <strong>{formatMode(mode)}</strong>
+            </span>
+          </div>
+        </section>
 
-      <details
-        className="route-editor-section route-editor-collapsible route-editor-details-section"
-        open
-      >
-        <summary>
-          <span>Route settings</span>
-          <span className="muted">Name, speed, and playback</span>
-        </summary>
-        <div className="route-editor-collapsible-content">
-          <label className="route-title-field">
-            Name
-            <input required value={name} onChange={(event) => setName(event.target.value)} />
-          </label>
-          <div className="split">
+        <details
+          className="route-editor-section route-editor-collapsible route-editor-details-section"
+          open
+        >
+          <summary>
+            <span>Route settings</span>
+            <span className="muted">Name, speed, and playback</span>
+          </summary>
+          <div className="route-editor-collapsible-content">
+            <label className="route-title-field">
+              Name
+              <input required value={name} onChange={(event) => setName(event.target.value)} />
+            </label>
+            <div className="split">
+              <label>
+                Default speed (km/h)
+                <input
+                  required
+                  inputMode="decimal"
+                  value={defaultSpeedKmh}
+                  onChange={(event) => setDefaultSpeedKmh(event.target.value)}
+                />
+              </label>
+              <label>
+                Playback mode
+                <select value={mode} onChange={(event) => setMode(event.target.value as RouteMode)}>
+                  <option value="ONCE">Once</option>
+                  <option value="LOOP">Loop</option>
+                  <option value="PING_PONG">PingPong</option>
+                </select>
+              </label>
+            </div>
             <label>
-              Default speed (km/h)
-              <input
-                required
-                inputMode="decimal"
-                value={defaultSpeedKmh}
-                onChange={(event) => setDefaultSpeedKmh(event.target.value)}
+              Description (optional)
+              <textarea
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
               />
             </label>
-            <label>
-              Playback mode
-              <select value={mode} onChange={(event) => setMode(event.target.value as RouteMode)}>
-                <option value="ONCE">Once</option>
-                <option value="LOOP">Loop</option>
-                <option value="PING_PONG">PingPong</option>
-              </select>
-            </label>
           </div>
-          <label>
-            Description (optional)
-            <textarea
-              value={description}
-              onChange={(event) => setDescription(event.target.value)}
-            />
-          </label>
-        </div>
-      </details>
+        </details>
 
-      <details
-        className="route-editor-section route-editor-collapsible route-editor-map-section"
-        open={waypoints.length === 0}
-      >
-        <summary>
-          <span>Add waypoints</span>
-          <span className="muted">Map clicks or favorites</span>
-        </summary>
-        <div className="route-editor-collapsible-content">
-          {isBackgroundMapMode ? null : (
-            <>
-              <div>
-                <h3>Route builder</h3>
-                <p className="muted">Add pins on the map or pick from favorites.</p>
-              </div>
-              <div className="route-builder-hint">
-                <InfoIcon />
-                {routeBuilderHint}
-              </div>
-            </>
-          )}
-          {mapMode === 'embedded' ? (
-            <>
-              <div className="map-builder">
-                <RouteMapEditor
-                  fitRequest={fitRequest}
-                  focusTarget={focusTarget}
-                  selectedWaypointIndex={selectedWaypointIndex}
-                  waypoints={waypoints}
-                  onChange={setWaypoints}
-                  onSelectWaypoint={setSelectedWaypointIndex}
-                />
-                <div className="map-instruction">
-                  Click map to add waypoint · Drag markers to adjust
+        <details
+          className="route-editor-section route-editor-collapsible route-editor-map-section"
+          open={waypoints.length === 0}
+        >
+          <summary>
+            <span>Add waypoints</span>
+            <span className="muted">Map clicks or favorites</span>
+          </summary>
+          <div className="route-editor-collapsible-content">
+            {isBackgroundMapMode ? null : (
+              <>
+                <div>
+                  <h3>Route builder</h3>
+                  <p className="muted">Add pins on the map or pick from favorites.</p>
                 </div>
-              </div>
-              <div className="map-action-row">
-                <button
-                  className="secondary"
-                  disabled={waypoints.length === 0}
-                  title="Auto-frame the map to show all waypoints"
-                  type="button"
-                  onClick={() => setFitRequest((currentRequest) => currentRequest + 1)}
-                >
-                  Fit route
-                </button>
-                <span className="muted">Use Waypoints below to review, reorder, or edit pins.</span>
-              </div>
-            </>
-          ) : null}
-
-          <FavoriteWaypointPicker
-            mode={favoritePickerMode}
-            places={places}
-            onSelect={addFavoriteWaypoint}
-          />
-        </div>
-      </details>
-
-      <details
-        className="route-editor-section route-editor-collapsible route-editor-waypoints-section"
-        open={waypoints.length > 0}
-      >
-        <summary>
-          <span>Waypoints ({waypoints.length})</span>
-          <span className="muted">{formatWaypointSummary(waypoints, places)}</span>
-        </summary>
-        <div className="route-editor-collapsible-content">
-          {waypoints.length === 0 ? (
-            <div className="waypoint-empty-state">
-              <MapPinIcon />
-              <strong>No waypoints yet</strong>
-              <span className="muted">
-                Click the map to add your first waypoint, or pick from favorites above.
-              </span>
-            </div>
-          ) : (
-            <ul className="waypoint-list" aria-label="Route waypoints">
-              {waypoints.map((waypoint, index) => {
-                const waypointName = formatWaypointName(waypoint, places, `Pin ${index + 1}`);
-
-                const waypointRowClassName = [
-                  'waypoint-row',
-                  selectedWaypointIndex === index ? 'selected' : '',
-                  draggedWaypointIndex === index ? 'is-dragging' : '',
-                  dragOverWaypointIndex === index && draggedWaypointIndex !== index
-                    ? 'is-drop-target'
-                    : '',
-                ]
-                  .filter(Boolean)
-                  .join(' ');
-
-                return (
-                  <li
-                    className={waypointRowClassName}
-                    draggable
-                    key={getWaypointKey(waypoint, index)}
-                    onDragEnd={() => {
-                      setDraggedWaypointIndex(null);
-                      setDragOverWaypointIndex(null);
-                    }}
-                    onDragEnter={() => setDragOverWaypointIndex(index)}
-                    onDragOver={(event) => event.preventDefault()}
-                    onDragStart={(event) => {
-                      setDraggedWaypointIndex(index);
-                      event.dataTransfer.effectAllowed = 'move';
-                      event.dataTransfer.setData('text/plain', String(index));
-                    }}
-                    onDrop={(event) => {
-                      event.preventDefault();
-                      const fromIndex = Number(event.dataTransfer.getData('text/plain'));
-
-                      if (Number.isInteger(fromIndex) && fromIndex !== index) {
-                        moveWaypoint(waypoints, setWaypoints, fromIndex, index);
-                        setSelectedWaypointIndex(index);
-                      }
-
-                      setDraggedWaypointIndex(null);
-                      setDragOverWaypointIndex(null);
-                    }}
+                <div className="route-builder-hint">
+                  <InfoIcon />
+                  {routeBuilderHint}
+                </div>
+              </>
+            )}
+            {mapMode === 'embedded' ? (
+              <>
+                <div className="map-builder">
+                  <RouteMapEditor
+                    fitRequest={fitRequest}
+                    focusTarget={focusTarget}
+                    selectedWaypointIndex={selectedWaypointIndex}
+                    waypoints={waypoints}
+                    onChange={setWaypoints}
+                    onSelectWaypoint={setSelectedWaypointIndex}
+                  />
+                  <div className="map-instruction">
+                    Click map to add waypoint · Drag markers to adjust
+                  </div>
+                </div>
+                <div className="map-action-row">
+                  <button
+                    className="secondary"
+                    disabled={waypoints.length === 0}
+                    title="Auto-frame the map to show all waypoints"
+                    type="button"
+                    onClick={() => setFitRequest((currentRequest) => currentRequest + 1)}
                   >
-                    <button
-                      className="waypoint-focus"
-                      type="button"
-                      onClick={() => focusWaypoint(waypoint, index)}
+                    Fit route
+                  </button>
+                  <span className="muted">
+                    Use Waypoints below to review, reorder, or edit pins.
+                  </span>
+                </div>
+              </>
+            ) : null}
+
+            <FavoriteWaypointPicker
+              mode={favoritePickerMode}
+              places={places}
+              onSelect={addFavoriteWaypoint}
+            />
+          </div>
+        </details>
+
+        <details
+          className="route-editor-section route-editor-collapsible route-editor-waypoints-section"
+          open={waypoints.length > 0}
+        >
+          <summary>
+            <span>Waypoints ({waypoints.length})</span>
+            <span className="muted">{formatWaypointSummary(waypoints, places)}</span>
+          </summary>
+          <div className="route-editor-collapsible-content">
+            {waypoints.length === 0 ? (
+              <div className="waypoint-empty-state">
+                <MapPinIcon />
+                <strong>No waypoints yet</strong>
+                <span className="muted">
+                  Click the map to add your first waypoint, or pick from favorites above.
+                </span>
+              </div>
+            ) : (
+              <ul className="waypoint-list" aria-label="Route waypoints">
+                {waypoints.map((waypoint, index) => {
+                  const waypointName = formatWaypointName(waypoint, places, `Pin ${index + 1}`);
+
+                  const waypointRowClassName = [
+                    'waypoint-row',
+                    selectedWaypointIndex === index ? 'selected' : '',
+                    draggedWaypointIndex === index ? 'is-dragging' : '',
+                    dragOverWaypointIndex === index && draggedWaypointIndex !== index
+                      ? 'is-drop-target'
+                      : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ');
+
+                  return (
+                    <li
+                      className={waypointRowClassName}
+                      draggable
+                      key={getWaypointKey(waypoint, index)}
+                      onDragEnd={() => {
+                        setDraggedWaypointIndex(null);
+                        setDragOverWaypointIndex(null);
+                      }}
+                      onDragEnter={() => setDragOverWaypointIndex(index)}
+                      onDragOver={(event) => event.preventDefault()}
+                      onDragStart={(event) => {
+                        setDraggedWaypointIndex(index);
+                        event.dataTransfer.effectAllowed = 'move';
+                        event.dataTransfer.setData('text/plain', String(index));
+                      }}
+                      onDrop={(event) => {
+                        event.preventDefault();
+                        const fromIndex = Number(event.dataTransfer.getData('text/plain'));
+
+                        if (Number.isInteger(fromIndex) && fromIndex !== index) {
+                          moveWaypoint(waypoints, setWaypoints, fromIndex, index);
+                          setSelectedWaypointIndex(index);
+                        }
+
+                        setDraggedWaypointIndex(null);
+                        setDragOverWaypointIndex(null);
+                      }}
                     >
-                      <span className="waypoint-grip" title="Drag to reorder">
-                        <GripVerticalIcon />
-                      </span>
-                      <span className={getWaypointBadgeClassName(index, waypoints.length)}>
-                        {index === waypoints.length - 1 && waypoints.length > 1 ? (
-                          <FlagIcon />
-                        ) : (
-                          index + 1
-                        )}
-                      </span>
-                      <span className="waypoint-name" title={waypointName}>
-                        {waypointName}
-                      </span>
-                      <span className="waypoint-coordinates mono">
-                        {formatWaypointCoords(waypoint)}
-                      </span>
-                    </button>
-                    <details className="waypoint-menu">
-                      <summary aria-label={`More options for ${waypointName}`}>
-                        <MoreHorizontalIcon />
-                      </summary>
-                      <div className="waypoint-menu-content">
-                        <button type="button" onClick={() => removeWaypoint(index)}>
-                          Remove from route
-                        </button>
-                        <button type="button" onClick={() => insertWaypointAfter(index)}>
-                          Insert pin after
-                        </button>
-                        <button type="button" onClick={() => editWaypointCoordinates(index)}>
-                          Edit coordinates
-                        </button>
-                      </div>
-                    </details>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-          <button
-            className="secondary button-icon-label"
-            disabled={waypoints.length === 0}
-            type="button"
-            onClick={duplicateLastWaypoint}
-          >
-            <PlusIcon />
-            Duplicate last waypoint
-          </button>
-        </div>
-      </details>
+                      <button
+                        className="waypoint-focus"
+                        type="button"
+                        onClick={() => focusWaypoint(waypoint, index)}
+                      >
+                        <span className="waypoint-grip" title="Drag to reorder">
+                          <GripVerticalIcon />
+                        </span>
+                        <span className={getWaypointBadgeClassName(index, waypoints.length)}>
+                          {index === waypoints.length - 1 && waypoints.length > 1 ? (
+                            <FlagIcon />
+                          ) : (
+                            index + 1
+                          )}
+                        </span>
+                        <span className="waypoint-name" title={waypointName}>
+                          {waypointName}
+                        </span>
+                        <span className="waypoint-coordinates mono">
+                          {formatWaypointCoords(waypoint)}
+                        </span>
+                      </button>
+                      <details className="waypoint-menu">
+                        <summary aria-label={`More options for ${waypointName}`}>
+                          <MoreHorizontalIcon />
+                        </summary>
+                        <div className="waypoint-menu-content">
+                          <button type="button" onClick={() => removeWaypoint(index)}>
+                            Remove from route
+                          </button>
+                          <button type="button" onClick={() => insertWaypointAfter(index)}>
+                            Insert pin after
+                          </button>
+                          <button type="button" onClick={() => editWaypointCoordinates(index)}>
+                            Edit coordinates
+                          </button>
+                        </div>
+                      </details>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+            <button
+              className="secondary button-icon-label"
+              disabled={waypoints.length === 0}
+              type="button"
+              onClick={duplicateLastWaypoint}
+            >
+              <PlusIcon />
+              Duplicate last waypoint
+            </button>
+          </div>
+        </details>
+      </div>
 
       <footer className="route-editor-footer">
         <div className="route-editor-footer-actions">
