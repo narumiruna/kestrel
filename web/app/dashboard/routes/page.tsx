@@ -187,10 +187,15 @@ export default function RoutesDashboardPage() {
         onChangePassword={changePassword}
         onLogout={auth.logout}
       />
+      <div className="route-mode-bar" role="status">
+        <strong>Editing route</strong>
+        <span>Click map to add waypoint</span>
+        <span>Drag pins to adjust; drag rows to reorder</span>
+      </div>
       <FieldNotebook
         activeSection="routes"
         newLabel="New route"
-        searchPlaceholder="Find a route"
+        searchPlaceholder="Search routes..."
         searchRef={searchRef}
         searchValue={routeQuery}
         onNewEntry={createNewRoute}
@@ -205,14 +210,27 @@ export default function RoutesDashboardPage() {
             onClick={() => setSelectedRouteId(route.id)}
           >
             <span className="route-card-title-row">
-              <strong>{route.name}</strong>
-              {route.isPublic ? <span className="route-card-status">public</span> : null}
+              <strong className="route-card-title">{route.name}</strong>
+              <span className="route-card-badges">
+                {route.isPublic ? <span className="route-card-status">Public</span> : null}
+                <span className="route-card-rev">
+                  Revision {route.currentRevision?.revisionNumber ?? '—'}
+                </span>
+              </span>
             </span>
-            <span className="font-mono">
-              {formatRouteDistance(route)} · {route.defaultSpeedKmh} km/h · {formatMode(route.mode)}
-            </span>
-            <span className="route-card-rev font-mono">
-              rev {route.currentRevision?.revisionNumber ?? '—'}
+            <span className="route-card-metrics">
+              <span>
+                <small>Distance</small>
+                <strong>{formatRouteDistance(route)}</strong>
+              </span>
+              <span>
+                <small>Speed</small>
+                <strong>{route.defaultSpeedKmh} km/h</strong>
+              </span>
+              <span>
+                <small>Mode</small>
+                <strong>{formatMode(route.mode)}</strong>
+              </span>
             </span>
           </button>
         ))}
@@ -234,13 +252,12 @@ export default function RoutesDashboardPage() {
         }
         stamp={
           selectedRoute == null
-            ? 'draft route'
-            : `revision ${selectedRoute.currentRevision?.revisionNumber ?? '—'}`
+            ? 'Draft route'
+            : `Revision ${selectedRoute.currentRevision?.revisionNumber ?? '—'}`
         }
         subtitle="Build the path, tune playback, and publish the latest route when ready."
         title={selectedRoute?.name ?? 'New route'}
         variant="route"
-        meta={<RouteMeta route={selectedRoute} />}
       >
         <RouteEditor
           key={selectedRoute?.id ?? 'new-route'}
@@ -264,30 +281,6 @@ export default function RoutesDashboardPage() {
       <ScaleBar />
       <KeyboardCheatsheet isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
     </Stage>
-  );
-}
-
-function RouteMeta({ route }: { route: Route | null }) {
-  if (route == null) {
-    return (
-      <div className="index-card-coordinate-grid font-mono">
-        <span>0 waypoints</span>
-        <span>draft</span>
-      </div>
-    );
-  }
-
-  const waypointCount = route.currentRevision?.waypoints.length ?? 0;
-
-  return (
-    <div className="index-card-coordinate-grid font-mono">
-      <span>
-        {waypointCount} waypoint{waypointCount === 1 ? '' : 's'}
-      </span>
-      <span>{formatRouteDistance(route)}</span>
-      <span>{route.defaultSpeedKmh} km/h</span>
-      <span>{formatMode(route.mode)}</span>
-    </div>
   );
 }
 

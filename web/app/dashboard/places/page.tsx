@@ -197,7 +197,7 @@ export default function PlacesDashboardPage() {
       <FieldNotebook
         activeSection="places"
         newLabel="New place"
-        searchPlaceholder="Find a place"
+        searchPlaceholder="Search places..."
         searchRef={searchRef}
         searchValue={placeQuery}
         onNewEntry={createNewPlace}
