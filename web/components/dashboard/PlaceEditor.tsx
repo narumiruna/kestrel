@@ -1,9 +1,8 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { type FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '@/components/AuthProvider';
-import { PlaceRemoteControlPanel } from '@/components/dashboard/RemoteControlPanel';
 import {
   formatError,
   normalizeNullable,
@@ -43,6 +42,8 @@ export default function PlaceEditor({
   const [tags, setTags] = useState(place?.tags.join(', ') ?? '');
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
+  const shareDialogRef = useRef<HTMLDialogElement | null>(null);
 
   const mapCoords = useMemo(
     () => ({
@@ -66,6 +67,23 @@ export default function PlaceEditor({
     setLatitude(formatCoordinateInput(draftCoords.latitude));
     setLongitude(formatCoordinateInput(draftCoords.longitude));
   }, [draftCoords]);
+
+  useEffect(() => {
+    const dialog = shareDialogRef.current;
+
+    if (dialog == null) {
+      return;
+    }
+
+    if (isShareDialogOpen && !dialog.open) {
+      dialog.showModal();
+      return;
+    }
+
+    if (!isShareDialogOpen && dialog.open) {
+      dialog.close();
+    }
+  }, [isShareDialogOpen]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -153,28 +171,56 @@ export default function PlaceEditor({
           Description
           <textarea value={description} onChange={(event) => setDescription(event.target.value)} />
         </label>
-        <PlaceRemoteControlPanel place={place} />
-        <details className="route-editor-section route-editor-collapsible route-editor-secondary-section place-editor-share-section">
-          <summary>
-            <span>Publishing / share</span>
-            <span className="muted">Public link settings</span>
-          </summary>
-          <div className="route-editor-collapsible-content">
-            <PlaceSharePanel place={place} />
-          </div>
-        </details>
       </div>
       <footer className="route-editor-footer place-editor-footer">
-        <div className="row">
-          {onDelete == null ? null : (
-            <button className="danger" disabled={isSaving} type="button" onClick={confirmDelete}>
-              Delete
+        <div className="place-editor-footer-actions">
+          <div className="place-editor-danger-actions">
+            {onDelete == null ? null : (
+              <button className="danger" disabled={isSaving} type="button" onClick={confirmDelete}>
+                Delete
+              </button>
+            )}
+          </div>
+          <div className="place-editor-save-actions">
+            <button
+              aria-haspopup="dialog"
+              className="secondary"
+              type="button"
+              onClick={() => setIsShareDialogOpen(true)}
+            >
+              Share
             </button>
-          )}
-          <button disabled={isSaving} type="submit">
-            {isSaving ? 'Saving…' : 'Save place'}
-          </button>
+            <button disabled={isSaving} type="submit">
+              {isSaving ? 'Saving…' : 'Save place'}
+            </button>
+          </div>
         </div>
+        <dialog
+          aria-labelledby="place-share-dialog-title"
+          className="place-action-dialog"
+          ref={shareDialogRef}
+          onCancel={() => setIsShareDialogOpen(false)}
+          onClose={() => setIsShareDialogOpen(false)}
+        >
+          <div className="place-action-dialog-card">
+            <header>
+              <div>
+                <p className="field-kicker font-mono">secondary action</p>
+                <h3 className="font-serif" id="place-share-dialog-title">
+                  Share place
+                </h3>
+              </div>
+              <button
+                className="secondary"
+                type="button"
+                onClick={() => setIsShareDialogOpen(false)}
+              >
+                Close
+              </button>
+            </header>
+            <PlaceSharePanel place={place} />
+          </div>
+        </dialog>
       </footer>
     </form>
   );
@@ -293,6 +339,10 @@ function PlaceSharePanel({ place }: { place: Place | null }) {
       <p className="muted no-margin">
         Visitors can open the public page without login. Signed-in users can copy this place into
         their own library.
+      </p>
+      <p className="muted no-margin">
+        Public link:{' '}
+        {shareLink == null ? 'Not created' : shareLink.disabledAt == null ? 'Active' : 'Disabled'}
       </p>
       {error == null ? null : <div className="error">{error}</div>}
       {notice == null ? null : <div className="success">{notice}</div>}

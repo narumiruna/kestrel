@@ -5921,11 +5921,19 @@ button.is-loading {
   padding: 16px;
 }
 
-.route-section-heading {
+.route-section-heading,
+.route-section-title {
   align-items: center;
   display: flex;
   gap: 10px;
+}
+
+.route-section-heading {
   justify-content: space-between;
+}
+
+.route-section-title {
+  min-width: 0;
 }
 
 .route-section-heading h3 {
@@ -5969,20 +5977,26 @@ button.is-loading {
   gap: 10px;
 }
 
-.route-save-actions {
-  display: grid;
+.route-editor-footer-actions,
+.route-editor-save-buttons {
+  align-items: center;
+  display: flex;
   gap: 8px;
 }
 
-.route-save-actions button[type="submit"] {
-  width: 100%;
+.route-editor-footer-actions {
+  justify-content: space-between;
+}
+
+.route-save-actions {
+  display: grid;
+  gap: 8px;
+  justify-items: end;
 }
 
 .route-danger-zone {
-  border-top: 1px solid var(--cloud-border-soft, var(--border));
   display: flex;
-  justify-content: flex-end;
-  padding-top: 8px;
+  min-width: 0;
 }
 
 .route-danger-zone .danger {
@@ -6024,7 +6038,27 @@ button.is-loading {
   opacity: 1;
 }
 
-/* Keep place actions reachable when accordions expand. */
+/* Keep place actions reachable while secondary tools live in dialogs. */
+.index-card-actions {
+  align-items: flex-start;
+  display: flex;
+  flex-shrink: 0;
+  gap: 8px;
+}
+
+.device-action-button {
+  display: grid;
+  gap: 2px;
+  justify-items: start;
+  min-width: 96px;
+  padding-block: 7px;
+}
+
+.device-action-button .muted {
+  font-size: 12px;
+  line-height: 1.1;
+}
+
 .index-card .place-editor-embedded {
   display: flex;
   flex-direction: column;
@@ -6054,8 +6088,84 @@ button.is-loading {
   z-index: 45;
 }
 
-.index-card .place-editor-footer .row {
+.place-editor-footer-actions,
+.place-editor-save-actions {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.place-editor-footer-actions {
   justify-content: space-between;
+}
+
+.place-editor-save-actions {
+  justify-content: flex-end;
+}
+
+.place-editor-danger-actions {
+  min-width: 0;
+}
+
+.place-action-dialog {
+  background: transparent;
+  border: 0;
+  color: var(--text-primary);
+  max-width: min(520px, calc(100vw - 32px));
+  padding: 0;
+  width: 100%;
+}
+
+.place-action-dialog::backdrop {
+  background: rgb(34 24 15 / 35%);
+}
+
+.place-action-dialog-card {
+  background: var(--paper-card);
+  border: 1px solid var(--border-strong);
+  border-radius: 18px;
+  box-shadow: 0 12px 40px rgb(34 24 15 / 20%);
+  display: grid;
+  gap: 16px;
+  padding: 22px;
+}
+
+.place-action-dialog-card header {
+  align-items: start;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  padding-bottom: 14px;
+}
+
+.place-action-dialog-card h3,
+.place-action-dialog-card p {
+  margin: 0;
+}
+
+.place-action-dialog-content {
+  display: grid;
+  gap: 0.85rem;
+}
+
+@media (min-width: 1024px) {
+  .index-card-place {
+    bottom: auto;
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100dvh - var(--cloud-topbar-height) - 32px);
+  }
+
+  .index-card.index-card-place .index-card-body {
+    display: flex;
+    flex: 1 1 auto;
+  }
+
+  .index-card.index-card-place .place-editor-embedded {
+    flex: 1 1 auto;
+    height: auto;
+  }
 }
 
 @media (max-width: 1023px) {

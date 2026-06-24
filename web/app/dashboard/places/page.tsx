@@ -12,6 +12,7 @@ import { StatusStrip } from '@/components/cartographer/StatusStrip';
 import { UserMark } from '@/components/cartographer/UserMark';
 import { useKeyboardShortcuts } from '@/components/cartographer/useKeyboardShortcuts';
 import PlaceEditor from '@/components/dashboard/PlaceEditor';
+import { PlaceRemoteControlAction } from '@/components/dashboard/RemoteControlPanel';
 import { useDashboardAuth } from '@/components/dashboard/useDashboardAuth';
 import { formatCoord, formatError } from '@/components/dashboard/utils';
 import { DEFAULT_MAP_CENTER } from '@/components/mapStyle';
@@ -229,6 +230,9 @@ export default function PlacesDashboardPage() {
         ) : null}
       </FieldNotebook>
       <IndexCard
+        actions={
+          <PlaceRemoteControlAction key={selectedPlace?.id ?? 'new-place'} place={selectedPlace} />
+        }
         eyebrow={
           <span>
             Places / <span>{selectedPlace?.name ?? 'New place'}</span>
