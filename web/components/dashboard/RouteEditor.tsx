@@ -8,6 +8,7 @@ import { RouteRemoteControlPanel } from '@/components/dashboard/RemoteControlPan
 import {
   formatError,
   formatMode,
+  formatRouteDistanceFromWaypoints,
   normalizeNullable,
   parseNumber,
   toAbsolutePublicUrl,
@@ -83,7 +84,7 @@ export default function RouteEditor({
   const favoritePickerMode = waypoints.length === 0 ? 'start' : 'append';
   const revisionLabel =
     route?.currentRevision == null ? 'Draft' : `Revision ${route.currentRevision.revisionNumber}`;
-  const distanceLabel = formatWaypointsDistance(waypoints);
+  const distanceLabel = useMemo(() => formatRouteDistanceFromWaypoints(waypoints), [waypoints]);
 
   const setSelectedWaypointIndex = useCallback(
     (nextIndex: number | null) => {
@@ -690,33 +691,6 @@ function formatFavoritePlaceCoords(place: Place): string {
 
 function getWaypointKey(waypoint: RouteWaypoint, index: number): string {
   return `${waypoint.sequence ?? index}-${waypoint.latitude}-${waypoint.longitude}`;
-}
-
-function formatWaypointsDistance(waypoints: RouteWaypoint[]): string {
-  const distanceKm = waypoints.slice(1).reduce((totalDistance, waypoint, index) => {
-    const previousWaypoint = waypoints[index];
-
-    return totalDistance + getDistanceKm(previousWaypoint, waypoint);
-  }, 0);
-
-  return distanceKm < 10 ? `${distanceKm.toFixed(1)} km` : `${Math.round(distanceKm)} km`;
-}
-
-function getDistanceKm(from: RouteWaypoint, to: RouteWaypoint): number {
-  const earthRadiusKm = 6371;
-  const deltaLatitude = toRadians(to.latitude - from.latitude);
-  const deltaLongitude = toRadians(to.longitude - from.longitude);
-  const fromLatitude = toRadians(from.latitude);
-  const toLatitude = toRadians(to.latitude);
-  const haversine =
-    Math.sin(deltaLatitude / 2) ** 2 +
-    Math.cos(fromLatitude) * Math.cos(toLatitude) * Math.sin(deltaLongitude / 2) ** 2;
-
-  return 2 * earthRadiusKm * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
-}
-
-function toRadians(degrees: number): number {
-  return (degrees * Math.PI) / 180;
 }
 
 function formatWaypointSummary(waypoints: RouteWaypoint[], places: Place[]): string {
