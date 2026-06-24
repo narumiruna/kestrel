@@ -6154,7 +6154,8 @@ button.is-loading {
     bottom: auto;
     display: flex;
     flex-direction: column;
-    max-height: calc(100dvh - var(--cloud-topbar-height) - 32px);
+    max-height: min(calc(100dvh - 24px), calc(100dvh - var(--cloud-topbar-height) - 32px));
+    overflow: hidden;
   }
 
   .index-card.index-card-place .index-card-body {
@@ -6166,23 +6167,51 @@ button.is-loading {
     flex: 1 1 auto;
     height: auto;
   }
+
+  .index-card.index-card-place .place-editor-footer {
+    bottom: auto;
+    margin: 0;
+    padding: 12px 0 max(12px, env(safe-area-inset-bottom));
+    position: relative;
+    width: 100%;
+  }
 }
 
 @media (max-width: 1023px) {
-  .index-card .place-editor-embedded {
+  .index-card-place {
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100dvh - 24px);
+    overflow: hidden;
+  }
+
+  .index-card.index-card-place .index-card-body {
+    display: flex;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .index-card.index-card-place .place-editor-embedded {
+    flex: 1 1 auto;
     height: auto;
-    overflow: visible;
+    min-height: 0;
+    overflow: hidden;
   }
 
-  .place-editor-content {
-    overflow: visible;
+  .index-card.index-card-place .place-editor-content {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
   }
 
-  .index-card .place-editor-footer {
-    bottom: 0;
-    margin-inline: -14px;
-    padding: 12px 14px;
-    position: sticky;
+  .index-card.index-card-place .place-editor-footer {
+    bottom: auto;
+    margin: 0;
+    padding: 12px 0 max(12px, env(safe-area-inset-bottom));
+    position: relative;
+    width: 100%;
   }
 }
 
@@ -6195,7 +6224,7 @@ button.is-loading {
     right: calc(var(--cloud-editor-width) + 32px);
   }
 
-  .index-card .route-editor {
+  .index-card-route .route-editor {
     display: flex;
     flex-direction: column;
     gap: 0;
@@ -6203,7 +6232,7 @@ button.is-loading {
     scrollbar-gutter: auto;
   }
 
-  .index-card .route-editor-content {
+  .index-card-route .route-editor-content {
     display: grid;
     flex: 1 1 auto;
     gap: 14px;
@@ -6214,7 +6243,7 @@ button.is-loading {
     scrollbar-gutter: stable;
   }
 
-  .index-card .route-editor-footer {
+  .index-card-route .route-editor-footer {
     bottom: auto;
     flex-shrink: 0;
     margin: 0 -18px -18px;
