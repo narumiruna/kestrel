@@ -6149,6 +6149,25 @@ button.is-loading {
   gap: 0.85rem;
 }
 
+@media (min-width: 1024px) {
+  .index-card-place {
+    bottom: auto;
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100dvh - var(--cloud-topbar-height) - 32px);
+  }
+
+  .index-card.index-card-place .index-card-body {
+    display: flex;
+    flex: 1 1 auto;
+  }
+
+  .index-card.index-card-place .place-editor-embedded {
+    flex: 1 1 auto;
+    height: auto;
+  }
+}
+
 @media (max-width: 1023px) {
   .index-card .place-editor-embedded {
     height: auto;
