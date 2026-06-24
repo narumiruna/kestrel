@@ -5715,6 +5715,11 @@ button.is-loading {
 /* Sidebar and route editor hierarchy pass */
 .field-notebook {
   gap: 10px;
+  grid-template-rows: auto auto auto minmax(0, 1fr);
+}
+
+.notebook-list {
+  align-content: start;
 }
 
 .sidebar-tabs {
