@@ -5712,9 +5712,45 @@ button.is-loading {
   color: var(--accent-hover);
 }
 
-/* Route editor hierarchy pass */
+/* Sidebar and route editor hierarchy pass */
+.field-notebook {
+  gap: 10px;
+}
+
+.notebook-nav {
+  align-items: center;
+  background: var(--bg-subtle);
+  border: 1px solid var(--cloud-border-soft, var(--border));
+  border-radius: 12px;
+  display: grid;
+  gap: 4px;
+  grid-template-columns: 1fr 1fr;
+  padding: 3px;
+}
+
+.notebook-nav a {
+  align-items: center;
+  border-radius: 9px;
+  display: inline-flex;
+  justify-content: center;
+  min-height: 30px;
+  padding: 0 10px;
+}
+
+.notebook-nav a.active,
+.notebook-nav a:hover {
+  background: var(--bg-surface);
+  box-shadow: 0 1px 2px rgb(34 24 15 / 6%);
+  color: var(--accent-hover);
+}
+
 .notebook-search {
+  display: grid;
   gap: 0;
+}
+
+.notebook-search input {
+  min-height: 36px;
 }
 
 .route-mode-bar {
@@ -5759,12 +5795,13 @@ button.is-loading {
 }
 
 .route-notebook-entry {
-  gap: 8px;
-  padding-left: 14px;
+  gap: 4px;
+  min-height: 58px;
+  padding: 10px 12px 10px 14px;
 }
 
 .route-card-title-row {
-  align-items: flex-start;
+  align-items: center;
   display: flex;
   gap: 8px;
   justify-content: space-between;
@@ -5775,20 +5812,12 @@ button.is-loading {
   min-width: 0;
 }
 
-.route-card-badges {
-  display: flex;
-  flex-shrink: 0;
-  flex-wrap: wrap;
-  gap: 4px;
-  justify-content: flex-end;
-}
-
-.cartographer-stage .route-card-status,
-.cartographer-stage .route-card-rev {
+.cartographer-stage .route-card-status {
   background: rgb(180 95 50 / 10%);
   border: 1px solid rgb(180 95 50 / 24%);
   border-radius: 999px;
   color: var(--accent-hover);
+  flex-shrink: 0;
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.04em;
@@ -5797,13 +5826,29 @@ button.is-loading {
   text-transform: uppercase;
 }
 
-.route-card-metrics {
-  display: grid;
-  gap: 6px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+.route-card-meta-line,
+.route-card-selected-detail {
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.35;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.route-card-metrics > span,
+.route-card-meta-line {
+  white-space: nowrap;
+}
+
+.route-card-selected-detail {
+  background: var(--bg-subtle);
+  border: 1px solid var(--cloud-border-soft, var(--border));
+  border-radius: 9px;
+  margin-top: 2px;
+  padding: 5px 7px;
+  white-space: nowrap;
+}
+
 .route-summary-grid > span {
   background: var(--bg-surface);
   border: 1px solid var(--cloud-border-soft, var(--border));
@@ -5814,7 +5859,6 @@ button.is-loading {
   padding: 7px 8px;
 }
 
-.route-card-metrics small,
 .route-summary-grid small {
   color: var(--text-muted);
   font-size: 10px;
@@ -5823,7 +5867,6 @@ button.is-loading {
   text-transform: uppercase;
 }
 
-.route-card-metrics strong,
 .route-summary-grid strong {
   color: var(--text-primary);
   font-size: 12px;

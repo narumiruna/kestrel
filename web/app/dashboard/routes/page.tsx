@@ -211,27 +211,18 @@ export default function RoutesDashboardPage() {
           >
             <span className="route-card-title-row">
               <strong className="route-card-title">{route.name}</strong>
-              <span className="route-card-badges">
-                {route.isPublic ? <span className="route-card-status">Public</span> : null}
-                <span className="route-card-rev">
-                  Revision {route.currentRevision?.revisionNumber ?? '—'}
-                </span>
-              </span>
+              {route.isPublic ? <span className="route-card-status">Public</span> : null}
             </span>
-            <span className="route-card-metrics">
-              <span>
-                <small>Distance</small>
-                <strong>{formatRouteDistance(route)}</strong>
-              </span>
-              <span>
-                <small>Speed</small>
-                <strong>{route.defaultSpeedKmh} km/h</strong>
-              </span>
-              <span>
-                <small>Mode</small>
-                <strong>{formatMode(route.mode)}</strong>
-              </span>
+            <span className="route-card-meta-line">
+              {formatRouteDistance(route)} · {route.defaultSpeedKmh} km/h · {formatMode(route.mode)}
+              · Revision {route.currentRevision?.revisionNumber ?? '—'}
             </span>
+            {selectedRouteId === route.id ? (
+              <span className="route-card-selected-detail">
+                {(route.currentRevision?.waypoints.length ?? 0).toLocaleString()} waypoints
+                {route.description == null ? '' : ` · ${route.description}`}
+              </span>
+            ) : null}
           </button>
         ))}
         {filteredRoutes.length === 0 && !isLoading ? (
