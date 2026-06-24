@@ -23,6 +23,8 @@ type Props = {
   waypoints: RouteWaypoint[];
 };
 
+const COMPACT_MARKER_COUNT = 8;
+const COMPACT_MARKER_ZOOM = 13;
 const LINE_SOURCE_ID = 'route-line';
 const LINE_LAYER_ID = 'route-line';
 
@@ -81,7 +83,12 @@ export default function RouteMapEditor({
         onSelectWaypoint: onSelectWaypointRef.current,
         waypoints: waypointsRef.current,
       });
-      updateMarkerSelection(markersRef.current, selectedWaypointIndexRef.current);
+      updateMarkerDisplay(
+        markersRef.current,
+        selectedWaypointIndexRef.current,
+        map.getZoom(),
+        waypointsRef.current.length,
+      );
       fitWaypoints(map, waypointsRef.current);
       onReadyRef.current?.({
         fit: () => fitWaypoints(map, waypointsRef.current),
@@ -98,6 +105,14 @@ export default function RouteMapEditor({
         },
       ]);
       onSelectWaypointRef.current?.(waypointsRef.current.length);
+    });
+    map.on('zoom', () => {
+      updateMarkerDisplay(
+        markersRef.current,
+        selectedWaypointIndexRef.current,
+        map.getZoom(),
+        waypointsRef.current.length,
+      );
     });
 
     mapRef.current = map;
@@ -129,7 +144,12 @@ export default function RouteMapEditor({
         onSelectWaypoint,
         waypoints,
       });
-      updateMarkerSelection(markersRef.current, selectedWaypointIndexRef.current);
+      updateMarkerDisplay(
+        markersRef.current,
+        selectedWaypointIndexRef.current,
+        map.getZoom(),
+        waypoints.length,
+      );
     };
 
     if (map.isStyleLoaded()) {
@@ -140,8 +160,19 @@ export default function RouteMapEditor({
   }, [onChange, onSelectWaypoint, waypoints]);
 
   useEffect(() => {
-    updateMarkerSelection(markersRef.current, selectedWaypointIndex);
-  }, [selectedWaypointIndex]);
+    const map = mapRef.current;
+
+    if (map == null) {
+      return;
+    }
+
+    updateMarkerDisplay(
+      markersRef.current,
+      selectedWaypointIndex,
+      map.getZoom(),
+      waypoints.length,
+    );
+  }, [selectedWaypointIndex, waypoints.length]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -189,7 +220,12 @@ export default function RouteMapEditor({
         onSelectWaypoint: onSelectWaypointRef.current,
         waypoints: waypointsRef.current,
       });
-      updateMarkerSelection(markersRef.current, selectedWaypointIndexRef.current);
+      updateMarkerDisplay(
+        markersRef.current,
+        selectedWaypointIndexRef.current,
+        map.getZoom(),
+        waypointsRef.current.length,
+      );
       map.jumpTo({ bearing, center, pitch, zoom });
     });
   }, [styleName]);
@@ -254,29 +290,39 @@ function syncMarkers({
 
 function createMarkerElement({ index, waypointCount }: { index: number; waypointCount: number }) {
   const element = document.createElement('button');
+  const label = getWaypointShortLabel(index);
   const positionClass = getWaypointMarkerPositionClass(index, waypointCount);
   element.className = `route-marker ${positionClass}`;
-  element.textContent = getWaypointShortLabel(index, waypointCount);
+  element.dataset.label = label;
+  element.textContent = label;
   element.type = 'button';
+  element.setAttribute('aria-label', `Waypoint ${label}`);
 
   return element;
 }
 
-function updateMarkerSelection(markers: Marker[], selectedWaypointIndex: number | null) {
+function updateMarkerDisplay(
+  markers: Marker[],
+  selectedWaypointIndex: number | null,
+  zoom: number,
+  waypointCount: number,
+) {
+  const useCompactMarkers = waypointCount >= COMPACT_MARKER_COUNT && zoom < COMPACT_MARKER_ZOOM;
+
   markers.forEach((marker, index) => {
-    marker.getElement().classList.toggle('selected', selectedWaypointIndex === index);
+    const element = marker.getElement();
+    const isSelected = selectedWaypointIndex === index;
+    const isTerminal = index === 0 || index === waypointCount - 1;
+
+    element.classList.toggle('selected', isSelected);
+    element.classList.toggle(
+      'route-marker-compact',
+      useCompactMarkers && !isTerminal && !isSelected,
+    );
   });
 }
 
-function getWaypointShortLabel(index: number, waypointCount: number): string {
-  if (index === 0) {
-    return '1';
-  }
-
-  if (index === waypointCount - 1) {
-    return '⚑';
-  }
-
+function getWaypointShortLabel(index: number): string {
   return `${index + 1}`;
 }
 
@@ -337,8 +383,9 @@ function syncLineLayer(map: MapLibreMap, waypoints: RouteWaypoint[]) {
         'line-join': 'round',
       },
       paint: {
-        'line-color': 'rgba(53, 39, 28, 0.24)',
-        'line-width': 7,
+        'line-color': '#fffaf3',
+        'line-opacity': 0.95,
+        'line-width': 8,
       },
       source: LINE_SOURCE_ID,
       type: 'line',
@@ -353,11 +400,32 @@ function syncLineLayer(map: MapLibreMap, waypoints: RouteWaypoint[]) {
         'line-join': 'round',
       },
       paint: {
-        'line-color': '#d97644',
-        'line-width': 3.5,
+        'line-color': '#f05a28',
+        'line-width': 4.5,
       },
       source: LINE_SOURCE_ID,
       type: 'line',
+    });
+  }
+
+  if (map.getLayer(`${LINE_LAYER_ID}-arrows`) == null) {
+    map.addLayer({
+      id: `${LINE_LAYER_ID}-arrows`,
+      layout: {
+        'symbol-placement': 'line',
+        'symbol-spacing': 96,
+        'text-field': '➜',
+        'text-keep-upright': false,
+        'text-rotation-alignment': 'map',
+        'text-size': 16,
+      },
+      paint: {
+        'text-color': '#7a2f16',
+        'text-halo-color': '#fffaf3',
+        'text-halo-width': 1.5,
+      },
+      source: LINE_SOURCE_ID,
+      type: 'symbol',
     });
   }
 

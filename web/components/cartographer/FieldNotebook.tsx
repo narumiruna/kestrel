@@ -42,7 +42,7 @@ export function FieldNotebook({
         </Link>
       </nav>
       <label className="notebook-search font-mono">
-        Search
+        <span className="sr-only">Search</span>
         <input
           ref={searchRef}
           placeholder={searchPlaceholder}
