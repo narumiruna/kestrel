@@ -7,6 +7,8 @@ import { useAuth } from '@/components/AuthProvider';
 import { RouteRemoteControlPanel } from '@/components/dashboard/RemoteControlPanel';
 import {
   formatError,
+  formatMode,
+  formatRouteDistanceFromWaypoints,
   normalizeNullable,
   parseNumber,
   toAbsolutePublicUrl,
@@ -80,6 +82,9 @@ export default function RouteEditor({
   const routeBuilderHint = getRouteBuilderHint(waypoints.length, places.length, mapMode);
   const saveDisabledReason = getSaveDisabledReason(waypoints.length);
   const favoritePickerMode = waypoints.length === 0 ? 'start' : 'append';
+  const revisionLabel =
+    route?.currentRevision == null ? 'Draft' : `Revision ${route.currentRevision.revisionNumber}`;
+  const distanceLabel = useMemo(() => formatRouteDistanceFromWaypoints(waypoints), [waypoints]);
 
   const setSelectedWaypointIndex = useCallback(
     (nextIndex: number | null) => {
@@ -255,12 +260,41 @@ export default function RouteEditor({
       )}
       {error == null ? null : <div className="error route-editor-error">{error}</div>}
 
+      <section className="route-editor-section route-summary-section">
+        <div className="route-section-heading">
+          <h3>Route summary</h3>
+          <span className="chip rev-chip">{revisionLabel}</span>
+        </div>
+        <div className="route-mode-hint">
+          <InfoIcon />
+          <span>{routeBuilderHint}</span>
+        </div>
+        <div className="route-summary-grid">
+          <span>
+            <small>Waypoints</small>
+            <strong>{waypoints.length}</strong>
+          </span>
+          <span>
+            <small>Distance</small>
+            <strong>{distanceLabel}</strong>
+          </span>
+          <span>
+            <small>Speed</small>
+            <strong>{defaultSpeedKmh || '—'} km/h</strong>
+          </span>
+          <span>
+            <small>Mode</small>
+            <strong>{formatMode(mode)}</strong>
+          </span>
+        </div>
+      </section>
+
       <details
         className="route-editor-section route-editor-collapsible route-editor-details-section"
         open
       >
         <summary>
-          <span>Route details</span>
+          <span>Route settings</span>
           <span className="muted">Name, speed, and playback</span>
         </summary>
         <div className="route-editor-collapsible-content">
@@ -297,53 +331,66 @@ export default function RouteEditor({
         </div>
       </details>
 
-      <section className="route-editor-section route-editor-map-section">
-        {isBackgroundMapMode ? null : (
-          <div>
-            <h3>Route builder</h3>
-            <p className="muted">Add pins on the map or pick from favorites.</p>
-          </div>
-        )}
-        <div className="route-builder-hint">
-          <InfoIcon />
-          {routeBuilderHint}
-        </div>
-        {mapMode === 'embedded' ? (
-          <>
-            <div className="map-builder">
-              <RouteMapEditor
-                fitRequest={fitRequest}
-                focusTarget={focusTarget}
-                selectedWaypointIndex={selectedWaypointIndex}
-                waypoints={waypoints}
-                onChange={setWaypoints}
-                onSelectWaypoint={setSelectedWaypointIndex}
-              />
-              <div className="map-instruction">
-                Click map to add waypoint · Drag markers to adjust
+      <details
+        className="route-editor-section route-editor-collapsible route-editor-map-section"
+        open={waypoints.length === 0}
+      >
+        <summary>
+          <span>Add waypoints</span>
+          <span className="muted">Map clicks or favorites</span>
+        </summary>
+        <div className="route-editor-collapsible-content">
+          {isBackgroundMapMode ? null : (
+            <>
+              <div>
+                <h3>Route builder</h3>
+                <p className="muted">Add pins on the map or pick from favorites.</p>
               </div>
-            </div>
-            <div className="map-action-row">
-              <button
-                className="secondary"
-                disabled={waypoints.length === 0}
-                title="Auto-frame the map to show all waypoints"
-                type="button"
-                onClick={() => setFitRequest((currentRequest) => currentRequest + 1)}
-              >
-                Fit route
-              </button>
-              <span className="muted">Use Waypoints below to review, reorder, or edit pins.</span>
-            </div>
-          </>
-        ) : null}
+              <div className="route-builder-hint">
+                <InfoIcon />
+                {routeBuilderHint}
+              </div>
+            </>
+          )}
+          {mapMode === 'embedded' ? (
+            <>
+              <div className="map-builder">
+                <RouteMapEditor
+                  fitRequest={fitRequest}
+                  focusTarget={focusTarget}
+                  selectedWaypointIndex={selectedWaypointIndex}
+                  waypoints={waypoints}
+                  onChange={setWaypoints}
+                  onSelectWaypoint={setSelectedWaypointIndex}
+                />
+                <div className="map-instruction">
+                  Click map to add waypoint · Drag markers to adjust
+                </div>
+              </div>
+              <div className="map-action-row">
+                <button
+                  className="secondary"
+                  disabled={waypoints.length === 0}
+                  title="Auto-frame the map to show all waypoints"
+                  type="button"
+                  onClick={() => setFitRequest((currentRequest) => currentRequest + 1)}
+                >
+                  Fit route
+                </button>
+                <span className="muted">
+                  Use Waypoints below to review, reorder, or edit pins.
+                </span>
+              </div>
+            </>
+          ) : null}
 
-        <FavoriteWaypointPicker
-          mode={favoritePickerMode}
-          places={places}
-          onSelect={addFavoriteWaypoint}
-        />
-      </section>
+          <FavoriteWaypointPicker
+            mode={favoritePickerMode}
+            places={places}
+            onSelect={addFavoriteWaypoint}
+          />
+        </div>
+      </details>
 
       <details
         className="route-editor-section route-editor-collapsible route-editor-waypoints-section"
@@ -359,7 +406,7 @@ export default function RouteEditor({
               <MapPinIcon />
               <strong>No waypoints yet</strong>
               <span className="muted">
-                Tap the map to add your first waypoint, or pick from favorites above.
+                Click the map to add your first waypoint, or pick from favorites above.
               </span>
             </div>
           ) : (
@@ -471,7 +518,7 @@ export default function RouteEditor({
 
       <details className="route-editor-section route-editor-collapsible route-editor-secondary-section route-editor-share-section">
         <summary>
-          <span>Publishing / share</span>
+          <span>Publish / share</span>
           <span className="muted">Privacy and public link settings</span>
         </summary>
         <div className="route-editor-collapsible-content">
@@ -489,25 +536,25 @@ export default function RouteEditor({
       </details>
 
       <footer className="route-editor-footer">
-        <div className="stack">
+        <div className="route-save-actions">
           {saveDisabledReason == null ? null : (
             <p className="muted no-margin">{saveDisabledReason}</p>
           )}
-          <div className="row">
-            {onDelete == null ? null : (
-              <button className="danger" disabled={isSaving} type="button" onClick={confirmDelete}>
-                Delete route
-              </button>
-            )}
-            <button
-              className={isSaving ? 'is-loading' : saveNotice == null ? '' : 'is-saved'}
-              disabled={isSaving || saveDisabledReason != null}
-              type="submit"
-            >
-              {isSaving ? 'Saving…' : saveNotice == null ? 'Save route' : 'Saved ✓'}
+          <button
+            className={isSaving ? 'is-loading' : saveNotice == null ? '' : 'is-saved'}
+            disabled={isSaving || saveDisabledReason != null}
+            type="submit"
+          >
+            {isSaving ? 'Saving…' : saveNotice == null ? 'Save route' : 'Saved ✓'}
+          </button>
+        </div>
+        {onDelete == null ? null : (
+          <div className="route-danger-zone">
+            <button className="danger" disabled={isSaving} type="button" onClick={confirmDelete}>
+              Delete route
             </button>
           </div>
-        </div>
+        )}
       </footer>
     </form>
   );
@@ -691,7 +738,7 @@ function getRouteBuilderHint(
   mapMode: 'background' | 'embedded',
 ): string {
   if (mapMode === 'background' && waypointCount >= 2) {
-    return 'Tap the map to add a waypoint · Drag pins to adjust';
+    return 'Click map to add a waypoint · Drag pins to adjust';
   }
 
   if (waypointCount === 0) {
@@ -704,7 +751,7 @@ function getRouteBuilderHint(
     return 'Add at least one more waypoint to save this route.';
   }
 
-  return 'Tap the map to add a waypoint, or drag any pin to nudge the path.';
+  return 'Click the map to add a waypoint, or drag any pin to nudge the path.';
 }
 
 function getSaveDisabledReason(waypointCount: number): string | null {

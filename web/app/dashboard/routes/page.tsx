@@ -13,7 +13,11 @@ import { UserMark } from '@/components/cartographer/UserMark';
 import { useKeyboardShortcuts } from '@/components/cartographer/useKeyboardShortcuts';
 import RouteEditor from '@/components/dashboard/RouteEditor';
 import { useDashboardAuth } from '@/components/dashboard/useDashboardAuth';
-import { formatError, formatMode } from '@/components/dashboard/utils';
+import {
+  formatError,
+  formatMode,
+  formatRouteDistanceFromWaypoints,
+} from '@/components/dashboard/utils';
 import type { RouteMapControls } from '@/components/RouteMapEditor';
 import type { Place, Route, RouteInput, RouteWaypoint } from '@/lib/api';
 
@@ -187,10 +191,15 @@ export default function RoutesDashboardPage() {
         onChangePassword={changePassword}
         onLogout={auth.logout}
       />
+      <div className="route-mode-bar" role="status">
+        <strong>Editing route</strong>
+        <span>Click map to add waypoint</span>
+        <span>Drag pins to adjust; drag rows to reorder</span>
+      </div>
       <FieldNotebook
         activeSection="routes"
         newLabel="New route"
-        searchPlaceholder="Find a route"
+        searchPlaceholder="Search routes..."
         searchRef={searchRef}
         searchValue={routeQuery}
         onNewEntry={createNewRoute}
@@ -205,15 +214,19 @@ export default function RoutesDashboardPage() {
             onClick={() => setSelectedRouteId(route.id)}
           >
             <span className="route-card-title-row">
-              <strong>{route.name}</strong>
-              {route.isPublic ? <span className="route-card-status">public</span> : null}
+              <strong className="route-card-title">{route.name}</strong>
+              {route.isPublic ? <span className="route-card-status">Public</span> : null}
             </span>
-            <span className="font-mono">
+            <span className="route-card-meta-line">
               {formatRouteDistance(route)} · {route.defaultSpeedKmh} km/h · {formatMode(route.mode)}
+              · Revision {route.currentRevision?.revisionNumber ?? '—'}
             </span>
-            <span className="route-card-rev font-mono">
-              rev {route.currentRevision?.revisionNumber ?? '—'}
-            </span>
+            {selectedRouteId === route.id ? (
+              <span className="route-card-selected-detail">
+                {(route.currentRevision?.waypoints.length ?? 0).toLocaleString()} waypoints
+                {route.description == null ? '' : ` · ${route.description}`}
+              </span>
+            ) : null}
           </button>
         ))}
         {filteredRoutes.length === 0 && !isLoading ? (
@@ -234,13 +247,12 @@ export default function RoutesDashboardPage() {
         }
         stamp={
           selectedRoute == null
-            ? 'draft route'
-            : `revision ${selectedRoute.currentRevision?.revisionNumber ?? '—'}`
+            ? 'Draft route'
+            : `Revision ${selectedRoute.currentRevision?.revisionNumber ?? '—'}`
         }
         subtitle="Build the path, tune playback, and publish the latest route when ready."
         title={selectedRoute?.name ?? 'New route'}
         variant="route"
-        meta={<RouteMeta route={selectedRoute} />}
       >
         <RouteEditor
           key={selectedRoute?.id ?? 'new-route'}
@@ -267,30 +279,6 @@ export default function RoutesDashboardPage() {
   );
 }
 
-function RouteMeta({ route }: { route: Route | null }) {
-  if (route == null) {
-    return (
-      <div className="index-card-coordinate-grid font-mono">
-        <span>0 waypoints</span>
-        <span>draft</span>
-      </div>
-    );
-  }
-
-  const waypointCount = route.currentRevision?.waypoints.length ?? 0;
-
-  return (
-    <div className="index-card-coordinate-grid font-mono">
-      <span>
-        {waypointCount} waypoint{waypointCount === 1 ? '' : 's'}
-      </span>
-      <span>{formatRouteDistance(route)}</span>
-      <span>{route.defaultSpeedKmh} km/h</span>
-      <span>{formatMode(route.mode)}</span>
-    </div>
-  );
-}
-
 function NotebookSkeleton() {
   return (
     <div aria-label="Loading routes" className="skeleton-list" role="status">
@@ -302,38 +290,7 @@ function NotebookSkeleton() {
 }
 
 function formatRouteDistance(route: Route): string {
-  const waypoints = route.currentRevision?.waypoints ?? [];
-  const distanceKm = waypoints.slice(1).reduce((totalDistance, waypoint, index) => {
-    const previousWaypoint = waypoints[index];
-
-    return totalDistance + getDistanceKm(previousWaypoint, waypoint);
-  }, 0);
-
-  if (distanceKm < 10) {
-    return `${distanceKm.toFixed(1)} km`;
-  }
-
-  return `${Math.round(distanceKm)} km`;
-}
-
-function getDistanceKm(
-  from: { latitude: number; longitude: number },
-  to: { latitude: number; longitude: number },
-): number {
-  const earthRadiusKm = 6371;
-  const deltaLatitude = toRadians(to.latitude - from.latitude);
-  const deltaLongitude = toRadians(to.longitude - from.longitude);
-  const fromLatitude = toRadians(from.latitude);
-  const toLatitude = toRadians(to.latitude);
-  const haversine =
-    Math.sin(deltaLatitude / 2) ** 2 +
-    Math.cos(fromLatitude) * Math.cos(toLatitude) * Math.sin(deltaLongitude / 2) ** 2;
-
-  return 2 * earthRadiusKm * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
-}
-
-function toRadians(degrees: number): number {
-  return (degrees * Math.PI) / 180;
+  return formatRouteDistanceFromWaypoints(route.currentRevision?.waypoints ?? []);
 }
 
 function useRelativeUpdatedLabel(lastUpdatedAt: Date | null): string | null {
