@@ -5921,11 +5921,19 @@ button.is-loading {
   padding: 16px;
 }
 
-.route-section-heading {
+.route-section-heading,
+.route-section-title {
   align-items: center;
   display: flex;
   gap: 10px;
+}
+
+.route-section-heading {
   justify-content: space-between;
+}
+
+.route-section-title {
+  min-width: 0;
 }
 
 .route-section-heading h3 {
@@ -5969,20 +5977,26 @@ button.is-loading {
   gap: 10px;
 }
 
-.route-save-actions {
-  display: grid;
+.route-editor-footer-actions,
+.route-editor-save-buttons {
+  align-items: center;
+  display: flex;
   gap: 8px;
 }
 
-.route-save-actions button[type="submit"] {
-  width: 100%;
+.route-editor-footer-actions {
+  justify-content: space-between;
+}
+
+.route-save-actions {
+  display: grid;
+  gap: 8px;
+  justify-items: end;
 }
 
 .route-danger-zone {
-  border-top: 1px solid var(--cloud-border-soft, var(--border));
   display: flex;
-  justify-content: flex-end;
-  padding-top: 8px;
+  min-width: 0;
 }
 
 .route-danger-zone .danger {
@@ -6032,7 +6046,7 @@ button.is-loading {
   gap: 8px;
 }
 
-.place-device-button {
+.device-action-button {
   display: grid;
   gap: 2px;
   justify-items: start;
@@ -6040,7 +6054,7 @@ button.is-loading {
   padding-block: 7px;
 }
 
-.place-device-button .muted {
+.device-action-button .muted {
   font-size: 12px;
   line-height: 1.1;
 }

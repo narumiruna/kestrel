@@ -1,6 +1,6 @@
 ## Goal
 
-Make the Web place editor easier to use by removing secondary share and remote-control panels from the main form flow. Success means the form only contains place data fields, `Save place` stays primary and reachable, `Delete` remains visually separated, and Share / Device actions open overlays without changing editor content height.
+Make the Web place and route editors easier to use by removing secondary share and remote-control panels from the main form flow. Success means editor forms keep primary data fields first, save actions stay primary and reachable, delete actions remain visually separated, and Share / Device actions open overlays without changing editor content height.
 
 ## Context
 
@@ -11,7 +11,6 @@ Chrome review of the current UI at `1440×760` confirmed the plan: the right edi
 ## Non-Goals
 
 - Do not change backend share-link or remote-control APIs.
-- Do not change route editor share / remote UI in this pass.
 - Do not add a UI dependency; use existing React state and CSS.
 
 ## Plan
@@ -23,6 +22,7 @@ Chrome review of the current UI at `1440×760` confirmed the plan: the right edi
 - [x] Add basic dialog accessibility: `type="button"`, `aria-haspopup="dialog"`, labelled title, close button, and native Escape close; verified with Chrome/CDP that Escape closes Share.
 - [x] Run `cd web && npm run lint` and `cd web && npm run typecheck`; both passed, and `web/tsconfig.tsbuildinfo` was reverted after typecheck rewrote it.
 - [x] Manually review `/dashboard/places` with an existing place: opened Device, opened Share, created a public link, saw copy/open actions, and confirmed no in-flow accordion remains; screenshot evidence at `/tmp/kestrel-places-compact-actions.png`.
+- [x] Apply the same compact-action pattern to `/dashboard/routes`: move route remote control to a Device dialog in the route summary header, move route publish/share into a footer Share dialog, and keep `Public route` in that dialog; verified with code review and web checks.
 
 ## Risks
 
@@ -31,8 +31,8 @@ Chrome review of the current UI at `1440×760` confirmed the plan: the right edi
 
 ## Completion Checklist
 
-- [x] Publishing/share no longer appears as a large accordion card, verified by `web/components/dashboard/PlaceEditor.tsx` and Chrome/CDP on `/dashboard/places` (`detailsCount: 0`).
-- [x] Web remote control is accessible from a compact Device header action and no longer appears in the place form flow, verified by `web/app/dashboard/places/page.tsx` and Chrome/CDP (`headerActions: "Device\nNo devices"`).
+- [x] Publishing/share no longer appears as a large accordion card in place or route editors, verified by `web/components/dashboard/PlaceEditor.tsx`, `web/components/dashboard/RouteEditor.tsx`, and Chrome/CDP on `/dashboard/places` (`detailsCount: 0`).
+- [x] Web remote control is accessible from compact Device actions and no longer appears in the place/route form flow, verified by `web/app/dashboard/places/page.tsx`, `web/components/dashboard/RouteEditor.tsx`, and Chrome/CDP (`headerActions: "Device\nNo devices"`).
 - [x] Opening Share or Device does not change the main editor content height, verified by Chrome/CDP (`411.4375px` before, Share open, and Device open).
 - [x] `Save place` remains the primary footer action and `Delete` remains visually separated, verified manually and by Chrome/CDP footer text `Delete\nShare\nSave place`.
 - [x] Web checks pass with `cd web && npm run lint` and `cd web && npm run typecheck`.

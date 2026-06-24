@@ -62,7 +62,7 @@ export function PlaceRemoteControlAction({ place }: { place: Place | null }) {
     <>
       <button
         aria-haspopup="dialog"
-        className="secondary place-device-button"
+        className="secondary device-action-button"
         type="button"
         onClick={() => setIsDialogOpen(true)}
       >
@@ -117,7 +117,7 @@ export function PlaceRemoteControlAction({ place }: { place: Place | null }) {
   );
 }
 
-export function RouteRemoteControlPanel({
+export function RouteRemoteControlAction({
   mode,
   route,
   speedKmh,
@@ -129,45 +129,67 @@ export function RouteRemoteControlPanel({
   waypoints: RouteWaypoint[];
 }) {
   const remote = useRemoteDevices();
+  const dialogRef = useRef<HTMLDialogElement | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const routeDisabledReason = getRouteDisabledReason(route, waypoints, speedKmh);
 
+  useEffect(() => {
+    const dialog = dialogRef.current;
+
+    if (dialog == null) {
+      return;
+    }
+
+    if (isDialogOpen && !dialog.open) {
+      dialog.showModal();
+      return;
+    }
+
+    if (!isDialogOpen && dialog.open) {
+      dialog.close();
+    }
+  }, [isDialogOpen]);
+
   return (
-    <details className="route-editor-section route-editor-collapsible route-editor-secondary-section remote-control-section">
-      <summary>
-        <span>Web remote control</span>
+    <>
+      <button
+        aria-haspopup="dialog"
+        className="secondary device-action-button"
+        type="button"
+        onClick={() => setIsDialogOpen(true)}
+      >
+        <span>Device</span>
         <span className="muted">{formatDeviceSummary(remote.devices)}</span>
-      </summary>
-      <RemoteControlControls
-        buildPrimaryCommand={() => {
-          if (route == null) {
-            throw new Error('Save this route before sending it to Android.');
-          }
-
-          if (waypoints.length < 2) {
-            throw new Error('Add at least 2 waypoints before playing this route.');
-          }
-
-          if (!Number.isFinite(speedKmh) || speedKmh <= 0) {
-            throw new Error('Enter a positive default speed before playing this route.');
-          }
-
-          return {
-            payload: {
-              mode,
-              speedKmh,
-              waypoints: waypoints.map((waypoint) => ({
-                latitude: waypoint.latitude,
-                longitude: waypoint.longitude,
-              })),
-            },
-            type: 'START_ROUTE',
-          };
-        }}
-        primaryActionLabel="Play on device"
-        primaryDisabledReason={routeDisabledReason}
-        remote={remote}
-      />
-    </details>
+      </button>
+      <dialog
+        aria-labelledby="route-device-dialog-title"
+        className="place-action-dialog"
+        ref={dialogRef}
+        onCancel={() => setIsDialogOpen(false)}
+        onClose={() => setIsDialogOpen(false)}
+      >
+        <div className="place-action-dialog-card">
+          <header>
+            <div>
+              <p className="field-kicker font-mono">advanced tool</p>
+              <h3 className="font-serif" id="route-device-dialog-title">
+                Web remote control
+              </h3>
+            </div>
+            <button className="secondary" type="button" onClick={() => setIsDialogOpen(false)}>
+              Close
+            </button>
+          </header>
+          <RemoteControlControls
+            buildPrimaryCommand={() => buildRouteRemoteCommand(route, waypoints, speedKmh, mode)}
+            className="place-action-dialog-content remote-control-content"
+            primaryActionLabel="Play on device"
+            primaryDisabledReason={routeDisabledReason}
+            remote={remote}
+          />
+        </div>
+      </dialog>
+    </>
   );
 }
 
@@ -351,6 +373,37 @@ function DeviceStatus({ device }: { device: RemoteDevice | null }) {
       {device.appVersion == null ? null : <span className="chip">v{device.appVersion}</span>}
     </div>
   );
+}
+
+function buildRouteRemoteCommand(
+  route: Route | null,
+  waypoints: RouteWaypoint[],
+  speedKmh: number,
+  mode: RouteMode,
+): CreateRemoteCommandRequest {
+  if (route == null) {
+    throw new Error('Save this route before sending it to Android.');
+  }
+
+  if (waypoints.length < 2) {
+    throw new Error('Add at least 2 waypoints before playing this route.');
+  }
+
+  if (!Number.isFinite(speedKmh) || speedKmh <= 0) {
+    throw new Error('Enter a positive default speed before playing this route.');
+  }
+
+  return {
+    payload: {
+      mode,
+      speedKmh,
+      waypoints: waypoints.map((waypoint) => ({
+        latitude: waypoint.latitude,
+        longitude: waypoint.longitude,
+      })),
+    },
+    type: 'START_ROUTE',
+  };
 }
 
 function getRouteDisabledReason(
