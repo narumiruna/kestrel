@@ -377,9 +377,7 @@ export default function RouteEditor({
                 >
                   Fit route
                 </button>
-                <span className="muted">
-                  Use Waypoints below to review, reorder, or edit pins.
-                </span>
+                <span className="muted">Use Waypoints below to review, reorder, or edit pins.</span>
               </div>
             </>
           ) : null}

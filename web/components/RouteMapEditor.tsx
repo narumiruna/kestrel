@@ -166,12 +166,7 @@ export default function RouteMapEditor({
       return;
     }
 
-    updateMarkerDisplay(
-      markersRef.current,
-      selectedWaypointIndex,
-      map.getZoom(),
-      waypoints.length,
-    );
+    updateMarkerDisplay(markersRef.current, selectedWaypointIndex, map.getZoom(), waypoints.length);
   }, [selectedWaypointIndex, waypoints.length]);
 
   useEffect(() => {
