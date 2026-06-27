@@ -118,6 +118,11 @@ export default function RouteMapEditor({
   }, []);
 
   useEffect(() => {
+    // Dependencies trigger resync; deferred style.load uses refs to avoid stale route data.
+    void onChange;
+    void onSelectWaypoint;
+    void waypoints;
+
     const map = mapRef.current;
 
     if (map == null) {
@@ -125,22 +130,33 @@ export default function RouteMapEditor({
     }
 
     const update = () => {
-      syncLineLayer(map, waypoints);
+      const currentWaypoints = waypointsRef.current;
+
+      syncLineLayer(map, currentWaypoints);
       syncMarkers({
         existingMarkers: markersRef.current,
         map,
-        onChange,
-        onSelectWaypoint,
-        waypoints,
+        onChange: onChangeRef.current,
+        onSelectWaypoint: onSelectWaypointRef.current,
+        waypoints: currentWaypoints,
       });
-      updateMarkerDisplay(markersRef.current, selectedWaypointIndexRef.current, waypoints.length);
+      updateMarkerDisplay(
+        markersRef.current,
+        selectedWaypointIndexRef.current,
+        currentWaypoints.length,
+      );
     };
 
-    if (map.isStyleLoaded()) {
+    if (canSyncRouteLayer(map)) {
       update();
-    } else {
-      map.once('load', update);
+      return;
     }
+
+    map.once('style.load', update);
+
+    return () => {
+      map.off('style.load', update);
+    };
   }, [onChange, onSelectWaypoint, waypoints]);
 
   useEffect(() => {
@@ -410,6 +426,10 @@ function updateLine(map: MapLibreMap, waypoints: RouteWaypoint[]) {
   const source = map.getSource(LINE_SOURCE_ID) as GeoJSONSource | undefined;
 
   source?.setData(toLineFeature(waypoints));
+}
+
+function canSyncRouteLayer(map: MapLibreMap): boolean {
+  return map.isStyleLoaded() || map.getSource(LINE_SOURCE_ID) != null;
 }
 
 function toLineFeature(waypoints: RouteWaypoint[]): GeoJSON.Feature<GeoJSON.LineString> {
