@@ -24,7 +24,6 @@ type Props = {
 };
 
 const COMPACT_MARKER_COUNT = 8;
-const COMPACT_MARKER_ZOOM = 13;
 const LINE_SOURCE_ID = 'route-line';
 const LINE_LAYER_ID = 'route-line';
 
@@ -86,7 +85,6 @@ export default function RouteMapEditor({
       updateMarkerDisplay(
         markersRef.current,
         selectedWaypointIndexRef.current,
-        map.getZoom(),
         waypointsRef.current.length,
       );
       fitWaypoints(map, waypointsRef.current);
@@ -106,15 +104,6 @@ export default function RouteMapEditor({
       ]);
       onSelectWaypointRef.current?.(waypointsRef.current.length);
     });
-    map.on('zoom', () => {
-      updateMarkerDisplay(
-        markersRef.current,
-        selectedWaypointIndexRef.current,
-        map.getZoom(),
-        waypointsRef.current.length,
-      );
-    });
-
     mapRef.current = map;
 
     return () => {
@@ -144,12 +133,7 @@ export default function RouteMapEditor({
         onSelectWaypoint,
         waypoints,
       });
-      updateMarkerDisplay(
-        markersRef.current,
-        selectedWaypointIndexRef.current,
-        map.getZoom(),
-        waypoints.length,
-      );
+      updateMarkerDisplay(markersRef.current, selectedWaypointIndexRef.current, waypoints.length);
     };
 
     if (map.isStyleLoaded()) {
@@ -166,7 +150,7 @@ export default function RouteMapEditor({
       return;
     }
 
-    updateMarkerDisplay(markersRef.current, selectedWaypointIndex, map.getZoom(), waypoints.length);
+    updateMarkerDisplay(markersRef.current, selectedWaypointIndex, waypoints.length);
   }, [selectedWaypointIndex, waypoints.length]);
 
   useEffect(() => {
@@ -218,7 +202,6 @@ export default function RouteMapEditor({
       updateMarkerDisplay(
         markersRef.current,
         selectedWaypointIndexRef.current,
-        map.getZoom(),
         waypointsRef.current.length,
       );
       map.jumpTo({ bearing, center, pitch, zoom });
@@ -299,10 +282,9 @@ function createMarkerElement({ index, waypointCount }: { index: number; waypoint
 function updateMarkerDisplay(
   markers: Marker[],
   selectedWaypointIndex: number | null,
-  zoom: number,
   waypointCount: number,
 ) {
-  const useCompactMarkers = waypointCount >= COMPACT_MARKER_COUNT && zoom < COMPACT_MARKER_ZOOM;
+  const useCompactMarkers = waypointCount >= COMPACT_MARKER_COUNT;
 
   markers.forEach((marker, index) => {
     const element = marker.getElement();
