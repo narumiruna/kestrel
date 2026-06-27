@@ -193,8 +193,8 @@ export default function RoutesDashboardPage() {
       />
       <div className="route-mode-bar" role="status">
         <strong>Editing route</strong>
-        <span>Click map to add waypoint</span>
-        <span>Drag pins to adjust; drag rows to reorder</span>
+        <span>Straight segments connect waypoints</span>
+        <span>Click map to add pins; drag pins or rows to reorder</span>
       </div>
       <FieldNotebook
         activeSection="routes"

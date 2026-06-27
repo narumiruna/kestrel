@@ -788,7 +788,7 @@ function getRouteBuilderHint(
   mapMode: 'background' | 'embedded',
 ): string {
   if (mapMode === 'background' && waypointCount >= 2) {
-    return 'Click map to add a waypoint · Drag pins to adjust';
+    return 'Straight segments connect waypoints · Drag pins to adjust';
   }
 
   if (waypointCount === 0) {
