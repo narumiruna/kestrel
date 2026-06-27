@@ -310,10 +310,7 @@ function updateMarkerDisplay(
     const isTerminal = index === 0 || index === waypointCount - 1;
 
     element.classList.toggle('selected', isSelected);
-    element.classList.toggle(
-      'route-marker-compact',
-      useCompactMarkers && !isTerminal && !isSelected,
-    );
+    element.classList.toggle('route-marker-compact', useCompactMarkers && !isTerminal);
   });
 }
 
