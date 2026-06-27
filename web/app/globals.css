@@ -5263,13 +5263,51 @@ button.is-loading {
   }
 }
 
-.route-marker {
+button.route-marker {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  color: transparent;
+  font-size: 0;
+  height: 32px;
+  min-height: 0;
+  min-width: 32px;
+  overflow: visible;
+  padding: 0;
+  width: 32px;
+}
+
+button.route-marker::before {
+  background: var(--accent);
   border: 2px solid #fffaf3;
+  border-radius: 999px;
   box-shadow: 0 5px 14px rgb(34 24 15 / 22%);
-  font-size: 12px;
-  height: 24px;
-  min-width: 24px;
-  width: 24px;
+  box-sizing: border-box;
+  content: "";
+  height: 14px;
+  left: 50%;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 14px;
+}
+
+button.route-marker::after {
+  background: var(--bg-surface);
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  color: var(--accent-hover);
+  content: attr(data-label);
+  font-size: 11px;
+  font-weight: 800;
+  left: calc(50% + 13px);
+  line-height: 1;
+  padding: 3px 6px;
+  pointer-events: none;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  transition: opacity var(--transition-fast);
 }
 
 .route-marker-start,
@@ -5286,18 +5324,48 @@ button.is-loading {
 
 .route-marker-end {
   background: var(--accent-hover);
-  font-size: 13px;
 }
 
-.route-marker.selected,
-.route-marker.selected:hover:not(:disabled),
-.route-marker.selected:focus-visible {
+button.route-marker.route-marker-start,
+button.route-marker.route-marker-end,
+button.route-marker.route-marker-middle {
+  background: transparent;
+  color: transparent;
+}
+
+button.route-marker.route-marker-start::before,
+button.route-marker.route-marker-end::before {
+  background: var(--accent);
+}
+
+button.route-marker.route-marker-middle::before {
+  background: var(--paper-card);
+  border-color: var(--accent);
+}
+
+button.route-marker.route-marker-end::before {
+  background: var(--accent-hover);
+}
+
+button.route-marker.selected,
+button.route-marker.selected:hover:not(:disabled),
+button.route-marker.selected:focus-visible {
+  background: transparent;
+  box-shadow: none;
+  transform: none;
+  z-index: 1;
+}
+
+button.route-marker.selected::before {
   background: var(--accent-hover);
   box-shadow:
     0 0 0 4px rgb(180 95 50 / 24%),
     0 8px 18px rgb(34 24 15 / 24%);
+}
+
+button.route-marker.selected::after {
+  background: var(--accent-hover);
   color: #fffaf3;
-  transform: scale(1.18);
 }
 
 @media (max-width: 1023px) {
@@ -6003,38 +6071,31 @@ button.is-loading {
   background: transparent;
 }
 
-.route-marker {
+button.route-marker {
   position: relative;
 }
 
-.route-marker.route-marker-compact:not(.selected) {
-  color: transparent;
-  font-size: 0;
-  height: 14px;
-  min-width: 14px;
-  width: 14px;
+button.route-marker:hover:not(:disabled),
+button.route-marker:focus-visible {
+  background: transparent;
+  box-shadow: none;
+  transform: none;
+  z-index: 1;
 }
 
-.route-marker.route-marker-compact:not(.selected)::after {
-  background: var(--bg-surface);
-  border: 1px solid var(--accent);
-  border-radius: 999px;
-  bottom: calc(100% + 6px);
-  color: var(--accent-hover);
-  content: attr(data-label);
-  font-size: 11px;
-  font-weight: 800;
+button.route-marker.route-marker-compact::after {
+  bottom: calc(50% + 13px);
   left: 50%;
-  opacity: 0;
-  padding: 3px 6px;
-  pointer-events: none;
-  position: absolute;
+  top: auto;
   transform: translateX(-50%);
-  transition: opacity var(--transition-fast);
 }
 
-.route-marker.route-marker-compact:not(.selected):hover::after,
-.route-marker.route-marker-compact:not(.selected):focus-visible::after {
+button.route-marker.route-marker-compact:not(.selected)::after {
+  opacity: 0;
+}
+
+button.route-marker.route-marker-compact:not(.selected):hover::after,
+button.route-marker.route-marker-compact:not(.selected):focus-visible::after {
   opacity: 1;
 }
 
