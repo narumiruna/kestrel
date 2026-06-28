@@ -5978,6 +5978,38 @@ button.route-marker.selected::after {
     right: calc(var(--cloud-editor-width, 440px) + 80px);
     top: calc(var(--cloud-topbar-height, 56px) + 16px);
   }
+
+  .cartographer-stage-library.cartographer-stage-routes .map-panel-controls {
+    justify-content: center;
+    left: calc(var(--cloud-sidebar-width, 320px) + 32px);
+    right: calc(var(--cloud-editor-width, 440px) + 80px);
+    top: calc(var(--cloud-topbar-height, 56px) + 88px);
+    transform: none;
+  }
+}
+
+@media (min-width: 1536px) {
+  .cartographer-stage-library.cartographer-stage-routes .route-mode-bar {
+    right: calc(var(--cloud-editor-width, 440px) + 360px);
+  }
+
+  .cartographer-stage-library.cartographer-stage-routes .map-panel-controls {
+    justify-content: flex-end;
+    left: auto;
+    max-width: 320px;
+    right: calc(var(--cloud-editor-width, 440px) + 32px);
+    top: calc(var(--cloud-topbar-height, 56px) + 16px);
+  }
+}
+
+@media (min-width: 1024px) and (max-width: 1279px) {
+  .route-mode-bar span:last-child {
+    display: none;
+  }
+
+  .cartographer-stage-library.cartographer-stage-routes .map-panel-controls {
+    top: calc(var(--cloud-topbar-height, 56px) + 136px);
+  }
 }
 
 @media (max-width: 1023px) {
