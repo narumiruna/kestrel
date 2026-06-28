@@ -109,6 +109,10 @@ export default function PlacesDashboardPage() {
 
   const selectPlace = useCallback(
     (placeId: string) => {
+      if (placeId === selectedPlaceId) {
+        return;
+      }
+
       if (!confirmDiscardUnsavedChanges(isPlaceDirty)) {
         return;
       }
@@ -120,7 +124,7 @@ export default function PlacesDashboardPage() {
         place == null ? null : { latitude: place.latitude, longitude: place.longitude },
       );
     },
-    [isPlaceDirty, places],
+    [isPlaceDirty, places, selectedPlaceId],
   );
 
   const createNewPlace = useCallback(() => {
