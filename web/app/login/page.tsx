@@ -308,7 +308,7 @@ function CredentialsFields({
       <label>
         Password
         <input
-          autoComplete="current-password"
+          autoComplete={passwordMinLength == null ? 'current-password' : 'new-password'}
           minLength={passwordMinLength}
           required
           type="password"
