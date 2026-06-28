@@ -694,7 +694,7 @@ function isRouteDraftEqual(
     normalizeNullable(draft.description) === normalizeNullable(baseline.description) &&
     draft.isPublic === baseline.isPublic &&
     draft.mode === baseline.mode &&
-    draft.name === baseline.name &&
+    draft.name.trim() === baseline.name.trim() &&
     waypointsEqual(draft.waypoints, baseline.waypoints)
   );
 }

@@ -335,7 +335,7 @@ function isPlaceDraftEqual(
     normalizeNullable(draft.description) === normalizeNullable(baseline.description) &&
     numberInputsEqual(draft.latitude, baseline.latitude) &&
     numberInputsEqual(draft.longitude, baseline.longitude) &&
-    draft.name === baseline.name &&
+    draft.name.trim() === baseline.name.trim() &&
     normalizeTagsInput(draft.tags) === normalizeTagsInput(baseline.tags)
   );
 }
