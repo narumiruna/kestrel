@@ -47,6 +47,7 @@ export default function RoutesDashboardPage() {
   const [fitRequest, setFitRequest] = useState(0);
   const [draftWaypoints, setDraftWaypoints] = useState<RouteWaypoint[]>([]);
   const [selectedWaypointIndex, setSelectedWaypointIndex] = useState<number | null>(null);
+  const [hoveredWaypointIndex, setHoveredWaypointIndex] = useState<number | null>(null);
   const [focusTarget, setFocusTarget] = useState<RouteWaypoint | null>(null);
   const [isRouteDirty, setIsRouteDirty] = useState(false);
   const [newRouteDraftNonce, setNewRouteDraftNonce] = useState(0);
@@ -111,6 +112,7 @@ export default function RoutesDashboardPage() {
 
     setDraftWaypoints(nextWaypoints);
     setSelectedWaypointIndex(null);
+    setHoveredWaypointIndex(null);
     setFocusTarget(null);
 
     if (nextWaypoints.length > 0) {
@@ -216,9 +218,11 @@ export default function RoutesDashboardPage() {
           className="cartographer-map"
           fitRequest={fitRequest}
           focusTarget={focusTarget}
+          hoveredWaypointIndex={hoveredWaypointIndex}
           selectedWaypointIndex={selectedWaypointIndex}
           waypoints={selectedWaypoints}
           onChange={setDraftWaypoints}
+          onHoverWaypoint={setHoveredWaypointIndex}
           onReady={setViewportControls}
           onSelectWaypoint={setSelectedWaypointIndex}
         />
@@ -312,12 +316,14 @@ export default function RoutesDashboardPage() {
           key={selectedRoute?.id ?? `new-route-${newRouteDraftNonce}`}
           onDelete={selectedRoute == null ? undefined : () => void deleteRoute(selectedRoute.id)}
           onDirtyChange={setIsRouteDirty}
+          hoveredWaypointIndex={hoveredWaypointIndex}
           mapMode="background"
           places={places}
           route={selectedRoute}
           selectedWaypointIndex={selectedWaypointIndex}
           waypoints={draftWaypoints}
           onFocusTargetChange={setFocusTarget}
+          onHoverWaypointIndexChange={setHoveredWaypointIndex}
           onSave={(input) => void saveRoute(input)}
           onSelectedWaypointIndexChange={setSelectedWaypointIndex}
           onWaypointsChange={setDraftWaypoints}

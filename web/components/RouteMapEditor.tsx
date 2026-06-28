@@ -16,7 +16,9 @@ type Props = {
   className?: string;
   fitRequest?: number;
   focusTarget?: RouteWaypoint | null;
+  hoveredWaypointIndex?: number | null;
   onChange: (waypoints: RouteWaypoint[]) => void;
+  onHoverWaypoint?: (index: number | null) => void;
   onReady?: (controls: RouteMapControls) => void;
   onSelectWaypoint?: (index: number) => void;
   selectedWaypointIndex?: number | null;
@@ -31,7 +33,9 @@ export default function RouteMapEditor({
   className = 'map',
   fitRequest = 0,
   focusTarget = null,
+  hoveredWaypointIndex = null,
   onChange,
+  onHoverWaypoint,
   onReady,
   onSelectWaypoint,
   selectedWaypointIndex = null,
@@ -42,19 +46,31 @@ export default function RouteMapEditor({
   const mapRef = useRef<MapLibreMap | null>(null);
   const markersRef = useRef<Marker[]>([]);
   const onChangeRef = useRef(onChange);
+  const onHoverWaypointRef = useRef(onHoverWaypoint);
   const onReadyRef = useRef(onReady);
   const onSelectWaypointRef = useRef(onSelectWaypoint);
+  const hoveredWaypointIndexRef = useRef(hoveredWaypointIndex);
   const selectedWaypointIndexRef = useRef(selectedWaypointIndex);
   const waypointsRef = useRef(waypoints);
   const currentStyleNameRef = useRef(styleName);
 
   useEffect(() => {
+    hoveredWaypointIndexRef.current = hoveredWaypointIndex;
     onChangeRef.current = onChange;
+    onHoverWaypointRef.current = onHoverWaypoint;
     onReadyRef.current = onReady;
     onSelectWaypointRef.current = onSelectWaypoint;
     selectedWaypointIndexRef.current = selectedWaypointIndex;
     waypointsRef.current = waypoints;
-  }, [onChange, onReady, onSelectWaypoint, selectedWaypointIndex, waypoints]);
+  }, [
+    hoveredWaypointIndex,
+    onChange,
+    onHoverWaypoint,
+    onReady,
+    onSelectWaypoint,
+    selectedWaypointIndex,
+    waypoints,
+  ]);
 
   useEffect(() => {
     if (containerRef.current == null || mapRef.current != null) {
@@ -79,12 +95,14 @@ export default function RouteMapEditor({
         existingMarkers: markersRef.current,
         map,
         onChange: onChangeRef.current,
+        onHoverWaypoint: onHoverWaypointRef.current,
         onSelectWaypoint: onSelectWaypointRef.current,
         waypoints: waypointsRef.current,
       });
       updateMarkerDisplay(
         markersRef.current,
         selectedWaypointIndexRef.current,
+        hoveredWaypointIndexRef.current,
         waypointsRef.current.length,
       );
       fitWaypoints(map, waypointsRef.current);
@@ -120,6 +138,7 @@ export default function RouteMapEditor({
   useEffect(() => {
     // Dependencies trigger resync; deferred style.load uses refs to avoid stale route data.
     void onChange;
+    void onHoverWaypoint;
     void onSelectWaypoint;
     void waypoints;
 
@@ -137,12 +156,14 @@ export default function RouteMapEditor({
         existingMarkers: markersRef.current,
         map,
         onChange: onChangeRef.current,
+        onHoverWaypoint: onHoverWaypointRef.current,
         onSelectWaypoint: onSelectWaypointRef.current,
         waypoints: currentWaypoints,
       });
       updateMarkerDisplay(
         markersRef.current,
         selectedWaypointIndexRef.current,
+        hoveredWaypointIndexRef.current,
         currentWaypoints.length,
       );
     };
@@ -157,7 +178,7 @@ export default function RouteMapEditor({
     return () => {
       map.off('style.load', update);
     };
-  }, [onChange, onSelectWaypoint, waypoints]);
+  }, [onChange, onHoverWaypoint, onSelectWaypoint, waypoints]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -166,8 +187,13 @@ export default function RouteMapEditor({
       return;
     }
 
-    updateMarkerDisplay(markersRef.current, selectedWaypointIndex, waypoints.length);
-  }, [selectedWaypointIndex, waypoints.length]);
+    updateMarkerDisplay(
+      markersRef.current,
+      selectedWaypointIndex,
+      hoveredWaypointIndex,
+      waypoints.length,
+    );
+  }, [hoveredWaypointIndex, selectedWaypointIndex, waypoints.length]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -218,12 +244,14 @@ export default function RouteMapEditor({
         existingMarkers: markersRef.current,
         map,
         onChange: onChangeRef.current,
+        onHoverWaypoint: onHoverWaypointRef.current,
         onSelectWaypoint: onSelectWaypointRef.current,
         waypoints: waypointsRef.current,
       });
       updateMarkerDisplay(
         markersRef.current,
         selectedWaypointIndexRef.current,
+        hoveredWaypointIndexRef.current,
         waypointsRef.current.length,
       );
       map.jumpTo({ bearing, center, pitch, zoom });
@@ -244,12 +272,14 @@ function syncMarkers({
   existingMarkers,
   map,
   onChange,
+  onHoverWaypoint,
   onSelectWaypoint,
   waypoints,
 }: {
   existingMarkers: Marker[];
   map: MapLibreMap;
   onChange: (waypoints: RouteWaypoint[]) => void;
+  onHoverWaypoint?: (index: number | null) => void;
   onSelectWaypoint?: (index: number) => void;
   waypoints: RouteWaypoint[];
 }) {
@@ -273,6 +303,10 @@ function syncMarkers({
       event.stopPropagation();
       onSelectWaypoint?.(index);
     });
+    marker.getElement().addEventListener('mouseenter', () => onHoverWaypoint?.(index));
+    marker.getElement().addEventListener('mouseleave', () => onHoverWaypoint?.(null));
+    marker.getElement().addEventListener('focus', () => onHoverWaypoint?.(index));
+    marker.getElement().addEventListener('blur', () => onHoverWaypoint?.(null));
     marker.on('dragstart', () => {
       onSelectWaypoint?.(index);
     });
@@ -311,15 +345,18 @@ function createMarkerElement({ index, waypointCount }: { index: number; waypoint
 function updateMarkerDisplay(
   markers: Marker[],
   selectedWaypointIndex: number | null,
+  hoveredWaypointIndex: number | null,
   waypointCount: number,
 ) {
   const useCompactMarkers = waypointCount >= COMPACT_MARKER_COUNT;
 
   markers.forEach((marker, index) => {
     const element = marker.getElement();
+    const isHovered = hoveredWaypointIndex === index;
     const isSelected = selectedWaypointIndex === index;
     const isTerminal = index === 0 || index === waypointCount - 1;
 
+    element.classList.toggle('hovered', isHovered);
     element.classList.toggle('selected', isSelected);
     element.classList.toggle('route-marker-compact', useCompactMarkers && !isTerminal);
   });
