@@ -3218,7 +3218,8 @@ button.is-loading {
   border-bottom: 0;
 }
 
-.waypoint-row:hover {
+.waypoint-row:hover,
+.waypoint-row.hovered {
   background: rgb(217 118 68 / 5%);
 }
 
@@ -5402,6 +5403,9 @@ button.route-marker.route-marker-end::before {
   background: var(--accent-hover);
 }
 
+button.route-marker.hovered,
+button.route-marker.hovered:hover:not(:disabled),
+button.route-marker.hovered:focus-visible,
 button.route-marker.selected,
 button.route-marker.selected:hover:not(:disabled),
 button.route-marker.selected:focus-visible {
@@ -5409,6 +5413,12 @@ button.route-marker.selected:focus-visible {
   box-shadow: none;
   transform: none;
   z-index: 1;
+}
+
+button.route-marker.hovered::before {
+  box-shadow:
+    0 0 0 4px rgb(180 95 50 / 16%),
+    0 8px 18px rgb(34 24 15 / 18%);
 }
 
 button.route-marker.selected::before {
@@ -6151,6 +6161,7 @@ button.route-marker.route-marker-compact:not(.selected)::after {
   opacity: 0;
 }
 
+button.route-marker.route-marker-compact.hovered::after,
 button.route-marker.route-marker-compact:not(.selected):hover::after,
 button.route-marker.route-marker-compact:not(.selected):focus-visible::after {
   opacity: 1;
