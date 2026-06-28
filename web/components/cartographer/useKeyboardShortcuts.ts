@@ -5,6 +5,8 @@ import { useEffect, useRef } from 'react';
 type ShortcutHandlers = {
   onClose?: () => void;
   onFocusSearch?: () => void;
+  onGoLibrary?: () => void;
+  onGoMap?: () => void;
   onGoPlaces?: () => void;
   onGoRoutes?: () => void;
   onNew?: () => void;
@@ -16,6 +18,8 @@ const SEQUENCE_TIMEOUT_MS = 900;
 export function useKeyboardShortcuts({
   onClose,
   onFocusSearch,
+  onGoLibrary,
+  onGoMap,
   onGoPlaces,
   onGoRoutes,
   onNew,
@@ -80,6 +84,20 @@ export function useKeyboardShortcuts({
       if (sequenceRef.current === 'g') {
         const key = event.key.toLowerCase();
 
+        if (key === 'l') {
+          event.preventDefault();
+          clearSequence();
+          onGoLibrary?.();
+          return;
+        }
+
+        if (key === 'm') {
+          event.preventDefault();
+          clearSequence();
+          onGoMap?.();
+          return;
+        }
+
         if (key === 'p') {
           event.preventDefault();
           clearSequence();
@@ -102,7 +120,7 @@ export function useKeyboardShortcuts({
       clearSequence();
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [onClose, onFocusSearch, onGoPlaces, onGoRoutes, onNew, onToggleHelp]);
+  }, [onClose, onFocusSearch, onGoLibrary, onGoMap, onGoPlaces, onGoRoutes, onNew, onToggleHelp]);
 }
 
 function isEditableTarget(target: EventTarget | null): boolean {

@@ -1,3 +1,6 @@
+'use client';
+
+import Link from 'next/link';
 import type { ReactNode } from 'react';
 
 type StageProps = {
@@ -6,6 +9,7 @@ type StageProps = {
   isRightPanelCollapsed?: boolean;
   map: ReactNode;
   mode: 'places' | 'routes';
+  workspace?: 'library' | 'map';
   onToggleLeftPanel?: () => void;
   onToggleMapFocus?: () => void;
   onToggleRightPanel?: () => void;
@@ -20,6 +24,7 @@ export function Stage({
   onToggleLeftPanel,
   onToggleMapFocus,
   onToggleRightPanel,
+  workspace = 'library',
 }: StageProps) {
   const className = [
     'cartographer-stage',
@@ -30,11 +35,28 @@ export function Stage({
     .filter(Boolean)
     .join(' ');
   const isMapFocused = isLeftPanelCollapsed && isRightPanelCollapsed;
+  const libraryHref = `/dashboard/library/${mode}`;
 
   return (
     <main className={className}>
       <div className="cartographer-map-layer">{map}</div>
       <div aria-hidden className="cartographer-paper-vignette" />
+      <nav className="workspace-tabs" aria-label="Workspace tabs">
+        <Link
+          aria-current={workspace === 'map' ? 'page' : undefined}
+          className={workspace === 'map' ? 'active' : ''}
+          href="/dashboard/map"
+        >
+          Map
+        </Link>
+        <Link
+          aria-current={workspace === 'library' ? 'page' : undefined}
+          className={workspace === 'library' ? 'active' : ''}
+          href={libraryHref}
+        >
+          Library
+        </Link>
+      </nav>
       {onToggleLeftPanel == null &&
       onToggleRightPanel == null &&
       onToggleMapFocus == null ? null : (
