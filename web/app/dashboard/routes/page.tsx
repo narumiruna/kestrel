@@ -167,8 +167,10 @@ export default function RoutesDashboardPage() {
   useKeyboardShortcuts({
     onClose: () => setIsHelpOpen(false),
     onFocusSearch: () => searchRef.current?.focus(),
-    onGoPlaces: () => router.push('/dashboard/places'),
-    onGoRoutes: () => router.push('/dashboard/routes'),
+    onGoLibrary: () => router.push('/dashboard/library'),
+    onGoMap: () => router.push('/dashboard/map'),
+    onGoPlaces: () => router.push('/dashboard/library/places'),
+    onGoRoutes: () => router.push('/dashboard/library/routes'),
     onNew: createNewRoute,
     onToggleHelp: () => setIsHelpOpen((current) => !current),
   });
@@ -237,6 +239,7 @@ export default function RoutesDashboardPage() {
         setIsEditorCollapsed(!shouldRestorePanels);
       }}
       onToggleRightPanel={() => setIsEditorCollapsed((current) => !current)}
+      workspace="library"
     >
       <StatusStrip
         error={error}

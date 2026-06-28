@@ -56,14 +56,14 @@ function SidebarTabs({ activeSection }: { activeSection: 'places' | 'routes' }) 
       <Link
         aria-current={activeSection === 'places' ? 'page' : undefined}
         className={activeSection === 'places' ? 'active' : ''}
-        href="/dashboard/places"
+        href="/dashboard/library/places"
       >
         <span>Places</span>
       </Link>
       <Link
         aria-current={activeSection === 'routes' ? 'page' : undefined}
         className={activeSection === 'routes' ? 'active' : ''}
-        href="/dashboard/routes"
+        href="/dashboard/library/routes"
       >
         <span>Routes</span>
       </Link>

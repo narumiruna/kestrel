@@ -4,8 +4,10 @@ type KeyboardCheatsheetProps = {
 };
 
 const shortcuts = [
-  ['g p', 'Go to Places'],
-  ['g r', 'Go to Routes'],
+  ['g m', 'Go to Map'],
+  ['g l', 'Go to Library'],
+  ['g p', 'Go to Library / Places'],
+  ['g r', 'Go to Library / Routes'],
   ['n', 'Create a new entry'],
   ['/', 'Focus notebook search'],
   ['?', 'Show or hide this sheet'],
