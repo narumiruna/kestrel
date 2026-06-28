@@ -6062,6 +6062,12 @@ button.route-marker.selected::after {
   justify-items: end;
 }
 
+.unsaved-changes-label {
+  color: var(--accent-hover);
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .route-danger-zone {
   display: flex;
   min-width: 0;

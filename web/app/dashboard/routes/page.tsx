@@ -48,6 +48,7 @@ export default function RoutesDashboardPage() {
   const [draftWaypoints, setDraftWaypoints] = useState<RouteWaypoint[]>([]);
   const [selectedWaypointIndex, setSelectedWaypointIndex] = useState<number | null>(null);
   const [focusTarget, setFocusTarget] = useState<RouteWaypoint | null>(null);
+  const [isRouteDirty, setIsRouteDirty] = useState(false);
 
   const selectedRoute = useMemo(
     () => routes.find((route) => route.id === selectedRouteId) ?? null,
@@ -114,9 +115,41 @@ export default function RoutesDashboardPage() {
     }
   }, [selectedRoute]);
 
+  const selectRoute = useCallback(
+    (routeId: string) => {
+      if (!confirmDiscardUnsavedChanges(isRouteDirty)) {
+        return;
+      }
+
+      setIsRouteDirty(false);
+      setSelectedRouteId(routeId);
+    },
+    [isRouteDirty],
+  );
+
   const createNewRoute = useCallback(() => {
+    if (!confirmDiscardUnsavedChanges(isRouteDirty)) {
+      return;
+    }
+
+    setIsRouteDirty(false);
     setSelectedRouteId(null);
-  }, []);
+  }, [isRouteDirty]);
+
+  useEffect(() => {
+    if (!isRouteDirty) {
+      return;
+    }
+
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isRouteDirty]);
 
   useKeyboardShortcuts({
     onClose: () => setIsHelpOpen(false),
@@ -148,6 +181,7 @@ export default function RoutesDashboardPage() {
           });
 
     await loadRoutes();
+    setIsRouteDirty(false);
     setSelectedRouteId(savedRoute.id);
   }
 
@@ -211,7 +245,7 @@ export default function RoutesDashboardPage() {
             className={`notebook-entry route-notebook-entry${selectedRouteId === route.id ? ' active' : ''}`}
             key={route.id}
             type="button"
-            onClick={() => setSelectedRouteId(route.id)}
+            onClick={() => selectRoute(route.id)}
           >
             <span className="route-card-title-row">
               <strong className="route-card-title">{route.name}</strong>
@@ -257,6 +291,7 @@ export default function RoutesDashboardPage() {
         <RouteEditor
           key={selectedRoute?.id ?? 'new-route'}
           onDelete={selectedRoute == null ? undefined : () => void deleteRoute(selectedRoute.id)}
+          onDirtyChange={setIsRouteDirty}
           mapMode="background"
           places={places}
           route={selectedRoute}
@@ -277,6 +312,10 @@ export default function RoutesDashboardPage() {
       <KeyboardCheatsheet isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
     </Stage>
   );
+}
+
+function confirmDiscardUnsavedChanges(isDirty: boolean): boolean {
+  return !isDirty || window.confirm('Discard unsaved changes? Save first to keep them.');
 }
 
 function NotebookSkeleton() {

@@ -19,6 +19,8 @@ const PlaceMapEditor = dynamic(() => import('@/components/PlaceMapEditor'), {
 export default function PlaceEditor({
   draftCoords,
   onDelete,
+  onDirtyChange,
+  onDiscard,
   onSave,
   place,
   showHeader = true,
@@ -26,6 +28,8 @@ export default function PlaceEditor({
 }: {
   draftCoords?: { latitude: number; longitude: number };
   onDelete?: () => void;
+  onDirtyChange?: (isDirty: boolean) => void;
+  onDiscard?: () => void;
   onSave: (input: PlaceInput) => void;
   place: Place | null;
   showHeader?: boolean;
@@ -41,10 +45,17 @@ export default function PlaceEditor({
   const [description, setDescription] = useState(place?.description ?? '');
   const [tags, setTags] = useState(place?.tags.join(', ') ?? '');
   const [error, setError] = useState<string | null>(null);
+  const [saveNotice, setSaveNotice] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const shareDialogRef = useRef<HTMLDialogElement | null>(null);
+  const saveNoticeTimeoutRef = useRef<number | null>(null);
+  const initialDraftCoordsRef = useRef({
+    latitude: draftCoords?.latitude ?? DEFAULT_MAP_CENTER.latitude,
+    longitude: draftCoords?.longitude ?? DEFAULT_MAP_CENTER.longitude,
+  });
 
+  const baseline = useMemo(() => getPlaceBaseline(place, initialDraftCoordsRef.current), [place]);
   const mapCoords = useMemo(
     () => ({
       latitude: parseCoordinateOrFallback(
@@ -58,6 +69,16 @@ export default function PlaceEditor({
     }),
     [draftCoords, latitude, longitude, place],
   );
+  const isDirty = !isPlaceDraftEqual(
+    {
+      description,
+      latitude,
+      longitude,
+      name,
+      tags,
+    },
+    baseline,
+  );
 
   useEffect(() => {
     if (draftCoords == null) {
@@ -67,6 +88,21 @@ export default function PlaceEditor({
     setLatitude(formatCoordinateInput(draftCoords.latitude));
     setLongitude(formatCoordinateInput(draftCoords.longitude));
   }, [draftCoords]);
+
+  useEffect(() => {
+    onDirtyChange?.(isDirty);
+
+    return () => onDirtyChange?.(false);
+  }, [isDirty, onDirtyChange]);
+
+  useEffect(
+    () => () => {
+      if (saveNoticeTimeoutRef.current != null) {
+        window.clearTimeout(saveNoticeTimeoutRef.current);
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     const dialog = shareDialogRef.current;
@@ -88,6 +124,10 @@ export default function PlaceEditor({
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
+    setSaveNotice(null);
+    if (saveNoticeTimeoutRef.current != null) {
+      window.clearTimeout(saveNoticeTimeoutRef.current);
+    }
     setIsSaving(true);
 
     try {
@@ -101,11 +141,27 @@ export default function PlaceEditor({
           .map((tag) => tag.trim())
           .filter(Boolean),
       });
+      setSaveNotice('Saved.');
+      saveNoticeTimeoutRef.current = window.setTimeout(() => {
+        setSaveNotice(null);
+        saveNoticeTimeoutRef.current = null;
+      }, 1000);
     } catch (nextError) {
       setError(formatError(nextError));
     } finally {
       setIsSaving(false);
     }
+  }
+
+  function discardChanges() {
+    setName(baseline.name);
+    setLatitude(baseline.latitude);
+    setLongitude(baseline.longitude);
+    setDescription(baseline.description);
+    setTags(baseline.tags);
+    setError(null);
+    setSaveNotice(null);
+    onDiscard?.();
   }
 
   function confirmDelete() {
@@ -129,6 +185,7 @@ export default function PlaceEditor({
       ) : null}
       <div className="place-editor-content stack">
         {error == null ? null : <div className="error">{error}</div>}
+        {saveNotice == null ? null : <div className="success">{saveNotice}</div>}
         {showMap ? (
           <PlaceMapEditor
             latitude={mapCoords.latitude}
@@ -182,6 +239,17 @@ export default function PlaceEditor({
             )}
           </div>
           <div className="place-editor-save-actions">
+            {isDirty ? <span className="unsaved-changes-label">Unsaved changes</span> : null}
+            {isDirty ? (
+              <button
+                className="secondary"
+                disabled={isSaving}
+                type="button"
+                onClick={discardChanges}
+              >
+                Discard changes
+              </button>
+            ) : null}
             <button
               aria-haspopup="dialog"
               className="secondary"
@@ -191,7 +259,7 @@ export default function PlaceEditor({
               Share
             </button>
             <button disabled={isSaving} type="submit">
-              {isSaving ? 'Saving…' : 'Save place'}
+              {isSaving ? 'Saving…' : saveNotice == null ? 'Save place' : 'Saved ✓'}
             </button>
           </div>
         </div>
@@ -223,6 +291,38 @@ export default function PlaceEditor({
         </dialog>
       </footer>
     </form>
+  );
+}
+
+function getPlaceBaseline(
+  place: Place | null,
+  draftCoords: { latitude: number; longitude: number },
+) {
+  return {
+    description: place?.description ?? '',
+    latitude: formatCoordinateInput(place?.latitude ?? draftCoords.latitude),
+    longitude: formatCoordinateInput(place?.longitude ?? draftCoords.longitude),
+    name: place?.name ?? '',
+    tags: place?.tags.join(', ') ?? '',
+  };
+}
+
+function isPlaceDraftEqual(
+  draft: {
+    description: string;
+    latitude: string;
+    longitude: string;
+    name: string;
+    tags: string;
+  },
+  baseline: ReturnType<typeof getPlaceBaseline>,
+): boolean {
+  return (
+    draft.description === baseline.description &&
+    draft.latitude === baseline.latitude &&
+    draft.longitude === baseline.longitude &&
+    draft.name === baseline.name &&
+    draft.tags === baseline.tags
   );
 }
 
