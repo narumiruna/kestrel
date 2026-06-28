@@ -50,12 +50,19 @@ export default function PlaceEditor({
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const shareDialogRef = useRef<HTMLDialogElement | null>(null);
   const saveNoticeTimeoutRef = useRef<number | null>(null);
-  const initialDraftCoordsRef = useRef({
-    latitude: draftCoords?.latitude ?? DEFAULT_MAP_CENTER.latitude,
-    longitude: draftCoords?.longitude ?? DEFAULT_MAP_CENTER.longitude,
-  });
+  const onDirtyChangeRef = useRef(onDirtyChange);
+  const draftBaselineCoords = useMemo(
+    () => ({
+      latitude: draftCoords?.latitude ?? DEFAULT_MAP_CENTER.latitude,
+      longitude: draftCoords?.longitude ?? DEFAULT_MAP_CENTER.longitude,
+    }),
+    [draftCoords],
+  );
 
-  const baseline = useMemo(() => getPlaceBaseline(place, initialDraftCoordsRef.current), [place]);
+  const baseline = useMemo(
+    () => getPlaceBaseline(place, draftBaselineCoords),
+    [draftBaselineCoords, place],
+  );
   const mapCoords = useMemo(
     () => ({
       latitude: parseCoordinateOrFallback(
@@ -90,10 +97,14 @@ export default function PlaceEditor({
   }, [draftCoords]);
 
   useEffect(() => {
-    onDirtyChange?.(isDirty);
+    onDirtyChangeRef.current = onDirtyChange;
+  }, [onDirtyChange]);
 
-    return () => onDirtyChange?.(false);
+  useEffect(() => {
+    onDirtyChange?.(isDirty);
   }, [isDirty, onDirtyChange]);
+
+  useEffect(() => () => onDirtyChangeRef.current?.(false), []);
 
   useEffect(
     () => () => {

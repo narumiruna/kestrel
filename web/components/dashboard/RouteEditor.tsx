@@ -76,6 +76,7 @@ export default function RouteEditor({
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const saveNoticeTimeoutRef = useRef<number | null>(null);
   const shareDialogRef = useRef<HTMLDialogElement | null>(null);
+  const onDirtyChangeRef = useRef(onDirtyChange);
   const waypoints = controlledWaypoints ?? internalWaypoints;
   const selectedWaypointIndex =
     controlledSelectedWaypointIndex === undefined
@@ -87,16 +88,20 @@ export default function RouteEditor({
   const saveDisabledReason = getSaveDisabledReason(waypoints.length);
   const favoritePickerMode = waypoints.length === 0 ? 'start' : 'append';
   const baseline = useMemo(() => getRouteBaseline(route), [route]);
-  const isDirty = !isRouteDraftEqual(
-    {
-      defaultSpeedKmh,
-      description,
-      isPublic,
-      mode,
-      name,
-      waypoints,
-    },
-    baseline,
+  const isDirty = useMemo(
+    () =>
+      !isRouteDraftEqual(
+        {
+          defaultSpeedKmh,
+          description,
+          isPublic,
+          mode,
+          name,
+          waypoints,
+        },
+        baseline,
+      ),
+    [baseline, defaultSpeedKmh, description, isPublic, mode, name, waypoints],
   );
   const revisionLabel =
     route?.currentRevision == null ? 'Draft' : `Revision ${route.currentRevision.revisionNumber}`;
@@ -125,10 +130,14 @@ export default function RouteEditor({
   }, [selectedWaypointIndex, setSelectedWaypointIndex, waypoints.length]);
 
   useEffect(() => {
-    onDirtyChange?.(isDirty);
+    onDirtyChangeRef.current = onDirtyChange;
+  }, [onDirtyChange]);
 
-    return () => onDirtyChange?.(false);
+  useEffect(() => {
+    onDirtyChange?.(isDirty);
   }, [isDirty, onDirtyChange]);
+
+  useEffect(() => () => onDirtyChangeRef.current?.(false), []);
 
   useEffect(
     () => () => {
