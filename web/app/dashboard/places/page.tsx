@@ -281,12 +281,8 @@ export default function PlacesDashboardPage() {
           key={selectedPlace?.id ?? 'new-place'}
           onDelete={selectedPlace == null ? undefined : () => void deletePlace(selectedPlace.id)}
           onDirtyChange={setIsPlaceDirty}
-          onDiscard={() => {
-            setDraftPlaceCoords(
-              selectedPlace == null
-                ? DEFAULT_MAP_CENTER
-                : { latitude: selectedPlace.latitude, longitude: selectedPlace.longitude },
-            );
+          onDiscard={(coords) => {
+            setDraftPlaceCoords(coords);
             setIsPlaceDirty(false);
           }}
           onSave={(input) => void savePlace(input)}
