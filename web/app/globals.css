@@ -3523,6 +3523,35 @@ button.is-loading {
   width: 100%;
 }
 
+.workspace-tabs {
+  align-items: center;
+  background: var(--overlay-surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  box-shadow: var(--shadow-xs);
+  display: flex;
+  gap: 4px;
+  left: 24px;
+  padding: 4px;
+  position: absolute;
+  top: 16px;
+  z-index: 16;
+}
+
+.workspace-tabs a {
+  border-radius: 999px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 800;
+  padding: 7px 12px;
+  text-decoration: none;
+}
+
+.workspace-tabs a.active {
+  background: var(--accent);
+  color: #ffffff;
+}
+
 .cartographer-paper-vignette {
   background:
     linear-gradient(
@@ -5866,8 +5895,11 @@ button.route-marker.selected::after {
   padding: 3px;
 }
 
-.sidebar-tabs a {
+.sidebar-tabs a,
+.sidebar-tabs button {
   align-items: center;
+  background: transparent;
+  border: 0;
   border-radius: 9px;
   color: var(--text-secondary);
   display: inline-flex;
@@ -5879,7 +5911,9 @@ button.route-marker.selected::after {
 }
 
 .sidebar-tabs a.active,
-.sidebar-tabs a:hover {
+.sidebar-tabs a:hover,
+.sidebar-tabs button.active,
+.sidebar-tabs button:hover:not(:disabled) {
   background: var(--bg-surface);
   box-shadow: 0 1px 2px rgb(34 24 15 / 6%);
   color: var(--accent-hover);

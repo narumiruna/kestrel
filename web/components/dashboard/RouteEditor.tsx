@@ -807,7 +807,7 @@ function FavoriteWaypointPicker({
     return (
       <div className="favorite-picker empty-state">
         <p className="muted">No favorite places yet.</p>
-        <Link href="/dashboard/places">Create a favorite place first</Link>
+        <Link href="/dashboard/library/places">Create a favorite place first</Link>
       </div>
     );
   }

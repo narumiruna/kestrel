@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import type { ReactNode } from 'react';
 
 type StageProps = {
@@ -6,6 +7,7 @@ type StageProps = {
   isRightPanelCollapsed?: boolean;
   map: ReactNode;
   mode: 'places' | 'routes';
+  workspace?: 'library' | 'map';
   onToggleLeftPanel?: () => void;
   onToggleMapFocus?: () => void;
   onToggleRightPanel?: () => void;
@@ -20,6 +22,7 @@ export function Stage({
   onToggleLeftPanel,
   onToggleMapFocus,
   onToggleRightPanel,
+  workspace = 'library',
 }: StageProps) {
   const className = [
     'cartographer-stage',
@@ -35,6 +38,14 @@ export function Stage({
     <main className={className}>
       <div className="cartographer-map-layer">{map}</div>
       <div aria-hidden className="cartographer-paper-vignette" />
+      <nav className="workspace-tabs" aria-label="Workspace tabs">
+        <Link className={workspace === 'map' ? 'active' : ''} href="/dashboard/map">
+          Map
+        </Link>
+        <Link className={workspace === 'library' ? 'active' : ''} href="/dashboard/library">
+          Library
+        </Link>
+      </nav>
       {onToggleLeftPanel == null &&
       onToggleRightPanel == null &&
       onToggleMapFocus == null ? null : (
