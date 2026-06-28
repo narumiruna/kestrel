@@ -1,6 +1,7 @@
 ## GOTCHA
 
 - Web route markers are `<button>` MapLibre markers. Symptom: route point labels/dots look vertically stretched or offset, especially compact markers. Cause: global `button { min-height: 36px; }` leaks into `.route-marker`. Fix: keep `button.route-marker { min-height: 0; }`; visual dot is a 14px `::before`, label is `::after`, and the button hit target stays larger.
+- Symptom: Web route summary changes route but map keeps stale markers/line until another interaction. Cause: after initial MapLibre `load`, `isStyleLoaded()` can be false while tiles load, and waiting on already-fired `load` drops the waypoint sync. Fix: if the route source already exists, sync immediately; otherwise wait for `style.load`.
 - Android adaptive launcher icon layers are `108dp × 108dp`; keep important artwork inside the central `66dp × 66dp` safe zone (`x/y = 21..87`) and size the logo about `48..66dp`. Legacy launcher PNG sizes are mdpi 48, hdpi 72, xhdpi 96, xxhdpi 144, xxxhdpi 192 px.
 - Android `:app:assembleRelease` currently produces `app/build/outputs/apk/release/app-release-unsigned.apk` because there is no signing config yet. Any workflow or release docs must call the artifact unsigned until keystore-based signing is added.
 - The auto-tag flow must push tags with `PAT_TOKEN`, not the default `GITHUB_TOKEN`, or the follow-up `push.tags` release workflow will not fire.
