@@ -5982,33 +5982,50 @@ button.route-marker.selected::after {
   .cartographer-stage-library.cartographer-stage-routes .map-panel-controls {
     justify-content: center;
     left: calc(var(--cloud-sidebar-width, 320px) + 32px);
-    right: calc(var(--cloud-editor-width, 440px) + 80px);
-    top: calc(var(--cloud-topbar-height, 56px) + 88px);
+    right: calc(var(--cloud-editor-width, 440px) + 32px);
+    top: calc(var(--cloud-topbar-height, 56px) + 116px);
     transform: none;
+  }
+}
+
+@media (min-width: 1200px) {
+  .cartographer-stage-library.cartographer-stage-routes .route-mode-bar {
+    right: calc(var(--cloud-editor-width, 440px) + 176px);
+  }
+
+  .cartographer-stage-library.cartographer-stage-routes .map-panel-controls {
+    align-items: stretch;
+    border-radius: 16px;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    left: auto;
+    right: calc(var(--cloud-editor-width, 440px) + 32px);
+    top: calc(var(--cloud-topbar-height, 56px) + 16px);
+  }
+
+  .cartographer-stage-library.cartographer-stage-routes .map-panel-controls button {
+    justify-content: center;
+    white-space: nowrap;
   }
 }
 
 @media (min-width: 1536px) {
   .cartographer-stage-library.cartographer-stage-routes .route-mode-bar {
-    right: calc(var(--cloud-editor-width, 440px) + 360px);
+    right: calc(var(--cloud-editor-width, 440px) + 400px);
   }
 
   .cartographer-stage-library.cartographer-stage-routes .map-panel-controls {
+    align-items: center;
+    border-radius: 999px;
+    flex-direction: row;
     justify-content: flex-end;
-    left: auto;
-    max-width: 320px;
-    right: calc(var(--cloud-editor-width, 440px) + 32px);
-    top: calc(var(--cloud-topbar-height, 56px) + 16px);
   }
 }
 
 @media (min-width: 1024px) and (max-width: 1279px) {
   .route-mode-bar span:last-child {
     display: none;
-  }
-
-  .cartographer-stage-library.cartographer-stage-routes .map-panel-controls {
-    top: calc(var(--cloud-topbar-height, 56px) + 136px);
   }
 }
 
