@@ -3685,8 +3685,40 @@ button.is-loading {
   padding: 18px 16px 14px 28px;
   position: absolute;
   top: 72px;
+  transition:
+    opacity 160ms ease,
+    transform 180ms ease;
   width: min(340px, calc(100vw - 48px));
   z-index: 10;
+}
+
+.map-panel-controls {
+  align-items: center;
+  background: var(--overlay-surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  box-shadow: var(--shadow-xs);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  left: 50%;
+  margin: 0;
+  padding: 6px;
+  position: absolute;
+  top: 68px;
+  transform: translateX(-50%);
+  z-index: 15;
+}
+
+.map-panel-controls button {
+  min-height: 30px;
+  padding: 5px 10px;
+}
+
+.cartographer-stage-left-collapsed .field-notebook {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(calc(-100% - 32px));
 }
 
 .field-notebook-spine {
@@ -3873,8 +3905,17 @@ button.is-loading {
   position: absolute;
   right: 24px;
   top: 72px;
+  transition:
+    opacity 160ms ease,
+    transform 180ms ease;
   width: min(430px, calc(100vw - 48px));
   z-index: 10;
+}
+
+.cartographer-stage-right-collapsed .index-card {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(calc(100% + 32px));
 }
 
 .index-card-route {
