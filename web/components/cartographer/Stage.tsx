@@ -61,31 +61,49 @@ export function Stage({
       {onToggleLeftPanel == null &&
       onToggleRightPanel == null &&
       onToggleMapFocus == null ? null : (
-        <fieldset className="map-panel-controls">
+        <fieldset className="map-panel-controls map-panel-icon-controls">
           <legend className="sr-only">Map panel controls</legend>
           {onToggleLeftPanel == null ? null : (
             <button
               aria-expanded={!isLeftPanelCollapsed}
-              className="secondary"
+              aria-label={isLeftPanelCollapsed ? 'Show Library' : 'Hide Library'}
+              className={`map-panel-control map-panel-control-library ${
+                isLeftPanelCollapsed ? 'is-restore' : 'is-collapse'
+              }`}
+              data-label="Library"
+              title={isLeftPanelCollapsed ? 'Show Library' : 'Hide Library'}
               type="button"
               onClick={onToggleLeftPanel}
             >
-              {isLeftPanelCollapsed ? 'Show library' : 'Hide library'}
+              {isLeftPanelCollapsed ? 'L' : '−'}
             </button>
           )}
           {onToggleRightPanel == null ? null : (
             <button
               aria-expanded={!isRightPanelCollapsed}
-              className="secondary"
+              aria-label={isRightPanelCollapsed ? 'Show Editor' : 'Hide Editor'}
+              className={`map-panel-control map-panel-control-editor ${
+                isRightPanelCollapsed ? 'is-restore' : 'is-collapse'
+              }`}
+              data-label="Editor"
+              title={isRightPanelCollapsed ? 'Show Editor' : 'Hide Editor'}
               type="button"
               onClick={onToggleRightPanel}
             >
-              {isRightPanelCollapsed ? 'Show editor' : 'Hide editor'}
+              {isRightPanelCollapsed ? 'E' : '−'}
             </button>
           )}
           {onToggleMapFocus == null ? null : (
-            <button className="secondary" type="button" onClick={onToggleMapFocus}>
-              {isMapFocused ? 'Show panels' : 'Focus map'}
+            <button
+              aria-label={isMapFocused ? 'Show panels' : 'Focus map'}
+              aria-pressed={isMapFocused}
+              className={`map-panel-control map-panel-control-focus ${isMapFocused ? 'active' : ''}`}
+              data-label="Focus map"
+              title={isMapFocused ? 'Show panels' : 'Focus map'}
+              type="button"
+              onClick={onToggleMapFocus}
+            >
+              F
             </button>
           )}
         </fieldset>
