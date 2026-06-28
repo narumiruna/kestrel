@@ -531,8 +531,19 @@ export default function RouteEditor({
                         event.dataTransfer.effectAllowed = 'move';
                         event.dataTransfer.setData('text/plain', String(index));
                       }}
-                      onBlur={() => onHoverWaypointIndexChange?.(null)}
-                      onFocus={() => onHoverWaypointIndexChange?.(index)}
+                      onBlurCapture={(event) => {
+                        const nextFocusTarget = event.relatedTarget;
+
+                        if (
+                          nextFocusTarget instanceof Node &&
+                          event.currentTarget.contains(nextFocusTarget)
+                        ) {
+                          return;
+                        }
+
+                        onHoverWaypointIndexChange?.(null);
+                      }}
+                      onFocusCapture={() => onHoverWaypointIndexChange?.(index)}
                       onMouseEnter={() => onHoverWaypointIndexChange?.(index)}
                       onMouseLeave={() => onHoverWaypointIndexChange?.(null)}
                       onDrop={(event) => {
@@ -551,9 +562,7 @@ export default function RouteEditor({
                       <button
                         className="waypoint-focus"
                         type="button"
-                        onBlur={() => onHoverWaypointIndexChange?.(null)}
                         onClick={() => focusWaypoint(waypoint, index)}
-                        onFocus={() => onHoverWaypointIndexChange?.(index)}
                       >
                         <span className="waypoint-grip" title="Drag to reorder">
                           <GripVerticalIcon />
