@@ -117,6 +117,10 @@ export default function RoutesDashboardPage() {
 
   const selectRoute = useCallback(
     (routeId: string) => {
+      if (routeId === selectedRouteId) {
+        return;
+      }
+
       if (!confirmDiscardUnsavedChanges(isRouteDirty)) {
         return;
       }
@@ -124,7 +128,7 @@ export default function RoutesDashboardPage() {
       setIsRouteDirty(false);
       setSelectedRouteId(routeId);
     },
-    [isRouteDirty],
+    [isRouteDirty, selectedRouteId],
   );
 
   const createNewRoute = useCallback(() => {
