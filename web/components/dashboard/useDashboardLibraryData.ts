@@ -26,8 +26,12 @@ export function useDashboardLibraryData() {
       ]);
       setPlaces(nextPlaces);
       setRoutes(nextRoutes);
-      setSelectedPlaceId((current) => current ?? nextPlaces[0]?.id ?? null);
-      setSelectedRouteId((current) => current ?? nextRoutes[0]?.id ?? null);
+      setSelectedPlaceId((current) =>
+        nextPlaces.some((place) => place.id === current) ? current : (nextPlaces[0]?.id ?? null),
+      );
+      setSelectedRouteId((current) =>
+        nextRoutes.some((route) => route.id === current) ? current : (nextRoutes[0]?.id ?? null),
+      );
       setLastLoadedAt(new Date());
     } catch (nextError) {
       setError(formatError(nextError));

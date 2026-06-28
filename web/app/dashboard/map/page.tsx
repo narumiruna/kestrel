@@ -16,7 +16,6 @@ import {
   formatMode,
   formatRouteDistanceFromWaypoints,
 } from '@/components/dashboard/utils';
-import { DEFAULT_MAP_CENTER } from '@/components/mapStyle';
 import type { Place, Route } from '@/lib/api';
 
 const CartographerPlaceMap = dynamic(
@@ -123,17 +122,12 @@ export default function DashboardMapPage() {
       latitude: waypoint.latitude,
       longitude: waypoint.longitude,
     })) ?? [];
-  const placeDraftCoords =
-    selectedPlace == null
-      ? DEFAULT_MAP_CENTER
-      : { latitude: selectedPlace.latitude, longitude: selectedPlace.longitude };
   const map =
     activeKind === 'places' ? (
       <CartographerPlaceMap
-        draftCoords={placeDraftCoords}
+        draftCoords={null}
         places={places}
         selectedPlaceId={selectedPlaceId}
-        onChangeDraftCoords={() => undefined}
         onReady={setViewportControls}
         onSelectPlace={(placeId) => {
           setActiveKind('places');
@@ -219,14 +213,19 @@ export default function DashboardMapPage() {
             <p>{subtitle}</p>
           </div>
           <div className="index-card-actions">
-            <Link
+            <button
               className="secondary"
-              href={
-                activeKind === 'places' ? '/dashboard/library/places' : '/dashboard/library/routes'
+              type="button"
+              onClick={() =>
+                router.push(
+                  activeKind === 'places'
+                    ? '/dashboard/library/places'
+                    : '/dashboard/library/routes',
+                )
               }
             >
               Open in Library
-            </Link>
+            </button>
           </div>
         </header>
         <div className="index-card-body stack">

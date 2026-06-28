@@ -1,3 +1,5 @@
+'use client';
+
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
@@ -39,10 +41,18 @@ export function Stage({
       <div className="cartographer-map-layer">{map}</div>
       <div aria-hidden className="cartographer-paper-vignette" />
       <nav className="workspace-tabs" aria-label="Workspace tabs">
-        <Link className={workspace === 'map' ? 'active' : ''} href="/dashboard/map">
+        <Link
+          aria-current={workspace === 'map' ? 'page' : undefined}
+          className={workspace === 'map' ? 'active' : ''}
+          href="/dashboard/map"
+        >
           Map
         </Link>
-        <Link className={workspace === 'library' ? 'active' : ''} href="/dashboard/library">
+        <Link
+          aria-current={workspace === 'library' ? 'page' : undefined}
+          className={workspace === 'library' ? 'active' : ''}
+          href="/dashboard/library"
+        >
           Library
         </Link>
       </nav>

@@ -15,7 +15,7 @@ export type PlaceViewportControls = {
 type Props = {
   className?: string;
   draftCoords: { latitude: number; longitude: number } | null;
-  onChangeDraftCoords: (coords: { latitude: number; longitude: number }) => void;
+  onChangeDraftCoords?: (coords: { latitude: number; longitude: number }) => void;
   onReady?: (controls: PlaceViewportControls) => void;
   onSelectPlace: (placeId: string) => void;
   places: Place[];
@@ -87,11 +87,14 @@ export default function CartographerPlaceMap({
     });
 
     map.on('click', (event) => {
-      const nextCoords = {
+      if (callbacksRef.current.onChangeDraftCoords == null) {
+        return;
+      }
+
+      callbacksRef.current.onChangeDraftCoords({
         latitude: roundCoord(event.lngLat.lat),
         longitude: roundCoord(event.lngLat.lng),
-      };
-      callbacksRef.current.onChangeDraftCoords(nextCoords);
+      });
     });
 
     mapRef.current = map;
@@ -183,7 +186,7 @@ function syncPlaceMarkers({
   draftMarkerRef: MutableRefObject<Marker | null>;
   markersRef: Marker[];
   map: MapLibreMap;
-  onChangeDraftCoords: (coords: { latitude: number; longitude: number }) => void;
+  onChangeDraftCoords?: (coords: { latitude: number; longitude: number }) => void;
   onSelectPlace: (placeId: string) => void;
   places: Place[];
   selectedPlaceId: string | null;
@@ -228,7 +231,7 @@ function syncPlaceMarkers({
         return;
       }
 
-      onChangeDraftCoords({
+      onChangeDraftCoords?.({
         latitude: roundCoord(lngLat.lat),
         longitude: roundCoord(lngLat.lng),
       });
