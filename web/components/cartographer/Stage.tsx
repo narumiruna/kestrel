@@ -35,6 +35,7 @@ export function Stage({
     .filter(Boolean)
     .join(' ');
   const isMapFocused = isLeftPanelCollapsed && isRightPanelCollapsed;
+  const libraryHref = `/dashboard/library/${mode}`;
 
   return (
     <main className={className}>
@@ -51,7 +52,7 @@ export function Stage({
         <Link
           aria-current={workspace === 'library' ? 'page' : undefined}
           className={workspace === 'library' ? 'active' : ''}
-          href="/dashboard/library"
+          href={libraryHref}
         >
           Library
         </Link>
