@@ -80,9 +80,9 @@ cloud-down:
 cloud-log:
     docker compose -f compose.dev.yaml logs -f web-watch backend-watch postgres
 
-# start built-image browser-test stack on localhost:3401
+# start hot-reload browser-test stack on localhost:3401
 webtest-up:
-    KESTREL_DEV_WEB_PORT=3401 KESTREL_DEV_BACKEND_PORT=3400 KESTREL_DEV_POSTGRES_PORT=15433 docker compose -p kestrel-webtest -f compose.dev.yaml --profile image up --build
+    KESTREL_DEV_WEB_PORT=3401 KESTREL_DEV_BACKEND_PORT=3400 KESTREL_DEV_POSTGRES_PORT=15433 docker compose -p kestrel-webtest -f compose.dev.yaml --profile watch up --build
 
 # stop browser-test stack, keeping its database volume
 webtest-down:
@@ -90,7 +90,7 @@ webtest-down:
 
 # follow logs for the browser-test stack
 webtest-log:
-    docker compose -p kestrel-webtest -f compose.dev.yaml logs -f web backend postgres
+    docker compose -p kestrel-webtest -f compose.dev.yaml logs -f web-watch backend-watch postgres
 
 # regenerate detekt baseline (accept current warnings as-is)
 lint-baseline:
