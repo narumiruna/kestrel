@@ -30,7 +30,7 @@ format:
     JAVA_HOME="{{java_home}}" PATH="{{java_home}}/bin:$PATH" ./gradlew spotlessApply
     just web-format
 
-# check Android and web formatting/lint without writing changes
+# check Android formatting and web formatting/lint without writing changes
 check:
     just android-check
     just web-check
