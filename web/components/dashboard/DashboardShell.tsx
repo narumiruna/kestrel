@@ -6,7 +6,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { formatError } from '@/components/dashboard/utils';
 import { useTheme } from '@/components/ThemeProvider';
 
-type DashboardSection = 'places' | 'routes';
+type DashboardSection = 'library' | 'map';
 
 type Props = {
   activeSection: DashboardSection;
@@ -19,8 +19,8 @@ type Props = {
 };
 
 const sections: Array<{ href: string; icon: ReactNode; key: DashboardSection; label: string }> = [
-  { href: '/dashboard/places', icon: <MapPinIcon />, key: 'places', label: 'Places' },
-  { href: '/dashboard/routes', icon: <RouteIcon />, key: 'routes', label: 'Routes' },
+  { href: '/dashboard/map', icon: <MapPinIcon />, key: 'map', label: 'Map' },
+  { href: '/dashboard/library', icon: <RouteIcon />, key: 'library', label: 'Library' },
 ];
 
 export default function DashboardShell({
