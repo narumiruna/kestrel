@@ -55,6 +55,8 @@ export default function PlacesDashboardPage() {
   const [viewportControls, setViewportControls] = useState<PlaceViewportControls | null>(null);
   const [isPlaceDirty, setIsPlaceDirty] = useState(false);
   const [newPlaceDraftNonce, setNewPlaceDraftNonce] = useState(0);
+  const [isLibraryCollapsed, setIsLibraryCollapsed] = useState(false);
+  const [isEditorCollapsed, setIsEditorCollapsed] = useState(false);
 
   const selectedPlace = useMemo(
     () => places.find((place) => place.id === selectedPlaceId) ?? null,
@@ -215,7 +217,16 @@ export default function PlacesDashboardPage() {
           onSelectPlace={selectPlace}
         />
       }
+      isLeftPanelCollapsed={isLibraryCollapsed}
+      isRightPanelCollapsed={isEditorCollapsed}
       mode="places"
+      onToggleLeftPanel={() => setIsLibraryCollapsed((current) => !current)}
+      onToggleMapFocus={() => {
+        const shouldRestorePanels = isLibraryCollapsed && isEditorCollapsed;
+        setIsLibraryCollapsed(!shouldRestorePanels);
+        setIsEditorCollapsed(!shouldRestorePanels);
+      }}
+      onToggleRightPanel={() => setIsEditorCollapsed((current) => !current)}
     >
       <StatusStrip
         error={error}
