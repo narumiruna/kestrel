@@ -29,6 +29,7 @@ export function Stage({
   const className = [
     'cartographer-stage',
     `cartographer-stage-${mode}`,
+    `cartographer-stage-${workspace}`,
     isLeftPanelCollapsed ? 'cartographer-stage-left-collapsed' : '',
     isRightPanelCollapsed ? 'cartographer-stage-right-collapsed' : '',
   ]
