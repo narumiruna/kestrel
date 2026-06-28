@@ -29,18 +29,20 @@ export default function PlaceEditor({
   draftCoords?: { latitude: number; longitude: number };
   onDelete?: () => void;
   onDirtyChange?: (isDirty: boolean) => void;
-  onDiscard?: () => void;
+  onDiscard?: (coords: { latitude: number; longitude: number }) => void;
   onSave: (input: PlaceInput) => void;
   place: Place | null;
   showHeader?: boolean;
   showMap?: boolean;
 }) {
   const [name, setName] = useState(place?.name ?? '');
-  const [latitude, setLatitude] = useState(
-    place?.latitude.toString() ?? `${draftCoords?.latitude ?? DEFAULT_MAP_CENTER.latitude}`,
+  const [latitude, setLatitude] = useState(() =>
+    formatCoordinateInput(place?.latitude ?? draftCoords?.latitude ?? DEFAULT_MAP_CENTER.latitude),
   );
-  const [longitude, setLongitude] = useState(
-    place?.longitude.toString() ?? `${draftCoords?.longitude ?? DEFAULT_MAP_CENTER.longitude}`,
+  const [longitude, setLongitude] = useState(() =>
+    formatCoordinateInput(
+      place?.longitude ?? draftCoords?.longitude ?? DEFAULT_MAP_CENTER.longitude,
+    ),
   );
   const [description, setDescription] = useState(place?.description ?? '');
   const [tags, setTags] = useState(place?.tags.join(', ') ?? '');
@@ -51,18 +53,19 @@ export default function PlaceEditor({
   const shareDialogRef = useRef<HTMLDialogElement | null>(null);
   const saveNoticeTimeoutRef = useRef<number | null>(null);
   const onDirtyChangeRef = useRef(onDirtyChange);
-  const draftBaselineCoords = useMemo(
-    () => ({
-      latitude: draftCoords?.latitude ?? DEFAULT_MAP_CENTER.latitude,
-      longitude: draftCoords?.longitude ?? DEFAULT_MAP_CENTER.longitude,
-    }),
-    [draftCoords],
+  const [newPlaceBaselineCoords] = useState(() => ({
+    latitude: draftCoords?.latitude ?? DEFAULT_MAP_CENTER.latitude,
+    longitude: draftCoords?.longitude ?? DEFAULT_MAP_CENTER.longitude,
+  }));
+  const baselineCoords = useMemo(
+    () =>
+      place == null
+        ? newPlaceBaselineCoords
+        : { latitude: place.latitude, longitude: place.longitude },
+    [newPlaceBaselineCoords, place],
   );
 
-  const baseline = useMemo(
-    () => getPlaceBaseline(place, draftBaselineCoords),
-    [draftBaselineCoords, place],
-  );
+  const baseline = useMemo(() => getPlaceBaseline(place, baselineCoords), [baselineCoords, place]);
   const mapCoords = useMemo(
     () => ({
       latitude: parseCoordinateOrFallback(
@@ -172,7 +175,7 @@ export default function PlaceEditor({
     setTags(baseline.tags);
     setError(null);
     setSaveNotice(null);
-    onDiscard?.();
+    onDiscard?.(baselineCoords);
   }
 
   function confirmDelete() {
