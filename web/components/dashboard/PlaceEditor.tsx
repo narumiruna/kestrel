@@ -19,6 +19,8 @@ const PlaceMapEditor = dynamic(() => import('@/components/PlaceMapEditor'), {
 export default function PlaceEditor({
   draftCoords,
   onDelete,
+  onDirtyChange,
+  onDiscard,
   onSave,
   place,
   showHeader = true,
@@ -26,25 +28,44 @@ export default function PlaceEditor({
 }: {
   draftCoords?: { latitude: number; longitude: number };
   onDelete?: () => void;
+  onDirtyChange?: (isDirty: boolean) => void;
+  onDiscard?: (coords: { latitude: number; longitude: number }) => void;
   onSave: (input: PlaceInput) => void;
   place: Place | null;
   showHeader?: boolean;
   showMap?: boolean;
 }) {
   const [name, setName] = useState(place?.name ?? '');
-  const [latitude, setLatitude] = useState(
-    place?.latitude.toString() ?? `${draftCoords?.latitude ?? DEFAULT_MAP_CENTER.latitude}`,
+  const [latitude, setLatitude] = useState(() =>
+    formatCoordinateInput(place?.latitude ?? draftCoords?.latitude ?? DEFAULT_MAP_CENTER.latitude),
   );
-  const [longitude, setLongitude] = useState(
-    place?.longitude.toString() ?? `${draftCoords?.longitude ?? DEFAULT_MAP_CENTER.longitude}`,
+  const [longitude, setLongitude] = useState(() =>
+    formatCoordinateInput(
+      place?.longitude ?? draftCoords?.longitude ?? DEFAULT_MAP_CENTER.longitude,
+    ),
   );
   const [description, setDescription] = useState(place?.description ?? '');
   const [tags, setTags] = useState(place?.tags.join(', ') ?? '');
   const [error, setError] = useState<string | null>(null);
+  const [saveNotice, setSaveNotice] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const shareDialogRef = useRef<HTMLDialogElement | null>(null);
+  const saveNoticeTimeoutRef = useRef<number | null>(null);
+  const onDirtyChangeRef = useRef(onDirtyChange);
+  const [newPlaceBaselineCoords] = useState(() => ({
+    latitude: draftCoords?.latitude ?? DEFAULT_MAP_CENTER.latitude,
+    longitude: draftCoords?.longitude ?? DEFAULT_MAP_CENTER.longitude,
+  }));
+  const baselineCoords = useMemo(
+    () =>
+      place == null
+        ? newPlaceBaselineCoords
+        : { latitude: place.latitude, longitude: place.longitude },
+    [newPlaceBaselineCoords, place],
+  );
 
+  const baseline = useMemo(() => getPlaceBaseline(place, baselineCoords), [baselineCoords, place]);
   const mapCoords = useMemo(
     () => ({
       latitude: parseCoordinateOrFallback(
@@ -58,6 +79,16 @@ export default function PlaceEditor({
     }),
     [draftCoords, latitude, longitude, place],
   );
+  const isDirty = !isPlaceDraftEqual(
+    {
+      description,
+      latitude,
+      longitude,
+      name,
+      tags,
+    },
+    baseline,
+  );
 
   useEffect(() => {
     if (draftCoords == null) {
@@ -67,6 +98,25 @@ export default function PlaceEditor({
     setLatitude(formatCoordinateInput(draftCoords.latitude));
     setLongitude(formatCoordinateInput(draftCoords.longitude));
   }, [draftCoords]);
+
+  useEffect(() => {
+    onDirtyChangeRef.current = onDirtyChange;
+  }, [onDirtyChange]);
+
+  useEffect(() => {
+    onDirtyChange?.(isDirty);
+  }, [isDirty, onDirtyChange]);
+
+  useEffect(() => () => onDirtyChangeRef.current?.(false), []);
+
+  useEffect(
+    () => () => {
+      if (saveNoticeTimeoutRef.current != null) {
+        window.clearTimeout(saveNoticeTimeoutRef.current);
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     const dialog = shareDialogRef.current;
@@ -88,6 +138,10 @@ export default function PlaceEditor({
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
+    setSaveNotice(null);
+    if (saveNoticeTimeoutRef.current != null) {
+      window.clearTimeout(saveNoticeTimeoutRef.current);
+    }
     setIsSaving(true);
 
     try {
@@ -101,11 +155,27 @@ export default function PlaceEditor({
           .map((tag) => tag.trim())
           .filter(Boolean),
       });
+      setSaveNotice('Saved.');
+      saveNoticeTimeoutRef.current = window.setTimeout(() => {
+        setSaveNotice(null);
+        saveNoticeTimeoutRef.current = null;
+      }, 1000);
     } catch (nextError) {
       setError(formatError(nextError));
     } finally {
       setIsSaving(false);
     }
+  }
+
+  function discardChanges() {
+    setName(baseline.name);
+    setLatitude(baseline.latitude);
+    setLongitude(baseline.longitude);
+    setDescription(baseline.description);
+    setTags(baseline.tags);
+    setError(null);
+    setSaveNotice(null);
+    onDiscard?.(baselineCoords);
   }
 
   function confirmDelete() {
@@ -129,6 +199,7 @@ export default function PlaceEditor({
       ) : null}
       <div className="place-editor-content stack">
         {error == null ? null : <div className="error">{error}</div>}
+        {saveNotice == null ? null : <div className="success">{saveNotice}</div>}
         {showMap ? (
           <PlaceMapEditor
             latitude={mapCoords.latitude}
@@ -182,6 +253,17 @@ export default function PlaceEditor({
             )}
           </div>
           <div className="place-editor-save-actions">
+            {isDirty ? <span className="unsaved-changes-label">Unsaved changes</span> : null}
+            {isDirty ? (
+              <button
+                className="secondary"
+                disabled={isSaving}
+                type="button"
+                onClick={discardChanges}
+              >
+                Discard changes
+              </button>
+            ) : null}
             <button
               aria-haspopup="dialog"
               className="secondary"
@@ -191,7 +273,7 @@ export default function PlaceEditor({
               Share
             </button>
             <button disabled={isSaving} type="submit">
-              {isSaving ? 'Saving…' : 'Save place'}
+              {isSaving ? 'Saving…' : saveNotice == null ? 'Save place' : 'Saved ✓'}
             </button>
           </div>
         </div>
@@ -224,6 +306,53 @@ export default function PlaceEditor({
       </footer>
     </form>
   );
+}
+
+function getPlaceBaseline(
+  place: Place | null,
+  draftCoords: { latitude: number; longitude: number },
+) {
+  return {
+    description: place?.description ?? '',
+    latitude: formatCoordinateInput(place?.latitude ?? draftCoords.latitude),
+    longitude: formatCoordinateInput(place?.longitude ?? draftCoords.longitude),
+    name: place?.name ?? '',
+    tags: place?.tags.join(', ') ?? '',
+  };
+}
+
+function isPlaceDraftEqual(
+  draft: {
+    description: string;
+    latitude: string;
+    longitude: string;
+    name: string;
+    tags: string;
+  },
+  baseline: ReturnType<typeof getPlaceBaseline>,
+): boolean {
+  return (
+    normalizeNullable(draft.description) === normalizeNullable(baseline.description) &&
+    numberInputsEqual(draft.latitude, baseline.latitude) &&
+    numberInputsEqual(draft.longitude, baseline.longitude) &&
+    draft.name.trim() === baseline.name.trim() &&
+    normalizeTagsInput(draft.tags) === normalizeTagsInput(baseline.tags)
+  );
+}
+
+function numberInputsEqual(left: string, right: string): boolean {
+  const leftNumber = Number(left);
+  const rightNumber = Number(right);
+
+  return Number.isFinite(leftNumber) && Number.isFinite(rightNumber) && leftNumber === rightNumber;
+}
+
+function normalizeTagsInput(value: string): string {
+  return value
+    .split(',')
+    .map((tag) => tag.trim())
+    .filter(Boolean)
+    .join('\n');
 }
 
 function PlaceSharePanel({ place }: { place: Place | null }) {

@@ -48,6 +48,8 @@ export default function RoutesDashboardPage() {
   const [draftWaypoints, setDraftWaypoints] = useState<RouteWaypoint[]>([]);
   const [selectedWaypointIndex, setSelectedWaypointIndex] = useState<number | null>(null);
   const [focusTarget, setFocusTarget] = useState<RouteWaypoint | null>(null);
+  const [isRouteDirty, setIsRouteDirty] = useState(false);
+  const [newRouteDraftNonce, setNewRouteDraftNonce] = useState(0);
 
   const selectedRoute = useMemo(
     () => routes.find((route) => route.id === selectedRouteId) ?? null,
@@ -114,9 +116,49 @@ export default function RoutesDashboardPage() {
     }
   }, [selectedRoute]);
 
+  const selectRoute = useCallback(
+    (routeId: string) => {
+      if (routeId === selectedRouteId) {
+        return;
+      }
+
+      if (!confirmDiscardUnsavedChanges(isRouteDirty)) {
+        return;
+      }
+
+      setIsRouteDirty(false);
+      setSelectedRouteId(routeId);
+    },
+    [isRouteDirty, selectedRouteId],
+  );
+
   const createNewRoute = useCallback(() => {
+    if (!confirmDiscardUnsavedChanges(isRouteDirty)) {
+      return;
+    }
+
+    setIsRouteDirty(false);
+    setDraftWaypoints([]);
+    setSelectedWaypointIndex(null);
+    setFocusTarget(null);
     setSelectedRouteId(null);
-  }, []);
+    setNewRouteDraftNonce((currentNonce) => currentNonce + 1);
+  }, [isRouteDirty]);
+
+  useEffect(() => {
+    if (!isRouteDirty) {
+      return;
+    }
+
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isRouteDirty]);
 
   useKeyboardShortcuts({
     onClose: () => setIsHelpOpen(false),
@@ -148,6 +190,7 @@ export default function RoutesDashboardPage() {
           });
 
     await loadRoutes();
+    setIsRouteDirty(false);
     setSelectedRouteId(savedRoute.id);
   }
 
@@ -211,7 +254,7 @@ export default function RoutesDashboardPage() {
             className={`notebook-entry route-notebook-entry${selectedRouteId === route.id ? ' active' : ''}`}
             key={route.id}
             type="button"
-            onClick={() => setSelectedRouteId(route.id)}
+            onClick={() => selectRoute(route.id)}
           >
             <span className="route-card-title-row">
               <strong className="route-card-title">{route.name}</strong>
@@ -255,8 +298,9 @@ export default function RoutesDashboardPage() {
         variant="route"
       >
         <RouteEditor
-          key={selectedRoute?.id ?? 'new-route'}
+          key={selectedRoute?.id ?? `new-route-${newRouteDraftNonce}`}
           onDelete={selectedRoute == null ? undefined : () => void deleteRoute(selectedRoute.id)}
+          onDirtyChange={setIsRouteDirty}
           mapMode="background"
           places={places}
           route={selectedRoute}
@@ -277,6 +321,10 @@ export default function RoutesDashboardPage() {
       <KeyboardCheatsheet isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
     </Stage>
   );
+}
+
+function confirmDiscardUnsavedChanges(isDirty: boolean): boolean {
+  return !isDirty || window.confirm('Discard unsaved changes? Save first to keep them.');
 }
 
 function NotebookSkeleton() {
