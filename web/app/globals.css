@@ -6071,10 +6071,6 @@ button.route-marker.selected::after {
   background: transparent;
 }
 
-button.route-marker {
-  position: relative;
-}
-
 button.route-marker:hover:not(:disabled),
 button.route-marker:focus-visible {
   background: transparent;
