@@ -49,6 +49,7 @@ export default function RoutesDashboardPage() {
   const [selectedWaypointIndex, setSelectedWaypointIndex] = useState<number | null>(null);
   const [focusTarget, setFocusTarget] = useState<RouteWaypoint | null>(null);
   const [isRouteDirty, setIsRouteDirty] = useState(false);
+  const [newRouteDraftNonce, setNewRouteDraftNonce] = useState(0);
 
   const selectedRoute = useMemo(
     () => routes.find((route) => route.id === selectedRouteId) ?? null,
@@ -137,7 +138,11 @@ export default function RoutesDashboardPage() {
     }
 
     setIsRouteDirty(false);
+    setDraftWaypoints([]);
+    setSelectedWaypointIndex(null);
+    setFocusTarget(null);
     setSelectedRouteId(null);
+    setNewRouteDraftNonce((currentNonce) => currentNonce + 1);
   }, [isRouteDirty]);
 
   useEffect(() => {
@@ -293,7 +298,7 @@ export default function RoutesDashboardPage() {
         variant="route"
       >
         <RouteEditor
-          key={selectedRoute?.id ?? 'new-route'}
+          key={selectedRoute?.id ?? `new-route-${newRouteDraftNonce}`}
           onDelete={selectedRoute == null ? undefined : () => void deleteRoute(selectedRoute.id)}
           onDirtyChange={setIsRouteDirty}
           mapMode="background"

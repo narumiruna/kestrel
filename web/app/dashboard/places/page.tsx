@@ -54,6 +54,7 @@ export default function PlacesDashboardPage() {
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [viewportControls, setViewportControls] = useState<PlaceViewportControls | null>(null);
   const [isPlaceDirty, setIsPlaceDirty] = useState(false);
+  const [newPlaceDraftNonce, setNewPlaceDraftNonce] = useState(0);
 
   const selectedPlace = useMemo(
     () => places.find((place) => place.id === selectedPlaceId) ?? null,
@@ -135,6 +136,7 @@ export default function PlacesDashboardPage() {
     setIsPlaceDirty(false);
     setDraftPlaceCoords(activeCoords);
     setSelectedPlaceId(null);
+    setNewPlaceDraftNonce((currentNonce) => currentNonce + 1);
   }, [activeCoords, isPlaceDirty]);
 
   useEffect(() => {
@@ -282,7 +284,7 @@ export default function PlacesDashboardPage() {
       >
         <PlaceEditor
           draftCoords={activeCoords}
-          key={selectedPlace?.id ?? 'new-place'}
+          key={selectedPlace?.id ?? `new-place-${newPlaceDraftNonce}`}
           onDelete={selectedPlace == null ? undefined : () => void deletePlace(selectedPlace.id)}
           onDirtyChange={setIsPlaceDirty}
           onDiscard={(coords) => {
