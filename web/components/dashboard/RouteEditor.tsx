@@ -30,6 +30,7 @@ const RouteMapEditor = dynamic(() => import('@/components/RouteMapEditor'), {
 export default function RouteEditor({
   mapMode = 'embedded',
   onDelete,
+  onDirtyChange,
   onFocusTargetChange,
   onSave,
   onSelectedWaypointIndexChange,
@@ -41,6 +42,7 @@ export default function RouteEditor({
 }: {
   mapMode?: 'background' | 'embedded';
   onDelete?: () => void;
+  onDirtyChange?: (isDirty: boolean) => void;
   onFocusTargetChange?: (waypoint: RouteWaypoint | null) => void;
   onSave: (input: RouteInput) => void;
   onSelectedWaypointIndexChange?: (index: number | null) => void;
@@ -84,6 +86,18 @@ export default function RouteEditor({
   const routeBuilderHint = getRouteBuilderHint(waypoints.length, places.length, mapMode);
   const saveDisabledReason = getSaveDisabledReason(waypoints.length);
   const favoritePickerMode = waypoints.length === 0 ? 'start' : 'append';
+  const baseline = useMemo(() => getRouteBaseline(route), [route]);
+  const isDirty = !isRouteDraftEqual(
+    {
+      defaultSpeedKmh,
+      description,
+      isPublic,
+      mode,
+      name,
+      waypoints,
+    },
+    baseline,
+  );
   const revisionLabel =
     route?.currentRevision == null ? 'Draft' : `Revision ${route.currentRevision.revisionNumber}`;
   const distanceLabel = useMemo(() => formatRouteDistanceFromWaypoints(waypoints), [waypoints]);
@@ -109,6 +123,12 @@ export default function RouteEditor({
       setSelectedWaypointIndex(null);
     }
   }, [selectedWaypointIndex, setSelectedWaypointIndex, waypoints.length]);
+
+  useEffect(() => {
+    onDirtyChange?.(isDirty);
+
+    return () => onDirtyChange?.(false);
+  }, [isDirty, onDirtyChange]);
 
   useEffect(
     () => () => {
@@ -252,6 +272,19 @@ export default function RouteEditor({
   function focusWaypoint(waypoint: RouteWaypoint, index: number) {
     setSelectedWaypointIndex(index);
     setRouteFocusTarget(waypoint);
+  }
+
+  function discardChanges() {
+    setName(baseline.name);
+    setDescription(baseline.description);
+    setDefaultSpeedKmh(baseline.defaultSpeedKmh);
+    setMode(baseline.mode);
+    setIsPublic(baseline.isPublic);
+    setWaypoints(baseline.waypoints);
+    setSelectedWaypointIndex(null);
+    setRouteFocusTarget(null);
+    setError(null);
+    setSaveNotice(null);
   }
 
   function confirmDelete() {
@@ -548,10 +581,21 @@ export default function RouteEditor({
             )}
           </div>
           <div className="route-save-actions">
+            {isDirty ? <span className="unsaved-changes-label">Unsaved changes</span> : null}
             {saveDisabledReason == null ? null : (
               <p className="muted no-margin">{saveDisabledReason}</p>
             )}
             <div className="route-editor-save-buttons">
+              {isDirty ? (
+                <button
+                  className="secondary"
+                  disabled={isSaving}
+                  type="button"
+                  onClick={discardChanges}
+                >
+                  Discard changes
+                </button>
+              ) : null}
               <button
                 aria-haspopup="dialog"
                 className="secondary"
@@ -607,6 +651,53 @@ export default function RouteEditor({
         </dialog>
       </footer>
     </form>
+  );
+}
+
+function getRouteBaseline(route: Route | null) {
+  return {
+    defaultSpeedKmh: route?.defaultSpeedKmh.toString() ?? '5',
+    description: route?.description ?? '',
+    isPublic: route?.isPublic ?? false,
+    mode: route?.mode ?? ('ONCE' as RouteMode),
+    name: route?.name ?? '',
+    waypoints:
+      route?.currentRevision?.waypoints.map((waypoint) => ({
+        latitude: waypoint.latitude,
+        longitude: waypoint.longitude,
+      })) ?? [],
+  };
+}
+
+function isRouteDraftEqual(
+  draft: {
+    defaultSpeedKmh: string;
+    description: string;
+    isPublic: boolean;
+    mode: RouteMode;
+    name: string;
+    waypoints: RouteWaypoint[];
+  },
+  baseline: ReturnType<typeof getRouteBaseline>,
+): boolean {
+  return (
+    draft.defaultSpeedKmh === baseline.defaultSpeedKmh &&
+    draft.description === baseline.description &&
+    draft.isPublic === baseline.isPublic &&
+    draft.mode === baseline.mode &&
+    draft.name === baseline.name &&
+    waypointsEqual(draft.waypoints, baseline.waypoints)
+  );
+}
+
+function waypointsEqual(left: RouteWaypoint[], right: RouteWaypoint[]): boolean {
+  return (
+    left.length === right.length &&
+    left.every(
+      (waypoint, index) =>
+        waypoint.latitude === right[index]?.latitude &&
+        waypoint.longitude === right[index]?.longitude,
+    )
   );
 }
 

@@ -53,6 +53,7 @@ export default function PlacesDashboardPage() {
   const [placeQuery, setPlaceQuery] = useState('');
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [viewportControls, setViewportControls] = useState<PlaceViewportControls | null>(null);
+  const [isPlaceDirty, setIsPlaceDirty] = useState(false);
 
   const selectedPlace = useMemo(
     () => places.find((place) => place.id === selectedPlaceId) ?? null,
@@ -108,19 +109,44 @@ export default function PlacesDashboardPage() {
 
   const selectPlace = useCallback(
     (placeId: string) => {
+      if (!confirmDiscardUnsavedChanges(isPlaceDirty)) {
+        return;
+      }
+
       const place = places.find((currentPlace) => currentPlace.id === placeId);
+      setIsPlaceDirty(false);
       setSelectedPlaceId(placeId);
       setDraftPlaceCoords(
         place == null ? null : { latitude: place.latitude, longitude: place.longitude },
       );
     },
-    [places],
+    [isPlaceDirty, places],
   );
 
   const createNewPlace = useCallback(() => {
+    if (!confirmDiscardUnsavedChanges(isPlaceDirty)) {
+      return;
+    }
+
+    setIsPlaceDirty(false);
     setDraftPlaceCoords(activeCoords);
     setSelectedPlaceId(null);
-  }, [activeCoords]);
+  }, [activeCoords, isPlaceDirty]);
+
+  useEffect(() => {
+    if (!isPlaceDirty) {
+      return;
+    }
+
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isPlaceDirty]);
 
   useKeyboardShortcuts({
     onClose: () => setIsHelpOpen(false),
@@ -152,6 +178,7 @@ export default function PlacesDashboardPage() {
           });
 
     await loadPlaces();
+    setIsPlaceDirty(false);
     setSelectedPlaceId(savedPlace.id);
     setDraftPlaceCoords({ latitude: savedPlace.latitude, longitude: savedPlace.longitude });
   }
@@ -253,6 +280,15 @@ export default function PlacesDashboardPage() {
           draftCoords={activeCoords}
           key={selectedPlace?.id ?? 'new-place'}
           onDelete={selectedPlace == null ? undefined : () => void deletePlace(selectedPlace.id)}
+          onDirtyChange={setIsPlaceDirty}
+          onDiscard={() => {
+            setDraftPlaceCoords(
+              selectedPlace == null
+                ? DEFAULT_MAP_CENTER
+                : { latitude: selectedPlace.latitude, longitude: selectedPlace.longitude },
+            );
+            setIsPlaceDirty(false);
+          }}
           onSave={(input) => void savePlace(input)}
           place={selectedPlace}
           showHeader={false}
@@ -268,6 +304,10 @@ export default function PlacesDashboardPage() {
       <KeyboardCheatsheet isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
     </Stage>
   );
+}
+
+function confirmDiscardUnsavedChanges(isDirty: boolean): boolean {
+  return !isDirty || window.confirm('Discard unsaved changes? Save first to keep them.');
 }
 
 function NotebookSkeleton() {
