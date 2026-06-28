@@ -19,7 +19,7 @@ The current Web UI uses the cartographer `Stage` with a large background map, le
 - [x] Add accessible collapse buttons with clear labels and keyboard focus states for both side panels; verify with DOM inspection for `aria-expanded`/labels and keyboard tab smoke in Chrome.
 - [x] Add a route-specific `Focus map` action that collapses both panels and keeps waypoint editing/marker dragging active; verify by editing a route, entering focus mode, dragging a marker, and saving.
 - [x] Add responsive CSS so collapsed panels do not leave dead gutters at `1440x900`, `1024x768`, and `390x844`; verify with Chrome DevTools screenshots at those viewport sizes.
-- [x] Not applicable: panel mode persistence was left out to avoid sticky hidden panels during editing; the controls are session-local. in `localStorage` if users expect it after a reload; verify reload behavior manually, or explicitly leave persistence out and note the decision in the PR.
+- [x] Not applicable: panel mode persistence was left out to avoid sticky hidden panels during editing; the controls are session-local, and `localStorage` persistence can be added later if users expect the state after reload.
 - [x] Run Web quality gates; verify with `just web-check` and `cd web && npm run typecheck`.
 
 ## Risks

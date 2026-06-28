@@ -3687,7 +3687,9 @@ button.is-loading {
   top: 72px;
   transition:
     opacity 160ms ease,
-    transform 180ms ease;
+    transform 180ms ease,
+    visibility 0s linear;
+  visibility: visible;
   width: min(340px, calc(100vw - 48px));
   z-index: 10;
 }
@@ -3719,6 +3721,11 @@ button.is-loading {
   opacity: 0;
   pointer-events: none;
   transform: translateX(calc(-100% - 32px));
+  transition:
+    opacity 160ms ease,
+    transform 180ms ease,
+    visibility 0s linear 180ms;
+  visibility: hidden;
 }
 
 .field-notebook-spine {
@@ -3907,7 +3914,9 @@ button.is-loading {
   top: 72px;
   transition:
     opacity 160ms ease,
-    transform 180ms ease;
+    transform 180ms ease,
+    visibility 0s linear;
+  visibility: visible;
   width: min(430px, calc(100vw - 48px));
   z-index: 10;
 }
@@ -3916,6 +3925,11 @@ button.is-loading {
   opacity: 0;
   pointer-events: none;
   transform: translateX(calc(100% + 32px));
+  transition:
+    opacity 160ms ease,
+    transform 180ms ease,
+    visibility 0s linear 180ms;
+  visibility: hidden;
 }
 
 .index-card-route {
