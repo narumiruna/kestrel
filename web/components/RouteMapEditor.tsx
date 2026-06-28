@@ -46,7 +46,7 @@ export default function RouteMapEditor({
   const onSelectWaypointRef = useRef(onSelectWaypoint);
   const selectedWaypointIndexRef = useRef(selectedWaypointIndex);
   const waypointsRef = useRef(waypoints);
-  const initialStyleNameRef = useRef(styleName);
+  const currentStyleNameRef = useRef(styleName);
 
   useEffect(() => {
     onChangeRef.current = onChange;
@@ -68,7 +68,7 @@ export default function RouteMapEditor({
           ? [121.5654, 25.033]
           : [firstWaypoint.longitude, firstWaypoint.latitude],
       container: containerRef.current,
-      style: getStyleByName(initialStyleNameRef.current),
+      style: getStyleByName(currentStyleNameRef.current),
       zoom: firstWaypoint == null ? 11 : 14,
     });
 
@@ -197,16 +197,22 @@ export default function RouteMapEditor({
     const map = mapRef.current;
 
     if (map == null) {
+      currentStyleNameRef.current = styleName;
       return;
     }
+
+    if (currentStyleNameRef.current === styleName) {
+      return;
+    }
+
+    currentStyleNameRef.current = styleName;
 
     const center = map.getCenter();
     const zoom = map.getZoom();
     const bearing = map.getBearing();
     const pitch = map.getPitch();
 
-    map.setStyle(getStyleByName(styleName));
-    map.once('style.load', () => {
+    const update = () => {
       syncLineLayer(map, waypointsRef.current);
       syncMarkers({
         existingMarkers: markersRef.current,
@@ -221,7 +227,14 @@ export default function RouteMapEditor({
         waypointsRef.current.length,
       );
       map.jumpTo({ bearing, center, pitch, zoom });
-    });
+    };
+
+    map.setStyle(getStyleByName(styleName));
+    map.once('style.load', update);
+
+    return () => {
+      map.off('style.load', update);
+    };
   }, [styleName]);
 
   return <div className={className} ref={containerRef} />;
