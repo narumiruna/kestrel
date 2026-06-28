@@ -50,6 +50,8 @@ export default function RoutesDashboardPage() {
   const [focusTarget, setFocusTarget] = useState<RouteWaypoint | null>(null);
   const [isRouteDirty, setIsRouteDirty] = useState(false);
   const [newRouteDraftNonce, setNewRouteDraftNonce] = useState(0);
+  const [isLibraryCollapsed, setIsLibraryCollapsed] = useState(false);
+  const [isEditorCollapsed, setIsEditorCollapsed] = useState(false);
 
   const selectedRoute = useMemo(
     () => routes.find((route) => route.id === selectedRouteId) ?? null,
@@ -221,7 +223,16 @@ export default function RoutesDashboardPage() {
           onSelectWaypoint={setSelectedWaypointIndex}
         />
       }
+      isLeftPanelCollapsed={isLibraryCollapsed}
+      isRightPanelCollapsed={isEditorCollapsed}
       mode="routes"
+      onToggleLeftPanel={() => setIsLibraryCollapsed((current) => !current)}
+      onToggleMapFocus={() => {
+        const shouldRestorePanels = isLibraryCollapsed && isEditorCollapsed;
+        setIsLibraryCollapsed(!shouldRestorePanels);
+        setIsEditorCollapsed(!shouldRestorePanels);
+      }}
+      onToggleRightPanel={() => setIsEditorCollapsed((current) => !current)}
     >
       <StatusStrip
         error={error}
