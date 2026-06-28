@@ -690,13 +690,20 @@ function isRouteDraftEqual(
   baseline: ReturnType<typeof getRouteBaseline>,
 ): boolean {
   return (
-    draft.defaultSpeedKmh === baseline.defaultSpeedKmh &&
-    draft.description === baseline.description &&
+    numberInputsEqual(draft.defaultSpeedKmh, baseline.defaultSpeedKmh) &&
+    normalizeNullable(draft.description) === normalizeNullable(baseline.description) &&
     draft.isPublic === baseline.isPublic &&
     draft.mode === baseline.mode &&
     draft.name === baseline.name &&
     waypointsEqual(draft.waypoints, baseline.waypoints)
   );
+}
+
+function numberInputsEqual(left: string, right: string): boolean {
+  const leftNumber = Number(left);
+  const rightNumber = Number(right);
+
+  return Number.isFinite(leftNumber) && Number.isFinite(rightNumber) && leftNumber === rightNumber;
 }
 
 function waypointsEqual(left: RouteWaypoint[], right: RouteWaypoint[]): boolean {

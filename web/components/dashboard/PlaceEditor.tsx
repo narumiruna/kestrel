@@ -332,12 +332,27 @@ function isPlaceDraftEqual(
   baseline: ReturnType<typeof getPlaceBaseline>,
 ): boolean {
   return (
-    draft.description === baseline.description &&
-    draft.latitude === baseline.latitude &&
-    draft.longitude === baseline.longitude &&
+    normalizeNullable(draft.description) === normalizeNullable(baseline.description) &&
+    numberInputsEqual(draft.latitude, baseline.latitude) &&
+    numberInputsEqual(draft.longitude, baseline.longitude) &&
     draft.name === baseline.name &&
-    draft.tags === baseline.tags
+    normalizeTagsInput(draft.tags) === normalizeTagsInput(baseline.tags)
   );
+}
+
+function numberInputsEqual(left: string, right: string): boolean {
+  const leftNumber = Number(left);
+  const rightNumber = Number(right);
+
+  return Number.isFinite(leftNumber) && Number.isFinite(rightNumber) && leftNumber === rightNumber;
+}
+
+function normalizeTagsInput(value: string): string {
+  return value
+    .split(',')
+    .map((tag) => tag.trim())
+    .filter(Boolean)
+    .join('\n');
 }
 
 function PlaceSharePanel({ place }: { place: Place | null }) {
