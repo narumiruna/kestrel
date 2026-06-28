@@ -3726,7 +3726,7 @@ button.is-loading {
 
 .map-panel-controls {
   border: 0;
-  display: contents;
+  height: 0;
   margin: 0;
   padding: 0;
 }
