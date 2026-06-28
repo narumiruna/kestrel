@@ -197,12 +197,16 @@ function parseStoredRouteRevisionPayload(
     );
   }
 
+  const parsedWaypoints = waypoints.map((waypoint, index) =>
+    parseStoredRouteWaypoint(waypoint, index),
+  );
+
+  parsedWaypoints.sort((left, right) => left.sequence - right.sequence);
+
   return {
     defaultSpeedKmh,
     mode: mode as RouteMode,
-    waypoints: waypoints.map((waypoint, index) =>
-      parseStoredRouteWaypoint(waypoint, index),
-    ),
+    waypoints: parsedWaypoints,
   };
 }
 

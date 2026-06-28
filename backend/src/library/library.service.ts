@@ -35,6 +35,7 @@ type StoredRouteRevisionSnapshot = {
   waypoints: Array<{
     latitude: number;
     longitude: number;
+    sequence: number;
   }>;
 };
 
@@ -670,12 +671,16 @@ function parseStoredRouteRevisionPayload(revision: {
     );
   }
 
+  const parsedWaypoints = waypoints.map((waypoint, index) =>
+    parseStoredRouteWaypoint(waypoint, index),
+  );
+
+  parsedWaypoints.sort((left, right) => left.sequence - right.sequence);
+
   return {
     defaultSpeedKmh,
     mode: mode as RouteMode,
-    waypoints: waypoints.map((waypoint, index) =>
-      parseStoredRouteWaypoint(waypoint, index),
-    ),
+    waypoints: parsedWaypoints,
   };
 }
 
@@ -685,6 +690,7 @@ function parseStoredRouteWaypoint(
 ): {
   latitude: number;
   longitude: number;
+  sequence: number;
 } {
   if (
     waypoint == null ||
@@ -699,12 +705,15 @@ function parseStoredRouteWaypoint(
   const waypointRecord = waypoint as Record<string, unknown>;
   const latitude = waypointRecord.latitude;
   const longitude = waypointRecord.longitude;
+  const sequence = waypointRecord.sequence;
 
   if (
     typeof latitude !== 'number' ||
     !Number.isFinite(latitude) ||
     typeof longitude !== 'number' ||
-    !Number.isFinite(longitude)
+    !Number.isFinite(longitude) ||
+    typeof sequence !== 'number' ||
+    !Number.isInteger(sequence)
   ) {
     throw new InternalServerErrorException(
       `stored route waypoint ${index} is invalid`,
@@ -714,6 +723,7 @@ function parseStoredRouteWaypoint(
   return {
     latitude,
     longitude,
+    sequence,
   };
 }
 
