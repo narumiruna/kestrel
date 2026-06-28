@@ -6,40 +6,40 @@ package := "dev.narumi.kestrel"
 activity := package + "/.MainActivity"
 apk := "app/build/outputs/apk/debug/app-debug.apk"
 
-# build, install, launch
+# build, install, and launch
 default: br
 
-# build debug APK
+# build the debug APK
 build:
     just android-build
 
-# build debug APK (Android only)
+# build the Android debug APK
 android-build:
     JAVA_HOME="{{java_home}}" PATH="{{java_home}}/bin:$PATH" ./gradlew :app:assembleDebug
 
-# build release APK (unsigned unless signing config is added)
+# build the unsigned release APK
 release:
     JAVA_HOME="{{java_home}}" PATH="{{java_home}}/bin:$PATH" ./gradlew :app:assembleRelease
 
-# clean gradle outputs
+# clean Gradle outputs
 clean:
     JAVA_HOME="{{java_home}}" PATH="{{java_home}}/bin:$PATH" ./gradlew clean
 
-# auto-format Android + web code
+# format Android and web code
 format:
     JAVA_HOME="{{java_home}}" PATH="{{java_home}}/bin:$PATH" ./gradlew spotlessApply
     just web-format
 
-# verify Android + web formatting/lint without changing files
+# check Android formatting and web formatting/lint without writing changes
 check:
     just android-check
     just web-check
 
-# verify Android formatting without changing files
+# check Android formatting without writing changes
 android-check:
     JAVA_HOME="{{java_home}}" PATH="{{java_home}}/bin:$PATH" ./gradlew spotlessCheck
 
-# run Android detekt + web linter
+# run Android detekt and web lint
 lint:
     just android-lint
     just web-lint
@@ -48,72 +48,72 @@ lint:
 android-lint:
     JAVA_HOME="{{java_home}}" PATH="{{java_home}}/bin:$PATH" ./gradlew detekt
 
-# auto-format web code with Biome, including safe fixes and import sorting
+# format web code with Biome (safe fixes and import sorting)
 web-format:
     cd web && npm exec -- biome check --write .
 
-# verify web formatting/lint/import sorting without changing files
+# check web formatting/lint/import sorting without writing changes
 web-check:
     cd web && npm exec -- biome ci .
 
-# run web linter only
+# run web lint only
 web-lint:
     cd web && npm exec -- biome lint .
 
-# run JVM unit tests (debug variant)
+# run debug-variant JVM unit tests
 test:
     just android-test
 
-# run Android JVM unit tests (debug variant)
+# run Android debug-variant JVM unit tests
 android-test:
     JAVA_HOME="{{java_home}}" PATH="{{java_home}}/bin:$PATH" ./gradlew :app:testDebugUnitTest
 
-# start the hot-reload web + backend + postgres dev stack
+# start the web/backend/Postgres dev stack with hot reload
 cloud-up:
     docker compose -f compose.dev.yaml --profile watch up --build
 
-# stop the dev stack, keeping its database volume
+# stop the dev stack without removing its database volume
 cloud-down:
     docker compose -f compose.dev.yaml --profile watch --profile image down
 
-# follow logs for the hot-reload dev stack
+# follow hot-reload dev stack logs
 cloud-log:
     docker compose -f compose.dev.yaml logs -f web-watch backend-watch postgres
 
-# start hot-reload browser-test stack on localhost:3401
+# start the browser-test dev stack with hot reload on localhost:3401
 webtest-up:
     KESTREL_DEV_WEB_PORT=3401 KESTREL_DEV_BACKEND_PORT=3400 KESTREL_DEV_POSTGRES_PORT=15433 docker compose -p kestrel-webtest -f compose.dev.yaml --profile watch up --build
 
-# stop browser-test stack, keeping its database volume
+# stop the browser-test stack without removing its database volume
 webtest-down:
     docker compose -p kestrel-webtest -f compose.dev.yaml --profile watch --profile image down
 
-# follow logs for the browser-test stack
+# follow browser-test stack logs
 webtest-log:
     docker compose -p kestrel-webtest -f compose.dev.yaml logs -f web-watch backend-watch postgres
 
-# regenerate detekt baseline (accept current warnings as-is)
+# regenerate the detekt baseline (accept current warnings)
 lint-baseline:
     JAVA_HOME="{{java_home}}" PATH="{{java_home}}/bin:$PATH" ./gradlew detektBaseline
 
-# install git hooks via prek (drop-in pre-commit replacement)
+# install git hooks with prek
 hooks:
     prek install
 
-# run all hooks against every tracked file
+# run all hooks on every tracked file
 hooks-all:
     prek run --all-files
 
-# install (replacing) the debug APK on the connected device
+# install or replace the debug APK on the connected device
 install:
     {{adb}} install -r {{apk}}
 
-# force-stop then relaunch the app
+# force-stop and relaunch the app
 run:
     {{adb}} shell am force-stop {{package}}
     {{adb}} shell am start -n {{activity}}
 
-# build + install + run
+# build, install, and run
 br: build install run
 
 # force-stop the app
@@ -132,15 +132,15 @@ devices:
 log:
     {{adb}} logcat | grep --line-buffered -iE "AndroidRuntime|FATAL|JNI DETECTED|{{package}}|MapLibre|LocationService"
 
-# clear logcat then follow with the same filter
+# clear logcat, then follow with the same filter
 logf:
     {{adb}} logcat -c
     just log
 
-# dump the current DataStore prefs file as a hex preview
+# dump current DataStore prefs as a hex preview
 prefs:
     {{adb}} shell "run-as {{package}} cat files/datastore/kestrel_prefs.preferences_pb" | xxd | head -40
 
-# clear all app data (resets prefs, mock state, favorites)
+# clear all app data (resets prefs, mock state, and favorites)
 reset:
     {{adb}} shell pm clear {{package}}
