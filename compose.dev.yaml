@@ -1,0 +1,96 @@
+name: kestrel-dev
+
+x-postgres-env: &postgres-env
+  POSTGRES_DB: ${POSTGRES_DB:-kestrel}
+  POSTGRES_USER: ${POSTGRES_USER:-kestrel}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-kestrel}
+
+x-backend-env: &backend-env
+  DATABASE_URL: postgresql://${POSTGRES_USER:-kestrel}:${POSTGRES_PASSWORD:-kestrel}@postgres:5432/${POSTGRES_DB:-kestrel}?schema=public
+  AUTH_ACCESS_TOKEN_SECRET: ${AUTH_ACCESS_TOKEN_SECRET:-dev-local-access-token-secret}
+  AUTH_ACCESS_TOKEN_TTL_SECONDS: "900"
+  AUTH_DEV_DEFAULT_LOGIN_ENABLED: "${AUTH_DEV_DEFAULT_LOGIN_ENABLED:-true}"
+  AUTH_DEV_SEED_ENABLED: "${AUTH_DEV_SEED_ENABLED:-true}"
+  AUTH_RATE_LIMIT_MAX_ATTEMPTS: "5"
+  AUTH_RATE_LIMIT_WINDOW_SECONDS: "900"
+  AUTH_RATE_LIMIT_BLOCK_SECONDS: "900"
+  AUTH_TOTP_ENCRYPTION_KEY: ${AUTH_TOTP_ENCRYPTION_KEY:-MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=}
+  AUTH_TOTP_ISSUER: Kestrel Cloud Dev
+  PORT: "3300"
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment: *postgres-env
+    ports:
+      - "${KESTREL_DEV_POSTGRES_PORT:-15432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  backend-watch:
+    profiles: ["watch"]
+    build:
+      context: ./backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment: *backend-env
+    ports:
+      - "${KESTREL_DEV_BACKEND_PORT:-3300}:3300"
+    volumes:
+      - ./backend:/app
+      - backend-node_modules:/app/node_modules
+    command: sh -c "npx prisma generate && npx prisma migrate deploy && npm run dev:seed && npm run start:dev"
+
+  web-watch:
+    profiles: ["watch"]
+    build:
+      context: ./web
+    depends_on:
+      backend-watch:
+        condition: service_started
+    environment:
+      KESTREL_API_BASE_URL: http://backend-watch:3300
+      WATCHPACK_POLLING: "true"
+      CHOKIDAR_USEPOLLING: "true"
+    ports:
+      - "${KESTREL_DEV_WEB_PORT:-3301}:3301"
+    volumes:
+      - ./web:/app
+      - web-node_modules:/app/node_modules
+    command: npx next dev --hostname 0.0.0.0 --port 3301
+
+  backend:
+    profiles: ["image"]
+    build:
+      context: ./backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment: *backend-env
+    ports:
+      - "${KESTREL_DEV_BACKEND_PORT:-3400}:3300"
+    command: sh -c "npx prisma migrate deploy && npm run dev:seed && npm run start:prod"
+
+  web:
+    profiles: ["image"]
+    build:
+      context: ./web
+    depends_on:
+      backend:
+        condition: service_started
+    environment:
+      KESTREL_API_BASE_URL: http://backend:3300
+    ports:
+      - "${KESTREL_DEV_WEB_PORT:-3401}:3301"
+
+volumes:
+  postgres-data:
+  backend-node_modules:
+  web-node_modules:

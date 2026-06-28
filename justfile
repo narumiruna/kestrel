@@ -68,29 +68,29 @@ test:
 android-test:
     JAVA_HOME="{{java_home}}" PATH="{{java_home}}/bin:$PATH" ./gradlew :app:testDebugUnitTest
 
-# start the web + backend + postgres dev stack with Docker Compose
+# start the hot-reload web + backend + postgres dev stack
 cloud-up:
-    docker compose up --build
+    docker compose -f compose.dev.yaml --profile watch up --build
 
-# stop the web + backend + postgres dev stack
+# stop the dev stack, keeping its database volume
 cloud-down:
-    docker compose down
+    docker compose -f compose.dev.yaml --profile watch --profile image down
 
-# follow logs for the web + backend + postgres dev stack
+# follow logs for the hot-reload dev stack
 cloud-log:
-    docker compose logs -f web backend postgres
+    docker compose -f compose.dev.yaml logs -f web-watch backend-watch postgres
 
-# start built-image web browser-test stack on localhost:3401
+# start built-image browser-test stack on localhost:3401
 webtest-up:
-    docker compose -f compose.webtest.yaml up --build
+    KESTREL_DEV_WEB_PORT=3401 KESTREL_DEV_BACKEND_PORT=3400 KESTREL_DEV_POSTGRES_PORT=15433 docker compose -p kestrel-webtest -f compose.dev.yaml --profile image up --build
 
-# stop web browser-test stack, keeping its database volume
+# stop browser-test stack, keeping its database volume
 webtest-down:
-    docker compose -f compose.webtest.yaml down
+    docker compose -p kestrel-webtest -f compose.dev.yaml --profile watch --profile image down
 
-# follow logs for the web browser-test stack
+# follow logs for the browser-test stack
 webtest-log:
-    docker compose -f compose.webtest.yaml logs -f web backend postgres
+    docker compose -p kestrel-webtest -f compose.dev.yaml logs -f web backend postgres
 
 # regenerate detekt baseline (accept current warnings as-is)
 lint-baseline:
