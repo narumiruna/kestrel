@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { type FormEvent, useEffect, useState } from 'react';
+import { type FormEvent, useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import { ApiError, login, register, setupTotp, verifyTotp } from '@/lib/api';
 
@@ -11,6 +11,10 @@ type TotpSetup = {
   qrCodeDataUrl: string;
   secret: string;
 };
+
+const DEV_DEFAULT_PASSWORD = 'admin';
+const DEV_DEFAULT_USERNAME = 'admin';
+const REGISTER_PASSWORD_MIN_LENGTH = 12;
 
 export default function LoginPage() {
   const auth = useAuth();
@@ -24,6 +28,17 @@ export default function LoginPage() {
   const [recoveryCodes, setRecoveryCodes] = useState<string[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const didApplyDevDefaultsRef = useRef(false);
+
+  useEffect(() => {
+    if (didApplyDevDefaultsRef.current || tab !== 'login' || !isLocalDevHost()) {
+      return;
+    }
+
+    didApplyDevDefaultsRef.current = true;
+    setUsername((currentUsername) => currentUsername || DEV_DEFAULT_USERNAME);
+    setPassword((currentPassword) => currentPassword || DEV_DEFAULT_PASSWORD);
+  }, [tab]);
 
   useEffect(() => {
     if (auth.isHydrated && auth.isAuthenticated) {
@@ -174,6 +189,7 @@ export default function LoginPage() {
           <form className="stack" onSubmit={submitRegister}>
             <CredentialsFields
               password={password}
+              passwordMinLength={REGISTER_PASSWORD_MIN_LENGTH}
               setPassword={setPassword}
               setUsername={setUsername}
               username={username}
@@ -233,7 +249,11 @@ export default function LoginPage() {
             {totpSetup == null ? (
               <button
                 className="secondary"
-                disabled={isSubmitting || username.length === 0 || password.length < 12}
+                disabled={
+                  isSubmitting ||
+                  username.length === 0 ||
+                  password.length < REGISTER_PASSWORD_MIN_LENGTH
+                }
                 type="button"
                 onClick={() => void startTotpSetup()}
               >
@@ -263,11 +283,13 @@ export default function LoginPage() {
 
 function CredentialsFields({
   password,
+  passwordMinLength,
   setPassword,
   setUsername,
   username,
 }: {
   password: string;
+  passwordMinLength?: number;
   setPassword: (value: string) => void;
   setUsername: (value: string) => void;
   username: string;
@@ -286,8 +308,8 @@ function CredentialsFields({
       <label>
         Password
         <input
-          autoComplete="current-password"
-          minLength={12}
+          autoComplete={passwordMinLength == null ? 'current-password' : 'new-password'}
+          minLength={passwordMinLength}
           required
           type="password"
           value={password}
@@ -296,6 +318,12 @@ function CredentialsFields({
       </label>
     </>
   );
+}
+
+function isLocalDevHost(): boolean {
+  const hostname = window.location.hostname;
+
+  return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
 }
 
 function formatError(error: unknown): string {
