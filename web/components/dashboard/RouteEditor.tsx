@@ -32,24 +32,28 @@ export default function RouteEditor({
   onDelete,
   onDirtyChange,
   onFocusTargetChange,
+  onHoverWaypointIndexChange,
   onSave,
   onSelectedWaypointIndexChange,
   onWaypointsChange,
   places = [],
   route,
   selectedWaypointIndex: controlledSelectedWaypointIndex,
+  hoveredWaypointIndex = null,
   waypoints: controlledWaypoints,
 }: {
   mapMode?: 'background' | 'embedded';
   onDelete?: () => void;
   onDirtyChange?: (isDirty: boolean) => void;
   onFocusTargetChange?: (waypoint: RouteWaypoint | null) => void;
+  onHoverWaypointIndexChange?: (index: number | null) => void;
   onSave: (input: RouteInput) => void;
   onSelectedWaypointIndexChange?: (index: number | null) => void;
   onWaypointsChange?: (waypoints: RouteWaypoint[]) => void;
   places?: Place[];
   route: Route | null;
   selectedWaypointIndex?: number | null;
+  hoveredWaypointIndex?: number | null;
   waypoints?: RouteWaypoint[];
 }) {
   const [name, setName] = useState(route?.name ?? '');
@@ -77,6 +81,7 @@ export default function RouteEditor({
   const saveNoticeTimeoutRef = useRef<number | null>(null);
   const shareDialogRef = useRef<HTMLDialogElement | null>(null);
   const onDirtyChangeRef = useRef(onDirtyChange);
+  const waypointRowRefs = useRef<Array<HTMLLIElement | null>>([]);
   const waypoints = controlledWaypoints ?? internalWaypoints;
   const selectedWaypointIndex =
     controlledSelectedWaypointIndex === undefined
@@ -132,6 +137,16 @@ export default function RouteEditor({
   useEffect(() => {
     onDirtyChangeRef.current = onDirtyChange;
   }, [onDirtyChange]);
+
+  useEffect(() => {
+    if (selectedWaypointIndex == null) {
+      return;
+    }
+
+    waypointRowRefs.current[selectedWaypointIndex]?.scrollIntoView({
+      block: 'nearest',
+    });
+  }, [selectedWaypointIndex]);
 
   useEffect(() => {
     onDirtyChange?.(isDirty);
@@ -487,6 +502,7 @@ export default function RouteEditor({
                   const waypointRowClassName = [
                     'waypoint-row',
                     selectedWaypointIndex === index ? 'selected' : '',
+                    hoveredWaypointIndex === index ? 'hovered' : '',
                     draggedWaypointIndex === index ? 'is-dragging' : '',
                     dragOverWaypointIndex === index && draggedWaypointIndex !== index
                       ? 'is-drop-target'
@@ -497,9 +513,13 @@ export default function RouteEditor({
 
                   return (
                     <li
+                      aria-current={selectedWaypointIndex === index ? 'true' : undefined}
                       className={waypointRowClassName}
                       draggable
                       key={getWaypointKey(waypoint, index)}
+                      ref={(element) => {
+                        waypointRowRefs.current[index] = element;
+                      }}
                       onDragEnd={() => {
                         setDraggedWaypointIndex(null);
                         setDragOverWaypointIndex(null);
@@ -511,6 +531,21 @@ export default function RouteEditor({
                         event.dataTransfer.effectAllowed = 'move';
                         event.dataTransfer.setData('text/plain', String(index));
                       }}
+                      onBlurCapture={(event) => {
+                        const nextFocusTarget = event.relatedTarget;
+
+                        if (
+                          nextFocusTarget instanceof Node &&
+                          event.currentTarget.contains(nextFocusTarget)
+                        ) {
+                          return;
+                        }
+
+                        onHoverWaypointIndexChange?.(null);
+                      }}
+                      onFocusCapture={() => onHoverWaypointIndexChange?.(index)}
+                      onMouseEnter={() => onHoverWaypointIndexChange?.(index)}
+                      onMouseLeave={() => onHoverWaypointIndexChange?.(null)}
                       onDrop={(event) => {
                         event.preventDefault();
                         const fromIndex = Number(event.dataTransfer.getData('text/plain'));
