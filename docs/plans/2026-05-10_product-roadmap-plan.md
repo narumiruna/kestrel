@@ -2,49 +2,47 @@
 
 ## Goal
 
-Keep Kestrel focused as an Android mock-location app with a cloud library: Web edits places/routes, Android syncs and executes them, and future work can add sharing, device state, and remote control without reworking the domain model.
+Keep Kestrel focused as an Android mock-location app with a cloud library and opt-in Web remote control. Success means the roadmap reflects shipped foundations, keeps security-sensitive work explicit, and only promotes future features when there is a concrete user need.
 
 ## Context
 
-Kestrel now has these completed foundations:
+Completed foundations:
 
-- Android mock location, route playback, random route generation, MapLibre UI, Favorites/Go to, Room-backed cloud-shaped library.
-- NestJS + PostgreSQL + Prisma backend with username/password + TOTP auth, library CRUD, sync bootstrap/changes, and auth/session infrastructure.
-- Next.js web console for auth and place/route editing.
-- Android cloud login and sync, including cursor recovery and current revision route execution.
-
-The remaining roadmap should not reopen completed local-library or cloud-sync foundations except for explicit follow-ups.
+- Android mock location, route playback, random route generation, MapLibre UI, Favorites/Go to, Room-backed library, startup behavior, and route progress restore.
+- NestJS + PostgreSQL + Prisma backend with auth/TOTP, sessions, library CRUD, sync bootstrap/changes, sharing, and remote-control command queue.
+- Next.js web console with Map/Library dashboard, place/route editing, sharing/copy-to-library, map styles, and compact Device/Share actions.
+- Android cloud login/sync, local-only place upload/conflict resolution, current-revision route execution, and opt-in Web remote command polling.
 
 ## Non-Goals
 
 - Do not bypass Play Integrity / SafetyNet.
 - Do not introduce a second map backend; MapLibre remains the map implementation.
 - Do not add GPS track recording or GPX/KML import/export.
-- Do not merge web and backend codebases in this roadmap; same-origin proxying/deploy entrypoint work is separate.
+- Do not add broad device/session administration until there is a user story beyond remote-control device selection.
 
 ## Plan
 
 - [x] Establish Android mock-location MVP: single point, route playback, random route generation, startup behavior, foreground service, and MapLibre UI.
 - [x] Replace local `Favorite(name as id)` storage with Room-backed `Place / Route / RouteRevision / Waypoint / LibraryItem` domain.
 - [x] Build cloud auth and library APIs with TOTP, refresh sessions, owner-scoped CRUD, immutable route revisions, and sync events.
-- [x] Build web console login and place/route editing workflows.
+- [x] Build web console login and place/route editing workflows, then evolve it into the Map/Library dashboard.
 - [x] Build Android cloud login, sync bootstrap/changes, cursor recovery, and current-revision route execution.
-- [x] Implement route sharing as the next product slice: backend/web implementation for public latest route links and copy-to-library landed under `docs/plans/archived/2026-05-13_sharing-plan.md` on 2026-05-13, including share-link CRUD, public route page, authenticated copy-to-library, a successful dev-DB migration run for `20260513110000_sharing_links`, a browser smoke run for create-link → public page → sign-in → copy, and the post-PR follow-up fixes archived under `docs/plans/archived/2026-05-13_sharing-followups-plan.md`. Remaining Android end-to-end proof was moved to `2026-05-10_engineering-backlog-plan.md` as a separate follow-up.
-- [x] Implement sync/upload strengthening: local-only place upload, remote-id binding after upload, item-level manual conflict resolution, and `Use Cloud` / `Use Local` / `Keep Both` actions all shipped end-to-end and verified on a real-device smoke run (`docs/plans/archived/2026-05-10_android-local-upload-conflict-plan.md`, PRs #46–#49 and later test follow-ups in PRs #68–#69). Route upload/conflict is still deferred, but the place-first upload/conflict slice itself is now complete.
-- [ ] Implement device/session management: device state reporting, session/device list, and revoke controls.
-- [ ] Design remote command model only after device/session management exists and has an explicit threat model.
-- [ ] Harden operations: secrets management, DB backup/rollback, backend/web CI, structured logging, health/metrics, and API docs/client generation.
+- [x] Implement public route/place sharing and authenticated copy-to-library; archived under `docs/plans/archived/2026-05-13_sharing-plan.md`, `2026-05-13_sharing-followups-plan.md`, and `2026-05-16_web-place-sharing-plan.md`.
+- [x] Implement place-first upload/conflict strengthening; archived under `docs/plans/archived/2026-05-10_android-local-upload-conflict-plan.md`.
+- [x] Implement opt-in Web remote control: backend command queue, Android polling/executor, Web Device actions, and physical smoke coverage; archived under `docs/plans/archived/2026-06-20_web-remote-mock-control-plan.md` and its slice plans.
+- [ ] Harden production operations: health checks, structured logging, secrets guidance, DB backup/rollback, and release signing; track concrete tasks in `2026-05-10_engineering-backlog-plan.md`.
+- [ ] Finish the remaining Android cloud manual smokes: production URL alias login + `Sync now`, and copied shared route syncing to Android; track in `2026-05-13_android-cloud-options-autofill-url-plan.md` and `2026-05-10_engineering-backlog-plan.md`.
+- [ ] Pick the next product feature only from observed need; current candidates stay out of active scope until requested: route revision browsing, richer per-waypoint playback, on-road routing, jitter simulation, localization, and full session management.
 
 ## Risks
 
-- Sharing and remote control expand the security surface; threat modeling must precede public links or commands.
-- Cloud-first sync plus local-only items can create duplicate-looking entries until upload/conflict policy is explicit.
-- Route payload compatibility can break Android sync if versioning is not documented before richer waypoint metadata lands.
+- Sharing and remote control expand the security surface; keep opt-in, same-user ownership checks, expiry, audit, and bounded polling.
+- Route payload compatibility can break Android sync if richer waypoint metadata lands without versioned tests.
+- Production deploy safety now matters more than feature breadth; do ops/release hardening before larger product bets.
 
 ## Completion Checklist
 
-- [x] Product roadmap reflects the implemented Android, backend, web, and sync baseline from the consolidated legacy planning docs.
-- [x] `docs/plans/archived/2026-05-13_sharing-plan.md` implementation is landed locally for public latest route links and copy-to-library, with backend/web validation, the dev-DB migration run, browser smoke evidence recorded on 2026-05-13, and follow-up correctness fixes archived under `docs/plans/archived/2026-05-13_sharing-followups-plan.md`.
-- [x] Local-only upload/conflict policy has an accepted plan and implementation PRs; place-first work is archived in `docs/plans/archived/2026-05-10_android-local-upload-conflict-plan.md`, with implementation shipped across PRs #46–#49 and backend/Android automated coverage plus refreshed device smoke added in PRs #68–#69.
-- [ ] Device/session management has an accepted plan before remote commands are designed.
-- [ ] Operations checklist has CI, logging, health, backup, and API documentation coverage.
+- [x] Roadmap reflects the implemented Android, backend, web, sync, sharing, and remote-control baseline.
+- [ ] Production operations and release hardening have an accepted, verified slice in `2026-05-10_engineering-backlog-plan.md`.
+- [ ] Remaining Android cloud manual smokes are either passed and archived, or explicitly marked blocked with device/environment evidence.
+- [ ] Any new large product feature has its own focused plan before implementation.

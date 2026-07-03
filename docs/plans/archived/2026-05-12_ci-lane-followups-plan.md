@@ -53,7 +53,7 @@ The workflow itself is in every set so that workflow edits always re-run everyth
 - [x] Added `needs: changes` plus `if: github.event_name == 'push' || needs.changes.outputs.<lane> == 'true'` to each of `android`, `backend`, `web` jobs. Verified by reading the merged diff (PR #60).
 - [x] Added a `Build` step (`run: npm run build`) to the `backend` job after `Typecheck`. Verified in CI run 25687758702 (backend job log shows `Build: success`).
 - [x] Added a `Test (e2e)` step (`run: npm run test:e2e`) to the `backend` job after `Test`. Verified in CI run 25687758702 (backend job log shows both `Test: success` and `Test (e2e): success`). Also fixed a bit-rot in `backend/test/sync.e2e-spec.ts` (hard-coded past `expiresAt`) surfaced by promoting e2e into CI.
-- [x] Marked the three `Surfaced by PR #58 review` items as `[x]` in `docs/plans/2026-05-10_engineering-backlog-plan.md`. Verified by `grep -c '\[x\] .*Surfaced by PR #58 review' docs/plans/2026-05-10_engineering-backlog-plan.md` → `3`.
+- [x] Marked the three `Surfaced by PR #58 review` items complete at implementation time. The 2026-07-04 backlog cleanup later removed those historical tags from the active backlog; current evidence is `.github/workflows/ci.yml`.
 - [x] Opened PR #60 against `main`; CI run 25687758702 showed all three lanes `pass` (workflow-self glob forced them to run).
 - [x] After merging #60, validated skip path with PR #61 (docs-only README change). `gh run view 25688009020` showed `changes: success`, `android: skipped`, `backend: skipped`, `web: skipped`.
 
@@ -75,5 +75,5 @@ The workflow itself is in every set so that workflow edits always re-run everyth
 - [x] `backend` job includes both `Build` and `Test (e2e)` steps; CI run 25687758702 shows both steps succeeding.
 - [x] `gh pr checks 60` showed `android`, `backend`, `web` all `pass` on the PR (workflow edit forced all lanes to run).
 - [x] Follow-up docs-only PR #61 (https://github.com/narumiruna/kestrel/pull/61) demonstrated `android` / `backend` / `web` all `skipped` and only `changes` running (run 25688009020).
-- [x] `docs/plans/2026-05-10_engineering-backlog-plan.md` has all three `Surfaced by PR #58 review` items marked `[x]` (verified by `grep -c '\[x\] .*Surfaced by PR #58 review' docs/plans/2026-05-10_engineering-backlog-plan.md` → `3`).
+- [x] The three PR #58 CI follow-ups are implemented in `.github/workflows/ci.yml`; the active backlog was later curated and no longer carries the historical `Surfaced by PR #58 review` tags.
 - [x] PR #60 merged to `main` (commit `d622ba4`); PR #61 merged to `main` shortly after.
