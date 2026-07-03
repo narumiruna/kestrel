@@ -242,9 +242,11 @@ function syncPlaceMarkers({
 }
 
 function createPlaceMarkerElement({ active, label }: { active: boolean; label: string }) {
+  const markerLabel = label.trim() || 'Place';
   const element = document.createElement('button');
-  element.ariaLabel = label;
+  element.ariaLabel = markerLabel;
   element.className = `place-marker${active ? ' active' : ''}`;
+  element.textContent = markerLabel.charAt(0).toUpperCase();
   element.type = 'button';
 
   return element;
