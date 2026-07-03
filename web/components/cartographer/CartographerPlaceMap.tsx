@@ -245,6 +245,7 @@ function createPlaceMarkerElement({ active, label }: { active: boolean; label: s
   const element = document.createElement('button');
   element.ariaLabel = label;
   element.className = `place-marker${active ? ' active' : ''}`;
+  element.textContent = label.trim().charAt(0).toUpperCase() || 'P';
   element.type = 'button';
 
   return element;

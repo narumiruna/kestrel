@@ -83,6 +83,7 @@ export default function PlaceMapPreview({ className = 'map-mini', latitude, long
 function createPreviewMarkerElement() {
   const element = document.createElement('span');
   element.className = 'place-marker active preview';
+  element.textContent = 'P';
 
   return element;
 }
