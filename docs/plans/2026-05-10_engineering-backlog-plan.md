@@ -2,54 +2,52 @@
 
 ## Goal
 
-Consolidate cross-cutting engineering and app-polish work that remains after the completed local library, web console, backend, and Android sync phases.
+Keep only actionable cross-cutting work in the active backlog. Success means production/release safety and required manual validations are visible, while completed or speculative items stop cluttering active planning.
 
 ## Context
 
-This backlog comes from the general TODO and the operations/DX sections of the cloud platform todo. Items here are not required to finish the sharing MVP, but they improve testability, release readiness, maintainability, and user polish.
+Completed since the original backlog:
+
+- CI lanes, path filters, backend `build`, backend e2e policy, and Web lint/typecheck/build are in `.github/workflows/ci.yml`.
+- Android app icon, notification copy, route status mode/speed, disabled selected chips, route progress persistence, Web map styles, Web dashboard IA/polish, sharing, and remote control are archived in `docs/plans/archived/`.
+- Release builds currently produce an unsigned APK; signing is still intentionally not configured.
 
 ## Plan
 
-- [x] Add Android GitHub Actions CI for PRs: Android job now runs `just android-check`, `just android-lint`, `:app:assembleDebug`, and unit tests with Gradle cache.
-- [x] Add backend CI for test, lint, and typecheck.
-- [x] Add web CI for lint/typecheck/build.
-- [x] Add `paths:` filter (or `dorny/paths-filter`) to `.github/workflows/ci.yml` so `android`, `backend`, and `web` jobs only run when their respective workspace files change. Surfaced by PR #58 review.
-- [x] Add an optional `nest build` step to the `backend` CI job to catch `nest-cli.json` / asset-copy regressions that `typecheck` misses. Surfaced by PR #58 review.
-- [x] Decide policy for promoting backend `test:e2e` into CI (separate job with Postgres service vs. nightly vs. keep local-only). Surfaced by PR #58 review. Decided: promote to existing `backend` job because specs use `overrideProvider(PrismaService)` and need no Postgres.
-- [ ] Add API structured logging with request id, auth user/session metadata where safe, and error classification.
-- [ ] Add API metrics and health checks suitable for Docker/production monitoring.
-- [ ] Write secrets management strategy for deploy: required env vars, rotation, and local `.env` guidance.
-- [ ] Write DB backup and migration rollback strategy for production PostgreSQL.
-- [ ] Generate or publish OpenAPI docs for auth/library/sync/sharing APIs.
-- [ ] Decide client generation strategy: TypeScript generated client, Kotlin generated client, or documented hand-written client rules.
-- [ ] Add Android jitter option for mock samples: configurable lat/lng and speed perturbation, default off, with `MovementEngine`/service tests where possible.
-- [x] Improve foreground notification title/text and channel description. Completed in `docs/plans/archived/2026-05-23_foreground-notification-copy-plan.md`; verified with stale-copy `rg` check and `just check`.
-- [x] Replace default Android Studio app icon with Kestrel adaptive icon assets. Completed in `docs/plans/archived/2026-05-23_android-adaptive-icon-plan.md`; verified with resource inspection, captured icon preview review, `just build`, and `just check`.
-- [ ] Add Generate route advanced parameters: starting bearing, turn variance, and optional seed.
-- [ ] Add Android route revision history UI only if a concrete product need appears; keep current-revision-only storage/load behavior as the default until that slice is planned.
-- [ ] Add per-segment waypoint speed/pause playback once route execution supports waypoint metadata end-to-end, with dedicated `MovementEngine`/service tests.
-- [ ] Split `MapScreen` and `KestrelMap` long composables enough to remove corresponding detekt baseline entries.
-- [ ] Establish release build/proguard flow: first signed release with minify off, then staged R8 enablement.
-- [ ] Add map style toggle for OSM raster and project light/dark styles.
-- [ ] Plan on-road movement using OSRM/GraphHopper public API without offline routing.
-- [ ] Add zh-TW and ja string resources after UI strings stabilize.
-- [ ] Add instrumented CI tests for emulator service lifecycle and startup mode apply behavior.
-- [ ] Run a fresh real-device smoke for Go to/Favorites apply behavior after the next substantial map/favorites refactor, since the baseline quick-jump/favorites slice is otherwise complete and current cleanup was verified only by `just check` / `just lint`.
-- [x] Show current mode + speed numerically in `MapScreen` status row while a route is playing; completed in `docs/plans/archived/2026-05-23_route-status-mode-speed-plan.md` with status text now showing waypoint count, speed, and mode for playing/paused routes; verified by focused `MapRenderReconciliationTest`, `just check`, and `just lint`.
-- [ ] Run an Android `Sync now` smoke after copying a shared route from the public web page, and confirm the copied route appears/behaves as a normal owned route on device. Moved out of `docs/plans/archived/2026-05-13_sharing-plan.md` so the shipped sharing slice can close while keeping one Android end-to-end proof item tracked.
-- [x] Make `ChipChoice` with `enabled = false && selected = true` visually distinct; selected disabled chips now keep reduced-alpha `primaryContainer` / `onPrimaryContainer` colors so running-route speed/mode chips remain identifiable. Verified by `just build`, `just check`, and `just lint`.
-- [ ] Decide whether `MapScreen` drafts (`waypoints` / `speedKmh` / `routeMode`) should survive tab switching. Today `rememberSaveable` survives config change but not tab switch, because `NavigationSuiteScaffold` is not backed by a `SaveableStateHolder`. Either document the limitation or migrate tab navigation to a `NavHost` backstack in a dedicated plan. Surfaced by `2026-05-11_route-ui-state-restore-plan.md` smoke results.
+### Production / release hardening
+
+- [ ] Add a backend health endpoint and Docker Compose backend healthcheck; verify with `cd backend && npm run test && npm run build` plus `docker compose -f compose.deploy.yaml config --quiet`.
+- [ ] Add structured backend request/error logging with request id plus safe user/session metadata; verify with backend unit/e2e coverage or a local request log sample that contains no secrets.
+- [ ] Write `docs/operations.md` with required deploy secrets, local `.env` guidance, rotation notes, DB backup, and migration rollback; verify against `.github/workflows/deploy.yml` and `compose.deploy.yaml`.
+- [ ] Decide API documentation/client policy: generated OpenAPI clients or hand-written DTO rules; verify by either published docs or a short decision record in `docs/operations.md` / `docs/remote-control-api.md`.
+- [ ] Establish Android release signing flow with minify still off; verify `just release` produces a signed or explicitly documented unsigned artifact.
+
+### Manual validation
+
+- [ ] Run one non-destructive Android cloud smoke covering production URL alias login (`https://kestrel.narumi.dev`) and `Sync now`; record device, build, and result in `2026-05-13_android-cloud-options-autofill-url-plan.md`.
+- [ ] After copying a shared route from the public Web page, run Android `Sync now` and confirm the copied route appears/behaves as a normal owned route; do not use `just reset` / `pm clear`.
+- [ ] Run a fresh real-device Go to/Favorites apply smoke after the next substantial map/favorites refactor; this is not needed for docs-only or Web-only work.
+
+### Android maintainability
+
+- [ ] Split `KestrelMap` enough to remove its current `LongMethod` detekt baseline entry; verify with `just check && just lint` and `rg "KestrelMap" detekt-baseline.xml`.
+- [ ] Decide whether `MapScreen` drafts (`waypoints` / `speedKmh` / `routeMode`) should survive tab switching; verify by either a short docs note accepting the limitation or a dedicated NavHost/SaveableStateHolder plan.
+- [ ] Add emulator/instrumented CI only if a stable, non-destructive service-lifecycle test can run without wiping operator device state.
+
+### Not active until requested
+
+These are intentionally not active tasks: route revision history UI, route generator advanced parameters, per-segment speed/pause playback, jitter simulation, OSRM/GraphHopper on-road routing, zh-TW/ja localization, and Android map style switching. Promote one into its own plan only when there is a concrete user story.
 
 ## Risks
 
-- CI can be blocked by local/project Java assumptions; use Linux CI paths and avoid macOS-specific `JAVA_HOME` assumptions.
-- API docs/client generation should not freeze unstable sharing/remote-command APIs too early.
-- On-road routing adds external service reliability and rate-limit concerns; keep it separate from core mock playback.
+- Logging and API docs can leak secrets or freeze unstable APIs if overbuilt; start with minimal safe fields and current endpoints.
+- DB backup/rollback docs are easy to write but dangerous if untested; include a restore check when production data exists.
+- Instrumented/device tests can wipe app-private state; call out destructive commands before running them.
 
 ## Completion Checklist
 
-- [x] Android, backend, and web CI run on PRs and block broken formatting/lint/builds.
-- [ ] Production deploy has documented secrets, health checks, and DB backup/rollback procedures.
-- [ ] API documentation/client strategy is implemented or explicitly accepted as hand-written.
-- [x] App polish items that affect first impressions are done: notification wording and app icon; verified by archived notification/icon plans plus `just check`.
-- [ ] Large optional features remain separated into dedicated plans before implementation.
+- [ ] Production deploy has health checks, structured logs, secrets guidance, and DB backup/rollback documentation.
+- [ ] API documentation/client policy is implemented or explicitly accepted as hand-written DTOs.
+- [ ] Android release artifacts are signed, or unsigned status remains explicitly documented until signing exists.
+- [ ] Required Android manual smokes are recorded or explicitly blocked with evidence.
+- [ ] Speculative features remain outside active checklists until they have a concrete plan.

@@ -54,7 +54,7 @@ The product MVP is mostly complete except route sharing. Backend already has `Ro
 - 2026-05-13 sharing follow-up validation:
   - `docs/plans/archived/2026-05-13_sharing-followups-plan.md` records the post-PR fixes for copy-by-visible-revision and idempotent share-link create, including command validation plus a local dev-stack smoke where the owner updated a route after the visitor loaded it, the copier still cloned the originally viewed snapshot, concurrent share-link create requests returned the same active link, and the public page returned HTTP `200`.
 - Remaining non-blocking follow-up:
-  - Android `Sync now` smoke after copying a shared route has been moved to `docs/plans/engineering-backlog-plan.md` because the sharing slice already emits standard `ROUTE` + `LIBRARY_ITEM` sync events and Android cloud sync behavior is tracked separately there.
+  - Android `Sync now` smoke after copying a shared route has been moved to `docs/plans/2026-05-10_engineering-backlog-plan.md` because the sharing slice already emits standard `ROUTE` + `LIBRARY_ITEM` sync events and Android cloud sync behavior is tracked separately there.
 
 ## Completion Checklist
 
@@ -63,4 +63,4 @@ The product MVP is mostly complete except route sharing. Backend already has `Ro
 - [x] Web route page can create and disable a latest share link. _Implemented in `web/app/dashboard/page.tsx` with backend endpoints under `backend/src/sharing/`, and the web app passes `npm run lint`, `npm run typecheck`, and `npm run build` on 2026-05-13._
 - [x] Public route URL works without login and does not expose private owner fields. _Implemented via `GET /shares/:token` + `web/app/share/[token]/page.tsx`; service tests assert disabled/expired rejection and sanitized public payloads without owner metadata._
 - [x] Signed-in user can copy a shared route and see it in their own library. _Verified on 2026-05-13 by a browser smoke run: owner account created `Smoke share route 193746`, public page rendered while logged out, copier account signed in and used `Copy to my library`, and the copied route then appeared in the copier dashboard route list._
-- [x] Android-specific post-copy `Sync now` verification is tracked separately in `docs/plans/engineering-backlog-plan.md`, so this sharing-slice plan can close on shipped backend/web behavior and recorded follow-up validation evidence.
+- [x] Android-specific post-copy `Sync now` verification is tracked separately in `docs/plans/2026-05-10_engineering-backlog-plan.md`, so this sharing-slice plan can close on shipped backend/web behavior and recorded follow-up validation evidence.

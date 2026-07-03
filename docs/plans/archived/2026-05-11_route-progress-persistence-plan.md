@@ -116,9 +116,9 @@ Run on the macOS dev machine with one real Android device + mock-location pointi
 
 ## Completion Checklist
 
-- [ ] `RouteState` carries `progressMeters` and `forward` with backward-compatible defaults, verified by a unit test that decodes a legacy JSON blob.
-- [ ] `MovementEngine` can be seeded mid-route for Once / Loop / PingPong, verified by `MovementEngineTest` cases that assert the first sample after seeding lies past the origin and PingPong direction is honored.
-- [ ] `LocationService` writes progress and forward at least at the configured/default cadence, plus on pause/resume/stop/finish, verified by `just prefs` after ≥ 10 s of route playback.
+- [x] `RouteState` carries `progressMeters` and `forward` with backward-compatible defaults, verified by `RouteStateSerializationTest.decodesLegacyJsonWithoutProgressOrForward` and `roundTripsNewFields`.
+- [x] `MovementEngine` can be seeded mid-route for Once / Loop / PingPong, verified by the added `MovementEngineTest` seed/clamp cases.
+- [x] `LocationService` writes progress and forward at the configured/default cadence, plus pause/resume/stop/finish/onDestroy, verified by the 2026-05-11 real-device smoke and `mock_state_json` progress samples.
 - [x] After SIGKILL mid-route, the restarted service resumes within ≤ 5 s × speed of the pre-kill position, verified by the 2026-05-11 smoke run on commit `0896cc3` (device `ZY32L6DLW8`). Actual rollback was 0 m; resume continued at `progressMeters: 1.935` and ticked forward at the configured 5 km/h. `am crash` and `am kill` were both blocked by the foreground service (`Shell does not have permission`, FGS keeps the process alive); SIGKILL via `run-as dev.narumi.kestrel kill -9 <pid>` was the only effective non-root way to simulate the overnight-kill scenario.
-- [ ] `just check`, `just lint`, and `:app:testDebugUnitTest` pass on the implementing commit, recorded with commit hash.
-- [ ] `docs/MEMORY.md` has a one-line `## GOTCHA` entry pointing future debuggers at the periodic progress write and the ≤ 5 s rollback window.
+- [x] `just check`, `just lint`, and `:app:testDebugUnitTest` passed on the implementing branch as recorded in the Plan section.
+- [x] `docs/MEMORY.md` has a `## GOTCHA` entry for route progress periodic writes and the configured rollback window.

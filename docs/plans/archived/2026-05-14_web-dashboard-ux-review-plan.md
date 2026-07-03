@@ -2,6 +2,10 @@
 
 提升 Kestrel Web dashboard 的日常操作體驗，讓使用者能更直覺地管理 Places / Routes、建立 route、理解目前狀態，並降低誤操作與迷失成本。成功條件是：使用者不需要理解資料模型也能完成「新增 place → 以 place 作為 route 起點 → 編輯 waypoint → 儲存 / 分享」流程，且桌面與手機版都有清楚的視覺層級與操作路徑。
 
+## Archive note
+
+Archived on 2026-07-04 as superseded by later Web dashboard work: cartographer places/routes, Map/Library navigation, compact Share/Device actions, route editor UI fixes, route rendering consistency, and marker/linking polish. The implementation tasks below landed; the remaining checklist was manual review criteria rather than active implementation work.
+
 ## Context
 
 目前 Web UI 已有一致的輕量玻璃卡片視覺、Places / Routes tabs、可收合左側列表、MapLibre 地圖編輯器，以及 route 可從 0 個 waypoint 開始並可從 saved place 選起點。這些是好的基礎，但資訊架構、操作 feedback、空狀態與表單密度仍偏工程導向。
@@ -105,9 +109,9 @@
 
 ## Completion Checklist
 
-- [ ] New route 的 0/1/2 waypoint 狀態都有清楚下一步提示，並以手動 UI review 或截圖驗證。
-- [ ] 新增 waypoint 不會自動改變地圖 zoom，只有 `Fit route` 或 start-from-place 這類明確 action 會移動視野，並以手動測試驗證。
-- [ ] Route editor 的主要流程（命名、選起點、加點、儲存）在桌面版不需要閱讀 share / delete 等次要區塊即可完成，並以使用者驗收確認。
-- [ ] Places / favorite 在 route editor 中的文案一致，且無 favorite 時有明確前往建立 place 的 CTA，並以 empty state 手動測試驗證。
-- [ ] Delete route / place 有 confirmation 或等效防誤觸機制，並以手動測試確認不會單擊即刪除。
-- [ ] Web lint 通過：`cd web && npm run lint`，允許既有 Biome schema version info。
+- [x] Superseded: New route 0/1/2 waypoint guidance landed in `RouteEditor`; later route editor and Map/Library plans carried browser review evidence.
+- [x] Superseded: waypoint/fit behavior is covered by later route editor and route rendering consistency plans.
+- [x] Superseded: main route flow was replaced by the cartographer Map/Library dashboard and compact Share/Device actions.
+- [x] Superseded: Places/favorite copy and empty-state CTAs landed in `RouteEditor` and later Library navigation work.
+- [x] Delete route / place confirmation exists in `RouteEditor` and `PlaceEditor`.
+- [x] Superseded: Web lint/typecheck/build are covered by current CI and later archived Web plans.
