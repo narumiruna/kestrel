@@ -4212,8 +4212,7 @@ button.is-loading {
   padding: 0;
   transition:
     background var(--transition-fast),
-    box-shadow var(--transition-fast),
-    transform var(--transition-fast);
+    box-shadow var(--transition-fast);
   width: 2rem;
 }
 
@@ -4233,7 +4232,6 @@ button.is-loading {
   box-shadow:
     0 0 0 4px rgb(180 95 50 / 24%),
     var(--shadow-md);
-  transform: scale(1.16);
 }
 
 .place-marker.preview {
