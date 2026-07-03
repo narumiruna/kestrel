@@ -4194,35 +4194,46 @@ button.is-loading {
 }
 
 .place-marker {
-  background: var(--paper-card);
-  border: 2px solid var(--accent-hover);
-  border-radius: 999px 999px 999px 0;
-  box-shadow: 0 1px 2px rgb(0 0 0 / 4%);
+  align-items: center;
+  background: var(--accent);
+  border: 2px solid var(--bg-surface);
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-sm);
+  color: #fff;
   cursor: pointer;
-  height: 24px;
-  transform: rotate(-45deg);
-  width: 24px;
+  display: inline-flex;
+  font-size: 0.72rem;
+  font-weight: 800;
+  height: 2rem;
+  justify-content: center;
+  line-height: 1;
+  min-height: 0;
+  min-width: 2rem;
+  padding: 0;
+  transition:
+    background var(--transition-fast),
+    box-shadow var(--transition-fast),
+    transform var(--transition-fast);
+  width: 2rem;
 }
 
-.place-marker::after {
-  background: var(--accent);
-  border-radius: 999px;
-  content: "";
-  height: 8px;
-  left: 6px;
-  position: absolute;
-  top: 6px;
-  width: 8px;
+.place-marker:hover:not(:disabled),
+.place-marker:focus-visible,
+.place-marker.active {
+  background: var(--accent-hover);
+  color: #fff;
+}
+
+.place-marker:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .place-marker.active {
-  background: var(--accent);
-  border-color: var(--paper-card);
-  transform: rotate(-45deg) scale(1.15);
-}
-
-.place-marker.active::after {
-  background: var(--paper-card);
+  box-shadow:
+    0 0 0 4px rgb(180 95 50 / 24%),
+    var(--shadow-md);
+  transform: scale(1.16);
 }
 
 .place-marker.preview {
