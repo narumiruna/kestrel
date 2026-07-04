@@ -16,7 +16,7 @@ lifecycleViewModelCompose = "2.8.7"
 accompanistPermissions = "0.37.3"
 maplibre = "11.5.0"
 datastore = "1.2.1"
-spotless = "6.25.0"
+spotless = "8.8.0"
 ktlint = "1.5.0"
 detekt = "1.23.8"
 
