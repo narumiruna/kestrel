@@ -1,6 +1,6 @@
 # Kestrel plans
 
-Top-level `*-plan.md` files are active. Closed or superseded plans live in `archived/`.
+Top-level `*-plan.md` files are active. Grouped active plan sets may live in a subdirectory with a top-level entry plan. Closed or superseded plans live in `archived/`.
 
 ## Active files
 
@@ -9,6 +9,8 @@ Top-level `*-plan.md` files are active. Closed or superseded plans live in `arch
 | `2026-05-10_product-roadmap-plan.md` | Current product state and next bets |
 | `2026-05-10_engineering-backlog-plan.md` | Curated ops/release/manual-validation backlog |
 | `2026-05-13_android-cloud-options-autofill-url-plan.md` | Manual validation only |
+| `2026-07-08_agent-readiness-entry-plan.md` | Entry plan for staged agent-readiness work |
+| `agent-readiness/` | Child plans for individual agent-readiness goals |
 
 ## Rules
 
