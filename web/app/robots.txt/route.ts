@@ -17,9 +17,9 @@ const PUBLIC_CRAWL_RULES = [
   'Allow: /.well-known/',
   'Allow: /sitemap.xml',
   'Allow: /status',
-  'Disallow: /dashboard/',
-  'Disallow: /api/backend/',
-  'Disallow: /share/',
+  'Disallow: /dashboard',
+  'Disallow: /api/backend',
+  'Disallow: /share',
 ] as const;
 
 export function GET(request: Request) {
