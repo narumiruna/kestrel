@@ -4,7 +4,7 @@ Use a staged, low-risk agent-readiness roadmap for Kestrel so the project first 
 
 ## Context
 
-This is the entry plan for the individual agent-readiness plans under `docs/plans/agent-readiness/`. It prioritizes work by implementation cost, product value, and risk of falsely advertising unsupported capabilities.
+This is the entry plan for the individual agent-readiness plans. Active child plans live under `docs/plans/agent-readiness/`; completed child plans live under `docs/plans/archived/`. It prioritizes work by implementation cost, product value, and risk of falsely advertising unsupported capabilities.
 
 ## Non-Goals
 
@@ -14,10 +14,10 @@ This is the entry plan for the individual agent-readiness plans under `docs/plan
 
 ## Plan
 
-- [x] Implement the first-wave `robots.txt` bundle by combining `docs/plans/agent-readiness/2026-07-08_robots-crawl-rules-plan.md`, `docs/plans/agent-readiness/2026-07-08_ai-crawler-robots-rules-plan.md`, and `docs/plans/agent-readiness/2026-07-08_content-signals-robots-plan.md` into one coherent `/robots.txt`; verified with `npm run build` and local production-mode `curl -i http://127.0.0.1:3411/robots.txt` returning `200` plain text with wildcard, AI crawler, Content Signal, and sitemap rules.
-- [x] Implement `docs/plans/agent-readiness/2026-07-08_sitemap-discovery-plan.md` with only approved canonical public URLs; verified `/sitemap.xml` returns `200` XML and excludes `/dashboard/*`, `/api/backend/*`, and tokenized `/share/[token]` URLs by local production-mode curl plus Python assertions.
-- [x] Implement `docs/plans/agent-readiness/2026-07-08_api-catalog-plan.md` as a conservative catalog that advertises real docs/status resources only; verified `/.well-known/api-catalog` returns `application/linkset+json`, omits `service-desc` because no OpenAPI exists, and every advertised link resolves locally.
-- [x] Implement `docs/plans/agent-readiness/2026-07-08_homepage-link-headers-plan.md` after the linked resources exist; verified `curl -I http://127.0.0.1:3411/` and `/login` advertise only working resources: `/sitemap.xml` and `/.well-known/api-catalog`.
+- [x] Implement the first-wave `robots.txt` bundle by combining `docs/plans/archived/2026-07-08_robots-crawl-rules-plan.md`, `docs/plans/archived/2026-07-08_ai-crawler-robots-rules-plan.md`, and `docs/plans/archived/2026-07-08_content-signals-robots-plan.md` into one coherent `/robots.txt`; verified with `npm run build` and local production-mode `curl -i http://127.0.0.1:3411/robots.txt` returning `200` plain text with wildcard, AI crawler, Content Signal, and sitemap rules.
+- [x] Implement `docs/plans/archived/2026-07-08_sitemap-discovery-plan.md` with only approved canonical public URLs; verified `/sitemap.xml` returns `200` XML and excludes `/dashboard/*`, `/api/backend/*`, and tokenized `/share/[token]` URLs by local production-mode curl plus Python assertions.
+- [x] Implement `docs/plans/archived/2026-07-08_api-catalog-plan.md` as a conservative catalog that advertises real docs/status resources only; verified `/.well-known/api-catalog` returns `application/linkset+json`, omits `service-desc` because no OpenAPI exists, and every advertised link resolves locally.
+- [x] Implement `docs/plans/archived/2026-07-08_homepage-link-headers-plan.md` after the linked resources exist; verified `curl -I http://127.0.0.1:3411/` and `/login` advertise only working resources: `/sitemap.xml` and `/.well-known/api-catalog`.
 - [ ] Reassess `docs/plans/agent-readiness/2026-07-08_agent-skills-index-plan.md` after API docs/catalog stabilize; verify with user acceptance before authoring Kestrel-specific skill documents.
 - [ ] Reassess `docs/plans/agent-readiness/2026-07-08_markdown-negotiation-plan.md` only if Cloudflare or another low-maintenance edge feature is available, or if Kestrel adds public docs/content pages; verify with a documented go/no-go decision.
 - [ ] Defer `docs/plans/agent-readiness/2026-07-08_dns-aid-discovery-plan.md` until the DNS provider, DNSSEC setup, and DNS-AID draft maturity justify the operational cost; verify with an explicit accepted follow-up decision before implementation.
@@ -40,4 +40,4 @@ This is the entry plan for the individual agent-readiness plans under `docs/plan
 - [x] First-wave discovery hygiene is complete in the codebase, verified by `npm run build`, `npm run typecheck`, `just web-check`, `just web-lint`, and local production-mode `curl` evidence for `/robots.txt`, `/sitemap.xml`, `/.well-known/api-catalog`, and homepage `Link` headers.
 - [ ] Second-wave candidates have explicit go/no-go decisions, verified by checked items or accepted notes in the agent skills and markdown negotiation plans.
 - [ ] Deferred capabilities are not falsely advertised, verified by production checks that OAuth/Auth.md/DNS-AID/MCP/WebMCP endpoints or records are absent unless backed by working implementations.
-- [ ] Completed child plans are archived according to `docs/plans/README.md`, verified by their checked completion checklists and files under `docs/plans/archived/`.
+- [x] Completed first-wave child plans are archived according to `docs/plans/README.md`, verified by their checked completion checklists and files under `docs/plans/archived/`.

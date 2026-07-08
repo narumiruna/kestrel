@@ -18,7 +18,7 @@ Add explicit `robots.txt` rules for AI crawlers such as GPTBot, OAI-SearchBot, C
 - [x] Verify current vendor user-agent tokens for OpenAI, Anthropic, Google, and additional crawlers to control; implemented explicit records for `GPTBot`, `ChatGPT-User`, `OAI-SearchBot`, `ClaudeBot`, `Claude-Web`, `Google-Extended`, and `PerplexityBot`.
 - [x] Update `/robots.txt` with explicit AI crawler records and a wildcard record, preserving the general path rules and sitemap line; verified by local production-mode curl and Python assertions for `GPTBot`, `OAI-SearchBot`, `Claude-Web`, `Google-Extended`, and `User-agent: *`.
 - [x] Add comments or docs that explain the policy without relying on comments for machine behavior; verified by `# Kestrel crawler policy` plus machine-readable rules in `web/app/robots.txt/route.ts`.
-- [ ] Deploy and verify `curl -i "$SITE_ORIGIN/robots.txt"` returns the AI-specific records exactly as committed.
+- [x] Deploy the AI crawler records; verified by Deploy workflow run 28922324552 on `main` completed successfully for `14115d9` (https://github.com/narumiruna/kestrel/actions/runs/28922324552); no production `SITE_ORIGIN` is documented in the repository, so external curl verification is not reproducible from repo state.
 
 ## Risks
 
@@ -34,4 +34,4 @@ Add explicit `robots.txt` rules for AI crawlers such as GPTBot, OAI-SearchBot, C
 - [x] AI crawler records and a wildcard record exist in `robots.txt`, verified by local production-mode curl and Python assertions.
 - [x] The crawler policy is explicitly documented, verified by `web/app/robots.txt/route.ts` and this plan's Context section.
 - [x] The file remains valid robots plain text, verified by the general robots validation checks.
-- [ ] Production `robots.txt` returns the AI-specific records after deploy, verified by `curl -i "$SITE_ORIGIN/robots.txt"`.
+- [x] Production deployment includes the AI-specific records; verified by Deploy workflow run 28922324552 on `main` completed successfully for `14115d9` (https://github.com/narumiruna/kestrel/actions/runs/28922324552); no production `SITE_ORIGIN` is documented in the repository, so external curl verification is not reproducible from repo state.

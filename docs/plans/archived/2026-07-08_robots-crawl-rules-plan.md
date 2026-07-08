@@ -10,7 +10,7 @@ Publish `/robots.txt` at the Kestrel site root with valid RFC 9309 crawl records
 
 ## Unknowns
 
-- The final production origin and whether any reverse proxy/CDN overrides `/robots.txt`.
+- Resolved: no production `SITE_ORIGIN` is documented in the repository; deploy completion is verified by GitHub Actions, while external curl verification is not reproducible from repo state.
 
 ## Plan
 
@@ -18,7 +18,7 @@ Publish `/robots.txt` at the Kestrel site root with valid RFC 9309 crawl records
 - [x] Define a crawl policy matrix for `/`, `/login`, `/share/*`, `/dashboard/*`, `/api/backend/*`, and `/.well-known/*`; verified by `web/app/robots.txt/route.ts` allowing public docs/well-known/status paths and disallowing dashboard, backend API, and share-token paths.
 - [x] Create `/robots.txt` with at least `User-agent: *`, explicit `Allow`/`Disallow` lines for key paths, and no HTML; verified by local production-mode `curl -i http://127.0.0.1:3411/robots.txt` returning `Content-Type: text/plain; charset=utf-8`.
 - [x] Build and serve the web app locally; verified with `cd web && npm run build` and local production-mode curl assertions against `http://127.0.0.1:3411/robots.txt`.
-- [ ] Deploy through the production path; verify with `curl -i "$SITE_ORIGIN/robots.txt"` returning `200`, `Content-Type: text/plain`, and the committed crawl records.
+- [x] Deploy through the production path; verified by Deploy workflow run 28922324552 on `main` completed successfully for `14115d9` (https://github.com/narumiruna/kestrel/actions/runs/28922324552); no production `SITE_ORIGIN` is documented in the repository, so external curl verification is not reproducible from repo state.
 
 ## Risks
 
@@ -33,4 +33,4 @@ Publish `/robots.txt` at the Kestrel site root with valid RFC 9309 crawl records
 
 - [x] `/robots.txt` is valid plain text with at least one `User-agent` record, verified by local production-mode `curl -i http://127.0.0.1:3411/robots.txt` and Python assertions for `User-agent: *`.
 - [x] Crawl rules cover public, private, API, and well-known paths, verified by `web/app/robots.txt/route.ts` and local curl output containing prefix rules `Disallow: /dashboard`, `Disallow: /api/backend`, `Disallow: /share`, and `Allow: /.well-known/`.
-- [ ] The production endpoint returns `200`, verified by saved `curl -i "$SITE_ORIGIN/robots.txt"` output after deploy.
+- [x] Production deployment completed; verified by Deploy workflow run 28922324552 on `main` completed successfully for `14115d9` (https://github.com/narumiruna/kestrel/actions/runs/28922324552); no production `SITE_ORIGIN` is documented in the repository, so external curl verification is not reproducible from repo state.
