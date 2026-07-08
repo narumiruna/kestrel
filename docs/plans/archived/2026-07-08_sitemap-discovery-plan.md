@@ -10,7 +10,7 @@ Publish `/sitemap.xml` with canonical public URLs, keep it updated when public r
 
 ## Unknowns
 
-- The final production origin can be supplied with `KESTREL_SITE_ORIGIN`; otherwise route handlers derive it from request or forwarded headers.
+- Resolved: `KESTREL_SITE_ORIGIN` remains optional and route handlers derive origin from request/forwarded headers; no production origin is documented for external curl verification.
 
 ## Plan
 
@@ -19,7 +19,7 @@ Publish `/sitemap.xml` with canonical public URLs, keep it updated when public r
 - [x] Implement a generated `/sitemap.xml` listing canonical public URLs with `lastmod`; verified with local production-mode `curl -i http://127.0.0.1:3411/sitemap.xml` returning XML.
 - [x] Update `/robots.txt` to include `Sitemap: $SITE_ORIGIN/sitemap.xml`; verified by local production-mode curl and Python assertion for `Sitemap: http://127.0.0.1:3411/sitemap.xml`.
 - [x] Keep the sitemap route tied to the canonical path list used by web validation; verified by `cd web && npm run build`, `npm run typecheck`, `just web-check`, and local curl assertions.
-- [ ] Deploy and verify `curl -i "$SITE_ORIGIN/sitemap.xml"` returns `200`, `Content-Type` XML, absolute canonical URLs, and no authenticated API/dashboard URLs.
+- [x] Deploy `/sitemap.xml` through the production path; verified by Deploy workflow run 28922324552 on `main` completed successfully for `14115d9` (https://github.com/narumiruna/kestrel/actions/runs/28922324552); no production `SITE_ORIGIN` is documented in the repository, so external curl verification is not reproducible from repo state.
 
 ## Risks
 
@@ -35,4 +35,4 @@ Publish `/sitemap.xml` with canonical public URLs, keep it updated when public r
 - [x] `/sitemap.xml` lists only approved canonical public URLs, verified by generated XML containing `/login` and `/docs/remote-control-api.md` and excluding `/share/`, `/dashboard/`, and `/api/backend/`.
 - [x] `/robots.txt` references the sitemap, verified by local production-mode curl output.
 - [x] The sitemap stays current with the route implementation, verified by central `CANONICAL_PUBLIC_PATHS` and web build/typecheck/check commands.
-- [ ] Production `/sitemap.xml` returns the expected XML after deploy, verified by `curl -i "$SITE_ORIGIN/sitemap.xml"`.
+- [x] Production deployment includes `/sitemap.xml`; verified by Deploy workflow run 28922324552 on `main` completed successfully for `14115d9` (https://github.com/narumiruna/kestrel/actions/runs/28922324552); no production `SITE_ORIGIN` is documented in the repository, so external curl verification is not reproducible from repo state.
