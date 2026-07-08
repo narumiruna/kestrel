@@ -29,6 +29,7 @@
 - Android library UI only shows rows with `library_items`; synced cloud `places`/`routes` can exist locally but stay invisible if their matching library item was not imported. Sync repair should re-bootstrap when synced content is missing library items and consume embedded `place.libraryItem` / `route.libraryItem` payloads.
 - For adb map-link smoke tests, some devices use `cmd package query-activities` instead of newer `query-intent-activities`; escape `&` in `am start -d` URLs or the remote shell truncates the intent data.
 - Android `ACTION_VIEW` activities using `singleTop` can open inside the caller app's task. For Kestrel map links, keep `MainActivity` as `singleTask` so external links bring/open Kestrel's own task.
+- Robots path rules are prefix matches; `Disallow: /dashboard/` does not block the exact `/dashboard` URL. Use `Disallow: /dashboard`, `/api/backend`, and `/share` when blocking both the collection root and descendants.
 
 ## TASTE
 
