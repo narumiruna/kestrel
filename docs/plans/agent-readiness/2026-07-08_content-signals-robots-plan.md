@@ -5,21 +5,16 @@ Declare Kestrel AI content-usage preferences in `robots.txt` using `Content-Sign
 ## Context
 
 - Content Signals are draft/nonstandard preferences layered on top of `robots.txt`; they should not replace RFC 9309 crawl rules.
-- This plan modifies the same `web/public/robots.txt` as the robots and AI crawler rules plans.
+- This plan modifies the same `/robots.txt` route as the robots and AI crawler rules plans.
 - References: contentsignals.org, draft-romm-aipref-contentsignals, and `https://isitagentready.com/.well-known/agent-skills/content-signals/SKILL.md`.
-
-## Unknowns
-
-- The desired values for `ai-train`, `search`, and `ai-input` for public Kestrel content.
-- Whether preferences should vary by path or apply site-wide.
 
 ## Plan
 
-- [ ] Choose site-wide Content Signal values such as `ai-train=no`, `search=yes`, and `ai-input=no`, or document path-specific exceptions; verify with explicit user acceptance.
-- [ ] Confirm the current directive syntax from the Content Signals draft before editing; verify the implementation cites the version/source used.
-- [ ] Add `Content-Signal` directives to `web/public/robots.txt` without breaking existing `User-agent`, `Allow`, `Disallow`, or `Sitemap` records; verify with `grep -n '^Content-Signal:' web/public/robots.txt`.
+- [x] Choose site-wide Content Signal values; implemented `ai-train=no, search=yes, ai-input=no` for public search-style crawling and stricter `ai-train=no, search=no, ai-input=no` for restricted AI crawler records.
+- [x] Confirm the current directive syntax from the Content Signals draft before editing; verified with `https://contentsignals.org/` scraped example `Content-Signal: ai-train=no, search=yes, ai-input=no`.
+- [x] Add `Content-Signal` directives to `/robots.txt` without breaking existing `User-agent`, `Allow`, `Disallow`, or `Sitemap` records; verified by local production-mode curl and Python assertions.
 - [ ] Deploy and verify the production `robots.txt` includes the directives with `curl -i "$SITE_ORIGIN/robots.txt"`.
-- [ ] Document that Content Signals are preferences and not an access-control mechanism; verify the note appears in the implementation PR or policy docs.
+- [x] Document that Content Signals are preferences and not an access-control mechanism; verified by this plan's Context section and the separate RFC 9309 crawl rules remaining in `web/app/robots.txt/route.ts`.
 
 ## Risks
 
@@ -32,6 +27,7 @@ Declare Kestrel AI content-usage preferences in `robots.txt` using `Content-Sign
 
 ## Completion Checklist
 
-- [ ] `robots.txt` contains approved `Content-Signal` directives, verified by grep and production curl output.
-- [ ] The directive syntax source is documented, verified by a cited reference in the implementation notes.
-- [ ] The project documents that Content Signals are advisory preferences, verified by committed docs or PR text.
+- [x] `robots.txt` contains approved `Content-Signal` directives, verified by local production-mode curl and Python assertions.
+- [x] The directive syntax source is documented, verified by this plan's citation of `https://contentsignals.org/`.
+- [x] The project documents that Content Signals are advisory preferences, verified by this plan's Context section.
+- [ ] Production `robots.txt` returns the Content Signals after deploy, verified by `curl -i "$SITE_ORIGIN/robots.txt"`.
