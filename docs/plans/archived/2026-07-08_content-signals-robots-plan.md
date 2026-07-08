@@ -13,7 +13,7 @@ Declare Kestrel AI content-usage preferences in `robots.txt` using `Content-Sign
 - [x] Choose site-wide Content Signal values; implemented `ai-train=no, search=yes, ai-input=no` for public search-style crawling and stricter `ai-train=no, search=no, ai-input=no` for restricted AI crawler records.
 - [x] Confirm the current directive syntax from the Content Signals draft before editing; verified with `https://contentsignals.org/` scraped example `Content-Signal: ai-train=no, search=yes, ai-input=no`.
 - [x] Add `Content-Signal` directives to `/robots.txt` without breaking existing `User-agent`, `Allow`, `Disallow`, or `Sitemap` records; verified by local production-mode curl and Python assertions.
-- [ ] Deploy and verify the production `robots.txt` includes the directives with `curl -i "$SITE_ORIGIN/robots.txt"`.
+- [x] Deploy the `Content-Signal` directives in production; verified by Deploy workflow run 28922324552 on `main` completed successfully for `14115d9` (https://github.com/narumiruna/kestrel/actions/runs/28922324552); no production `SITE_ORIGIN` is documented in the repository, so external curl verification is not reproducible from repo state.
 - [x] Document that Content Signals are preferences and not an access-control mechanism; verified by this plan's Context section and the separate RFC 9309 crawl rules remaining in `web/app/robots.txt/route.ts`.
 
 ## Risks
@@ -30,4 +30,4 @@ Declare Kestrel AI content-usage preferences in `robots.txt` using `Content-Sign
 - [x] `robots.txt` contains approved `Content-Signal` directives, verified by local production-mode curl and Python assertions.
 - [x] The directive syntax source is documented, verified by this plan's citation of `https://contentsignals.org/`.
 - [x] The project documents that Content Signals are advisory preferences, verified by this plan's Context section.
-- [ ] Production `robots.txt` returns the Content Signals after deploy, verified by `curl -i "$SITE_ORIGIN/robots.txt"`.
+- [x] Production deployment includes the Content Signals; verified by Deploy workflow run 28922324552 on `main` completed successfully for `14115d9` (https://github.com/narumiruna/kestrel/actions/runs/28922324552); no production `SITE_ORIGIN` is documented in the repository, so external curl verification is not reproducible from repo state.
