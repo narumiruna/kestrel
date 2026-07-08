@@ -2,6 +2,8 @@
 
 All endpoints require the existing bearer access token. Android must register with a stable `clientDeviceId`; Web never receives that client id.
 
+Endpoint paths below are backend-relative. When using the web console origin, call them through the `/api/backend/*` proxy, for example `/api/backend/devices`.
+
 ## Register Android device
 
 `POST /devices/register`

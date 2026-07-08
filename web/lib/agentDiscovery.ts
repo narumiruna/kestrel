@@ -14,44 +14,59 @@ export const AGENT_DISCOVERY_LINK_HEADER = [
 const SITE_ORIGIN_ENV_KEYS = ['KESTREL_SITE_ORIGIN', 'NEXT_PUBLIC_SITE_ORIGIN'] as const;
 
 export function getSiteOrigin(request: Request): string {
-  const configuredOrigin = getConfiguredSiteOrigin();
-
-  if (configuredOrigin != null) {
-    return configuredOrigin;
-  }
-
-  const forwardedHost = firstHeaderValue(
-    request.headers.get('x-forwarded-host') ?? request.headers.get('host'),
+  return (
+    getConfiguredSiteOrigin() ??
+    getForwardedSiteOrigin(request.headers) ??
+    parseHttpOrigin(request.url) ??
+    'http://localhost:3301'
   );
-  const forwardedProto = firstHeaderValue(request.headers.get('x-forwarded-proto'));
-
-  if (forwardedHost != null && forwardedProto != null) {
-    return normalizeOrigin(`${forwardedProto}://${forwardedHost}`);
-  }
-
-  return normalizeOrigin(new URL(request.url).origin);
 }
 
 export function absoluteUrl(origin: string, path: string): string {
-  return new URL(path, `${normalizeOrigin(origin)}/`).toString();
+  return new URL(path, `${origin}/`).toString();
 }
 
 function getConfiguredSiteOrigin(): string | undefined {
   for (const key of SITE_ORIGIN_ENV_KEYS) {
-    const value = process.env[key]?.trim();
+    const origin = parseHttpOrigin(process.env[key]);
 
-    if (value != null && value !== '') {
-      return normalizeOrigin(value);
+    if (origin != null) {
+      return origin;
     }
   }
 
   return undefined;
 }
 
+function getForwardedSiteOrigin(headers: Headers): string | undefined {
+  const forwardedHost = firstHeaderValue(headers.get('x-forwarded-host') ?? headers.get('host'));
+  const forwardedProto = firstHeaderValue(headers.get('x-forwarded-proto'));
+
+  if (forwardedHost == null || forwardedProto == null) {
+    return undefined;
+  }
+
+  return parseHttpOrigin(`${forwardedProto}://${forwardedHost}`);
+}
+
 function firstHeaderValue(value: string | null): string | undefined {
   return value?.split(',')[0]?.trim() || undefined;
 }
 
-function normalizeOrigin(origin: string): string {
-  return origin.replace(/\/+$/, '');
+function parseHttpOrigin(value: string | undefined): string | undefined {
+  if (value == null || value.trim() === '') {
+    return undefined;
+  }
+
+  try {
+    const url = new URL(value);
+
+    if (url.protocol === 'http:' || url.protocol === 'https:') {
+      return url.origin;
+    }
+  } catch {
+    return undefined;
+  }
+
+  return undefined;
 }

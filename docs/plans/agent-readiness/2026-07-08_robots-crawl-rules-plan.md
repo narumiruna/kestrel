@@ -32,5 +32,5 @@ Publish `/robots.txt` at the Kestrel site root with valid RFC 9309 crawl records
 ## Completion Checklist
 
 - [x] `/robots.txt` is valid plain text with at least one `User-agent` record, verified by local production-mode `curl -i http://127.0.0.1:3411/robots.txt` and Python assertions for `User-agent: *`.
-- [x] Crawl rules cover public, private, API, and well-known paths, verified by `web/app/robots.txt/route.ts` and local curl output containing `Disallow: /dashboard/`, `Disallow: /api/backend/`, `Disallow: /share/`, and `Allow: /.well-known/`.
+- [x] Crawl rules cover public, private, API, and well-known paths, verified by `web/app/robots.txt/route.ts` and local curl output containing prefix rules `Disallow: /dashboard`, `Disallow: /api/backend`, `Disallow: /share`, and `Allow: /.well-known/`.
 - [ ] The production endpoint returns `200`, verified by saved `curl -i "$SITE_ORIGIN/robots.txt"` output after deploy.
