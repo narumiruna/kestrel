@@ -11,10 +11,7 @@ val appVersionName = providers.gradleProperty("appVersionName").get()
 android {
     namespace = "dev.narumi.kestrel"
     compileSdk {
-        version =
-            release(36) {
-                minorApiLevel = 1
-            }
+        version = release(37)
     }
 
     defaultConfig {
