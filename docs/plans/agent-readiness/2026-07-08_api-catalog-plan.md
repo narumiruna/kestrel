@@ -1,26 +1,23 @@
 ## Goal
 
-Publish `/.well-known/api-catalog` as `application/linkset+json` with RFC 9727 linkset entries that help agents discover Kestrel APIs, service descriptions, docs, and status endpoints.
+Publish `/.well-known/api-catalog` as `application/linkset+json` with conservative RFC 9727/RFC 9264 linkset entries that help agents discover Kestrel API documentation and status resources that actually exist.
 
 ## Context
 
 - Kestrel has a NestJS backend proxied by the Next.js web app at `/api/backend/*`.
-- Current API docs exist in `docs/remote-control-api.md`, but no OpenAPI service description is visible in the web root.
+- Current API docs exist in `docs/remote-control-api.md`; this implementation exposes a copy at `/docs/remote-control-api.md`.
+- No OpenAPI or OAuth/OIDC metadata exists yet, so the catalog intentionally does not advertise `service-desc`, OAuth, or OpenAPI links.
 - References: RFC 9727, RFC 9264, and `https://isitagentready.com/.well-known/agent-skills/api-catalog/SKILL.md`.
-
-## Unknowns
-
-- Whether the API catalog should describe only public endpoints or also authenticated endpoints.
-- Whether to generate OpenAPI from NestJS decorators or maintain a static OpenAPI file.
 
 ## Plan
 
-- [ ] Inventory backend endpoints and classify public, authenticated, and admin-only API surfaces; verify with controller files under `backend/src/**/**.controller.ts` and `docs/remote-control-api.md`.
-- [ ] Choose an OpenAPI strategy: generated with NestJS Swagger or committed static `openapi.json`; verify the choice with a working `curl` or file output path for `service-desc`.
-- [ ] Add or expose a health/status endpoint suitable for `rel="status"`; verify with `curl -i http://127.0.0.1:3300/<status-path>` or the proxied `/api/backend/<status-path>`.
-- [ ] Implement `/.well-known/api-catalog` in the web app as a route handler or static file returning `Content-Type: application/linkset+json` and a top-level `linkset` array; verify with `curl -i http://127.0.0.1:3301/.well-known/api-catalog`.
-- [ ] Include link relations for `service-desc`, `service-doc`, and `status` with absolute or correctly relative URLs; verify the JSON with `jq '.linkset'` and manual review against RFC 9727 examples.
-- [ ] Reference the API catalog from homepage `Link` headers and allow it in `robots.txt`; verify with `curl -I "$SITE_ORIGIN/"` and `curl -i "$SITE_ORIGIN/.well-known/api-catalog"` after deploy.
+- [x] Inventory backend endpoints and classify public, authenticated, and admin-only API surfaces; verified by reviewing controller files under `backend/src/**/**.controller.ts` and using `docs/remote-control-api.md` as the exposed service documentation.
+- [x] Choose an OpenAPI strategy; verified as not applicable for this phase because the active goal requires a conservative catalog and no OpenAPI document exists to advertise.
+- [x] Add or expose a health/status endpoint suitable for `rel="status"`; verified by `web/app/status/route.ts` and local production-mode `curl -i http://127.0.0.1:3411/status` returning `200` JSON.
+- [x] Implement `/.well-known/api-catalog` in the web app as a route handler returning `Content-Type: application/linkset+json` and a top-level `linkset` array; verified with local production-mode `curl -i http://127.0.0.1:3411/.well-known/api-catalog`.
+- [x] Include link relations for real resources only; verified the JSON includes `service-doc` and `status`, omits `service-desc`, and Python assertions confirm every advertised link target resolves locally.
+- [x] Reference the API catalog from homepage `Link` headers and allow it in `robots.txt`; verified with local production-mode `curl -I http://127.0.0.1:3411/` and `curl -i http://127.0.0.1:3411/robots.txt`.
+- [ ] Deploy and verify production `curl -I "$SITE_ORIGIN/"` and `curl -i "$SITE_ORIGIN/.well-known/api-catalog"` show the expected headers and catalog response.
 
 ## Risks
 
@@ -33,6 +30,7 @@ Publish `/.well-known/api-catalog` as `application/linkset+json` with RFC 9727 l
 
 ## Completion Checklist
 
-- [ ] `/.well-known/api-catalog` returns `200` with `Content-Type: application/linkset+json`, verified by production `curl -i` output.
-- [ ] The response contains a valid `linkset` array with `service-desc`, `service-doc`, and `status` relations, verified by `jq` and review against RFC 9727.
-- [ ] The advertised service description, documentation, and status URLs all resolve, verified by `curl -i` for each link.
+- [x] `/.well-known/api-catalog` returns `200` with `Content-Type: application/linkset+json`, verified by local production-mode `curl -i http://127.0.0.1:3411/.well-known/api-catalog`.
+- [x] The response contains a valid `linkset` array with only real `service-doc` and `status` relations, verified by Python JSON assertions and manual review; `service-desc` is intentionally absent because no OpenAPI exists.
+- [x] The advertised documentation and status URLs resolve, verified by local production-mode `curl -i` for `/docs/remote-control-api.md` and `/status`.
+- [ ] Production `/.well-known/api-catalog` returns the expected linkset after deploy, verified by `curl -i "$SITE_ORIGIN/.well-known/api-catalog"`.
