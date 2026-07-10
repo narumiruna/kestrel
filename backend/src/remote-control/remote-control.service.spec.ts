@@ -57,7 +57,11 @@ type MockPrismaService = {
   >;
   device: {
     findFirst: jest.Mock<
-      Promise<{ id: string; remoteControlEnabled: boolean } | null>,
+      Promise<{
+        id: string;
+        remoteControlEnabled: boolean;
+        revokedAt?: Date | null;
+      } | null>,
       [unknown]
     >;
     findMany: jest.Mock<Promise<MockRemoteDeviceRecord[]>, [unknown]>;
@@ -257,6 +261,23 @@ describe('RemoteControlService', () => {
         type: 'STOP',
       }),
     ).rejects.toThrow(ConflictException);
+  });
+
+  it('rejects command creation when a concurrent device revocation wins', async () => {
+    prismaService.device.updateMany.mockResolvedValue({ count: 0 });
+    prismaService.device.findFirst.mockResolvedValue({
+      id: 'device-1',
+      remoteControlEnabled: false,
+      revokedAt: new Date('2026-06-20T08:00:00.000Z'),
+    });
+
+    await expect(
+      remoteControlService.createCommand('user-1', 'device-1', {
+        payload: {},
+        type: 'STOP',
+      }),
+    ).rejects.toThrow('device is revoked');
+    expect(prismaService.remoteCommand.create).not.toHaveBeenCalled();
   });
 
   it('rejects command creation for a foreign device', async () => {
@@ -860,7 +881,11 @@ function createMockPrismaService(): MockPrismaService {
     >(),
     device: {
       findFirst: createMock<
-        Promise<{ id: string; remoteControlEnabled: boolean } | null>,
+        Promise<{
+          id: string;
+          remoteControlEnabled: boolean;
+          revokedAt?: Date | null;
+        } | null>,
         [unknown]
       >(),
       findMany: createMock<Promise<MockRemoteDeviceRecord[]>, [unknown]>(),
