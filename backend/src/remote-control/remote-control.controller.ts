@@ -8,7 +8,10 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import type { AuthenticatedRequest } from '../auth/auth-request';
-import { getAuthenticatedUserId } from '../auth/auth-request';
+import {
+  getAuthenticatedSessionId,
+  getAuthenticatedUserId,
+} from '../auth/auth-request';
 import { SessionAuthGuard } from '../auth/session-auth.guard';
 import { RemoteControlService } from './remote-control.service';
 
@@ -21,6 +24,7 @@ export class RemoteControlController {
   registerDevice(@Req() request: AuthenticatedRequest, @Body() body: unknown) {
     return this.remoteControlService.registerDevice(
       getAuthenticatedUserId(request),
+      getAuthenticatedSessionId(request),
       body,
     );
   }
@@ -52,6 +56,19 @@ export class RemoteControlController {
     @Body() body: unknown,
   ) {
     return this.remoteControlService.pollCommands(
+      getAuthenticatedUserId(request),
+      deviceId,
+      body,
+    );
+  }
+
+  @Post('devices/:deviceId/state')
+  reportDeviceState(
+    @Req() request: AuthenticatedRequest,
+    @Param('deviceId') deviceId: string,
+    @Body() body: unknown,
+  ) {
+    return this.remoteControlService.reportDeviceState(
       getAuthenticatedUserId(request),
       deviceId,
       body,

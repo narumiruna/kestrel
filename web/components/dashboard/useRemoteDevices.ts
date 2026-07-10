@@ -171,12 +171,16 @@ export function useRemoteDevices() {
 }
 
 export function isRemoteDeviceCommandReady(device: RemoteDevice): boolean {
-  return device.online && device.remoteControlEnabled;
+  return device.revokedAt == null && device.online && device.remoteControlEnabled;
 }
 
 export function getRemoteDeviceUnavailableReason(device: RemoteDevice | null): string | null {
   if (device == null) {
     return 'Select a registered Android device.';
+  }
+
+  if (device.revokedAt != null) {
+    return 'This Android device was revoked. Sign in on Android to register it again.';
   }
 
   if (!device.remoteControlEnabled) {

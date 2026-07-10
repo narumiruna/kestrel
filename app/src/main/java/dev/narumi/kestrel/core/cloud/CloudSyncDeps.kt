@@ -32,6 +32,12 @@ internal interface CloudRemoteControlApi {
         request: PollRemoteCommandsRequest,
     ): RemoteCommandsPollResponse
 
+    suspend fun reportDeviceState(
+        accessToken: String,
+        deviceId: String,
+        request: ReportDeviceStateRequest,
+    ): ReportDeviceStateResponse
+
     suspend fun ackCommand(
         accessToken: String,
         deviceId: String,

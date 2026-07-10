@@ -6,6 +6,8 @@ import android.os.Build
 import dev.narumi.kestrel.core.data.KestrelPrefs
 import dev.narumi.kestrel.core.data.RemoteControlPendingAck
 import dev.narumi.kestrel.core.data.RemoteControlSettings
+import dev.narumi.kestrel.core.location.LocationService
+import dev.narumi.kestrel.core.location.RuntimeState
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -38,11 +40,16 @@ internal interface RemoteDeviceInfoProvider {
     fun current(): RemoteDeviceInfo
 }
 
+internal interface RemotePlaybackStateProvider {
+    fun current(): RemotePlaybackState
+}
+
 internal class RemoteControlRepository internal constructor(
     private val authRepository: CloudSyncSessionProvider,
     private val apiClient: CloudRemoteControlApi,
     private val executor: RemoteCommandExecutor,
     private val settingsStore: RemoteControlSettingsStore,
+    private val playbackStateProvider: RemotePlaybackStateProvider,
     private val deviceInfoProvider: RemoteDeviceInfoProvider,
 ) {
     private val _runtimeStatus = MutableStateFlow(RemoteControlRuntimeStatus())
@@ -93,6 +100,7 @@ internal class RemoteControlRepository internal constructor(
         canExecuteCommands: () -> Boolean,
     ) {
         val registered = ensureRegistered(settings, session)
+        reportPlaybackState(registered, session)
         retryPendingAcks(session)
         if (pendingAcks.isEmpty()) {
             val response =
@@ -163,7 +171,12 @@ internal class RemoteControlRepository internal constructor(
         settings: RemoteControlSettings,
         session: CloudSession,
     ): RemoteControlSettings {
-        if (settings.serverDeviceId != null && settings.clientDeviceId != null && settings.registeredUserId == session.userId) {
+        if (
+            settings.serverDeviceId != null &&
+            settings.clientDeviceId != null &&
+            settings.registeredUserId == session.userId &&
+            settings.registeredSessionId == session.sessionId
+        ) {
             return settings
         }
         if (settings.registeredUserId != null && settings.registeredUserId != session.userId) {
@@ -198,9 +211,29 @@ internal class RemoteControlRepository internal constructor(
                 serverDeviceId = device.id,
                 deviceName = device.name,
                 registeredUserId = session.userId,
+                registeredSessionId = session.sessionId,
             )
         settingsStore.save(updated)
         return updated
+    }
+
+    private suspend fun reportPlaybackState(
+        settings: RemoteControlSettings,
+        session: CloudSession,
+    ) {
+        runCatching {
+            withAuthorizedSession(session) {
+                apiClient.reportDeviceState(
+                    accessToken = it.accessToken,
+                    deviceId = settings.serverDeviceId ?: error("Device is not registered"),
+                    request =
+                        ReportDeviceStateRequest(
+                            clientDeviceId = settings.clientDeviceId ?: error("Missing client device id"),
+                            playbackState = playbackStateProvider.current(),
+                        ),
+                )
+            }
+        }
     }
 
     private suspend fun retryPendingAcks(session: CloudSession) {
@@ -346,6 +379,7 @@ internal class RemoteControlRepository internal constructor(
                             ),
                         executor = RemoteCommandExecutor(LocationServiceMockCommandApplier(applicationContext)),
                         settingsStore = DataStoreRemoteControlSettingsStore(prefs),
+                        playbackStateProvider = LocationServicePlaybackStateProvider,
                         deviceInfoProvider = AndroidRemoteDeviceInfoProvider(applicationContext),
                     ).also { instance = it }
             }
@@ -361,6 +395,20 @@ private class DataStoreRemoteControlSettingsStore(
     override suspend fun save(settings: RemoteControlSettings) {
         prefs.setRemoteControlSettings(settings)
     }
+}
+
+private object LocationServicePlaybackStateProvider : RemotePlaybackStateProvider {
+    override fun current(): RemotePlaybackState =
+        when (val state = LocationService.runtimeState.value) {
+            RuntimeState.Idle -> RemotePlaybackState.IDLE
+            is RuntimeState.Single -> RemotePlaybackState.SINGLE
+            is RuntimeState.Route ->
+                if (state.paused) {
+                    RemotePlaybackState.PAUSED
+                } else {
+                    RemotePlaybackState.ROUTE
+                }
+        }
 }
 
 private class AndroidRemoteDeviceInfoProvider(

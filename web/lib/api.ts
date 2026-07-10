@@ -20,6 +20,21 @@ export type ChangePasswordInput = {
   newPassword: string;
 };
 
+export type AuthSessionSummary = {
+  createdAt: string;
+  expiresAt: string;
+  id: string;
+  ipAddress: string | null;
+  isCurrent: boolean;
+  lastUsedAt: string;
+  userAgent: string | null;
+};
+
+export type AuthSessionsResponse = {
+  serverTime: string;
+  sessions: AuthSessionSummary[];
+};
+
 export type Place = {
   createdAt: string;
   deletedAt: string | null;
@@ -90,6 +105,13 @@ export type RemoteCommand =
       type: 'STOP';
     });
 
+export type RemotePlaybackState = 'IDLE' | 'SINGLE' | 'ROUTE' | 'PAUSED';
+
+export type RemoteDeviceState = {
+  lastReportedAt: string;
+  playbackState: RemotePlaybackState;
+};
+
 export type RemoteDevice = {
   appVersion: string | null;
   createdAt: string;
@@ -100,6 +122,8 @@ export type RemoteDevice = {
   online: boolean;
   platform: 'ANDROID';
   remoteControlEnabled: boolean;
+  revokedAt: string | null;
+  state: RemoteDeviceState | null;
 };
 
 export type RemoteDevicesResponse = {

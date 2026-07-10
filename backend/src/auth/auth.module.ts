@@ -6,6 +6,7 @@ import { AuthRateLimitService } from './auth-rate-limit.service';
 import { AuthService } from './auth.service';
 import { PrismaModule } from '../prisma/prisma.module';
 import { SessionAuthGuard } from './session-auth.guard';
+import { SessionRevocationService } from './session-revocation.service';
 import { TotpService } from './totp.service';
 
 @Module({
@@ -17,8 +18,15 @@ import { TotpService } from './totp.service';
     AuthRateLimitService,
     AuthService,
     SessionAuthGuard,
+    SessionRevocationService,
     TotpService,
   ],
-  exports: [AccessTokenService, SessionAuthGuard],
+  exports: [
+    AccessTokenService,
+    AuthAuditService,
+    AuthService,
+    SessionAuthGuard,
+    SessionRevocationService,
+  ],
 })
 export class AuthModule {}
