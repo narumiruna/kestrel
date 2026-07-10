@@ -119,6 +119,78 @@ class RemoteControlDeviceSmokeTest {
         }
 
     @Test
+    fun deviceRevocationClearsSessionAndReloginReregisters() =
+        runBlocking {
+            val args = InstrumentationRegistry.getArguments()
+            assumeTrue(args.getString("deviceSecuritySmoke") == "true")
+            val baseUrl = normalizeCloudApiBaseUrl(args.getString("baseUrl") ?: DEFAULT_BASE_URL)
+            val store = CloudSessionStore(context)
+            val previousSession = store.load()
+            val previousApiBaseUrl = prefs.cloudSettingsValue().apiBaseUrl
+            val previousRemoteSettings = prefs.remoteControlSettings.first()
+            val authRepository = CloudAuthRepository.getInstance(context)
+            val repository = RemoteControlRepository.getInstance(context)
+
+            try {
+                val androidSession = loginWithPassword(baseUrl, "admin", "admin")
+                val ownerSession = loginWithPassword(baseUrl, "admin", "admin")
+                store.save(androidSession)
+                authRepository.refreshSessionPresence()
+                prefs.setCloudApiBaseUrl(baseUrl)
+                prefs.setRemoteControlSettings(
+                    RemoteControlSettings(enabled = false, deviceName = "Security smoke emulator"),
+                )
+
+                repository.setEnabled(true)
+                repository.pollOnce()
+                val registered = prefs.remoteControlSettings.first()
+                val deviceId = requireNotNull(registered.serverDeviceId)
+                check(registered.registeredSessionId == androidSession.sessionId)
+                check(
+                    get<DevicesResponse>(baseUrl, "/devices", ownerSession.accessToken)
+                        .devices
+                        .first { it.id == deviceId }
+                        .state
+                        ?.playbackState == RemotePlaybackState.IDLE,
+                )
+
+                post<UnitResponse>(
+                    baseUrl,
+                    "/devices/$deviceId/revoke",
+                    buildJsonObject { put("currentPassword", "admin") },
+                    ownerSession.accessToken,
+                )
+                repository.pollOnce()
+                check(store.load() == null) { "revoked Android session was not cleared" }
+
+                val replacementSession = loginWithPassword(baseUrl, "admin", "admin")
+                store.save(replacementSession)
+                authRepository.refreshSessionPresence()
+                repository.setEnabled(true)
+                repository.pollOnce()
+                val reregistered = prefs.remoteControlSettings.first()
+                check(reregistered.serverDeviceId == deviceId)
+                check(reregistered.registeredSessionId == replacementSession.sessionId)
+                val restoredDevice =
+                    get<DevicesResponse>(baseUrl, "/devices", ownerSession.accessToken)
+                        .devices
+                        .first { it.id == deviceId }
+                check(restoredDevice.revokedAt == null)
+                check(restoredDevice.state?.playbackState == RemotePlaybackState.IDLE)
+            } finally {
+                runCatching { repository.setEnabled(false) }
+                if (previousSession == null) {
+                    store.clear()
+                } else {
+                    store.save(previousSession)
+                }
+                authRepository.refreshSessionPresence()
+                prefs.setCloudApiBaseUrl(previousApiBaseUrl)
+                prefs.setRemoteControlSettings(previousRemoteSettings)
+            }
+        }
+
+    @Test
     fun webDashboardCommandsArePolledAppliedAndAcked() =
         runBlocking {
             val args = InstrumentationRegistry.getArguments()
@@ -240,6 +312,33 @@ class RemoteControlDeviceSmokeTest {
                     put("username", username)
                     put("password", password)
                     put("totpCode", totpCode(setup.secret))
+                },
+            )
+        return CloudSession(
+            accessToken = login.accessToken,
+            accessTokenExpiresAt =
+                java.time.Instant
+                    .parse(login.accessTokenExpiresAt)
+                    .toEpochMilli(),
+            refreshToken = login.refreshToken,
+            sessionId = login.session.id,
+            userId = login.user.id,
+            username = login.user.username,
+        )
+    }
+
+    private fun loginWithPassword(
+        baseUrl: String,
+        username: String,
+        password: String,
+    ): CloudSession {
+        val login =
+            post<LoginResponse>(
+                baseUrl,
+                "/auth/login",
+                buildJsonObject {
+                    put("username", username)
+                    put("password", password)
                 },
             )
         return CloudSession(
@@ -493,6 +592,8 @@ class RemoteControlDeviceSmokeTest {
     private data class SmokeDevice(
         val id: String,
         val lastCommand: SmokeCommand? = null,
+        val revokedAt: String? = null,
+        val state: RemoteDeviceStatePayload? = null,
     )
 
     @Serializable

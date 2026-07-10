@@ -47,9 +47,21 @@ function sanitizeMetadata(
   value: string | undefined,
   maxLength: number,
 ): string | undefined {
-  const sanitized = value?.replace(/[\u0000-\u001f\u007f]/g, ' ').trim();
+  const sanitized =
+    value == null
+      ? undefined
+      : Array.from(value)
+          .map((character) => (isControlCharacter(character) ? ' ' : character))
+          .join('')
+          .trim();
 
   return sanitized == null || sanitized === ''
     ? undefined
     : sanitized.slice(0, maxLength);
+}
+
+function isControlCharacter(character: string): boolean {
+  const codePoint = character.codePointAt(0) ?? 0;
+
+  return codePoint <= 31 || codePoint === 127;
 }

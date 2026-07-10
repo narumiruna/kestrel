@@ -358,10 +358,12 @@ function DeviceStatus({ device }: { device: RemoteDevice | null }) {
     );
   }
 
+  const isOnline = device.revokedAt == null && device.online;
+
   return (
     <div className="chip-row remote-device-status">
-      <span className={`chip ${device.online ? 'remote-chip-online' : 'remote-chip-offline'}`}>
-        {device.online ? 'online' : 'offline'}
+      <span className={`chip ${isOnline ? 'remote-chip-online' : 'remote-chip-offline'}`}>
+        {device.revokedAt != null ? 'revoked' : isOnline ? 'online' : 'offline'}
       </span>
       <span
         className={`chip ${
@@ -483,7 +485,7 @@ function formatDeviceSummary(devices: RemoteDevice[]): string {
 }
 
 function formatDeviceOption(device: RemoteDevice): string {
-  const status = device.online ? 'online' : 'offline';
+  const status = device.revokedAt != null ? 'revoked' : device.online ? 'online' : 'offline';
   const enabled = device.remoteControlEnabled ? 'enabled' : 'disabled';
 
   return `${device.name} - ${status}, ${enabled}`;

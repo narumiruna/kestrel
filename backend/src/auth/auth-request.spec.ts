@@ -30,9 +30,17 @@ describe('auth request helpers', () => {
 
     const metadata = getRequestMetadata(request as never);
 
-    expect(metadata.ipAddress).not.toMatch(/[\u0000-\u001f\u007f]/);
-    expect(metadata.userAgent).not.toMatch(/[\u0000-\u001f\u007f]/);
+    expect(hasControlCharacter(metadata.ipAddress)).toBe(false);
+    expect(hasControlCharacter(metadata.userAgent)).toBe(false);
     expect(metadata.ipAddress?.length).toBeLessThanOrEqual(64);
     expect(metadata.userAgent?.length).toBeLessThanOrEqual(512);
   });
 });
+
+function hasControlCharacter(value: string | undefined): boolean {
+  return Array.from(value ?? '').some((character) => {
+    const codePoint = character.codePointAt(0) ?? 0;
+
+    return codePoint <= 31 || codePoint === 127;
+  });
+}

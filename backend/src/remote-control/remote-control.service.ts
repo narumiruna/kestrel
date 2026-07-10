@@ -278,7 +278,17 @@ export class RemoteControlService {
     const now = new Date();
 
     return this.prismaService.$transaction(async (tx) => {
-      await this.assertOwnDevice(tx, userId, deviceId, input.clientDeviceId);
+      const device = await this.assertOwnDevice(
+        tx,
+        userId,
+        deviceId,
+        input.clientDeviceId,
+      );
+      if (!device.remoteControlEnabled) {
+        throw new ConflictException(
+          'remote control is disabled for this device',
+        );
+      }
       await tx.device.update({
         data: { lastSeenAt: now },
         where: { id: deviceId },

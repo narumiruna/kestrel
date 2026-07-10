@@ -312,7 +312,8 @@ function DeviceRow({
   disabled: boolean;
   onRevoke: () => void;
 }) {
-  const status = device.revokedAt != null ? 'revoked' : device.online ? 'online' : 'offline';
+  const isOnline = device.revokedAt == null && device.online;
+  const status = device.revokedAt != null ? 'revoked' : isOnline ? 'online' : 'offline';
   const playback = device.state?.playbackState.toLowerCase() ?? 'not reported';
 
   return (
@@ -320,7 +321,7 @@ function DeviceRow({
       <div>
         <div className="account-security-row-title">
           <strong>{device.name}</strong>
-          <span className={`chip ${device.online ? 'remote-chip-online' : 'remote-chip-offline'}`}>
+          <span className={`chip ${isOnline ? 'remote-chip-online' : 'remote-chip-offline'}`}>
             {status}
           </span>
         </div>

@@ -4,6 +4,7 @@ import dev.narumi.kestrel.core.data.RemoteControlPendingAck
 import dev.narumi.kestrel.core.data.RemoteControlSettings
 import dev.narumi.kestrel.core.location.LatLng
 import dev.narumi.kestrel.core.location.MovementEngine
+import dev.narumi.kestrel.core.location.RuntimeState
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.encodeToJsonElement
@@ -229,6 +230,23 @@ class RemoteControlRepositoryTest {
         }
 
     @Test
+    fun mapsEveryLocationRuntimeStateToCoarsePlaybackState() {
+        val point = LatLng(25.033, 121.5654)
+        val route = listOf(point, LatLng(25.034, 121.5664))
+
+        assertEquals(RemotePlaybackState.IDLE, RuntimeState.Idle.toRemotePlaybackState())
+        assertEquals(RemotePlaybackState.SINGLE, RuntimeState.Single(point).toRemotePlaybackState())
+        assertEquals(
+            RemotePlaybackState.ROUTE,
+            RuntimeState.Route(route, 12.0, MovementEngine.Mode.Loop, paused = false).toRemotePlaybackState(),
+        )
+        assertEquals(
+            RemotePlaybackState.PAUSED,
+            RuntimeState.Route(route, 12.0, MovementEngine.Mode.Loop, paused = true).toRemotePlaybackState(),
+        )
+    }
+
+    @Test
     fun pollReportsCurrentPlaybackState() =
         runBlocking {
             val api = FakeRemoteApi()
@@ -243,6 +261,24 @@ class RemoteControlRepositoryTest {
 
             assertEquals(RemotePlaybackState.PAUSED, api.stateReports.single().playbackState)
             assertEquals("client-1", api.stateReports.single().clientDeviceId)
+        }
+
+    @Test
+    fun revokedSessionClearsAuthAfterUnauthorizedPoll() =
+        runBlocking {
+            val auth = FakeAuth(session = session, refreshedSession = null)
+            val api = FakeRemoteApi(failPollUnauthorized = true)
+            val repository =
+                repository(
+                    auth = auth,
+                    api = api,
+                    store = MemorySettingsStore(registeredSettings(enabled = true)),
+                )
+
+            repository.pollOnce()
+
+            assertEquals(null, auth.session)
+            assertEquals("Session expired. Please sign in again.", repository.runtimeStatus.value.error)
         }
 
     @Test
@@ -453,6 +489,7 @@ class RemoteControlRepositoryTest {
         val commands: MutableList<RemoteCommandPayload> = mutableListOf(),
         var failAck: Boolean = false,
         var failRegister: Boolean = false,
+        var failPollUnauthorized: Boolean = false,
         val expiredAccessTokens: MutableSet<String> = mutableSetOf(),
     ) : CloudRemoteControlApi {
         val registerRequests = mutableListOf<RegisterRemoteDeviceRequest>()
@@ -498,6 +535,9 @@ class RemoteControlRepositoryTest {
             request: PollRemoteCommandsRequest,
         ): RemoteCommandsPollResponse {
             pollCount++
+            if (failPollUnauthorized) {
+                throw CloudApiException(statusCode = 401, code = "UNAUTHORIZED", message = "revoked")
+            }
             val delivered = commands.toList()
             commands.clear()
             return RemoteCommandsPollResponse(commands = delivered, serverTime = NOW)
