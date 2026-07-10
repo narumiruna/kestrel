@@ -238,11 +238,17 @@ describe('AppController (e2e)', () => {
         }),
       },
       device: {
-        findMany: jest.fn().mockResolvedValue([]),
-        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+        findMany: jest
+          .fn<Promise<Array<Record<string, unknown>>>, [unknown]>()
+          .mockResolvedValue([]),
+        updateMany: jest
+          .fn<Promise<{ count: number }>, [unknown]>()
+          .mockResolvedValue({ count: 0 }),
       },
       remoteCommand: {
-        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+        updateMany: jest
+          .fn<Promise<{ count: number }>, [unknown]>()
+          .mockResolvedValue({ count: 0 }),
       },
       authRateLimit: {
         deleteMany: jest.fn((args: Prisma.AuthRateLimitDeleteManyArgs) => {

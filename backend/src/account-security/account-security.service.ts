@@ -70,9 +70,12 @@ export class AccountSecurityService {
 
     const isCurrent = targetSessionId === currentSessionId;
     if (!isCurrent) {
-      await this.authService.confirmCurrentPassword(
+      await this.confirmStepUp(
         userId,
+        currentSessionId,
         parseCurrentPassword(body),
+        'session_revoke_target',
+        metadata,
       );
     }
 
@@ -104,9 +107,12 @@ export class AccountSecurityService {
     body: unknown,
     metadata: AuthAuditMetadata = {},
   ) {
-    await this.authService.confirmCurrentPassword(
+    await this.confirmStepUp(
       userId,
+      currentSessionId,
       parseCurrentPassword(body),
+      'sessions_revoke_others',
+      metadata,
     );
     const now = new Date();
     const sessions = await this.prismaService.session.findMany({
@@ -154,9 +160,12 @@ export class AccountSecurityService {
       throw new NotFoundException('device not found');
     }
 
-    await this.authService.confirmCurrentPassword(
+    await this.confirmStepUp(
       userId,
+      currentSessionId,
       parseCurrentPassword(body),
+      'device_revoke',
+      metadata,
     );
     const revokedAt = device.revokedAt ?? new Date();
     if (device.revokedAt == null) {
@@ -178,6 +187,29 @@ export class AccountSecurityService {
     return {
       device: { id: device.id, name: device.name, revokedAt },
     };
+  }
+
+  private async confirmStepUp(
+    userId: string,
+    currentSessionId: string,
+    currentPassword: string,
+    event: string,
+    metadata: AuthAuditMetadata,
+  ): Promise<void> {
+    try {
+      await this.authService.confirmCurrentPassword(userId, currentPassword);
+    } catch (error) {
+      await this.safeAuditLog({
+        ...metadata,
+        authMethod: 'password',
+        event,
+        failureReason: 'step_up_failed',
+        outcome: 'failure',
+        sessionId: currentSessionId,
+        userId,
+      });
+      throw error;
+    }
   }
 
   private async safeAuditLog(

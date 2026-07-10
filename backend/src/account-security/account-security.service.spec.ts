@@ -200,6 +200,14 @@ describe('AccountSecurityService', () => {
       }),
     ).rejects.toBeInstanceOf(UnauthorizedException);
     expect(revocationService.revokeSessions).not.toHaveBeenCalled();
+    expect(auditService.log).toHaveBeenCalledWith({
+      authMethod: 'password',
+      event: 'session_revoke_target',
+      failureReason: 'step_up_failed',
+      outcome: 'failure',
+      sessionId: 'session-current',
+      userId: 'user-1',
+    });
   });
 });
 

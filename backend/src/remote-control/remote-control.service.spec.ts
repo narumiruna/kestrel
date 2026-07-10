@@ -543,6 +543,23 @@ describe('RemoteControlService', () => {
     });
   });
 
+  it('never reports a revoked device as online', async () => {
+    prismaService.device.findMany.mockResolvedValue([
+      createRemoteDeviceRecord({
+        lastSeenAt: new Date('2026-06-20T08:00:00.000Z'),
+        remoteControlEnabled: false,
+        revokedAt: new Date('2026-06-20T08:00:00.000Z'),
+      }),
+    ]);
+
+    const result = await remoteControlService.listDevices('user-1');
+
+    expect(result.devices[0]).toMatchObject({
+      online: false,
+      revokedAt: new Date('2026-06-20T08:00:00.000Z'),
+    });
+  });
+
   it('expires queued commands by expiresAt but keeps delivered commands until ack timeout', async () => {
     prismaService.device.findMany.mockResolvedValue([
       createRemoteDeviceRecord({
@@ -622,9 +639,20 @@ describe('RemoteControlService', () => {
     });
   });
 
-  it('rejects state reports for a revoked or foreign device', async () => {
-    prismaService.device.findFirst.mockResolvedValue(null);
+  it('rejects state reports for a disabled, revoked, or foreign device', async () => {
+    prismaService.device.findFirst.mockResolvedValueOnce({
+      id: 'device-1',
+      remoteControlEnabled: false,
+    });
 
+    await expect(
+      remoteControlService.reportDeviceState('user-1', 'device-1', {
+        clientDeviceId: 'client-1',
+        playbackState: 'IDLE',
+      }),
+    ).rejects.toThrow(ConflictException);
+
+    prismaService.device.findFirst.mockResolvedValueOnce(null);
     await expect(
       remoteControlService.reportDeviceState('user-1', 'device-1', {
         clientDeviceId: 'client-1',

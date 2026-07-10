@@ -1,6 +1,6 @@
 # Remote Control API
 
-All endpoints require the existing bearer access token. Android must register with a stable `clientDeviceId`; Web never receives that client id.
+All endpoints require the existing bearer access token. Android must register with a stable `clientDeviceId`; Web never receives that client id. Session/device ownership, revocation, step-up authentication, and delivered-command limits are defined in [`device-session-security.md`](device-session-security.md).
 
 Endpoint paths below are backend-relative. When using the web console origin, call them through the `/api/backend/*` proxy, for example `/api/backend/devices`.
 
@@ -17,7 +17,7 @@ Endpoint paths below are backend-relative. When using the web console origin, ca
 }
 ```
 
-Upserts by `(userId, clientDeviceId)`, sets `platform=ANDROID`, updates `lastSeenAt`, and returns a `RemoteDevice` (Android should persist the returned `id` and use it as `:deviceId` for poll/ack). Setting `remoteControlEnabled=false` expires queued commands for that device.
+Upserts by `(userId, clientDeviceId)`, sets `platform=ANDROID`, links the device to the verified current session, clears an earlier revocation only for that new valid session, updates `lastSeenAt`, and returns a `RemoteDevice` (Android should persist the returned `id` and use it as `:deviceId` for poll/state/ack). Setting `remoteControlEnabled=false` expires queued commands for that device.
 
 ## List devices
 
@@ -32,15 +32,54 @@ Upserts by `(userId, clientDeviceId)`, sets `platform=ANDROID`, updates `lastSee
       "platform": "ANDROID",
       "appVersion": "0.2.0",
       "remoteControlEnabled": true,
+      "revokedAt": null,
       "lastSeenAt": "2026-06-20T08:00:00.000Z",
       "createdAt": "2026-06-20T08:00:00.000Z",
       "online": true,
+      "state": {
+        "playbackState": "ROUTE",
+        "lastReportedAt": "2026-06-20T08:00:00.000Z"
+      },
       "lastCommand": null
     }
   ],
   "serverTime": "2026-06-20T08:00:00.000Z"
 }
 ```
+
+Revoked devices remain visible with `revokedAt`, `remoteControlEnabled=false`, and `online=false` once presence becomes stale. They cannot receive commands until Android explicitly signs in again and re-registers.
+
+## Report Android playback state
+
+`POST /devices/:deviceId/state`
+
+```json
+{
+  "clientDeviceId": "android-installation-id",
+  "playbackState": "PAUSED"
+}
+```
+
+`playbackState` must be `IDLE`, `SINGLE`, `ROUTE`, or `PAUSED`. Only an enabled, non-revoked, same-user device with the matching client id may report state. The endpoint updates device presence and returns:
+
+```json
+{
+  "state": {
+    "playbackState": "PAUSED",
+    "lastReportedAt": "2026-06-20T08:00:05.000Z"
+  }
+}
+```
+
+## Revoke Android device
+
+`POST /devices/:deviceId/revoke`
+
+```json
+{ "currentPassword": "existing account password" }
+```
+
+Requires current-password step-up. Revocation disables remote control, revokes the session that registered the device, and expires queued commands. A delivered command may still finish and remains subject to ACK timeout.
 
 ## Create command from Web
 

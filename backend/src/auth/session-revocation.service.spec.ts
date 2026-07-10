@@ -1,16 +1,21 @@
 import { RemoteCommandStatus } from '@prisma/client';
 import { SessionRevocationService } from './session-revocation.service';
 
+type MockDevice = {
+  id: string;
+  registeredSessionId?: string | null;
+};
+
 type MockStore = {
   device: {
-    findMany: jest.Mock;
-    updateMany: jest.Mock;
+    findMany: jest.Mock<Promise<MockDevice[]>, [unknown]>;
+    updateMany: jest.Mock<Promise<{ count: number }>, [unknown]>;
   };
   remoteCommand: {
-    updateMany: jest.Mock;
+    updateMany: jest.Mock<Promise<{ count: number }>, [unknown]>;
   };
   session: {
-    updateMany: jest.Mock;
+    updateMany: jest.Mock<Promise<{ count: number }>, [unknown]>;
   };
 };
 
@@ -21,19 +26,30 @@ describe('SessionRevocationService', () => {
   beforeEach(() => {
     store = {
       device: {
-        findMany: jest.fn(),
-        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+        findMany: jest.fn<Promise<MockDevice[]>, [unknown]>(),
+        updateMany: jest
+          .fn<Promise<{ count: number }>, [unknown]>()
+          .mockResolvedValue({ count: 0 }),
       },
       remoteCommand: {
-        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+        updateMany: jest
+          .fn<Promise<{ count: number }>, [unknown]>()
+          .mockResolvedValue({ count: 0 }),
       },
       session: {
-        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+        updateMany: jest
+          .fn<Promise<{ count: number }>, [unknown]>()
+          .mockResolvedValue({ count: 0 }),
       },
     };
+    const transaction = jest.fn<
+      Promise<unknown>,
+      [(callback: (tx: MockStore) => Promise<unknown>) => Promise<unknown>]
+    >();
+    transaction.mockImplementation((callback) => callback(store));
     const prisma = {
       ...store,
-      $transaction: jest.fn((callback) => callback(store)),
+      $transaction: transaction,
     };
     service = new SessionRevocationService(prisma as never);
   });

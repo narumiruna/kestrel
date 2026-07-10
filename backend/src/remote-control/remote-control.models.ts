@@ -76,6 +76,7 @@ export function mapRemoteDevice(device: RemoteDeviceRecord, now = new Date()) {
     lastSeenAt: device.lastSeenAt,
     name: device.name,
     online:
+      device.revokedAt == null &&
       now.getTime() - device.lastSeenAt.getTime() <= REMOTE_DEVICE_ONLINE_MS,
     platform: device.platform,
     remoteControlEnabled: device.remoteControlEnabled,

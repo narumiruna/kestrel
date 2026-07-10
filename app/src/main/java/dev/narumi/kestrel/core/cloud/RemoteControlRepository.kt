@@ -343,14 +343,6 @@ internal class RemoteControlRepository internal constructor(
             }.getOrNull()
         }
 
-    private fun Throwable.toRemoteControlMessage(): String =
-        when (this) {
-            is CloudApiException -> message
-            is IOException -> message ?: "Remote control network error"
-            is IllegalStateException -> message ?: "Remote control failed"
-            else -> "Remote control failed"
-        }
-
     private data class PendingRemoteAck(
         val deviceId: String,
         val commandId: String,
@@ -387,6 +379,14 @@ internal class RemoteControlRepository internal constructor(
     }
 }
 
+private fun Throwable.toRemoteControlMessage(): String =
+    when (this) {
+        is CloudApiException -> message
+        is IOException -> message ?: "Remote control network error"
+        is IllegalStateException -> message ?: "Remote control failed"
+        else -> "Remote control failed"
+    }
+
 private class DataStoreRemoteControlSettingsStore(
     private val prefs: KestrelPrefs,
 ) : RemoteControlSettingsStore {
@@ -398,18 +398,20 @@ private class DataStoreRemoteControlSettingsStore(
 }
 
 private object LocationServicePlaybackStateProvider : RemotePlaybackStateProvider {
-    override fun current(): RemotePlaybackState =
-        when (val state = LocationService.runtimeState.value) {
-            RuntimeState.Idle -> RemotePlaybackState.IDLE
-            is RuntimeState.Single -> RemotePlaybackState.SINGLE
-            is RuntimeState.Route ->
-                if (state.paused) {
-                    RemotePlaybackState.PAUSED
-                } else {
-                    RemotePlaybackState.ROUTE
-                }
-        }
+    override fun current(): RemotePlaybackState = LocationService.runtimeState.value.toRemotePlaybackState()
 }
+
+internal fun RuntimeState.toRemotePlaybackState(): RemotePlaybackState =
+    when (this) {
+        RuntimeState.Idle -> RemotePlaybackState.IDLE
+        is RuntimeState.Single -> RemotePlaybackState.SINGLE
+        is RuntimeState.Route ->
+            if (paused) {
+                RemotePlaybackState.PAUSED
+            } else {
+                RemotePlaybackState.ROUTE
+            }
+    }
 
 private class AndroidRemoteDeviceInfoProvider(
     context: Context,
