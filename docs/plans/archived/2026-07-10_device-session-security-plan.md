@@ -54,7 +54,7 @@
 - [x] 在 real `kestrel-webtest` backend驗證 `http://localhost:3401/dashboard/account`：desktop `1440×900`與 mobile `390×844`皆無 horizontal overflow，wrong-password、revoke other/device/current、loading/error/empty/revoked states皆通過；screenshots列於 Completion Evidence，stack已用 compose down停止。
 - [x] Not applicable to operator-owned data：改用 fresh disposable API 35 ARM emulator `emulator-5556`，未觸碰已連線的實機或其 app data；單一 instrumentation smoke備份/恢復 emulator初始設定，驗證 revoke清 session、re-login同 installation re-register及 IDLE state report，結果 `OK (1 test)`，之後已刪除 AVD與 system image。
 - [x] 更新 `docs/remote-control-api.md`、product roadmap與 plans README，反映 shipped security slice、state/revoke contract及 push/permanent-blocking限制；stale wording `rg`無結果。
-- [x] 完整 quality gates於 2026-07-10通過：backend 105 unit + 7 e2e / typecheck / lint / build、Web lint / typecheck / build、Android unit / spotless / detekt / assembleDebug，以及 `git diff --check`。
+- [x] 完整 quality gates於 2026-07-10通過：backend 106 unit + 7 e2e / typecheck / lint / build、Web lint / typecheck / build、Android unit / spotless / detekt / assembleDebug，以及 `git diff --check`。
 
 ## Risks
 
@@ -81,7 +81,7 @@
   - mobile `390×844`: `/var/folders/1z/_34kfpzn7q37z3rk3t15jtgh0000gn/T/pi-chrome-devtools-screenshot-36533558-3183-4fcf-8191-d705e9b4a3f8.png`;
   - measured horizontal overflow `0` at both viewports; mobile grid `358px`; real backend actions and mocked loading/error/empty/logout-failure states passed.
 - Android device lifecycle evidence: disposable API 35 ARM emulator, manually installed debug + androidTest APKs, `RemoteControlDeviceSmokeTest#deviceRevocationClearsSessionAndReloginReregisters`, result `OK (1 test)` in `0.64 s`; no `just reset`, `pm clear`, physical-device install, or physical data change occurred.
-- Final command evidence: backend `16` suites / `105` tests and e2e `3` suites / `7` tests; Web lint/typecheck/build route included `/dashboard/account`; Android unit tests, spotless, detekt, debug build; all successful on 2026-07-10.
+- Final command evidence: backend `16` suites / `106` tests and e2e `3` suites / `7` tests; Web lint/typecheck/build route included `/dashboard/account`; Android unit tests, spotless, detekt, debug build; all successful on 2026-07-10.
 
 ## Completion Checklist
 
