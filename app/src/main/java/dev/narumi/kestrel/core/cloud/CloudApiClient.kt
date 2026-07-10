@@ -103,6 +103,17 @@ internal class CloudApiClient(
             accessToken = accessToken,
         )
 
+    override suspend fun reportDeviceState(
+        accessToken: String,
+        deviceId: String,
+        request: ReportDeviceStateRequest,
+    ): ReportDeviceStateResponse =
+        postJson<ReportDeviceStateRequest, ReportDeviceStateResponse>(
+            path = "/devices/$deviceId/state",
+            body = request,
+            accessToken = accessToken,
+        )
+
     override suspend fun ackCommand(
         accessToken: String,
         deviceId: String,

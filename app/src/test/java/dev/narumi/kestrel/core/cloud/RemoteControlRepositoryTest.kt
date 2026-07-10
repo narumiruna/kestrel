@@ -4,6 +4,7 @@ import dev.narumi.kestrel.core.data.RemoteControlPendingAck
 import dev.narumi.kestrel.core.data.RemoteControlSettings
 import dev.narumi.kestrel.core.location.LatLng
 import dev.narumi.kestrel.core.location.MovementEngine
+import dev.narumi.kestrel.core.location.RuntimeState
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.encodeToJsonElement
@@ -65,6 +66,7 @@ class RemoteControlRepositoryTest {
             assertNotNull(store.settings.clientDeviceId)
             assertEquals("device-1", store.settings.serverDeviceId)
             assertEquals("Test phone", store.settings.deviceName)
+            assertEquals("session-1", store.settings.registeredSessionId)
             assertEquals(true, api.registerRequests.single().remoteControlEnabled)
         }
 
@@ -210,6 +212,73 @@ class RemoteControlRepositoryTest {
 
             assertEquals(2, api.pollCount)
             assertEquals(listOf("command-1", "command-2"), api.ackCalls.map { it.commandId })
+        }
+
+    @Test
+    fun sameUserReloginReregistersDeviceBeforePolling() =
+        runBlocking {
+            val auth = FakeAuth(session.copy(sessionId = "session-2", accessToken = "access-2"))
+            val api = FakeRemoteApi()
+            val store = MemorySettingsStore(registeredSettings(enabled = true))
+            val repository = repository(auth = auth, api = api, store = store)
+
+            repository.pollOnce()
+
+            assertEquals(1, api.registerRequests.size)
+            assertEquals("session-2", store.settings.registeredSessionId)
+            assertEquals(1, api.pollCount)
+        }
+
+    @Test
+    fun mapsEveryLocationRuntimeStateToCoarsePlaybackState() {
+        val point = LatLng(25.033, 121.5654)
+        val route = listOf(point, LatLng(25.034, 121.5664))
+
+        assertEquals(RemotePlaybackState.IDLE, RuntimeState.Idle.toRemotePlaybackState())
+        assertEquals(RemotePlaybackState.SINGLE, RuntimeState.Single(point).toRemotePlaybackState())
+        assertEquals(
+            RemotePlaybackState.ROUTE,
+            RuntimeState.Route(route, 12.0, MovementEngine.Mode.Loop, paused = false).toRemotePlaybackState(),
+        )
+        assertEquals(
+            RemotePlaybackState.PAUSED,
+            RuntimeState.Route(route, 12.0, MovementEngine.Mode.Loop, paused = true).toRemotePlaybackState(),
+        )
+    }
+
+    @Test
+    fun pollReportsCurrentPlaybackState() =
+        runBlocking {
+            val api = FakeRemoteApi()
+            val repository =
+                repository(
+                    api = api,
+                    playbackStateProvider = StaticPlaybackStateProvider(RemotePlaybackState.PAUSED),
+                    store = MemorySettingsStore(registeredSettings(enabled = true)),
+                )
+
+            repository.pollOnce()
+
+            assertEquals(RemotePlaybackState.PAUSED, api.stateReports.single().playbackState)
+            assertEquals("client-1", api.stateReports.single().clientDeviceId)
+        }
+
+    @Test
+    fun revokedSessionClearsAuthAfterUnauthorizedPoll() =
+        runBlocking {
+            val auth = FakeAuth(session = session, refreshedSession = null)
+            val api = FakeRemoteApi(failPollUnauthorized = true)
+            val repository =
+                repository(
+                    auth = auth,
+                    api = api,
+                    store = MemorySettingsStore(registeredSettings(enabled = true)),
+                )
+
+            repository.pollOnce()
+
+            assertEquals(null, auth.session)
+            assertEquals("Session expired. Please sign in again.", repository.runtimeStatus.value.error)
         }
 
     @Test
@@ -360,6 +429,7 @@ class RemoteControlRepositoryTest {
         auth: FakeAuth = FakeAuth(session),
         api: FakeRemoteApi = FakeRemoteApi(),
         applier: FakeApplier = FakeApplier(),
+        playbackStateProvider: RemotePlaybackStateProvider = StaticPlaybackStateProvider(RemotePlaybackState.IDLE),
         store: MemorySettingsStore = MemorySettingsStore(RemoteControlSettings()),
     ): RemoteControlRepository =
         RemoteControlRepository(
@@ -367,6 +437,7 @@ class RemoteControlRepositoryTest {
             apiClient = api,
             executor = RemoteCommandExecutor(applier),
             settingsStore = store,
+            playbackStateProvider = playbackStateProvider,
             deviceInfoProvider = StaticDeviceInfoProvider,
         )
 
@@ -377,6 +448,7 @@ class RemoteControlRepositoryTest {
             serverDeviceId = "device-1",
             deviceName = "Test phone",
             registeredUserId = "user-1",
+            registeredSessionId = "session-1",
         )
 
     private class FakeAuth(
@@ -403,6 +475,12 @@ class RemoteControlRepositoryTest {
         }
     }
 
+    private data class StaticPlaybackStateProvider(
+        private val state: RemotePlaybackState,
+    ) : RemotePlaybackStateProvider {
+        override fun current(): RemotePlaybackState = state
+    }
+
     private object StaticDeviceInfoProvider : RemoteDeviceInfoProvider {
         override fun current(): RemoteDeviceInfo = RemoteDeviceInfo(name = "Test phone", appVersion = "1.0")
     }
@@ -411,11 +489,13 @@ class RemoteControlRepositoryTest {
         val commands: MutableList<RemoteCommandPayload> = mutableListOf(),
         var failAck: Boolean = false,
         var failRegister: Boolean = false,
+        var failPollUnauthorized: Boolean = false,
         val expiredAccessTokens: MutableSet<String> = mutableSetOf(),
     ) : CloudRemoteControlApi {
         val registerRequests = mutableListOf<RegisterRemoteDeviceRequest>()
         val ackCalls = mutableListOf<AckCall>()
         val ackAccessTokens = mutableListOf<String>()
+        val stateReports = mutableListOf<ReportDeviceStateRequest>()
         var pollCount = 0
 
         override suspend fun registerDevice(
@@ -434,12 +514,30 @@ class RemoteControlRepositoryTest {
             )
         }
 
+        override suspend fun reportDeviceState(
+            accessToken: String,
+            deviceId: String,
+            request: ReportDeviceStateRequest,
+        ): ReportDeviceStateResponse {
+            stateReports += request
+            return ReportDeviceStateResponse(
+                state =
+                    RemoteDeviceStatePayload(
+                        lastReportedAt = NOW,
+                        playbackState = request.playbackState,
+                    ),
+            )
+        }
+
         override suspend fun pollCommands(
             accessToken: String,
             deviceId: String,
             request: PollRemoteCommandsRequest,
         ): RemoteCommandsPollResponse {
             pollCount++
+            if (failPollUnauthorized) {
+                throw CloudApiException(statusCode = 401, code = "UNAUTHORIZED", message = "revoked")
+            }
             val delivered = commands.toList()
             commands.clear()
             return RemoteCommandsPollResponse(commands = delivered, serverTime = NOW)

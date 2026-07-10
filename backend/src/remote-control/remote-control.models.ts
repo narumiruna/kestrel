@@ -32,6 +32,13 @@ export const remoteDeviceSelect = {
     take: 1,
   },
   remoteControlEnabled: true,
+  revokedAt: true,
+  state: {
+    select: {
+      lastReportedAt: true,
+      playbackState: true,
+    },
+  },
 } satisfies Prisma.DeviceSelect;
 
 type RemoteCommandRecord = Prisma.RemoteCommandGetPayload<{
@@ -69,9 +76,12 @@ export function mapRemoteDevice(device: RemoteDeviceRecord, now = new Date()) {
     lastSeenAt: device.lastSeenAt,
     name: device.name,
     online:
+      device.revokedAt == null &&
       now.getTime() - device.lastSeenAt.getTime() <= REMOTE_DEVICE_ONLINE_MS,
     platform: device.platform,
     remoteControlEnabled: device.remoteControlEnabled,
+    revokedAt: device.revokedAt,
+    state: device.state,
   };
 }
 

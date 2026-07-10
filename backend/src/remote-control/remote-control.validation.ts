@@ -1,5 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import {
+  PlaybackState,
   RemoteCommandStatus,
   RemoteCommandType,
   RouteMode,
@@ -40,6 +41,11 @@ export type RemoteCommandPayload =
 
 export type PollRemoteCommandsInput = {
   clientDeviceId: string;
+};
+
+export type ReportDeviceStateInput = {
+  clientDeviceId: string;
+  playbackState: PlaybackState;
 };
 
 type AckRemoteCommandStatus = Extract<
@@ -100,6 +106,31 @@ export function parsePollRemoteCommandsInput(
       'clientDeviceId',
       MAX_CLIENT_DEVICE_ID_LENGTH,
     ),
+  };
+}
+
+export function parseReportDeviceStateInput(
+  input: unknown,
+): ReportDeviceStateInput {
+  const record = parseRecord(input);
+  const playbackState = record.playbackState;
+
+  if (
+    typeof playbackState !== 'string' ||
+    !Object.values(PlaybackState).includes(playbackState as PlaybackState)
+  ) {
+    throw new BadRequestException(
+      'playbackState must be IDLE, SINGLE, ROUTE, or PAUSED',
+    );
+  }
+
+  return {
+    clientDeviceId: parseRequiredBoundedString(
+      record.clientDeviceId,
+      'clientDeviceId',
+      MAX_CLIENT_DEVICE_ID_LENGTH,
+    ),
+    playbackState: playbackState as PlaybackState,
   };
 }
 

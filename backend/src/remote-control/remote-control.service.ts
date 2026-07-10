@@ -21,6 +21,7 @@ import {
   parseCreateRemoteCommandInput,
   parsePollRemoteCommandsInput,
   parseRegisterDeviceInput,
+  parseReportDeviceStateInput,
 } from './remote-control.validation';
 
 const ACK_TIMEOUT_MS = 120_000;
@@ -31,14 +32,14 @@ const REMOTE_CONTROL_DISABLED_MESSAGE = 'remote control disabled';
 
 type RemoteControlStore = Pick<
   Prisma.TransactionClient,
-  'device' | 'remoteCommand'
+  'device' | 'deviceState' | 'remoteCommand'
 >;
 
 @Injectable()
 export class RemoteControlService {
   constructor(private readonly prismaService: PrismaService) {}
 
-  async registerDevice(userId: string, body: unknown) {
+  async registerDevice(userId: string, sessionId: string, body: unknown) {
     const input = parseRegisterDeviceInput(body);
     const now = new Date();
 
@@ -50,6 +51,7 @@ export class RemoteControlService {
           lastSeenAt: now,
           name: input.name,
           platform: DevicePlatform.ANDROID,
+          registeredSessionId: sessionId,
           remoteControlEnabled: input.remoteControlEnabled,
           userId,
         },
@@ -59,7 +61,9 @@ export class RemoteControlService {
           lastSeenAt: now,
           name: input.name,
           platform: DevicePlatform.ANDROID,
+          registeredSessionId: sessionId,
           remoteControlEnabled: input.remoteControlEnabled,
+          revokedAt: null,
         },
         where: {
           userId_clientDeviceId: {
@@ -126,6 +130,7 @@ export class RemoteControlService {
           id: deviceId,
           platform: DevicePlatform.ANDROID,
           remoteControlEnabled: true,
+          revokedAt: null,
           userId,
         },
       });
@@ -135,6 +140,7 @@ export class RemoteControlService {
           select: {
             id: true,
             remoteControlEnabled: true,
+            revokedAt: true,
           },
           where: {
             id: deviceId,
@@ -145,6 +151,10 @@ export class RemoteControlService {
 
         if (device == null) {
           throw new NotFoundException('device not found');
+        }
+
+        if (device.revokedAt != null) {
+          throw new ConflictException('device is revoked');
         }
 
         throw new ConflictException(
@@ -184,6 +194,7 @@ export class RemoteControlService {
           id: deviceId,
           platform: DevicePlatform.ANDROID,
           remoteControlEnabled: true,
+          revokedAt: null,
           userId,
         },
       });
@@ -258,6 +269,48 @@ export class RemoteControlService {
           }),
         ),
         serverTime: now,
+      };
+    });
+  }
+
+  async reportDeviceState(userId: string, deviceId: string, body: unknown) {
+    const input = parseReportDeviceStateInput(body);
+    const now = new Date();
+
+    return this.prismaService.$transaction(async (tx) => {
+      const device = await this.assertOwnDevice(
+        tx,
+        userId,
+        deviceId,
+        input.clientDeviceId,
+      );
+      if (!device.remoteControlEnabled) {
+        throw new ConflictException(
+          'remote control is disabled for this device',
+        );
+      }
+      await tx.device.update({
+        data: { lastSeenAt: now },
+        where: { id: deviceId },
+      });
+      await tx.deviceState.upsert({
+        create: {
+          deviceId,
+          lastReportedAt: now,
+          playbackState: input.playbackState,
+        },
+        update: {
+          lastReportedAt: now,
+          playbackState: input.playbackState,
+        },
+        where: { deviceId },
+      });
+
+      return {
+        state: {
+          lastReportedAt: now,
+          playbackState: input.playbackState,
+        },
       };
     });
   }
@@ -370,6 +423,7 @@ export class RemoteControlService {
         clientDeviceId,
         id: deviceId,
         platform: DevicePlatform.ANDROID,
+        revokedAt: null,
         userId,
       },
     });

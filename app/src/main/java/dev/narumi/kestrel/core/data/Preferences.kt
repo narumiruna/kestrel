@@ -122,6 +122,7 @@ data class RemoteControlSettings(
     val serverDeviceId: String? = null,
     val deviceName: String? = null,
     val registeredUserId: String? = null,
+    val registeredSessionId: String? = null,
     val pendingAcks: List<RemoteControlPendingAck> = emptyList(),
 )
 

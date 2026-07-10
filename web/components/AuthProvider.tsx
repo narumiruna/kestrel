@@ -15,7 +15,7 @@ type AuthContextValue = {
   apiRequest: <T>(path: string, options?: RequestInit) => Promise<T>;
   isAuthenticated: boolean;
   isHydrated: boolean;
-  logout: () => void;
+  logout: () => Promise<void>;
   saveSession: (session: AuthSession) => void;
   session: AuthSession | null;
 };
@@ -95,10 +95,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSession(nextSession);
   }, []);
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
+    const sessionToRevoke = session;
     window.localStorage.removeItem(STORAGE_KEY);
     setSession(null);
-  }, []);
+
+    if (sessionToRevoke == null) {
+      return;
+    }
+
+    try {
+      await apiFetch('/auth/session/revoke', {
+        accessToken: sessionToRevoke.accessToken,
+        body: '{}',
+        method: 'POST',
+      });
+    } catch {
+      // Local credentials are already cleared. Logout must still complete when
+      // the backend is offline or the server session has already expired.
+    }
+  }, [session]);
 
   const apiRequest = useCallback(
     async <T,>(path: string, options: RequestInit = {}): Promise<T> => {
@@ -121,7 +137,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         try {
           refreshedSession = await refreshSession(session.refreshToken);
         } catch (refreshError) {
-          logout();
+          await logout();
           throw refreshError;
         }
 

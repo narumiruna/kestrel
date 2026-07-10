@@ -18,6 +18,7 @@ class RemoteControlSettingsSerializationTest {
         assertNull(decoded.serverDeviceId)
         assertNull(decoded.deviceName)
         assertNull(decoded.registeredUserId)
+        assertNull(decoded.registeredSessionId)
         assertEquals(emptyList<RemoteControlPendingAck>(), decoded.pendingAcks)
     }
 
@@ -30,6 +31,7 @@ class RemoteControlSettingsSerializationTest {
                 serverDeviceId = "device-1",
                 deviceName = "Pixel",
                 registeredUserId = "user-1",
+                registeredSessionId = "session-1",
                 pendingAcks =
                     listOf(
                         RemoteControlPendingAck(

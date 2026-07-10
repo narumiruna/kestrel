@@ -18,7 +18,7 @@ Completed foundations:
 - Do not bypass Play Integrity / SafetyNet.
 - Do not introduce a second map backend; MapLibre remains the map implementation.
 - Do not add GPS track recording or GPX/KML import/export.
-- Do not add broad device/session administration until there is a user story beyond remote-control device selection.
+- Do not add administrator/cross-user session controls, permanent device blocking, remote wipe, or background push wake-up.
 
 ## Plan
 
@@ -30,19 +30,20 @@ Completed foundations:
 - [x] Implement public route/place sharing and authenticated copy-to-library; archived under `docs/plans/archived/2026-05-13_sharing-plan.md`, `2026-05-13_sharing-followups-plan.md`, and `2026-05-16_web-place-sharing-plan.md`.
 - [x] Implement place-first upload/conflict strengthening; archived under `docs/plans/archived/2026-05-10_android-local-upload-conflict-plan.md`.
 - [x] Implement opt-in Web remote control: backend command queue, Android polling/executor, Web Device actions, and physical smoke coverage; archived under `docs/plans/archived/2026-06-20_web-remote-mock-control-plan.md` and its slice plans.
+- [x] Implement owner-scoped device/session security management: active session list, password-stepped revoke controls, server-derived Android session linkage, coarse playback-state reporting, queued-command cancellation, and explicit delivered-command limits; threat model lives in `docs/device-session-security.md` and implementation evidence is archived under `docs/plans/archived/2026-07-10_device-session-security-plan.md`.
 - [ ] Harden production operations: health checks, structured logging, secrets guidance, DB backup/rollback, and release signing; track concrete tasks in `2026-05-10_engineering-backlog-plan.md`.
 - [ ] Finish the remaining Android cloud manual smokes: production URL alias login + `Sync now`, and copied shared route syncing to Android; track in `2026-05-13_android-cloud-options-autofill-url-plan.md` and `2026-05-10_engineering-backlog-plan.md`.
-- [ ] Pick the next product feature only from observed need; current candidates stay out of active scope until requested: route revision browsing, richer per-waypoint playback, on-road routing, jitter simulation, localization, and full session management.
+- [ ] Pick the next product feature only from observed need; current candidates stay out of active scope until requested: route revision browsing, richer per-waypoint playback, on-road routing, jitter simulation, and localization.
 
 ## Risks
 
-- Sharing and remote control expand the security surface; keep opt-in, same-user ownership checks, expiry, audit, and bounded polling.
+- Sharing and remote control expand the security surface; keep opt-in, same-user ownership checks, expiry, audit, bounded polling, and the cancellation boundary documented in `docs/device-session-security.md`.
 - Route payload compatibility can break Android sync if richer waypoint metadata lands without versioned tests.
 - Production deploy safety now matters more than feature breadth; do ops/release hardening before larger product bets.
 
 ## Completion Checklist
 
-- [x] Roadmap reflects the implemented Android, backend, web, sync, sharing, and remote-control baseline.
+- [x] Roadmap reflects the implemented Android, backend, web, sync, sharing, remote-control, and owner-scoped device/session security baseline.
 - [ ] Production operations and release hardening have an accepted, verified slice in `2026-05-10_engineering-backlog-plan.md`.
 - [ ] Remaining Android cloud manual smokes are either passed and archived, or explicitly marked blocked with device/environment evidence.
 - [ ] Any new large product feature has its own focused plan before implementation.

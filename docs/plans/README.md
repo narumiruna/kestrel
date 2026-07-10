@@ -12,6 +12,11 @@ Top-level `*-plan.md` files are active. Grouped active plan sets may live in a s
 | `2026-07-08_agent-readiness-entry-plan.md` | Entry plan for staged agent-readiness work |
 | `agent-readiness/` | Child plans for individual agent-readiness goals |
 
+## Security references
+
+- `../device-session-security.md` — session/device trust boundaries, step-up rules, revocation semantics, and remote-command cancellation limits.
+- `../remote-control-api.md` — Android device registration, playback-state reporting, command polling/ACK, and device revocation contract.
+
 ## Rules
 
 - Keep active plans small enough to act on.
