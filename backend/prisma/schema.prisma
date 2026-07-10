@@ -50,8 +50,11 @@ model Session {
   expiresAt        DateTime  @map("expires_at")
   revokedAt        DateTime? @map("revoked_at")
   lastUsedAt       DateTime  @map("last_used_at")
+  ipAddress        String?   @map("ip_address") @db.VarChar(64)
+  userAgent        String?   @map("user_agent") @db.VarChar(512)
   createdAt        DateTime  @default(now()) @map("created_at")
   user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  devices          Device[]
 
   @@index([userId])
   @@map("sessions")
@@ -180,18 +183,22 @@ model Device {
   id                   String          @id @default(uuid()) @db.Uuid
   userId               String          @map("user_id") @db.Uuid
   clientDeviceId       String          @map("client_device_id") @db.VarChar(128)
+  registeredSessionId  String?         @map("registered_session_id") @db.Uuid
   name                 String          @db.VarChar(128)
   platform             DevicePlatform
   appVersion           String?         @map("app_version") @db.VarChar(64)
   remoteControlEnabled Boolean         @default(false) @map("remote_control_enabled")
+  revokedAt            DateTime?       @map("revoked_at")
   lastSeenAt           DateTime        @map("last_seen_at")
   createdAt            DateTime        @default(now()) @map("created_at")
   user                 User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  registeredSession    Session?        @relation(fields: [registeredSessionId], references: [id], onDelete: SetNull)
   state                DeviceState?
   remoteCommands       RemoteCommand[]
 
   @@unique([userId, clientDeviceId])
   @@index([userId])
+  @@index([registeredSessionId])
   @@map("devices")
 }
 

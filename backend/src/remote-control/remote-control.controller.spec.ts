@@ -6,7 +6,8 @@ type MockRemoteControlService = {
   createCommand: jest.Mock<unknown, [string, string, unknown]>;
   listDevices: jest.Mock<unknown, [string]>;
   pollCommands: jest.Mock<unknown, [string, string, unknown]>;
-  registerDevice: jest.Mock<unknown, [string, unknown]>;
+  registerDevice: jest.Mock<unknown, [string, string, unknown]>;
+  reportDeviceState: jest.Mock<unknown, [string, string, unknown]>;
 };
 
 describe('RemoteControlController', () => {
@@ -28,7 +29,8 @@ describe('RemoteControlController', () => {
       createCommand: createMock<unknown, [string, string, unknown]>(),
       listDevices: createMock<unknown, [string]>(),
       pollCommands: createMock<unknown, [string, string, unknown]>(),
-      registerDevice: createMock<unknown, [string, unknown]>(),
+      registerDevice: createMock<unknown, [string, string, unknown]>(),
+      reportDeviceState: createMock<unknown, [string, string, unknown]>(),
     };
     controller = new RemoteControlController(service as never);
   });
@@ -38,7 +40,11 @@ describe('RemoteControlController', () => {
 
     void controller.registerDevice(request, body);
 
-    expect(service.registerDevice).toHaveBeenCalledWith('user-1', body);
+    expect(service.registerDevice).toHaveBeenCalledWith(
+      'user-1',
+      'session-1',
+      body,
+    );
   });
 
   it('passes authenticated user id to device listing', () => {
@@ -53,6 +59,18 @@ describe('RemoteControlController', () => {
     void controller.createCommand(request, 'device-1', body);
 
     expect(service.createCommand).toHaveBeenCalledWith(
+      'user-1',
+      'device-1',
+      body,
+    );
+  });
+
+  it('passes route params to device state reports', () => {
+    const body = { clientDeviceId: 'client-1', playbackState: 'ROUTE' };
+
+    void controller.reportDeviceState(request, 'device-1', body);
+
+    expect(service.reportDeviceState).toHaveBeenCalledWith(
       'user-1',
       'device-1',
       body,

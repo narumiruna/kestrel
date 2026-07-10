@@ -1,12 +1,13 @@
 'use client';
 
+import Link from 'next/link';
 import { type FormEvent, useState } from 'react';
 import { formatError } from '@/components/dashboard/utils';
 import { useTheme } from '@/components/ThemeProvider';
 
 type UserMarkProps = {
   onChangePassword: (input: { currentPassword: string; newPassword: string }) => Promise<void>;
-  onLogout: () => void;
+  onLogout: () => void | Promise<void>;
   username: string;
 };
 
@@ -59,6 +60,9 @@ export function UserMark({ onChangePassword, onLogout, username }: UserMarkProps
             </div>
             {error == null ? null : <div className="error">{error}</div>}
             {notice == null ? null : <div className="success">{notice}</div>}
+            <Link className="secondary button-link" href="/dashboard/account">
+              Account security
+            </Link>
             <button
               className="secondary"
               disabled={!isHydrated}

@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import {
   DevicePlatform,
+  PlaybackState,
   RemoteCommandStatus,
   RemoteCommandType,
   RouteMode,
@@ -32,12 +33,16 @@ type MockRemoteDeviceRecord = {
   lastSeenAt: Date;
   name: string;
   platform: DevicePlatform;
+  registeredSessionId: string | null;
   remoteCommands: MockRemoteCommandRecord[];
   remoteControlEnabled: boolean;
+  revokedAt: Date | null;
+  state: { lastReportedAt: Date; playbackState: PlaybackState } | null;
 };
 
 type MockTransactionClient = {
   device: MockPrismaService['device'];
+  deviceState: MockPrismaService['deviceState'];
   remoteCommand: MockPrismaService['remoteCommand'];
 };
 
@@ -52,7 +57,11 @@ type MockPrismaService = {
   >;
   device: {
     findFirst: jest.Mock<
-      Promise<{ id: string; remoteControlEnabled: boolean } | null>,
+      Promise<{
+        id: string;
+        remoteControlEnabled: boolean;
+        revokedAt?: Date | null;
+      } | null>,
       [unknown]
     >;
     findMany: jest.Mock<Promise<MockRemoteDeviceRecord[]>, [unknown]>;
@@ -60,6 +69,9 @@ type MockPrismaService = {
     update: jest.Mock<Promise<{ id: string }>, [unknown]>;
     updateMany: jest.Mock<Promise<{ count: number }>, [unknown]>;
     upsert: jest.Mock<Promise<MockRemoteDeviceRecord>, [unknown]>;
+  };
+  deviceState: {
+    upsert: jest.Mock<Promise<Record<string, unknown>>, [unknown]>;
   };
   remoteCommand: {
     create: jest.Mock<Promise<MockRemoteCommandRecord>, [unknown]>;
@@ -80,6 +92,7 @@ describe('RemoteControlService', () => {
     prismaService.$transaction.mockImplementation((callback) =>
       callback({
         device: prismaService.device,
+        deviceState: prismaService.deviceState,
         remoteCommand: prismaService.remoteCommand,
       }),
     );
@@ -95,12 +108,16 @@ describe('RemoteControlService', () => {
     prismaService.device.upsert.mockResolvedValue(device);
     prismaService.device.findUniqueOrThrow.mockResolvedValue(device);
 
-    const result = await remoteControlService.registerDevice('user-1', {
-      appVersion: '1.2.3',
-      clientDeviceId: 'android-stable-id',
-      name: 'Pixel',
-      remoteControlEnabled: true,
-    });
+    const result = await remoteControlService.registerDevice(
+      'user-1',
+      'session-android',
+      {
+        appVersion: '1.2.3',
+        clientDeviceId: 'android-stable-id',
+        name: 'Pixel',
+        remoteControlEnabled: true,
+      },
+    );
 
     expect(result).toMatchObject({
       id: 'device-1',
@@ -111,10 +128,13 @@ describe('RemoteControlService', () => {
       create: {
         clientDeviceId: 'android-stable-id',
         platform: DevicePlatform.ANDROID,
+        registeredSessionId: 'session-android',
         userId: 'user-1',
       },
       update: {
+        registeredSessionId: 'session-android',
         remoteControlEnabled: true,
+        revokedAt: null,
       },
       where: {
         userId_clientDeviceId: {
@@ -150,12 +170,16 @@ describe('RemoteControlService', () => {
       }),
     );
 
-    const result = await remoteControlService.registerDevice('user-1', {
-      appVersion: '1.2.3',
-      clientDeviceId: 'android-stable-id',
-      name: 'Pixel',
-      remoteControlEnabled: true,
-    });
+    const result = await remoteControlService.registerDevice(
+      'user-1',
+      'session-android',
+      {
+        appVersion: '1.2.3',
+        clientDeviceId: 'android-stable-id',
+        name: 'Pixel',
+        remoteControlEnabled: true,
+      },
+    );
 
     expect(result).toMatchObject({
       lastCommand: { status: RemoteCommandStatus.EXPIRED },
@@ -194,12 +218,16 @@ describe('RemoteControlService', () => {
       }),
     );
 
-    const result = await remoteControlService.registerDevice('user-1', {
-      appVersion: '1.2.3',
-      clientDeviceId: 'android-stable-id',
-      name: 'Pixel',
-      remoteControlEnabled: false,
-    });
+    const result = await remoteControlService.registerDevice(
+      'user-1',
+      'session-android',
+      {
+        appVersion: '1.2.3',
+        clientDeviceId: 'android-stable-id',
+        name: 'Pixel',
+        remoteControlEnabled: false,
+      },
+    );
 
     expect(result).toMatchObject({
       lastCommand: { status: RemoteCommandStatus.EXPIRED },
@@ -233,6 +261,23 @@ describe('RemoteControlService', () => {
         type: 'STOP',
       }),
     ).rejects.toThrow(ConflictException);
+  });
+
+  it('rejects command creation when a concurrent device revocation wins', async () => {
+    prismaService.device.updateMany.mockResolvedValue({ count: 0 });
+    prismaService.device.findFirst.mockResolvedValue({
+      id: 'device-1',
+      remoteControlEnabled: false,
+      revokedAt: new Date('2026-06-20T08:00:00.000Z'),
+    });
+
+    await expect(
+      remoteControlService.createCommand('user-1', 'device-1', {
+        payload: {},
+        type: 'STOP',
+      }),
+    ).rejects.toThrow('device is revoked');
+    expect(prismaService.remoteCommand.create).not.toHaveBeenCalled();
   });
 
   it('rejects command creation for a foreign device', async () => {
@@ -346,6 +391,7 @@ describe('RemoteControlService', () => {
       where: {
         platform: DevicePlatform.ANDROID,
         remoteControlEnabled: true,
+        revokedAt: null,
       },
     });
     expect(prismaService.remoteCommand.create.mock.calls[0]?.[0]).toMatchObject(
@@ -518,6 +564,23 @@ describe('RemoteControlService', () => {
     });
   });
 
+  it('never reports a revoked device as online', async () => {
+    prismaService.device.findMany.mockResolvedValue([
+      createRemoteDeviceRecord({
+        lastSeenAt: new Date('2026-06-20T08:00:00.000Z'),
+        remoteControlEnabled: false,
+        revokedAt: new Date('2026-06-20T08:00:00.000Z'),
+      }),
+    ]);
+
+    const result = await remoteControlService.listDevices('user-1');
+
+    expect(result.devices[0]).toMatchObject({
+      online: false,
+      revokedAt: new Date('2026-06-20T08:00:00.000Z'),
+    });
+  });
+
   it('expires queued commands by expiresAt but keeps delivered commands until ack timeout', async () => {
     prismaService.device.findMany.mockResolvedValue([
       createRemoteDeviceRecord({
@@ -547,6 +610,77 @@ describe('RemoteControlService', () => {
         status: RemoteCommandStatus.DELIVERED,
       },
     });
+  });
+
+  it('reports and returns the latest device playback state', async () => {
+    prismaService.device.findFirst.mockResolvedValue({
+      id: 'device-1',
+      remoteControlEnabled: true,
+    });
+    prismaService.deviceState.upsert.mockResolvedValue({ id: 'state-1' });
+
+    const report = await remoteControlService.reportDeviceState(
+      'user-1',
+      'device-1',
+      {
+        clientDeviceId: 'client-1',
+        playbackState: 'PAUSED',
+      },
+    );
+
+    expect(report.state).toEqual({
+      lastReportedAt: new Date('2026-06-20T08:00:00.000Z'),
+      playbackState: PlaybackState.PAUSED,
+    });
+    expect(prismaService.deviceState.upsert).toHaveBeenCalledWith({
+      create: {
+        deviceId: 'device-1',
+        lastReportedAt: new Date('2026-06-20T08:00:00.000Z'),
+        playbackState: PlaybackState.PAUSED,
+      },
+      update: {
+        lastReportedAt: new Date('2026-06-20T08:00:00.000Z'),
+        playbackState: PlaybackState.PAUSED,
+      },
+      where: { deviceId: 'device-1' },
+    });
+
+    prismaService.device.findMany.mockResolvedValue([
+      createRemoteDeviceRecord({
+        state: {
+          lastReportedAt: new Date('2026-06-20T08:00:00.000Z'),
+          playbackState: PlaybackState.PAUSED,
+        },
+      }),
+    ]);
+    const listed = await remoteControlService.listDevices('user-1');
+    expect(listed.devices[0]).toMatchObject({
+      revokedAt: null,
+      state: { playbackState: PlaybackState.PAUSED },
+    });
+  });
+
+  it('rejects state reports for a disabled, revoked, or foreign device', async () => {
+    prismaService.device.findFirst.mockResolvedValueOnce({
+      id: 'device-1',
+      remoteControlEnabled: false,
+    });
+
+    await expect(
+      remoteControlService.reportDeviceState('user-1', 'device-1', {
+        clientDeviceId: 'client-1',
+        playbackState: 'IDLE',
+      }),
+    ).rejects.toThrow(ConflictException);
+
+    prismaService.device.findFirst.mockResolvedValueOnce(null);
+    await expect(
+      remoteControlService.reportDeviceState('user-1', 'device-1', {
+        clientDeviceId: 'client-1',
+        playbackState: 'IDLE',
+      }),
+    ).rejects.toThrow(NotFoundException);
+    expect(prismaService.deviceState.upsert).not.toHaveBeenCalled();
   });
 
   it('acks delivered commands as applied', async () => {
@@ -747,7 +881,11 @@ function createMockPrismaService(): MockPrismaService {
     >(),
     device: {
       findFirst: createMock<
-        Promise<{ id: string; remoteControlEnabled: boolean } | null>,
+        Promise<{
+          id: string;
+          remoteControlEnabled: boolean;
+          revokedAt?: Date | null;
+        } | null>,
         [unknown]
       >(),
       findMany: createMock<Promise<MockRemoteDeviceRecord[]>, [unknown]>(),
@@ -764,6 +902,9 @@ function createMockPrismaService(): MockPrismaService {
         [unknown]
       >().mockResolvedValue({ count: 1 }),
       upsert: createMock<Promise<MockRemoteDeviceRecord>, [unknown]>(),
+    },
+    deviceState: {
+      upsert: createMock<Promise<Record<string, unknown>>, [unknown]>(),
     },
     remoteCommand: {
       create: createMock<Promise<MockRemoteCommandRecord>, [unknown]>(),
@@ -791,8 +932,11 @@ function createRemoteDeviceRecord(
     lastSeenAt: new Date('2026-06-20T07:59:30.000Z'),
     name: 'Pixel',
     platform: DevicePlatform.ANDROID,
+    registeredSessionId: 'session-android',
     remoteCommands: [],
     remoteControlEnabled: true,
+    revokedAt: null,
+    state: null,
     ...overrides,
   };
 }
