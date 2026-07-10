@@ -71,6 +71,13 @@ type MockPrismaService = {
       [Prisma.AuthAuditLogCreateArgs]
     >;
   };
+  device: {
+    findMany: jest.Mock<Promise<Array<Record<string, unknown>>>, [unknown]>;
+    updateMany: jest.Mock<Promise<{ count: number }>, [unknown]>;
+  };
+  remoteCommand: {
+    updateMany: jest.Mock<Promise<{ count: number }>, [unknown]>;
+  };
   authRateLimit: {
     deleteMany: jest.Mock<
       Promise<{ count: number }>,
@@ -119,6 +126,10 @@ type MockPrismaService = {
     update: jest.Mock<
       Promise<Record<string, unknown>>,
       [Prisma.SessionUpdateArgs]
+    >;
+    updateMany: jest.Mock<
+      Promise<{ count: number }>,
+      [Prisma.SessionUpdateManyArgs]
     >;
   };
   user: {
@@ -176,7 +187,7 @@ type TotpVerifyResponse = {
 
 type TransactionClient = Pick<
   MockPrismaService,
-  'recoveryCode' | 'session' | 'user'
+  'device' | 'recoveryCode' | 'remoteCommand' | 'session' | 'user'
 >;
 
 describe('AppController (e2e)', () => {
@@ -225,6 +236,13 @@ describe('AppController (e2e)', () => {
 
           return Promise.resolve(record);
         }),
+      },
+      device: {
+        findMany: jest.fn().mockResolvedValue([]),
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
+      remoteCommand: {
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
       },
       authRateLimit: {
         deleteMany: jest.fn((args: Prisma.AuthRateLimitDeleteManyArgs) => {
@@ -421,6 +439,24 @@ describe('AppController (e2e)', () => {
             applySelect(enrichSessionRecord(session), args.select),
           );
         }),
+        updateMany: jest.fn((args: Prisma.SessionUpdateManyArgs) => {
+          const idFilter = args.where?.id;
+          const ids =
+            typeof idFilter === 'object' &&
+            idFilter != null &&
+            'in' in idFilter &&
+            Array.isArray(idFilter.in)
+              ? idFilter.in
+              : [];
+          let count = 0;
+          for (const session of storedSessions) {
+            if (ids.includes(session.id) && session.revokedAt == null) {
+              session.revokedAt = new Date(args.data.revokedAt as Date);
+              count++;
+            }
+          }
+          return Promise.resolve({ count });
+        }),
       },
       user: {
         create: jest.fn((args: Prisma.UserCreateArgs) => {
@@ -470,7 +506,9 @@ describe('AppController (e2e)', () => {
     };
     prismaService.$transaction.mockImplementation(async (transaction) =>
       transaction({
+        device: prismaService.device,
         recoveryCode: prismaService.recoveryCode,
+        remoteCommand: prismaService.remoteCommand,
         session: prismaService.session,
         user: prismaService.user,
       }),

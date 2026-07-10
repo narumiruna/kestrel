@@ -17,6 +17,7 @@ import {
   AUTH_RATE_LIMIT_TYPE,
   AuthRateLimitService,
 } from './auth-rate-limit.service';
+import { SessionRevocationService } from './session-revocation.service';
 import { TotpService } from './totp.service';
 
 @Injectable()
@@ -28,6 +29,7 @@ export class AuthService {
     private readonly authAuditService: AuthAuditService,
     private readonly authRateLimitService: AuthRateLimitService,
     private readonly prismaService: PrismaService,
+    private readonly sessionRevocationService: SessionRevocationService,
     private readonly totpService: TotpService,
   ) {}
 
@@ -243,8 +245,10 @@ export class AuthService {
           return transaction.session.create({
             data: {
               expiresAt: createSessionExpiry(authenticatedAt),
+              ipAddress: metadata.ipAddress,
               lastUsedAt: authenticatedAt,
               refreshTokenHash,
+              userAgent: metadata.userAgent,
               userId: user.id,
             },
             select: {
@@ -357,8 +361,10 @@ export class AuthService {
     const nextRefreshToken = createRefreshToken();
     const updatedSession = await this.prismaService.session.update({
       data: {
+        ipAddress: metadata.ipAddress,
         lastUsedAt: now,
         refreshTokenHash: hashRefreshToken(nextRefreshToken),
+        userAgent: metadata.userAgent,
       },
       select: {
         createdAt: true,
@@ -398,6 +404,22 @@ export class AuthService {
         username: session.user.username,
       },
     };
+  }
+
+  async confirmCurrentPassword(
+    userId: string,
+    currentPassword: string,
+  ): Promise<void> {
+    const user = await this.prismaService.user.findUnique({
+      select: { id: true, username: true },
+      where: { id: userId },
+    });
+
+    if (user == null) {
+      throw new UnauthorizedException('missing authenticated user');
+    }
+
+    await this.authenticateUser(user.username, currentPassword);
   }
 
   async changePassword(
@@ -501,24 +523,18 @@ export class AuthService {
       throw new UnauthorizedException('session is no longer active');
     }
 
-    const revokedSession =
-      session.revokedAt == null
-        ? await this.prismaService.session.update({
-            data: {
-              revokedAt: new Date(),
-            },
-            select: {
-              id: true,
-              revokedAt: true,
-            },
-            where: {
-              id: session.id,
-            },
-          })
-        : {
-            id: session.id,
-            revokedAt: session.revokedAt,
-          };
+    const revokedAt = session.revokedAt ?? new Date();
+    if (session.revokedAt == null) {
+      await this.sessionRevocationService.revokeSessions(
+        session.userId,
+        [session.id],
+        revokedAt,
+      );
+    }
+    const revokedSession = {
+      id: session.id,
+      revokedAt,
+    };
 
     await this.safeAuditLog({
       ...metadata,

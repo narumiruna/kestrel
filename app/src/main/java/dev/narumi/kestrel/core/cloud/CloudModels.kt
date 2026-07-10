@@ -220,6 +220,23 @@ internal data class PollRemoteCommandsRequest(
 )
 
 @Serializable
+internal data class ReportDeviceStateRequest(
+    val clientDeviceId: String,
+    val playbackState: RemotePlaybackState,
+)
+
+@Serializable
+internal data class ReportDeviceStateResponse(
+    val state: RemoteDeviceStatePayload,
+)
+
+@Serializable
+internal data class RemoteDeviceStatePayload(
+    val lastReportedAt: String,
+    val playbackState: RemotePlaybackState,
+)
+
+@Serializable
 internal data class AckRemoteCommandRequest(
     val clientDeviceId: String,
     val status: RemoteCommandStatus,
@@ -257,6 +274,8 @@ internal data class RemoteDevicePayload(
     val online: Boolean = false,
     val platform: String,
     val remoteControlEnabled: Boolean,
+    val revokedAt: String? = null,
+    val state: RemoteDeviceStatePayload? = null,
 )
 
 @Serializable
@@ -276,6 +295,9 @@ internal data class RemoteStartRoutePayload(
     val speedKmh: Double,
     val mode: CloudRouteMode,
 )
+
+@Serializable
+internal enum class RemotePlaybackState { IDLE, SINGLE, ROUTE, PAUSED }
 
 @Serializable
 internal enum class RemoteCommandType { SET_POINT, START_ROUTE, STOP }

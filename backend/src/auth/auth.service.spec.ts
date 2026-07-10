@@ -15,6 +15,7 @@ import {
 } from './auth-rate-limit.service';
 import { AuthService } from './auth.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { SessionRevocationService } from './session-revocation.service';
 import { TotpService } from './totp.service';
 
 type AuthUserRecord = {
@@ -182,6 +183,7 @@ describe('AuthService', () => {
   let authRateLimitService: MockAuthRateLimitService;
   let authService: AuthService;
   let prismaService: MockPrismaService;
+  let sessionRevocationService: { revokeSessions: jest.Mock };
   let totpService: MockTotpService;
 
   afterEach(() => {
@@ -279,6 +281,9 @@ describe('AuthService', () => {
     authRateLimitService.recordFailure.mockResolvedValue(undefined);
     authRateLimitService.reset.mockResolvedValue(undefined);
     authAuditService.log.mockResolvedValue(undefined);
+    sessionRevocationService = {
+      revokeSessions: jest.fn().mockResolvedValue({ sessionsRevoked: 1 }),
+    };
     totpService = {
       createSetup: jest.fn<
         Promise<{
@@ -318,6 +323,10 @@ describe('AuthService', () => {
         {
           provide: PrismaService,
           useValue: prismaService,
+        },
+        {
+          provide: SessionRevocationService,
+          useValue: sessionRevocationService,
         },
         {
           provide: TotpService,
@@ -694,7 +703,9 @@ describe('AuthService', () => {
     expect(capturedSessionArgs).toMatchObject({
       data: {
         expiresAt: new Date('2026-06-08T16:00:00.000Z'),
+        ipAddress: '127.0.0.1',
         lastUsedAt: authenticatedAt,
+        userAgent: 'jest',
         userId: 'user-1',
       },
       select: {
@@ -851,6 +862,50 @@ describe('AuthService', () => {
     });
   });
 
+  it('confirms an existing short dev password without applying new-password rules', async () => {
+    const passwordHash = await hash('admin', { type: argon2id });
+
+    prismaService.user.findUnique
+      .mockResolvedValueOnce({ id: 'user-1', username: 'admin' })
+      .mockResolvedValueOnce({
+        id: 'user-1',
+        passwordHash,
+        totpEnabledAt: null,
+        totpSecretEncrypted: null,
+        username: 'admin',
+      });
+
+    await expect(
+      authService.confirmCurrentPassword('user-1', 'admin'),
+    ).resolves.toBeUndefined();
+    expect(authRateLimitService.reset).toHaveBeenCalledWith(
+      AUTH_RATE_LIMIT_TYPE.PASSWORD,
+      'admin',
+    );
+  });
+
+  it('rejects an invalid current password during step-up', async () => {
+    const passwordHash = await hash('correct-password', { type: argon2id });
+
+    prismaService.user.findUnique
+      .mockResolvedValueOnce({ id: 'user-1', username: 'alice' })
+      .mockResolvedValueOnce({
+        id: 'user-1',
+        passwordHash,
+        totpEnabledAt: null,
+        totpSecretEncrypted: null,
+        username: 'alice',
+      });
+
+    await expect(
+      authService.confirmCurrentPassword('user-1', 'wrong'),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+    expect(authRateLimitService.recordFailure).toHaveBeenCalledWith(
+      AUTH_RATE_LIMIT_TYPE.PASSWORD,
+      'alice',
+    );
+  });
+
   it('changes the authenticated user password', async () => {
     const passwordHash = await hash('a-very-secure-password', {
       type: argon2id,
@@ -949,6 +1004,7 @@ describe('AuthService', () => {
     });
     expect(capturedUpdateArgs).toMatchObject({
       data: {
+        ipAddress: '127.0.0.1',
         lastUsedAt: refreshedAt,
       },
       select: {
@@ -988,12 +1044,6 @@ describe('AuthService', () => {
       },
       userId: 'user-1',
     });
-    prismaService.session.update.mockResolvedValue({
-      createdAt: new Date('2026-05-09T16:00:00.000Z'),
-      expiresAt: new Date('2026-06-08T16:00:00.000Z'),
-      id: 'session-1',
-      revokedAt,
-    });
     jest.useFakeTimers().setSystemTime(revokedAt);
 
     const result = await authService.revokeSession('access-token', {
@@ -1001,18 +1051,11 @@ describe('AuthService', () => {
     });
 
     expect(accessTokenService.verifyToken).toHaveBeenCalledWith('access-token');
-    expect(prismaService.session.update).toHaveBeenCalledWith({
-      data: {
-        revokedAt,
-      },
-      select: {
-        id: true,
-        revokedAt: true,
-      },
-      where: {
-        id: 'session-1',
-      },
-    });
+    expect(sessionRevocationService.revokeSessions).toHaveBeenCalledWith(
+      'user-1',
+      ['session-1'],
+      revokedAt,
+    );
     expect(authAuditService.log).toHaveBeenCalledWith({
       authMethod: 'access_token',
       event: 'session_revoke',

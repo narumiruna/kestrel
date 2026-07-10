@@ -1,10 +1,10 @@
 import { Body, Controller, Post, Req, UseGuards } from '@nestjs/common';
 import type { Request } from 'express';
-import { AuthAuditMetadata } from './auth-audit.service';
 import {
   type AuthenticatedRequest,
   getAuthenticatedUserId,
   getBearerToken,
+  getRequestMetadata,
 } from './auth-request';
 import { AuthService } from './auth.service';
 import { SessionAuthGuard } from './session-auth.guard';
@@ -55,11 +55,4 @@ export class AuthController {
       getRequestMetadata(request),
     );
   }
-}
-
-function getRequestMetadata(request: Request): AuthAuditMetadata {
-  return {
-    ipAddress: request.ip,
-    userAgent: request.header('user-agent') ?? undefined,
-  };
 }
