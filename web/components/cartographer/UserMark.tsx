@@ -58,8 +58,16 @@ export function UserMark({ onChangePassword, onLogout, username }: UserMarkProps
               <strong>Account</strong>
               <p className="muted no-margin">Theme, password, and session controls.</p>
             </div>
-            {error == null ? null : <div className="error">{error}</div>}
-            {notice == null ? null : <div className="success">{notice}</div>}
+            {error == null ? null : (
+              <div className="error" role="alert">
+                {error}
+              </div>
+            )}
+            {notice == null ? null : (
+              <div className="success" role="status">
+                {notice}
+              </div>
+            )}
             <Link className="secondary button-link" href="/dashboard/account">
               Account security
             </Link>
@@ -76,7 +84,6 @@ export function UserMark({ onChangePassword, onLogout, username }: UserMarkProps
                 Current password
                 <input
                   autoComplete="current-password"
-                  minLength={12}
                   required
                   type="password"
                   value={currentPassword}

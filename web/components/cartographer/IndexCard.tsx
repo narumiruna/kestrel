@@ -5,7 +5,7 @@ type IndexCardProps = {
   children: ReactNode;
   eyebrow?: ReactNode;
   meta?: ReactNode;
-  stamp: string;
+  stamp?: string;
   subtitle?: string;
   title: string;
   variant?: 'place' | 'route';
@@ -27,7 +27,7 @@ export function IndexCard({
       {eyebrow == null ? null : <div className="index-card-breadcrumb breadcrumb">{eyebrow}</div>}
       <header className="index-card-header">
         <div>
-          <p className="index-card-stamp font-mono">{stamp}</p>
+          {stamp == null ? null : <p className="index-card-stamp font-mono">{stamp}</p>}
           <h2 className="font-serif">{title}</h2>
           {subtitle == null ? null : <p>{subtitle}</p>}
         </div>

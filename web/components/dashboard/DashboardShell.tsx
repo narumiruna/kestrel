@@ -145,8 +145,16 @@ function AccountMenu({ onLogout }: { onLogout: () => void }) {
           <strong>Account</strong>
           <p className="muted no-margin">Change your password or sign out.</p>
         </div>
-        {error == null ? null : <div className="error">{error}</div>}
-        {notice == null ? null : <div className="success">{notice}</div>}
+        {error == null ? null : (
+          <div className="error" role="alert">
+            {error}
+          </div>
+        )}
+        {notice == null ? null : (
+          <div className="success" role="status">
+            {notice}
+          </div>
+        )}
         <button
           className="secondary kc-theme-toggle"
           disabled={!isHydrated}
@@ -161,7 +169,6 @@ function AccountMenu({ onLogout }: { onLogout: () => void }) {
             Current password
             <input
               autoComplete="current-password"
-              minLength={12}
               required
               type="password"
               value={currentPassword}

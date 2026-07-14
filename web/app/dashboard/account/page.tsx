@@ -28,6 +28,7 @@ export default function AccountSecurityPage() {
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const [currentPassword, setCurrentPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showAllSessions, setShowAllSessions] = useState(false);
 
   const loadSecurityData = useCallback(async () => {
     if (!auth.isAuthenticated) {
@@ -115,6 +116,8 @@ export default function AccountSecurityPage() {
   }
 
   const otherSessionCount = sessions.filter((session) => !session.isCurrent).length;
+  const visibleSessions = showAllSessions ? sessions : sessions.slice(0, 5);
+  const hiddenSessionCount = sessions.length - visibleSessions.length;
 
   return (
     <main className="account-security-shell">
@@ -168,7 +171,7 @@ export default function AccountSecurityPage() {
             <p className="muted">No active sessions were returned.</p>
           ) : null}
           <div className="account-security-list">
-            {sessions.map((session) => (
+            {visibleSessions.map((session) => (
               <SessionRow
                 key={session.id}
                 session={session}
@@ -187,6 +190,15 @@ export default function AccountSecurityPage() {
               />
             ))}
           </div>
+          {sessions.length > 5 ? (
+            <button
+              className="secondary account-security-show-more"
+              type="button"
+              onClick={() => setShowAllSessions((current) => !current)}
+            >
+              {showAllSessions ? 'Show fewer sessions' : `Show ${hiddenSessionCount} more sessions`}
+            </button>
+          ) : null}
         </section>
 
         <section className="panel account-security-panel" aria-labelledby="devices-heading">
