@@ -10,6 +10,7 @@ data class CloudSession(
     val sessionId: String,
     val userId: String,
     val username: String,
+    val refreshRequestId: String? = null,
 )
 
 @Serializable
@@ -29,6 +30,7 @@ internal data class LoginWithRecoveryCodeRequest(
 @Serializable
 internal data class RefreshSessionRequest(
     val refreshToken: String,
+    val refreshRequestId: String,
 )
 
 @Serializable
