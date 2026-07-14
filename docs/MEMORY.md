@@ -37,7 +37,7 @@
 
 ## TASTE
 
-- Avoid waiting on unexpectedly slow large downloads: inspect size and transfer rate early, abort when the ETA is unreasonable, and prefer existing workflow/signature evidence or a small metadata request when it proves the requirement.
+- Prefer `aria2c` for required large downloads (`brew install aria2` if unavailable), verify published checksums when provided, inspect size and transfer rate early, and abort when the ETA is unreasonable. Prefer existing workflow/signature evidence or a small metadata request when it already proves the requirement.
 - Prefer a consistent sans-serif UI typeface for Kestrel Web; avoid decorative serif display fonts that make English/CJK hierarchy feel mismatched.
 - Prefer progressive disclosure in UI/UX: keep each screen focused on its primary task, preserve secondary/advanced functionality in clear contextual locations, and avoid redundant CTAs or extra mode-switch clicks.
 - When reviewing or closing plan docs, do not move unfinished items into backlog/other plans just to make the current plan archivable unless the user explicitly asks for that re-scoping.
