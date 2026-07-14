@@ -16,38 +16,29 @@ Completed since the original backlog:
 
 ### Production / release hardening
 
-- [ ] Add a backend health endpoint and Docker Compose backend healthcheck; verify with `cd backend && npm run test && npm run build` plus `docker compose -f compose.deploy.yaml config --quiet`.
+- [ ] Add a backend health endpoint and Docker Compose backend healthcheck so deploy startup depends on backend readiness rather than `service_started`; verify with `cd backend && npm run test && npm run build` plus `docker compose -f compose.deploy.yaml config --quiet`.
 - [ ] Add structured backend request/error logging with request id plus safe user/session metadata; verify with backend unit/e2e coverage or a local request log sample that contains no secrets.
-- [ ] Write `docs/operations.md` with required deploy secrets, local `.env` guidance, rotation notes, DB backup, and migration rollback; verify against `.github/workflows/deploy.yml` and `compose.deploy.yaml`.
-- [ ] Decide API documentation/client policy: generated OpenAPI clients or hand-written DTO rules; verify by either published docs or a short decision record in `docs/operations.md` / `docs/remote-control-api.md`.
-- [ ] Establish Android release signing flow with minify still off; verify `just release` produces a signed or explicitly documented unsigned artifact.
+- [ ] Write `docs/operations.md` with required deploy secrets, local `.env` guidance, rotation notes, DB backup/restore, and migration rollback; verify against `.github/workflows/deploy.yml` and `compose.deploy.yaml` and include one bounded restore check.
+- [ ] Establish Android release signing while keeping minify off, update the release workflow and Digital Asset Links fingerprint, and verify `just release` plus the GitHub workflow produce an installable signed artifact.
 
 ### Manual validation
 
-- [ ] Run one non-destructive Android cloud smoke covering production URL alias login (`https://kestrel.narumi.dev`) and `Sync now`; record device, build, and result in `2026-05-13_android-cloud-options-autofill-url-plan.md`.
-- [ ] After copying a shared route from the public Web page, run Android `Sync now` and confirm the copied route appears/behaves as a normal owned route; do not use `just reset` / `pm clear`.
-- [ ] Run a fresh real-device Go to/Favorites apply smoke after the next substantial map/favorites refactor; this is not needed for docs-only or Web-only work.
+- [ ] Run one non-destructive real-device Android cloud smoke covering production URL alias login (`https://kestrel.narumi.dev`) and `Sync now`; record device, Android/app version, and result in this item without using `just reset` / `pm clear`.
+- [ ] Copy a shared route from the public Web page, run Android `Sync now`, and confirm it appears and runs as a normal owned route; record device, Android/app version, and result in this item without clearing app data.
 
 ### Android maintainability
 
-- [ ] Split `KestrelMap` enough to remove its current `LongMethod` detekt baseline entry; verify with `just check && just lint` and `rg "KestrelMap" detekt-baseline.xml`.
-- [ ] Decide whether `MapScreen` drafts (`waypoints` / `speedKmh` / `routeMode`) should survive tab switching; verify by either a short docs note accepting the limitation or a dedicated NavHost/SaveableStateHolder plan.
-- [ ] Add emulator/instrumented CI only if a stable, non-destructive service-lifecycle test can run without wiping operator device state.
-
-### Not active until requested
-
-These are intentionally not active tasks: route revision history UI, route generator advanced parameters, per-segment speed/pause playback, jitter simulation, OSRM/GraphHopper on-road routing, zh-TW/ja localization, and Android map style switching. Promote one into its own plan only when there is a concrete user story.
+- [ ] Split `KestrelMap` enough to remove its current `LongMethod` detekt baseline entry; verify with `just check && just lint` and `rg "KestrelMap" detekt-baseline.xml` returning no match.
 
 ## Risks
 
-- Logging and API docs can leak secrets or freeze unstable APIs if overbuilt; start with minimal safe fields and current endpoints.
-- DB backup/rollback docs are easy to write but dangerous if untested; include a restore check when production data exists.
-- Instrumented/device tests can wipe app-private state; call out destructive commands before running them.
+- Structured logs can leak credentials, tokens, or precise location data; keep fields allowlisted and test redaction.
+- DB backup/rollback documentation is unsafe if it describes an unverified restore path; include a bounded restore check.
+- Real-device validation must preserve app-private state; do not uninstall, clear data, or run connected instrumentation as setup.
 
 ## Completion Checklist
 
-- [ ] Production deploy has health checks, structured logs, secrets guidance, and DB backup/rollback documentation.
-- [ ] API documentation/client policy is implemented or explicitly accepted as hand-written DTOs.
-- [ ] Android release artifacts are signed, or unsigned status remains explicitly documented until signing exists.
-- [ ] Required Android manual smokes are recorded or explicitly blocked with evidence.
-- [ ] Speculative features remain outside active checklists until they have a concrete plan.
+- [ ] Production deploy readiness is verified by backend health checks, structured safe logs, and tested operations guidance.
+- [ ] Android GitHub release artifacts are signed and installable, verified by the release build/workflow and certificate inspection.
+- [ ] Both Android cloud smokes are recorded with device/build evidence or explicitly blocked by an external dependency.
+- [ ] `KestrelMap` no longer has a `LongMethod` baseline entry, verified by Android quality gates and baseline search.

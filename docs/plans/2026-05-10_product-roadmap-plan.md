@@ -2,7 +2,7 @@
 
 ## Goal
 
-Keep Kestrel focused as an Android mock-location app with a cloud library and opt-in Web remote control. Success means the roadmap reflects shipped foundations, keeps security-sensitive work explicit, and only promotes future features when there is a concrete user need.
+Keep Kestrel focused as an Android mock-location app with a cloud library and opt-in Web remote control. Success means the shipped product baseline is clear and the remaining active work is limited to release safety and required cloud validation.
 
 ## Context
 
@@ -22,18 +22,8 @@ Completed foundations:
 
 ## Plan
 
-- [x] Establish Android mock-location MVP: single point, route playback, random route generation, startup behavior, foreground service, and MapLibre UI.
-- [x] Replace local `Favorite(name as id)` storage with Room-backed `Place / Route / RouteRevision / Waypoint / LibraryItem` domain.
-- [x] Build cloud auth and library APIs with TOTP, refresh sessions, owner-scoped CRUD, immutable route revisions, and sync events.
-- [x] Build web console login and place/route editing workflows, then evolve it into the Map/Library dashboard.
-- [x] Build Android cloud login, sync bootstrap/changes, cursor recovery, and current-revision route execution.
-- [x] Implement public route/place sharing and authenticated copy-to-library; archived under `docs/plans/archived/2026-05-13_sharing-plan.md`, `2026-05-13_sharing-followups-plan.md`, and `2026-05-16_web-place-sharing-plan.md`.
-- [x] Implement place-first upload/conflict strengthening; archived under `docs/plans/archived/2026-05-10_android-local-upload-conflict-plan.md`.
-- [x] Implement opt-in Web remote control: backend command queue, Android polling/executor, Web Device actions, and physical smoke coverage; archived under `docs/plans/archived/2026-06-20_web-remote-mock-control-plan.md` and its slice plans.
-- [x] Implement owner-scoped device/session security management: active session list, password-stepped revoke controls, server-derived Android session linkage, coarse playback-state reporting, queued-command cancellation, and explicit delivered-command limits; threat model lives in `docs/device-session-security.md` and implementation evidence is archived under `docs/plans/archived/2026-07-10_device-session-security-plan.md`.
-- [ ] Harden production operations: health checks, structured logging, secrets guidance, DB backup/rollback, and release signing; track concrete tasks in `2026-05-10_engineering-backlog-plan.md`.
-- [ ] Finish the remaining Android cloud manual smokes: production URL alias login + `Sync now`, and copied shared route syncing to Android; track in `2026-05-13_android-cloud-options-autofill-url-plan.md` and `2026-05-10_engineering-backlog-plan.md`.
-- [ ] Pick the next product feature only from observed need; current candidates stay out of active scope until requested: route revision browsing, richer per-waypoint playback, on-road routing, jitter simulation, and localization.
+- [ ] Harden production operations and Android releases through the concrete health, logging, operations, and signing tasks in `2026-05-10_engineering-backlog-plan.md`; verify with that plan's completion evidence.
+- [ ] Complete the production URL and copied-shared-route Android cloud smokes in `2026-05-10_engineering-backlog-plan.md`; verify with recorded real-device evidence.
 
 ## Risks
 
@@ -43,7 +33,6 @@ Completed foundations:
 
 ## Completion Checklist
 
-- [x] Roadmap reflects the implemented Android, backend, web, sync, sharing, remote-control, and owner-scoped device/session security baseline.
-- [ ] Production operations and release hardening have an accepted, verified slice in `2026-05-10_engineering-backlog-plan.md`.
-- [ ] Remaining Android cloud manual smokes are either passed and archived, or explicitly marked blocked with device/environment evidence.
-- [ ] Any new large product feature has its own focused plan before implementation.
+- [x] The implemented Android, backend, Web, sync, sharing, remote-control, and device/session security baseline is recorded in this plan's Context and linked archived plans.
+- [ ] Production operations and Android release hardening are verified in `2026-05-10_engineering-backlog-plan.md`.
+- [ ] Both remaining Android cloud smokes pass or have concrete external-blocker evidence in `2026-05-10_engineering-backlog-plan.md`.
