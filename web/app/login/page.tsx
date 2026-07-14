@@ -52,6 +52,7 @@ export default function LoginPage() {
     setIsSubmitting(true);
 
     try {
+      const authenticationAttemptId = await auth.beginAuthentication();
       const trimmedOneTimeCode = oneTimeCode.trim();
       const session = await login({
         password,
@@ -62,7 +63,7 @@ export default function LoginPage() {
             ? { recoveryCode: trimmedOneTimeCode }
             : { totpCode: trimmedOneTimeCode }),
       });
-      auth.saveSession(session);
+      await auth.saveSession(session, authenticationAttemptId);
       router.replace('/dashboard');
     } catch (nextError) {
       setError(formatError(nextError));
@@ -78,9 +79,10 @@ export default function LoginPage() {
 
     try {
       if (totpSetup == null) {
+        const authenticationAttemptId = await auth.beginAuthentication();
         await register({ password, username });
         const session = await login({ password, username });
-        auth.saveSession(session);
+        await auth.saveSession(session, authenticationAttemptId);
         router.replace('/dashboard');
       } else {
         const result = await verifyTotp({

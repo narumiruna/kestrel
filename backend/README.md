@@ -123,5 +123,5 @@ The current migrations establish the core Phase 1 auth tables:
 ## Auth endpoints
 
 - `POST /auth/login`: username/password + TOTP or recovery code → access token + refresh token + session
-- `POST /auth/refresh`: refresh token rotation + new short-lived access token
+- `POST /auth/refresh`: refresh token rotation + new short-lived access token; retrying the immediately previous token within 20 minutes returns the same encrypted-at-rest successor, while reuse after that window revokes the session
 - `POST /auth/session/revoke`: revoke the current session using `Authorization: Bearer <access_token>`

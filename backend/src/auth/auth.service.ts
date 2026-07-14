@@ -20,6 +20,29 @@ import {
 import { SessionRevocationService } from './session-revocation.service';
 import { TotpService } from './totp.service';
 
+const refreshSessionSelect = Prisma.validator<Prisma.SessionSelect>()({
+  createdAt: true,
+  expiresAt: true,
+  id: true,
+  ipAddress: true,
+  refreshRequestId: true,
+  refreshTokenHash: true,
+  refreshTokenRotatedAt: true,
+  revokedAt: true,
+  rotatedRefreshTokenEncrypted: true,
+  userAgent: true,
+  user: {
+    select: {
+      username: true,
+    },
+  },
+  userId: true,
+});
+
+type RefreshSessionRecord = Prisma.SessionGetPayload<{
+  select: typeof refreshSessionSelect;
+}>;
+
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
@@ -309,27 +332,30 @@ export class AuthService {
   }
 
   async refresh(input: unknown, metadata: AuthAuditMetadata = {}) {
-    const { refreshToken } = parseRefreshRequest(input);
+    const { refreshRequestId, refreshToken } = parseRefreshRequest(input);
     const now = new Date();
     const refreshTokenHash = hashRefreshToken(refreshToken);
     const session = await this.prismaService.session.findUnique({
-      select: {
-        expiresAt: true,
-        id: true,
-        revokedAt: true,
-        user: {
-          select: {
-            username: true,
-          },
-        },
-        userId: true,
-      },
-      where: {
-        refreshTokenHash,
-      },
+      select: refreshSessionSelect,
+      where: { refreshTokenHash },
     });
 
     if (session == null) {
+      const recovered = await this.recoverRotatedRefresh(
+        refreshTokenHash,
+        refreshRequestId,
+        now,
+        metadata,
+      );
+      if (recovered != null) {
+        return recovered;
+      }
+
+      await this.rejectConsumedRefreshTokenReplay(
+        refreshTokenHash,
+        now,
+        metadata,
+      );
       await this.safeAuditLog({
         ...metadata,
         authMethod: 'refresh_token',
@@ -340,42 +366,257 @@ export class AuthService {
       throw new UnauthorizedException('invalid refresh token');
     }
 
-    if (
-      session.revokedAt != null ||
-      session.expiresAt.getTime() <= now.getTime()
-    ) {
+    await this.assertRefreshSessionActive(session, now, metadata);
+
+    const nextRefreshToken = createRefreshToken();
+    const rotation = await this.prismaService.$transaction(async (tx) => {
+      const updated = await tx.session.updateMany({
+        data: {
+          ipAddress: metadata.ipAddress,
+          lastUsedAt: now,
+          previousRefreshTokenHash: refreshTokenHash,
+          refreshRequestId: refreshRequestId ?? null,
+          refreshTokenHash: hashRefreshToken(nextRefreshToken),
+          refreshTokenRotatedAt: now,
+          rotatedRefreshTokenEncrypted:
+            this.totpService.encryptSecret(nextRefreshToken),
+          userAgent: metadata.userAgent,
+        },
+        where: {
+          expiresAt: { gt: now },
+          id: session.id,
+          refreshTokenHash,
+          revokedAt: null,
+        },
+      });
+      if (updated.count === 1) {
+        await tx.refreshTokenHistory.create({
+          data: {
+            consumedAt: now,
+            expiresAt: session.expiresAt,
+            sessionId: session.id,
+            tokenHash: refreshTokenHash,
+          },
+        });
+      }
+      return updated;
+    });
+
+    if (rotation.count !== 1) {
+      const recovered = await this.recoverRotatedRefresh(
+        refreshTokenHash,
+        refreshRequestId,
+        now,
+        metadata,
+      );
+      if (recovered != null) {
+        return recovered;
+      }
+
+      await this.rejectConsumedRefreshTokenReplay(
+        refreshTokenHash,
+        now,
+        metadata,
+      );
+
+      const latestSession = await this.prismaService.session.findUnique({
+        select: refreshSessionSelect,
+        where: { id: session.id },
+      });
+      if (latestSession != null) {
+        await this.assertRefreshSessionActive(latestSession, now, metadata);
+      }
+
       await this.safeAuditLog({
         ...metadata,
         authMethod: 'refresh_token',
         event: 'refresh',
-        failureReason:
-          session.revokedAt != null ? 'session_revoked' : 'session_expired',
+        failureReason: 'refresh_token_rotation_conflict',
         outcome: 'failure',
         sessionId: session.id,
         userId: session.userId,
         username: session.user.username,
       });
-      throw new UnauthorizedException('session is no longer active');
+      throw new UnauthorizedException('invalid refresh token');
     }
 
-    const nextRefreshToken = createRefreshToken();
-    const updatedSession = await this.prismaService.session.update({
+    void this.prismaService.refreshTokenHistory
+      .deleteMany({ where: { expiresAt: { lte: now } } })
+      .catch((error: unknown) => {
+        this.logger.warn(
+          'failed to prune expired refresh token history',
+          error instanceof Error ? error.stack : undefined,
+        );
+      });
+
+    return this.issueRefreshedSession(session, nextRefreshToken, now, metadata);
+  }
+
+  private async rejectConsumedRefreshTokenReplay(
+    refreshTokenHash: string,
+    now: Date,
+    metadata: AuthAuditMetadata,
+  ): Promise<void> {
+    const consumedToken =
+      await this.prismaService.refreshTokenHistory.findUnique({
+        select: {
+          session: {
+            select: {
+              user: { select: { username: true } },
+              userId: true,
+            },
+          },
+          sessionId: true,
+        },
+        where: { tokenHash: refreshTokenHash },
+      });
+    if (consumedToken == null) {
+      return;
+    }
+
+    await this.sessionRevocationService.revokeSessions(
+      consumedToken.session.userId,
+      [consumedToken.sessionId],
+      now,
+    );
+    await this.safeAuditLog({
+      ...metadata,
+      authMethod: 'refresh_token',
+      event: 'refresh',
+      failureReason: 'refresh_token_reuse_detected',
+      outcome: 'failure',
+      sessionId: consumedToken.sessionId,
+      userId: consumedToken.session.userId,
+      username: consumedToken.session.user.username,
+    });
+    throw new UnauthorizedException('invalid refresh token');
+  }
+
+  private async recoverRotatedRefresh(
+    previousRefreshTokenHash: string,
+    refreshRequestId: string | undefined,
+    now: Date,
+    metadata: AuthAuditMetadata,
+  ) {
+    const session = await this.prismaService.session.findUnique({
+      select: refreshSessionSelect,
+      where: { previousRefreshTokenHash },
+    });
+    if (session == null) {
+      return null;
+    }
+
+    await this.assertRefreshSessionActive(session, now, metadata);
+    const rotatedAt = session.refreshTokenRotatedAt;
+    const encryptedToken = session.rotatedRefreshTokenEncrypted;
+    const metadataMatches =
+      session.ipAddress === (metadata.ipAddress ?? null) &&
+      session.userAgent === (metadata.userAgent ?? null);
+    const requestMatches =
+      session.refreshRequestId == null
+        ? metadataMatches
+        : session.refreshRequestId === refreshRequestId;
+    if (
+      !requestMatches ||
+      rotatedAt == null ||
+      encryptedToken == null ||
+      now.getTime() - rotatedAt.getTime() > REFRESH_RETRY_WINDOW_MS
+    ) {
+      await this.sessionRevocationService.revokeSessions(
+        session.userId,
+        [session.id],
+        now,
+      );
+      await this.safeAuditLog({
+        ...metadata,
+        authMethod: 'refresh_token',
+        event: 'refresh',
+        failureReason: 'refresh_token_reuse_detected',
+        outcome: 'failure',
+        sessionId: session.id,
+        userId: session.userId,
+        username: session.user.username,
+      });
+      throw new UnauthorizedException('invalid refresh token');
+    }
+
+    const touch = await this.prismaService.session.updateMany({
       data: {
         ipAddress: metadata.ipAddress,
         lastUsedAt: now,
-        refreshTokenHash: hashRefreshToken(nextRefreshToken),
         userAgent: metadata.userAgent,
       },
-      select: {
-        createdAt: true,
-        expiresAt: true,
-        id: true,
-        lastUsedAt: true,
-      },
       where: {
+        expiresAt: { gt: now },
         id: session.id,
+        previousRefreshTokenHash,
+        refreshRequestId: session.refreshRequestId,
+        refreshTokenHash: session.refreshTokenHash,
+        refreshTokenRotatedAt: rotatedAt,
+        revokedAt: null,
       },
     });
+    if (touch.count !== 1) {
+      const latestSession = await this.prismaService.session.findUnique({
+        select: refreshSessionSelect,
+        where: { id: session.id },
+      });
+      if (latestSession != null) {
+        await this.assertRefreshSessionActive(latestSession, now, metadata);
+      }
+      await this.safeAuditLog({
+        ...metadata,
+        authMethod: 'refresh_token',
+        event: 'refresh',
+        failureReason: 'refresh_retry_superseded',
+        outcome: 'failure',
+        sessionId: session.id,
+        userId: session.userId,
+        username: session.user.username,
+      });
+      throw new UnauthorizedException('refresh retry was superseded');
+    }
+
+    return this.issueRefreshedSession(
+      session,
+      this.totpService.decryptSecret(encryptedToken),
+      now,
+      metadata,
+    );
+  }
+
+  private async assertRefreshSessionActive(
+    session: RefreshSessionRecord,
+    now: Date,
+    metadata: AuthAuditMetadata,
+  ): Promise<void> {
+    if (
+      session.revokedAt == null &&
+      session.expiresAt.getTime() > now.getTime()
+    ) {
+      return;
+    }
+
+    await this.safeAuditLog({
+      ...metadata,
+      authMethod: 'refresh_token',
+      event: 'refresh',
+      failureReason:
+        session.revokedAt != null ? 'session_revoked' : 'session_expired',
+      outcome: 'failure',
+      sessionId: session.id,
+      userId: session.userId,
+      username: session.user.username,
+    });
+    throw new UnauthorizedException('session is no longer active');
+  }
+
+  private async issueRefreshedSession(
+    session: RefreshSessionRecord,
+    refreshToken: string,
+    now: Date,
+    metadata: AuthAuditMetadata,
+  ) {
     const accessToken = this.accessTokenService.issueToken(
       {
         sessionId: session.id,
@@ -397,8 +638,13 @@ export class AuthService {
     return {
       accessToken: accessToken.token,
       accessTokenExpiresAt: accessToken.expiresAt,
-      refreshToken: nextRefreshToken,
-      session: updatedSession,
+      refreshToken,
+      session: {
+        createdAt: session.createdAt,
+        expiresAt: session.expiresAt,
+        id: session.id,
+        lastUsedAt: now,
+      },
       user: {
         id: session.userId,
         username: session.user.username,
@@ -702,6 +948,7 @@ const RECOVERY_CODE_ALPHABET = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
 const RECOVERY_CODE_MAX_ATTEMPTS = 100;
 const SESSION_DURATION_DAYS = 30;
 const REFRESH_TOKEN_BYTES = 32;
+const REFRESH_RETRY_WINDOW_MS = 20 * 60 * 1000;
 const USERNAME_PATTERN = /^[A-Za-z0-9._-]+$/;
 
 function parseRegisterRequest(input: unknown): {
@@ -811,15 +1058,26 @@ function getLoginAuthMethod(loginRequest: {
 }
 
 function parseRefreshRequest(input: unknown): {
+  refreshRequestId?: string;
   refreshToken: string;
 } {
   const inputRecord = parseUnknownRecord(input);
+  const refreshRequestId = inputRecord.refreshRequestId;
 
   if (typeof inputRecord.refreshToken !== 'string') {
     throw new BadRequestException('refreshToken must be a string');
   }
+  if (
+    refreshRequestId != null &&
+    (typeof refreshRequestId !== 'string' ||
+      refreshRequestId.length === 0 ||
+      refreshRequestId.length > 128)
+  ) {
+    throw new BadRequestException('refreshRequestId is invalid');
+  }
 
   return {
+    ...(refreshRequestId == null ? {} : { refreshRequestId }),
     refreshToken: inputRecord.refreshToken,
   };
 }

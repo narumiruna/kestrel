@@ -1,7 +1,11 @@
 export type AuthSession = {
   accessToken: string;
   accessTokenExpiresAt: string;
+  refreshRequestId?: string;
   refreshToken: string;
+  session: {
+    id: string;
+  };
   user: {
     id: string;
     username: string;
@@ -307,10 +311,15 @@ export function login(input: LoginInput) {
   });
 }
 
-export function refreshSession(refreshToken: string) {
+export function refreshSession(
+  refreshToken: string,
+  refreshRequestId: string,
+  signal?: AbortSignal,
+) {
   return apiFetch<AuthSession>('/auth/refresh', {
-    body: JSON.stringify({ refreshToken }),
+    body: JSON.stringify({ refreshRequestId, refreshToken }),
     method: 'POST',
+    signal,
   });
 }
 

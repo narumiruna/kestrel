@@ -22,6 +22,14 @@ type AuthAuditLogRecord = {
   username: string | null;
 };
 
+type AuthRefreshTokenHistoryRecord = {
+  consumedAt: Date;
+  expiresAt: Date;
+  id: string;
+  sessionId: string;
+  tokenHash: string;
+};
+
 type AuthRateLimitRecord = {
   attempts: number;
   blockedUntil: Date | null;
@@ -46,8 +54,12 @@ type AuthSessionRecord = {
   expiresAt: Date;
   id: string;
   lastUsedAt: Date;
+  previousRefreshTokenHash: string | null;
+  refreshRequestId: string | null;
   refreshTokenHash: string;
+  refreshTokenRotatedAt: Date | null;
   revokedAt: Date | null;
+  rotatedRefreshTokenEncrypted: string | null;
   userId: string;
 };
 
@@ -94,6 +106,20 @@ type MockPrismaService = {
     upsert: jest.Mock<
       Promise<AuthRateLimitRecord>,
       [Prisma.AuthRateLimitUpsertArgs]
+    >;
+  };
+  refreshTokenHistory: {
+    create: jest.Mock<
+      Promise<Record<string, unknown>>,
+      [Prisma.RefreshTokenHistoryCreateArgs]
+    >;
+    deleteMany: jest.Mock<
+      Promise<Prisma.BatchPayload>,
+      [Prisma.RefreshTokenHistoryDeleteManyArgs]
+    >;
+    findUnique: jest.Mock<
+      Promise<Record<string, unknown> | null>,
+      [Prisma.RefreshTokenHistoryFindUniqueArgs]
     >;
   };
   recoveryCode: {
@@ -187,7 +213,12 @@ type TotpVerifyResponse = {
 
 type TransactionClient = Pick<
   MockPrismaService,
-  'device' | 'recoveryCode' | 'remoteCommand' | 'session' | 'user'
+  | 'device'
+  | 'recoveryCode'
+  | 'refreshTokenHistory'
+  | 'remoteCommand'
+  | 'session'
+  | 'user'
 >;
 
 describe('AppController (e2e)', () => {
@@ -196,6 +227,7 @@ describe('AppController (e2e)', () => {
   let storedAuditLogs: AuthAuditLogRecord[];
   let storedRateLimits: Map<string, AuthRateLimitRecord>;
   let storedRecoveryCodes: AuthRecoveryCodeRecord[];
+  let storedRefreshTokenHistory: AuthRefreshTokenHistoryRecord[];
   let storedSessions: AuthSessionRecord[];
   let storedUsersById: Map<string, AuthUserRecord>;
   let storedUsers: Map<string, AuthUserRecord>;
@@ -209,6 +241,7 @@ describe('AppController (e2e)', () => {
     storedAuditLogs = [];
     storedRateLimits = new Map();
     storedRecoveryCodes = [];
+    storedRefreshTokenHistory = [];
     storedSessions = [];
     storedUsersById = new Map();
     storedUsers = new Map();
@@ -390,6 +423,59 @@ describe('AppController (e2e)', () => {
           return Promise.resolve(recoveryCode);
         }),
       },
+      refreshTokenHistory: {
+        create: jest.fn((args: Prisma.RefreshTokenHistoryCreateArgs) => {
+          const record: AuthRefreshTokenHistoryRecord = {
+            consumedAt: new Date(args.data.consumedAt),
+            expiresAt: new Date(args.data.expiresAt),
+            id: `refresh-history-${storedRefreshTokenHistory.length + 1}`,
+            sessionId: String(args.data.sessionId),
+            tokenHash: String(args.data.tokenHash),
+          };
+          storedRefreshTokenHistory.push(record);
+          return Promise.resolve(applySelect(record, args.select));
+        }),
+        deleteMany: jest.fn(
+          (args: Prisma.RefreshTokenHistoryDeleteManyArgs) => {
+            const expiresAt = args.where?.expiresAt;
+            const cutoff =
+              typeof expiresAt === 'object' &&
+              expiresAt != null &&
+              'lte' in expiresAt
+                ? new Date(expiresAt.lte as Date)
+                : null;
+            const retained = storedRefreshTokenHistory.filter(
+              (record) => cutoff == null || record.expiresAt > cutoff,
+            );
+            const count = storedRefreshTokenHistory.length - retained.length;
+            storedRefreshTokenHistory = retained;
+            return Promise.resolve({ count });
+          },
+        ),
+        findUnique: jest.fn(
+          (args: Prisma.RefreshTokenHistoryFindUniqueArgs) => {
+            const record = storedRefreshTokenHistory.find(
+              (candidate) => candidate.tokenHash === args.where.tokenHash,
+            );
+            if (record == null) {
+              return Promise.resolve(null);
+            }
+            const session = storedSessions.find(
+              (candidate) => candidate.id === record.sessionId,
+            );
+            return Promise.resolve(
+              applySelect(
+                {
+                  ...record,
+                  session:
+                    session == null ? null : enrichSessionRecord(session),
+                },
+                args.select,
+              ),
+            );
+          },
+        ),
+      },
       session: {
         create: jest.fn((args: Prisma.SessionCreateArgs) => {
           const sessionRecord: AuthSessionRecord = {
@@ -397,8 +483,12 @@ describe('AppController (e2e)', () => {
             expiresAt: new Date(args.data.expiresAt),
             id: `session-${storedSessions.length + 1}`,
             lastUsedAt: new Date(args.data.lastUsedAt),
+            previousRefreshTokenHash: null,
+            refreshRequestId: null,
             refreshTokenHash: String(args.data.refreshTokenHash),
+            refreshTokenRotatedAt: null,
             revokedAt: null,
+            rotatedRefreshTokenEncrypted: null,
             userId: String(args.data.userId),
           };
           storedSessions.push(sessionRecord);
@@ -411,10 +501,16 @@ describe('AppController (e2e)', () => {
           const session =
             typeof args.where.id === 'string'
               ? storedSessions.find((record) => record.id === args.where.id)
-              : storedSessions.find(
-                  (record) =>
-                    record.refreshTokenHash === args.where.refreshTokenHash,
-                );
+              : typeof args.where.refreshTokenHash === 'string'
+                ? storedSessions.find(
+                    (record) =>
+                      record.refreshTokenHash === args.where.refreshTokenHash,
+                  )
+                : storedSessions.find(
+                    (record) =>
+                      record.previousRefreshTokenHash ===
+                      args.where.previousRefreshTokenHash,
+                  );
 
           return Promise.resolve(
             session == null
@@ -448,18 +544,75 @@ describe('AppController (e2e)', () => {
         updateMany: jest.fn((args: Prisma.SessionUpdateManyArgs) => {
           const idFilter = args.where?.id;
           const ids =
-            typeof idFilter === 'object' &&
-            idFilter != null &&
-            'in' in idFilter &&
-            Array.isArray(idFilter.in)
-              ? idFilter.in
-              : [];
+            typeof idFilter === 'string'
+              ? [idFilter]
+              : typeof idFilter === 'object' &&
+                  idFilter != null &&
+                  'in' in idFilter &&
+                  Array.isArray(idFilter.in)
+                ? idFilter.in
+                : [];
+          const refreshTokenHash = args.where?.refreshTokenHash;
+          const expiresAt = args.where?.expiresAt;
+          const expiresAfter =
+            typeof expiresAt === 'object' &&
+            expiresAt != null &&
+            'gt' in expiresAt
+              ? new Date(expiresAt.gt as Date)
+              : null;
           let count = 0;
           for (const session of storedSessions) {
-            if (ids.includes(session.id) && session.revokedAt == null) {
-              session.revokedAt = new Date(args.data.revokedAt as Date);
-              count++;
+            const matches =
+              ids.includes(session.id) &&
+              (typeof args.where?.userId !== 'string' ||
+                session.userId === args.where.userId) &&
+              (typeof args.where?.previousRefreshTokenHash !== 'string' ||
+                session.previousRefreshTokenHash ===
+                  args.where.previousRefreshTokenHash) &&
+              (typeof args.where?.refreshRequestId !== 'string' ||
+                session.refreshRequestId === args.where.refreshRequestId) &&
+              (typeof refreshTokenHash !== 'string' ||
+                session.refreshTokenHash === refreshTokenHash) &&
+              (args.where?.refreshTokenRotatedAt == null ||
+                session.refreshTokenRotatedAt?.getTime() ===
+                  new Date(
+                    args.where.refreshTokenRotatedAt as Date,
+                  ).getTime()) &&
+              (args.where?.revokedAt !== null || session.revokedAt == null) &&
+              (expiresAfter == null || session.expiresAt > expiresAfter);
+            if (!matches) {
+              continue;
             }
+
+            if (args.data.lastUsedAt != null) {
+              session.lastUsedAt = new Date(args.data.lastUsedAt as Date);
+            }
+            if (typeof args.data.previousRefreshTokenHash === 'string') {
+              session.previousRefreshTokenHash =
+                args.data.previousRefreshTokenHash;
+            }
+            if (
+              typeof args.data.refreshRequestId === 'string' ||
+              args.data.refreshRequestId === null
+            ) {
+              session.refreshRequestId = args.data.refreshRequestId;
+            }
+            if (typeof args.data.refreshTokenHash === 'string') {
+              session.refreshTokenHash = args.data.refreshTokenHash;
+            }
+            if (args.data.refreshTokenRotatedAt != null) {
+              session.refreshTokenRotatedAt = new Date(
+                args.data.refreshTokenRotatedAt as Date,
+              );
+            }
+            if (typeof args.data.rotatedRefreshTokenEncrypted === 'string') {
+              session.rotatedRefreshTokenEncrypted =
+                args.data.rotatedRefreshTokenEncrypted;
+            }
+            if (args.data.revokedAt != null) {
+              session.revokedAt = new Date(args.data.revokedAt as Date);
+            }
+            count++;
           }
           return Promise.resolve({ count });
         }),
@@ -514,6 +667,7 @@ describe('AppController (e2e)', () => {
       transaction({
         device: prismaService.device,
         recoveryCode: prismaService.recoveryCode,
+        refreshTokenHistory: prismaService.refreshTokenHistory,
         remoteCommand: prismaService.remoteCommand,
         session: prismaService.session,
         user: prismaService.user,
@@ -638,9 +792,11 @@ describe('AppController (e2e)', () => {
     });
 
     const originalRefreshToken = loginBody.refreshToken;
+    const refreshRequestId = 'e2e-refresh-request';
     const refreshResponse = await request(app.getHttpServer())
       .post('/auth/refresh')
       .send({
+        refreshRequestId,
         refreshToken: originalRefreshToken,
       })
       .expect(201);
@@ -651,12 +807,17 @@ describe('AppController (e2e)', () => {
     expect(refreshBody.session.id).toBe('session-1');
     expect(refreshBody.session.lastUsedAt).toBe('2026-05-09T15:33:00.000Z');
 
-    await request(app.getHttpServer())
+    const retryResponse = await request(app.getHttpServer())
       .post('/auth/refresh')
       .send({
+        refreshRequestId,
         refreshToken: originalRefreshToken,
       })
-      .expect(401);
+      .expect(201);
+    const retryBody = retryResponse.body as TotpLoginResponse;
+
+    expect(retryBody.refreshToken).toBe(refreshBody.refreshToken);
+    expect(retryBody.session.id).toBe('session-1');
 
     const revokeResponse = await request(app.getHttpServer())
       .post('/auth/session/revoke')
@@ -673,6 +834,7 @@ describe('AppController (e2e)', () => {
     await request(app.getHttpServer())
       .post('/auth/refresh')
       .send({
+        refreshRequestId: 'e2e-revoked-refresh-request',
         refreshToken: refreshBody.refreshToken,
       })
       .expect(401);
@@ -689,7 +851,7 @@ describe('AppController (e2e)', () => {
     ).toEqual([
       { event: 'login', outcome: 'success' },
       { event: 'refresh', outcome: 'success' },
-      { event: 'refresh', outcome: 'failure' },
+      { event: 'refresh', outcome: 'success' },
       { event: 'session_revoke', outcome: 'success' },
       { event: 'refresh', outcome: 'failure' },
     ]);

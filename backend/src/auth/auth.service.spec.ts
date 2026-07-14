@@ -43,6 +43,21 @@ type AuthSessionRecord = {
   };
   userId?: string;
 };
+type MockRefreshTokenHistoryClient = {
+  create: jest.Mock<
+    Promise<Record<string, unknown>>,
+    [Prisma.RefreshTokenHistoryCreateArgs]
+  >;
+  deleteMany: jest.Mock<
+    Promise<Prisma.BatchPayload>,
+    [Prisma.RefreshTokenHistoryDeleteManyArgs]
+  >;
+  findUnique: jest.Mock<
+    Promise<Record<string, unknown> | null>,
+    [Prisma.RefreshTokenHistoryFindUniqueArgs]
+  >;
+};
+
 type MockRecoveryCodeClient = {
   createMany: jest.Mock<
     Promise<{ count: number }>,
@@ -68,6 +83,10 @@ type MockSessionClient = {
     [Prisma.SessionFindUniqueArgs]
   >;
   update: jest.Mock<Promise<AuthSessionRecord>, [Prisma.SessionUpdateArgs]>;
+  updateMany: jest.Mock<
+    Promise<Prisma.BatchPayload>,
+    [Prisma.SessionUpdateManyArgs]
+  >;
 };
 type MockUserClient = {
   create: jest.Mock<Promise<AuthUserRecord>, [Prisma.UserCreateArgs]>;
@@ -85,6 +104,7 @@ type MockUserClient = {
 };
 type MockTransactionClient = {
   recoveryCode: MockRecoveryCodeClient;
+  refreshTokenHistory: MockRefreshTokenHistoryClient;
   session: MockSessionClient;
   user: MockUserClient;
 };
@@ -95,6 +115,7 @@ type MockPrismaService = {
     [(transaction: MockTransactionClient) => Promise<unknown>]
   >;
   recoveryCode: MockRecoveryCodeClient;
+  refreshTokenHistory: MockRefreshTokenHistoryClient;
   session: MockSessionClient;
   user: MockUserClient;
 };
@@ -110,6 +131,7 @@ type MockTotpService = {
     [string]
   >;
   decryptSecret: jest.Mock<string, [string]>;
+  encryptSecret: jest.Mock<string, [string]>;
   verifyCode: jest.Mock<boolean, [string, string]>;
 };
 
@@ -214,6 +236,20 @@ describe('AuthService', () => {
           [Prisma.RecoveryCodeUpdateArgs]
         >(),
       },
+      refreshTokenHistory: {
+        create: jest.fn<
+          Promise<Record<string, unknown>>,
+          [Prisma.RefreshTokenHistoryCreateArgs]
+        >(),
+        deleteMany: jest.fn<
+          Promise<Prisma.BatchPayload>,
+          [Prisma.RefreshTokenHistoryDeleteManyArgs]
+        >(),
+        findUnique: jest.fn<
+          Promise<Record<string, unknown> | null>,
+          [Prisma.RefreshTokenHistoryFindUniqueArgs]
+        >(),
+      },
       session: {
         create: jest.fn<
           Promise<AuthSessionRecord>,
@@ -226,6 +262,10 @@ describe('AuthService', () => {
         update: jest.fn<
           Promise<AuthSessionRecord>,
           [Prisma.SessionUpdateArgs]
+        >(),
+        updateMany: jest.fn<
+          Promise<Prisma.BatchPayload>,
+          [Prisma.SessionUpdateManyArgs]
         >(),
       },
       user: {
@@ -281,6 +321,11 @@ describe('AuthService', () => {
     authRateLimitService.recordFailure.mockResolvedValue(undefined);
     authRateLimitService.reset.mockResolvedValue(undefined);
     authAuditService.log.mockResolvedValue(undefined);
+    prismaService.refreshTokenHistory.create.mockResolvedValue({});
+    prismaService.refreshTokenHistory.deleteMany.mockResolvedValue({
+      count: 0,
+    });
+    prismaService.refreshTokenHistory.findUnique.mockResolvedValue(null);
     sessionRevocationService = {
       revokeSessions: jest.fn().mockResolvedValue({ sessionsRevoked: 1 }),
     };
@@ -295,11 +340,13 @@ describe('AuthService', () => {
         [string]
       >(),
       decryptSecret: jest.fn<string, [string]>(),
+      encryptSecret: jest.fn((secret: string) => `encrypted:${secret}`),
       verifyCode: jest.fn<boolean, [string, string]>(),
     };
     prismaService.$transaction.mockImplementation(async (transaction) =>
       transaction({
         recoveryCode: prismaService.recoveryCode,
+        refreshTokenHistory: prismaService.refreshTokenHistory,
         session: prismaService.session,
         user: prismaService.user,
       }),
@@ -950,9 +997,10 @@ describe('AuthService', () => {
     const originalRefreshToken = 'refresh-token';
     const originalRefreshTokenHash =
       createRefreshTokenHash(originalRefreshToken);
-    let capturedUpdateArgs: Prisma.SessionUpdateArgs | undefined;
+    let capturedUpdateArgs: Prisma.SessionUpdateManyArgs | undefined;
 
     prismaService.session.findUnique.mockResolvedValue({
+      createdAt: new Date('2026-05-09T16:00:00.000Z'),
       expiresAt: new Date('2026-06-08T16:00:00.000Z'),
       id: 'session-1',
       revokedAt: null,
@@ -961,15 +1009,10 @@ describe('AuthService', () => {
       },
       userId: 'user-1',
     });
-    prismaService.session.update.mockImplementation((args) => {
+    prismaService.session.updateMany.mockImplementation((args) => {
       capturedUpdateArgs = args;
 
-      return Promise.resolve({
-        createdAt: new Date('2026-05-09T16:00:00.000Z'),
-        expiresAt: new Date('2026-06-08T16:00:00.000Z'),
-        id: 'session-1',
-        lastUsedAt: refreshedAt,
-      });
+      return Promise.resolve({ count: 1 });
     });
     accessTokenService.issueToken.mockReturnValue({
       expiresAt: accessTokenExpiresAt,
@@ -979,6 +1022,7 @@ describe('AuthService', () => {
 
     const result = await authService.refresh(
       {
+        refreshRequestId: 'request-1',
         refreshToken: originalRefreshToken,
       },
       {
@@ -988,9 +1032,16 @@ describe('AuthService', () => {
 
     expect(prismaService.session.findUnique).toHaveBeenCalledWith({
       select: {
+        createdAt: true,
         expiresAt: true,
         id: true,
+        ipAddress: true,
+        refreshRequestId: true,
+        refreshTokenHash: true,
+        refreshTokenRotatedAt: true,
         revokedAt: true,
+        rotatedRefreshTokenEncrypted: true,
+        userAgent: true,
         user: {
           select: {
             username: true,
@@ -1006,18 +1057,24 @@ describe('AuthService', () => {
       data: {
         ipAddress: '127.0.0.1',
         lastUsedAt: refreshedAt,
-      },
-      select: {
-        createdAt: true,
-        expiresAt: true,
-        id: true,
-        lastUsedAt: true,
+        refreshRequestId: 'request-1',
       },
       where: {
+        expiresAt: { gt: refreshedAt },
         id: 'session-1',
+        refreshTokenHash: originalRefreshTokenHash,
+        revokedAt: null,
       },
     });
     expect(capturedUpdateArgs?.data.refreshTokenHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(prismaService.refreshTokenHistory.create).toHaveBeenCalledWith({
+      data: {
+        consumedAt: refreshedAt,
+        expiresAt: new Date('2026-06-08T16:00:00.000Z'),
+        sessionId: 'session-1',
+        tokenHash: originalRefreshTokenHash,
+      },
+    });
     expect(result.accessToken).toBe('rotated-access-token');
     expect(result.accessTokenExpiresAt).toEqual(accessTokenExpiresAt);
     expect(result.refreshToken).toMatch(/^[A-Za-z0-9_-]+$/);
@@ -1026,6 +1083,230 @@ describe('AuthService', () => {
       id: 'user-1',
       username: 'alice',
     });
+  });
+
+  it('rejects a refresh rotation conflict without issuing credentials', async () => {
+    const refreshedAt = new Date('2026-05-09T16:30:00.000Z');
+    const originalRefreshToken = 'refresh-token';
+
+    prismaService.session.findUnique
+      .mockResolvedValueOnce({
+        createdAt: new Date('2026-05-09T16:00:00.000Z'),
+        expiresAt: new Date('2026-06-08T16:00:00.000Z'),
+        id: 'session-1',
+        revokedAt: null,
+        user: { username: 'alice' },
+        userId: 'user-1',
+      })
+      .mockResolvedValueOnce(null);
+    prismaService.session.updateMany.mockResolvedValue({ count: 0 });
+    jest.useFakeTimers().setSystemTime(refreshedAt);
+
+    await expect(
+      authService.refresh({ refreshToken: originalRefreshToken }),
+    ).rejects.toThrow(UnauthorizedException);
+    const rotationArgs = prismaService.session.updateMany.mock.calls[0]?.[0];
+    expect(rotationArgs?.data).toMatchObject({ lastUsedAt: refreshedAt });
+    expect(rotationArgs?.where).toEqual({
+      expiresAt: { gt: refreshedAt },
+      id: 'session-1',
+      refreshTokenHash: createRefreshTokenHash(originalRefreshToken),
+      revokedAt: null,
+    });
+    expect(sessionRevocationService.revokeSessions).not.toHaveBeenCalled();
+    expect(accessTokenService.issueToken).not.toHaveBeenCalled();
+  });
+
+  it('returns the same successor token to simultaneous refresh retries', async () => {
+    const refreshedAt = new Date('2026-05-09T16:30:00.000Z');
+    const originalRefreshToken = 'refresh-token';
+    let storedRefreshTokenHash = createRefreshTokenHash(originalRefreshToken);
+    let previousRefreshTokenHash: string | null = null;
+    let rotatedRefreshTokenEncrypted: string | null = null;
+
+    const sessionRecord = () => ({
+      createdAt: new Date('2026-05-09T16:00:00.000Z'),
+      expiresAt: new Date('2026-06-08T16:00:00.000Z'),
+      id: 'session-1',
+      refreshRequestId: 'request-concurrent',
+      refreshTokenHash: storedRefreshTokenHash,
+      refreshTokenRotatedAt:
+        rotatedRefreshTokenEncrypted == null ? null : refreshedAt,
+      revokedAt: null,
+      rotatedRefreshTokenEncrypted,
+      user: { username: 'alice' },
+      userId: 'user-1',
+    });
+    prismaService.session.findUnique.mockImplementation((args) => {
+      if (args.where.refreshTokenHash === storedRefreshTokenHash) {
+        return Promise.resolve(sessionRecord());
+      }
+      if (
+        args.where.previousRefreshTokenHash === previousRefreshTokenHash &&
+        previousRefreshTokenHash != null
+      ) {
+        return Promise.resolve(sessionRecord());
+      }
+      return Promise.resolve(null);
+    });
+    prismaService.session.updateMany.mockImplementation((args) => {
+      if (typeof args.data.previousRefreshTokenHash !== 'string') {
+        return Promise.resolve({ count: 1 });
+      }
+      if (args.where.refreshTokenHash !== storedRefreshTokenHash) {
+        return Promise.resolve({ count: 0 });
+      }
+      if (
+        typeof args.data.refreshTokenHash !== 'string' ||
+        typeof args.data.previousRefreshTokenHash !== 'string' ||
+        typeof args.data.rotatedRefreshTokenEncrypted !== 'string'
+      ) {
+        throw new Error('expected refresh rotation data');
+      }
+      previousRefreshTokenHash = args.data.previousRefreshTokenHash;
+      storedRefreshTokenHash = args.data.refreshTokenHash;
+      rotatedRefreshTokenEncrypted = args.data.rotatedRefreshTokenEncrypted;
+      return Promise.resolve({ count: 1 });
+    });
+    totpService.decryptSecret.mockImplementation((encrypted) =>
+      encrypted.replace(/^encrypted:/, ''),
+    );
+    accessTokenService.issueToken.mockReturnValue({
+      expiresAt: new Date('2026-05-09T16:45:00.000Z'),
+      token: 'rotated-access-token',
+    });
+    jest.useFakeTimers().setSystemTime(refreshedAt);
+
+    const results = await Promise.all([
+      authService.refresh({
+        refreshRequestId: 'request-concurrent',
+        refreshToken: originalRefreshToken,
+      }),
+      authService.refresh({
+        refreshRequestId: 'request-concurrent',
+        refreshToken: originalRefreshToken,
+      }),
+    ]);
+
+    expect(new Set(results.map((result) => result.refreshToken)).size).toBe(1);
+    expect(prismaService.session.updateMany).toHaveBeenCalledTimes(3);
+    const recoveryTouchArgs =
+      prismaService.session.updateMany.mock.calls[2]?.[0];
+    expect(recoveryTouchArgs?.where).toMatchObject({
+      previousRefreshTokenHash: createRefreshTokenHash(originalRefreshToken),
+      refreshRequestId: 'request-concurrent',
+      refreshTokenHash: storedRefreshTokenHash,
+      refreshTokenRotatedAt: refreshedAt,
+    });
+    expect(accessTokenService.issueToken).toHaveBeenCalledTimes(2);
+    expect(sessionRevocationService.revokeSessions).not.toHaveBeenCalled();
+  });
+
+  it('recovers a legacy refresh retry from matching client metadata', async () => {
+    const now = new Date('2026-05-09T16:30:10.000Z');
+    const previousRefreshToken = 'legacy-previous-token';
+
+    prismaService.session.findUnique
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        createdAt: new Date('2026-05-09T16:00:00.000Z'),
+        expiresAt: new Date('2026-06-08T16:00:00.000Z'),
+        id: 'session-1',
+        ipAddress: '127.0.0.1',
+        refreshRequestId: null,
+        refreshTokenHash: createRefreshTokenHash('legacy-successor'),
+        refreshTokenRotatedAt: new Date('2026-05-09T16:30:00.000Z'),
+        revokedAt: null,
+        rotatedRefreshTokenEncrypted: 'encrypted:legacy-successor',
+        user: { username: 'alice' },
+        userAgent: 'legacy-client',
+        userId: 'user-1',
+      });
+    prismaService.session.updateMany.mockResolvedValue({ count: 1 });
+    totpService.decryptSecret.mockReturnValue('legacy-successor');
+    accessTokenService.issueToken.mockReturnValue({
+      expiresAt: new Date('2026-05-09T16:45:10.000Z'),
+      token: 'legacy-access-token',
+    });
+    jest.useFakeTimers().setSystemTime(now);
+
+    const result = await authService.refresh(
+      { refreshToken: previousRefreshToken },
+      { ipAddress: '127.0.0.1', userAgent: 'legacy-client' },
+    );
+
+    expect(result.refreshToken).toBe('legacy-successor');
+    expect(sessionRevocationService.revokeSessions).not.toHaveBeenCalled();
+  });
+
+  it('revokes a session when the previous refresh token is reused after the retry window', async () => {
+    const now = new Date('2026-05-09T16:50:01.000Z');
+    const previousRefreshToken = 'previous-refresh-token';
+
+    prismaService.session.findUnique
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        createdAt: new Date('2026-05-09T16:00:00.000Z'),
+        expiresAt: new Date('2026-06-08T16:00:00.000Z'),
+        id: 'session-1',
+        refreshRequestId: 'request-expired',
+        refreshTokenHash: createRefreshTokenHash('successor'),
+        refreshTokenRotatedAt: new Date('2026-05-09T16:30:00.000Z'),
+        revokedAt: null,
+        rotatedRefreshTokenEncrypted: 'encrypted:successor',
+        user: { username: 'alice' },
+        userId: 'user-1',
+      });
+    jest.useFakeTimers().setSystemTime(now);
+
+    await expect(
+      authService.refresh({
+        refreshRequestId: 'request-expired',
+        refreshToken: previousRefreshToken,
+      }),
+    ).rejects.toThrow(UnauthorizedException);
+    expect(sessionRevocationService.revokeSessions).toHaveBeenCalledWith(
+      'user-1',
+      ['session-1'],
+      now,
+    );
+    expect(accessTokenService.issueToken).not.toHaveBeenCalled();
+  });
+
+  it('revokes a session when an older consumed refresh token is replayed', async () => {
+    const now = new Date('2026-05-09T17:00:00.000Z');
+    const consumedRefreshToken = 'consumed-refresh-token';
+
+    prismaService.session.findUnique.mockResolvedValue(null);
+    prismaService.refreshTokenHistory.findUnique.mockResolvedValue({
+      session: {
+        user: { username: 'alice' },
+        userId: 'user-1',
+      },
+      sessionId: 'session-1',
+    });
+    jest.useFakeTimers().setSystemTime(now);
+
+    await expect(
+      authService.refresh({ refreshToken: consumedRefreshToken }),
+    ).rejects.toThrow(UnauthorizedException);
+    expect(prismaService.refreshTokenHistory.findUnique).toHaveBeenCalledWith({
+      select: {
+        session: {
+          select: {
+            user: { select: { username: true } },
+            userId: true,
+          },
+        },
+        sessionId: true,
+      },
+      where: { tokenHash: createRefreshTokenHash(consumedRefreshToken) },
+    });
+    expect(sessionRevocationService.revokeSessions).toHaveBeenCalledWith(
+      'user-1',
+      ['session-1'],
+      now,
+    );
   });
 
   it('revokes the current session from a valid access token', async () => {

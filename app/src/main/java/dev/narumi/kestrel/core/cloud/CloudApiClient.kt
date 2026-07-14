@@ -44,10 +44,17 @@ internal class CloudApiClient(
                 ),
         ).toSession()
 
-    suspend fun refresh(refreshToken: String): CloudSession =
+    suspend fun refresh(
+        refreshToken: String,
+        refreshRequestId: String,
+    ): CloudSession =
         postJson<RefreshSessionRequest, AuthSessionResponse>(
             path = "/auth/refresh",
-            body = RefreshSessionRequest(refreshToken = refreshToken),
+            body =
+                RefreshSessionRequest(
+                    refreshToken = refreshToken,
+                    refreshRequestId = refreshRequestId,
+                ),
         ).toSession()
 
     suspend fun revokeSession(accessToken: String) {
