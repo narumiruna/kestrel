@@ -1,5 +1,6 @@
 ## GOTCHA
 
+- Next.js 16.2 requires the TypeScript 6 JavaScript API and does not recognize TypeScript 7 alone. Keep TypeScript 7 aliased as `@typescript/native` for the `tsc` binary and alias `typescript` to `@typescript/typescript6` until Next.js supports the TypeScript 7 CLI/API directly.
 - Browser login smoke scripts must confirm `location.pathname === '/login'` before filling/submitting. An already-authenticated profile redirects to Map; blindly editing the first inputs can rename/save the selected Place or Route.
 - Symptom: Cartographer `Map` / `Library` workspace tabs exist in the DOM but disappear from the header. Cause: the full-width `.status-strip` at `z-index: 30` covers the older absolutely positioned `.workspace-tabs`. Fix: keep workspace tabs fixed above the strip (`z-index: 35`) and verify both desktop and mobile header layouts.
 - Symptom: Concurrent or response-lost refreshes can strand Web/Android sessions or let replay races revoke the winner. Cause: one-time token rotation was not idempotent across tabs, process death, and transport ambiguity. Fix: bind retries to a durable per-session `refreshRequestId`, retain the encrypted immediate successor plus consumed-token history, and CAS recovery against the observed rotation.
