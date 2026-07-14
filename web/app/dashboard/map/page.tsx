@@ -1,7 +1,6 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { type RefObject, useEffect, useMemo, useRef, useState } from 'react';
 import { KeyboardCheatsheet } from '@/components/cartographer/KeyboardCheatsheet';
@@ -142,6 +141,9 @@ export default function DashboardMapPage() {
         onReady={setViewportControls}
       />
     );
+  const libraryPath =
+    activeKind === 'places' ? '/dashboard/library/places' : '/dashboard/library/routes';
+  const selectedItemId = activeKind === 'places' ? selectedPlaceId : selectedRouteId;
   const title =
     activeKind === 'places'
       ? (selectedPlace?.name ?? 'Places map')
@@ -218,13 +220,19 @@ export default function DashboardMapPage() {
               type="button"
               onClick={() =>
                 router.push(
-                  activeKind === 'places'
-                    ? '/dashboard/library/places'
-                    : '/dashboard/library/routes',
+                  selectedItemId == null
+                    ? libraryPath
+                    : `${libraryPath}?selected=${encodeURIComponent(selectedItemId)}`,
                 )
               }
             >
-              Open in Library
+              {activeKind === 'places'
+                ? selectedPlace == null
+                  ? 'Browse places'
+                  : 'Edit place'
+                : selectedRoute == null
+                  ? 'Browse routes'
+                  : 'Edit route'}
             </button>
           </div>
         </header>
@@ -276,7 +284,7 @@ function MapLibraryPanel({
   const activeItems = activeKind === 'places' ? filteredPlaces : filteredRoutes;
 
   return (
-    <aside className="field-notebook" aria-label="Map library">
+    <aside className="field-notebook map-library-panel" aria-label="Map library">
       <div aria-hidden className="field-notebook-spine" />
       <nav aria-label="Map item type" className="sidebar-tabs">
         <button
@@ -303,18 +311,6 @@ function MapLibraryPanel({
           onChange={(event) => onQueryChange(event.target.value)}
         />
       </label>
-      <Link
-        className="notebook-new-entry"
-        href={activeKind === 'places' ? '/dashboard/library/places' : '/dashboard/library/routes'}
-      >
-        <span aria-hidden className="notebook-new-entry-icon">
-          ↗
-        </span>
-        <span>
-          <strong>Open Library</strong>
-          <small>Edit, share, and organize {activeKind}</small>
-        </span>
-      </Link>
       <div className="notebook-list">
         {isLoading ? <NotebookSkeleton /> : null}
         {activeKind === 'places'
