@@ -40,13 +40,29 @@ jobs:
         run: |
           scripts/resolve-release-metadata.sh "${{ inputs.tag || github.ref_name }}"
 
-      - name: Build release APK
+      - name: Decode release keystore
+        env:
+          ANDROID_RELEASE_KEYSTORE_BASE64: ${{ secrets.ANDROID_RELEASE_KEYSTORE_BASE64 }}
+        run: |
+          test -n "$ANDROID_RELEASE_KEYSTORE_BASE64"
+          printf '%s' "$ANDROID_RELEASE_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/kestrel-release.jks"
+          chmod 600 "$RUNNER_TEMP/kestrel-release.jks"
+
+      - name: Build signed release APK
+        env:
+          KESTREL_RELEASE_KEYSTORE_PATH: ${{ runner.temp }}/kestrel-release.jks
+          KESTREL_RELEASE_STORE_PASSWORD: ${{ secrets.ANDROID_RELEASE_STORE_PASSWORD }}
+          KESTREL_RELEASE_KEY_ALIAS: ${{ secrets.ANDROID_RELEASE_KEY_ALIAS }}
+          KESTREL_RELEASE_KEY_PASSWORD: ${{ secrets.ANDROID_RELEASE_KEY_PASSWORD }}
         run: ./gradlew :app:assembleRelease
 
-      - name: Rename release artifact
+      - name: Verify and rename release artifact
         run: |
+          apksigner="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          test -x "$apksigner"
+          "$apksigner" verify --verbose --print-certs app/build/outputs/apk/release/app-release.apk
           cp \
-            app/build/outputs/apk/release/app-release-unsigned.apk \
+            app/build/outputs/apk/release/app-release.apk \
             app/build/outputs/apk/release/${{ steps.meta.outputs.apk_name }}
 
       - uses: actions/upload-artifact@v7

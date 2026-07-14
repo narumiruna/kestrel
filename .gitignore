@@ -108,3 +108,5 @@ replay_pid*
 
 # Project specific
 .idea/
+*.jks
+*.keystore
