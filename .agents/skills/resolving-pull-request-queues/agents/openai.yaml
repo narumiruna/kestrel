@@ -1,0 +1,4 @@
+interface:
+  display_name: "Resolve PR Queue"
+  short_description: "Triage, fix, merge, and close open pull requests."
+  default_prompt: "Use $resolving-pull-request-queues to inspect every open pull request, resolve all actionable failures, merge or close each PR only with evidence, and verify the final queue state."
