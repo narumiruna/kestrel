@@ -36,6 +36,7 @@
 
 ## Style 與工具
 
+- Android / Gradle 統一使用 Java 26；本機設定 `JAVA_HOME`，CI / release workflow 也必須固定 Java 26。
 - 格式化：spotless + ktlint。trailing comma 必加。Edit 後若 hook fail，跑 `just format` 再 commit。
 - 靜態分析：detekt（`detekt.yml` + `detekt-baseline.xml`）。重點規則：
   - `ReturnCount` max = 4 — 函式最多 4 個 return；超過要重構（多用 elvis chain）
@@ -61,6 +62,7 @@
 
 ## 工作流程
 
+- 任何單一執行任務（command / tool call）都不可超過 3 分鐘；預估較久的工作必須拆成可觀察、可中斷的步驟，每一步設定不超過 180 秒的 timeout。
 - 大改動先寫/更新 `docs/plans/<topic>-plan.md`，再拆 PR 實作。Plan 必須有 Goal / Plan / Completion Checklist；做完同步 checkbox。
 - `docs/plans/2026-05-10_engineering-backlog-plan.md` 的小項目適合零碎時間做；做完打 `[x]`。
 - 網頁 UI 修改（`web/`、CSS、dashboard/MapLibre overlay 等）不能只靠 lint/typecheck 驗收；完成前必須用瀏覽器實際打開相關頁面看過結果，並在回報列出看過的 URL / viewport 或截圖。若瀏覽器驗收不可用，要明確標成 blocker。

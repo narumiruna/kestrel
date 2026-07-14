@@ -1,10 +1,7 @@
 <?xml version="1.0" ?>
 <SmellBaseline>
-  <ManuallySuppressedIssues></ManuallySuppressedIssues>
+  <ManuallySuppressedIssues/>
   <CurrentIssues>
-    <ID>ComplexCondition:LocationService.kt$LocationService$lats != null &amp;&amp; lngs != null &amp;&amp; lats.size == lngs.size &amp;&amp; lats.size &gt;= 2 &amp;&amp; speedKmh.isFinite() &amp;&amp; speedKmh &gt; 0</ID>
-    <ID>CyclomaticComplexMethod:LocationService.kt$LocationService$override fun onStartCommand( intent: Intent?, flags: Int, startId: Int, ): Int</ID>
-    <ID>LongMethod:LocationService.kt$LocationService$override fun onStartCommand( intent: Intent?, flags: Int, startId: Int, ): Int</ID>
-    <ID>TooManyFunctions:LocationService.kt$LocationService : Service</ID>
+    <ID>TooManyFunctions:LocationService.kt:LocationService : Service</ID>
   </CurrentIssues>
 </SmellBaseline>

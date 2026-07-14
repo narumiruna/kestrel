@@ -929,7 +929,7 @@ private suspend fun runCloudAction(
 
 private fun Throwable.toCloudErrorMessage(): String = message ?: "Unexpected cloud error"
 
-@Suppress("UnusedPrivateMember")
+@Suppress("UnusedPrivateFunction")
 @Preview(showBackground = true)
 @Composable
 private fun MockPlaybackSettingsCardPreview() {
@@ -941,7 +941,7 @@ private fun MockPlaybackSettingsCardPreview() {
     }
 }
 
-@Suppress("UnusedPrivateMember")
+@Suppress("UnusedPrivateFunction")
 @Preview(showBackground = true)
 @Composable
 private fun CloudConflictCardPreview() {

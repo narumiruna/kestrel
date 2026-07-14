@@ -7,22 +7,24 @@ style:
     active: false
   WildcardImport:
     active: false
-  UnusedPrivateMember:
+  UnusedPrivateFunction:
+    active: true
+  UnusedPrivateProperty:
     active: true
 
 complexity:
   LongMethod:
-    threshold: 80
+    allowedLines: 80
   LongParameterList:
-    functionThreshold: 16
-    constructorThreshold: 16
+    allowedFunctionParameters: 16
+    allowedConstructorParameters: 16
   ComplexCondition:
-    threshold: 6
+    allowedConditions: 6
   CyclomaticComplexMethod:
-    threshold: 20
+    allowedComplexity: 20
   TooManyFunctions:
-    thresholdInFiles: 30
-    thresholdInClasses: 20
+    allowedFunctionsPerFile: 30
+    allowedFunctionsPerClass: 20
 
 naming:
   FunctionNaming:

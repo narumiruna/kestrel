@@ -24,7 +24,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
@@ -38,6 +37,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -100,6 +100,26 @@ import kotlinx.coroutines.launch
 import java.util.Locale
 
 internal enum class RunState { Idle, Single, RoutePlaying, RoutePaused }
+
+internal enum class MapSetupStep { Permissions, MockLocationApp, Ready }
+
+internal fun mapSetupStep(
+    permissionsGranted: Boolean,
+    mockAllowed: Boolean,
+): MapSetupStep =
+    when {
+        !permissionsGranted -> MapSetupStep.Permissions
+        !mockAllowed -> MapSetupStep.MockLocationApp
+        else -> MapSetupStep.Ready
+    }
+
+internal fun shouldShowRouteSettings(
+    runState: RunState,
+    waypointCount: Int,
+): Boolean =
+    waypointCount >= 2 &&
+        runState != RunState.RoutePlaying &&
+        runState != RunState.RoutePaused
 
 /**
  * Computed snapshot the map UI should render this frame. Lives separately from the user's drafts
@@ -311,7 +331,8 @@ fun MapScreen(
         awaitCurrentForStartup = false
     }
 
-    val ready = permissionState.allPermissionsGranted && mockAllowed
+    val setupStep = mapSetupStep(permissionState.allPermissionsGranted, mockAllowed)
+    val ready = setupStep == MapSetupStep.Ready
     val mockNow by LocationService.currentMock.collectAsStateWithLifecycle()
     val runtimeState by LocationService.runtimeState.collectAsStateWithLifecycle()
     val render = reconcileMapRender(runtimeState, waypoints, speedKmh, routeMode)
@@ -536,14 +557,14 @@ fun MapScreen(
                     scope.launch { prefs.setLastCamera(snap) }
                 },
             )
-            if (!permissionState.allPermissionsGranted || !mockAllowed) {
+            if (setupStep != MapSetupStep.Ready) {
                 StatusBanner(
                     modifier =
                         Modifier
                             .align(Alignment.TopCenter)
                             .padding(horizontal = 12.dp, vertical = 12.dp),
+                    setupStep = setupStep,
                     permissionState = permissionState,
-                    mockAllowed = mockAllowed,
                     onOpenDeveloperOptions = {
                         context.startActivity(
                             Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS)
@@ -568,12 +589,11 @@ fun MapScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 horizontalAlignment = Alignment.End,
             ) {
-                SmallFloatingActionButton(onClick = { showGenerateDialog = true }) {
-                    Icon(Icons.Filled.AutoAwesome, contentDescription = "Generate route")
-                }
-                SmallFloatingActionButton(onClick = { showGoToSheet = true }) {
-                    Icon(Icons.Filled.Search, contentDescription = "Go to")
-                }
+                ExtendedFloatingActionButton(
+                    onClick = { showGoToSheet = true },
+                    icon = { Icon(Icons.Filled.Search, contentDescription = null) },
+                    text = { Text("Go to") },
+                )
                 SmallFloatingActionButton(
                     onClick = {
                         myLocation?.let { cameraTarget = CameraSnapshot(it.lat, it.lng, 15.0) }
@@ -807,6 +827,7 @@ private fun MapSheet(
 ) {
     val isRouteRunning = runState == RunState.RoutePlaying || runState == RunState.RoutePaused
     val canShowExtras = !isRouteRunning
+    var routeSettingsExpanded by rememberSaveable { mutableStateOf(false) }
     Column(
         modifier =
             Modifier
@@ -839,14 +860,16 @@ private fun MapSheet(
                 onGenerate = onGenerate,
             )
         }
-        RouteSettingsCard(
-            waypointCount = waypointCount,
-            speedKmh = speedKmh,
-            routeMode = routeMode,
-            isRouteRunning = isRouteRunning,
-            onSpeedChange = onSpeedChange,
-            onModeChange = onModeChange,
-        )
+        if (shouldShowRouteSettings(runState, waypointCount)) {
+            RouteSettingsCard(
+                speedKmh = speedKmh,
+                routeMode = routeMode,
+                expanded = routeSettingsExpanded,
+                onExpandedChange = { routeSettingsExpanded = it },
+                onSpeedChange = onSpeedChange,
+                onModeChange = onModeChange,
+            )
+        }
         Spacer(Modifier.size(4.dp))
     }
 }
@@ -868,7 +891,7 @@ private fun StatusRow(
                     if (waypointCount == 0) {
                         "Tap the map to drop a point or generate a route."
                     } else if (waypointCount == 1) {
-                        "Tap a button below to mock this point."
+                        "Ready to mock."
                     } else {
                         "Ready to play."
                     },
@@ -1000,12 +1023,28 @@ internal fun ChipChoice(
 @Composable
 private fun StatusBanner(
     modifier: Modifier,
+    setupStep: MapSetupStep,
     permissionState: MultiplePermissionsState,
-    mockAllowed: Boolean,
     onOpenDeveloperOptions: () -> Unit,
     onRefreshMockCheck: () -> Unit,
 ) {
-    val permissionsOk = permissionState.allPermissionsGranted
+    val title =
+        when (setupStep) {
+            MapSetupStep.Permissions -> "Permission needed"
+            MapSetupStep.MockLocationApp -> "Select Kestrel for mock location"
+            MapSetupStep.Ready -> return
+        }
+    val message =
+        when (setupStep) {
+            MapSetupStep.Permissions ->
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    "Allow location and notifications so mock GPS can run."
+                } else {
+                    "Allow location so mock GPS can run."
+                }
+            MapSetupStep.MockLocationApp -> "Open developer options and choose Kestrel as the mock location app."
+            MapSetupStep.Ready -> return
+        }
     Card(
         modifier = modifier,
         colors =
@@ -1018,33 +1057,24 @@ private fun StatusBanner(
             modifier = Modifier.padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            Text(
-                text =
-                    if (!permissionsOk) {
-                        "Location / notification permission needed"
-                    } else {
-                        "Kestrel isn't selected as the mock location app"
-                    },
-                style = MaterialTheme.typography.titleSmall,
-            )
-            Text(
-                text =
-                    if (!permissionsOk) {
-                        "Grant the permissions below to use mock GPS."
-                    } else {
-                        "Open developer options and pick Kestrel as the mock location app."
-                    },
-                style = MaterialTheme.typography.bodySmall,
-            )
+            Text(text = title, style = MaterialTheme.typography.titleSmall)
+            Text(text = message, style = MaterialTheme.typography.bodySmall)
             KestrelActionRow {
-                if (!permissionsOk) {
-                    Button(onClick = { permissionState.launchMultiplePermissionRequest() }) {
-                        Text("Grant", maxLines = 1)
+                when (setupStep) {
+                    MapSetupStep.Permissions -> {
+                        Button(onClick = { permissionState.launchMultiplePermissionRequest() }) {
+                            Text("Allow permissions", maxLines = 1)
+                        }
                     }
-                }
-                if (!mockAllowed) {
-                    Button(onClick = onOpenDeveloperOptions) { Text("Dev options", maxLines = 1) }
-                    OutlinedButton(onClick = onRefreshMockCheck) { Text("Recheck", maxLines = 1) }
+                    MapSetupStep.MockLocationApp -> {
+                        Button(onClick = onOpenDeveloperOptions) {
+                            Text("Open developer options", maxLines = 1)
+                        }
+                        OutlinedButton(onClick = onRefreshMockCheck) {
+                            Text("Recheck", maxLines = 1)
+                        }
+                    }
+                    MapSetupStep.Ready -> Unit
                 }
             }
         }
