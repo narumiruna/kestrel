@@ -85,8 +85,8 @@ export default function SharedItemPage() {
   const itemLabel = sharedItem?.kind === 'PLACE' ? 'place' : 'route';
 
   return (
-    <main className="shell stack">
-      <header className="topbar">
+    <main className="shell stack public-share-shell">
+      <header className="topbar public-share-header">
         <div className="brand">
           <strong>Kestrel Share</strong>
           <span className="muted">Public {itemLabel} link</span>
@@ -102,16 +102,16 @@ export default function SharedItemPage() {
       {error == null ? null : <div className="error">{error}</div>}
 
       {sharedItem == null || isLoading ? null : (
-        <section className="grid">
+        <section className="grid public-share-grid">
           {sharedItem.kind === 'PLACE' ? (
             <SharedPlaceCard sharedItem={sharedItem} />
           ) : (
             <SharedRouteCard sharedItem={sharedItem} />
           )}
 
-          <article className="panel stack">
+          <article className="panel stack public-share-card">
             <h2>Copy to your library</h2>
-            <p className="muted" style={{ margin: 0 }}>
+            <p className="muted no-margin">
               This copies the visible {itemLabel} into your own cloud library.
             </p>
             {copyError == null ? null : <div className="error">{copyError}</div>}
@@ -142,11 +142,11 @@ function SharedPlaceCard({
   sharedItem: Extract<SharedSnapshot, { kind: 'PLACE' }>;
 }) {
   return (
-    <article className="panel stack">
-      <div className="row" style={{ justifyContent: 'space-between' }}>
+    <article className="panel stack public-share-card">
+      <div className="row public-share-title-row">
         <div>
-          <h1 style={{ marginBottom: '0.25rem' }}>{sharedItem.place.name}</h1>
-          <p className="muted" style={{ margin: 0 }}>
+          <h1>{sharedItem.place.name}</h1>
+          <p className="muted no-margin">
             {formatCoord(sharedItem.place.latitude)}, {formatCoord(sharedItem.place.longitude)}
           </p>
         </div>
@@ -174,11 +174,11 @@ function SharedPlaceCard({
 
 function SharedRouteCard({ sharedItem }: { sharedItem: SharedRouteSnapshot }) {
   return (
-    <article className="panel stack">
-      <div className="row" style={{ justifyContent: 'space-between' }}>
+    <article className="panel stack public-share-card">
+      <div className="row public-share-title-row">
         <div>
-          <h1 style={{ marginBottom: '0.25rem' }}>{sharedItem.route.name}</h1>
-          <p className="muted" style={{ margin: 0 }}>
+          <h1>{sharedItem.route.name}</h1>
+          <p className="muted no-margin">
             rev {sharedItem.route.revision.revisionNumber} ·{' '}
             {sharedItem.route.revision.defaultSpeedKmh} km/h ·{' '}
             {formatMode(sharedItem.route.revision.mode)}

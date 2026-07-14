@@ -17,7 +17,9 @@ const PlaceMapEditor = dynamic(() => import('@/components/PlaceMapEditor'), {
 });
 
 export default function PlaceEditor({
+  compactDetails = false,
   draftCoords,
+  onCoordinatesChange,
   onDelete,
   onDirtyChange,
   onDiscard,
@@ -26,7 +28,9 @@ export default function PlaceEditor({
   showHeader = true,
   showMap = true,
 }: {
+  compactDetails?: boolean;
   draftCoords?: { latitude: number; longitude: number };
+  onCoordinatesChange?: (coords: { latitude: number; longitude: number }) => void;
   onDelete?: () => void;
   onDirtyChange?: (isDirty: boolean) => void;
   onDiscard?: (coords: { latitude: number; longitude: number }) => void;
@@ -52,6 +56,7 @@ export default function PlaceEditor({
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const shareDialogRef = useRef<HTMLDialogElement | null>(null);
   const saveNoticeTimeoutRef = useRef<number | null>(null);
+  const lastEmittedCoordsRef = useRef<{ latitude: number; longitude: number } | null>(null);
   const onDirtyChangeRef = useRef(onDirtyChange);
   const [newPlaceBaselineCoords] = useState(() => ({
     latitude: draftCoords?.latitude ?? DEFAULT_MAP_CENTER.latitude,
@@ -92,6 +97,15 @@ export default function PlaceEditor({
 
   useEffect(() => {
     if (draftCoords == null) {
+      return;
+    }
+
+    const lastEmittedCoords = lastEmittedCoordsRef.current;
+    if (
+      lastEmittedCoords?.latitude === draftCoords.latitude &&
+      lastEmittedCoords.longitude === draftCoords.longitude
+    ) {
+      lastEmittedCoordsRef.current = null;
       return;
     }
 
@@ -184,9 +198,25 @@ export default function PlaceEditor({
     }
   }
 
+  function updateCoordinate(axis: 'latitude' | 'longitude', value: string) {
+    if (axis === 'latitude') {
+      setLatitude(value);
+    } else {
+      setLongitude(value);
+    }
+
+    const nextLatitude = Number(axis === 'latitude' ? value : latitude);
+    const nextLongitude = Number(axis === 'longitude' ? value : longitude);
+    if (Number.isFinite(nextLatitude) && Number.isFinite(nextLongitude)) {
+      const coords = { latitude: nextLatitude, longitude: nextLongitude };
+      lastEmittedCoordsRef.current = coords;
+      onCoordinatesChange?.(coords);
+    }
+  }
+
   return (
     <form
-      className={`${showMap ? 'panel ' : ''}stack place-editor${showMap ? '' : ' place-editor-embedded'}`}
+      className={`${showMap ? 'panel ' : ''}stack place-editor${showMap ? '' : ' place-editor-embedded'}${compactDetails ? ' place-editor-compact' : ''}`}
       onSubmit={submit}
     >
       {showHeader ? (
@@ -198,8 +228,16 @@ export default function PlaceEditor({
         </header>
       ) : null}
       <div className="place-editor-content stack">
-        {error == null ? null : <div className="error">{error}</div>}
-        {saveNotice == null ? null : <div className="success">{saveNotice}</div>}
+        {error == null ? null : (
+          <div className="error" role="alert">
+            {error}
+          </div>
+        )}
+        {saveNotice == null ? null : (
+          <div className="success" role="status">
+            {saveNotice}
+          </div>
+        )}
         {showMap ? (
           <PlaceMapEditor
             latitude={mapCoords.latitude}
@@ -207,6 +245,8 @@ export default function PlaceEditor({
             onChange={(coords) => {
               setLatitude(formatCoordinateInput(coords.latitude));
               setLongitude(formatCoordinateInput(coords.longitude));
+              lastEmittedCoordsRef.current = coords;
+              onCoordinatesChange?.(coords);
             }}
           />
         ) : null}
@@ -221,7 +261,7 @@ export default function PlaceEditor({
               required
               inputMode="decimal"
               value={latitude}
-              onChange={(event) => setLatitude(event.target.value)}
+              onChange={(event) => updateCoordinate('latitude', event.target.value)}
             />
           </label>
           <label>
@@ -230,18 +270,42 @@ export default function PlaceEditor({
               required
               inputMode="decimal"
               value={longitude}
-              onChange={(event) => setLongitude(event.target.value)}
+              onChange={(event) => updateCoordinate('longitude', event.target.value)}
             />
           </label>
         </div>
-        <label>
-          Tags (comma separated)
-          <input value={tags} onChange={(event) => setTags(event.target.value)} />
-        </label>
-        <label>
-          Description
-          <textarea value={description} onChange={(event) => setDescription(event.target.value)} />
-        </label>
+        {compactDetails ? (
+          <details className="editor-more-details">
+            <summary>More details</summary>
+            <div className="stack">
+              <label>
+                Tags (comma separated)
+                <input value={tags} onChange={(event) => setTags(event.target.value)} />
+              </label>
+              <label>
+                Description
+                <textarea
+                  value={description}
+                  onChange={(event) => setDescription(event.target.value)}
+                />
+              </label>
+            </div>
+          </details>
+        ) : (
+          <>
+            <label>
+              Tags (comma separated)
+              <input value={tags} onChange={(event) => setTags(event.target.value)} />
+            </label>
+            <label>
+              Description
+              <textarea
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+              />
+            </label>
+          </>
+        )}
       </div>
       <footer className="route-editor-footer place-editor-footer">
         <div className="place-editor-footer-actions">
@@ -264,14 +328,16 @@ export default function PlaceEditor({
                 Discard changes
               </button>
             ) : null}
-            <button
-              aria-haspopup="dialog"
-              className="secondary"
-              type="button"
-              onClick={() => setIsShareDialogOpen(true)}
-            >
-              Share
-            </button>
+            {place == null ? null : (
+              <button
+                aria-haspopup="dialog"
+                className="secondary"
+                type="button"
+                onClick={() => setIsShareDialogOpen(true)}
+              >
+                Share
+              </button>
+            )}
             <button disabled={isSaving} type="submit">
               {isSaving ? 'Saving…' : saveNotice == null ? 'Save place' : 'Saved ✓'}
             </button>
@@ -473,8 +539,16 @@ function PlaceSharePanel({ place }: { place: Place | null }) {
         Public link:{' '}
         {shareLink == null ? 'Not created' : shareLink.disabledAt == null ? 'Active' : 'Disabled'}
       </p>
-      {error == null ? null : <div className="error">{error}</div>}
-      {notice == null ? null : <div className="success">{notice}</div>}
+      {error == null ? null : (
+        <div className="error" role="alert">
+          {error}
+        </div>
+      )}
+      {notice == null ? null : (
+        <div className="success" role="status">
+          {notice}
+        </div>
+      )}
       {shareLink == null ? (
         <div className="row">
           <button

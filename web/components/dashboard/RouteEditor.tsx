@@ -28,6 +28,7 @@ const RouteMapEditor = dynamic(() => import('@/components/RouteMapEditor'), {
 });
 
 export default function RouteEditor({
+  compactSummary = false,
   mapMode = 'embedded',
   onDelete,
   onDirtyChange,
@@ -42,6 +43,7 @@ export default function RouteEditor({
   hoveredWaypointIndex = null,
   waypoints: controlledWaypoints,
 }: {
+  compactSummary?: boolean;
   mapMode?: 'background' | 'embedded';
   onDelete?: () => void;
   onDirtyChange?: (isDirty: boolean) => void;
@@ -317,8 +319,56 @@ export default function RouteEditor({
     }
   }
 
+  const routeSettingsFields = (
+    <>
+      <label className="route-title-field">
+        Name
+        <input required value={name} onChange={(event) => setName(event.target.value)} />
+      </label>
+      <div className="split">
+        <label>
+          Default speed (km/h)
+          <input
+            required
+            inputMode="decimal"
+            value={defaultSpeedKmh}
+            onChange={(event) => setDefaultSpeedKmh(event.target.value)}
+          />
+        </label>
+        <label>
+          Playback mode
+          <select value={mode} onChange={(event) => setMode(event.target.value as RouteMode)}>
+            <option value="ONCE">Once</option>
+            <option value="LOOP">Loop</option>
+            <option value="PING_PONG">PingPong</option>
+          </select>
+        </label>
+      </div>
+      {compactSummary ? (
+        <details className="editor-more-details">
+          <summary>More details</summary>
+          <label>
+            Description (optional)
+            <textarea
+              value={description}
+              onChange={(event) => setDescription(event.target.value)}
+            />
+          </label>
+        </details>
+      ) : (
+        <label>
+          Description (optional)
+          <textarea value={description} onChange={(event) => setDescription(event.target.value)} />
+        </label>
+      )}
+    </>
+  );
+
   return (
-    <form className="panel route-editor" onSubmit={submit}>
+    <form
+      className={`panel route-editor${compactSummary ? ' route-editor-compact' : ''}`}
+      onSubmit={submit}
+    >
       {isBackgroundMapMode ? null : (
         <header className="route-editor-header">
           <div className="stack">
@@ -335,86 +385,82 @@ export default function RouteEditor({
         </header>
       )}
       <div className="route-editor-content">
-        {error == null ? null : <div className="error route-editor-error">{error}</div>}
+        {error == null ? null : (
+          <div className="error route-editor-error" role="alert">
+            {error}
+          </div>
+        )}
 
-        <section className="route-editor-section route-summary-section">
-          <div className="route-section-heading">
-            <div className="route-section-title">
-              <h3>Route summary</h3>
-              <span className="chip rev-chip">{revisionLabel}</span>
-            </div>
-            <RouteRemoteControlAction
-              mode={mode}
-              route={route}
-              speedKmh={Number(defaultSpeedKmh)}
-              waypoints={waypoints}
-            />
-          </div>
-          <div className="route-mode-hint">
-            <InfoIcon />
-            <span>{routeBuilderHint}</span>
-          </div>
-          <div className="route-summary-grid">
-            <span>
-              <small>Waypoints</small>
-              <strong>{waypoints.length}</strong>
-            </span>
-            <span>
-              <small>Distance</small>
-              <strong>{distanceLabel}</strong>
-            </span>
-            <span>
-              <small>Speed</small>
-              <strong>{defaultSpeedKmh || '—'} km/h</strong>
-            </span>
-            <span>
-              <small>Mode</small>
-              <strong>{formatMode(mode)}</strong>
-            </span>
-          </div>
-        </section>
-
-        <details
-          className="route-editor-section route-editor-collapsible route-editor-details-section"
-          open
-        >
-          <summary>
-            <span>Route settings</span>
-            <span className="muted">Name, speed, and playback</span>
-          </summary>
-          <div className="route-editor-collapsible-content">
-            <label className="route-title-field">
-              Name
-              <input required value={name} onChange={(event) => setName(event.target.value)} />
-            </label>
-            <div className="split">
-              <label>
-                Default speed (km/h)
-                <input
-                  required
-                  inputMode="decimal"
-                  value={defaultSpeedKmh}
-                  onChange={(event) => setDefaultSpeedKmh(event.target.value)}
-                />
-              </label>
-              <label>
-                Playback mode
-                <select value={mode} onChange={(event) => setMode(event.target.value as RouteMode)}>
-                  <option value="ONCE">Once</option>
-                  <option value="LOOP">Loop</option>
-                  <option value="PING_PONG">PingPong</option>
-                </select>
-              </label>
-            </div>
-            <label>
-              Description (optional)
-              <textarea
-                value={description}
-                onChange={(event) => setDescription(event.target.value)}
+        {compactSummary ? (
+          <section className="route-compact-status" aria-label="Route status">
+            <p>
+              <strong>{waypoints.length}</strong> waypoints · <strong>{distanceLabel}</strong> ·{' '}
+              <strong>{defaultSpeedKmh || '—'} km/h</strong> · <strong>{formatMode(mode)}</strong>
+            </p>
+            {route == null ? null : (
+              <RouteRemoteControlAction
+                mode={mode}
+                route={route}
+                speedKmh={Number(defaultSpeedKmh)}
+                waypoints={waypoints}
               />
-            </label>
-          </div>
-        </details>
+            )}
+          </section>
+        ) : (
+          <section className="route-editor-section route-summary-section">
+            <div className="route-section-heading">
+              <div className="route-section-title">
+                <h3>Route summary</h3>
+                <span className="chip rev-chip">{revisionLabel}</span>
+              </div>
+              <RouteRemoteControlAction
+                mode={mode}
+                route={route}
+                speedKmh={Number(defaultSpeedKmh)}
+                waypoints={waypoints}
+              />
+            </div>
+            <div className="route-mode-hint">
+              <InfoIcon />
+              <span>{routeBuilderHint}</span>
+            </div>
+            <div className="route-summary-grid">
+              <span>
+                <small>Waypoints</small>
+                <strong>{waypoints.length}</strong>
+              </span>
+              <span>
+                <small>Distance</small>
+                <strong>{distanceLabel}</strong>
+              </span>
+              <span>
+                <small>Speed</small>
+                <strong>{defaultSpeedKmh || '—'} km/h</strong>
+              </span>
+              <span>
+                <small>Mode</small>
+                <strong>{formatMode(mode)}</strong>
+              </span>
+            </div>
+          </section>
+        )}
+
+        {compactSummary ? (
+          <section className="route-core-fields" aria-label="Route settings">
+            {routeSettingsFields}
+          </section>
+        ) : (
+          <details
+            className="route-editor-section route-editor-collapsible route-editor-details-section"
+            open
+          >
+            <summary>
+              <span>Route settings</span>
+              <span className="muted">Name, speed, and playback</span>
+            </summary>
+            <div className="route-editor-collapsible-content">{routeSettingsFields}</div>
+          </details>
+        )}
 
         <details
           className="route-editor-section route-editor-collapsible route-editor-map-section"
@@ -640,14 +686,16 @@ export default function RouteEditor({
                   Discard changes
                 </button>
               ) : null}
-              <button
-                aria-haspopup="dialog"
-                className="secondary"
-                type="button"
-                onClick={() => setIsShareDialogOpen(true)}
-              >
-                Share
-              </button>
+              {route == null ? null : (
+                <button
+                  aria-haspopup="dialog"
+                  className="secondary"
+                  type="button"
+                  onClick={() => setIsShareDialogOpen(true)}
+                >
+                  Share
+                </button>
+              )}
               <button
                 className={isSaving ? 'is-loading' : saveNotice == null ? '' : 'is-saved'}
                 disabled={isSaving || saveDisabledReason != null}
@@ -1078,8 +1126,16 @@ function RouteSharePanel({ route }: { route: Route | null }) {
         Public link:{' '}
         {shareLink == null ? 'Not created' : shareLink.disabledAt == null ? 'Active' : 'Disabled'}
       </p>
-      {error == null ? null : <div className="error">{error}</div>}
-      {notice == null ? null : <div className="success">{notice}</div>}
+      {error == null ? null : (
+        <div className="error" role="alert">
+          {error}
+        </div>
+      )}
+      {notice == null ? null : (
+        <div className="success" role="status">
+          {notice}
+        </div>
+      )}
       {shareLink == null ? (
         <div className="row">
           <button disabled={isMutating} type="button" onClick={() => void createShareLink()}>

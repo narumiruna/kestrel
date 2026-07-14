@@ -1,3 +1,5 @@
-'use client';
+import LibraryCatalog from '@/components/dashboard/LibraryCatalog';
 
-export { default } from '../../places/page';
+export default function PlacesLibraryPage() {
+  return <LibraryCatalog initialFilter="places" />;
+}
