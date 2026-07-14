@@ -1,3 +1,5 @@
-'use client';
+import LibraryCatalog from '@/components/dashboard/LibraryCatalog';
 
-export { default } from '../../routes/page';
+export default function RoutesLibraryPage() {
+  return <LibraryCatalog initialFilter="routes" />;
+}

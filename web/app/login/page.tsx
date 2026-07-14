@@ -132,8 +132,8 @@ export default function LoginPage() {
   return (
     <main className="auth-page">
       <section className="card auth-card stack">
-        <div className="brand">
-          <strong>Kestrel Cloud</strong>
+        <div className="brand auth-brand">
+          <h1>Kestrel Cloud</h1>
           <span className="muted">Edit places and routes for Android sync.</span>
         </div>
 
@@ -177,7 +177,7 @@ export default function LoginPage() {
             <label className="row">
               <input
                 checked={isRecoveryCode}
-                style={{ width: 'auto' }}
+                className="inline-control"
                 type="checkbox"
                 onChange={(event) => setIsRecoveryCode(event.target.checked)}
               />

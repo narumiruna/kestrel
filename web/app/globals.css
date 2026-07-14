@@ -220,7 +220,7 @@
   --paper-card-warm: #f8edd7;
   --ink-black: #22180f;
   --ink-brown: #5f4a35;
-  --ink-muted: #9a7d5d;
+  --ink-muted: #7d6247;
   --kestrel-rust: #b45f32;
   --kestrel-rust-dark: #8f4726;
   --kestrel-rust-soft: #ead1b9;
@@ -251,7 +251,7 @@
     --paper-card-warm: #35291f;
     --ink-black: #f0e4cd;
     --ink-brown: #cbb89b;
-    --ink-muted: #927d63;
+    --ink-muted: #aa9578;
     --kestrel-rust: #df8a58;
     --kestrel-rust-dark: #f0a06f;
     --kestrel-rust-soft: #432b1e;
@@ -265,7 +265,7 @@
   --paper-card-warm: #35291f;
   --ink-black: #f0e4cd;
   --ink-brown: #cbb89b;
-  --ink-muted: #927d63;
+  --ink-muted: #aa9578;
   --kestrel-rust: #df8a58;
   --kestrel-rust-dark: #f0a06f;
   --kestrel-rust-soft: #432b1e;
@@ -5861,7 +5861,7 @@ button.route-marker.selected::after {
   --paper-card-warm: #f8edd7;
   --ink-black: #22180f;
   --ink-brown: #5f4a35;
-  --ink-muted: #9a7d5d;
+  --ink-muted: #7d6247;
   --kestrel-rust: #b45f32;
   --kestrel-rust-dark: #8f4726;
   --kestrel-rust-soft: #ead1b9;

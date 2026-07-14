@@ -1,5 +1,5 @@
-import { redirect } from 'next/navigation';
+import LibraryCatalog from '@/components/dashboard/LibraryCatalog';
 
 export default function LibraryPage() {
-  redirect('/dashboard/library/routes');
+  return <LibraryCatalog />;
 }
