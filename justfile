@@ -1,6 +1,6 @@
 set shell := ["bash", "-cu"]
 
-java_home := env_var("JAVA_HOME")
+java_home := env_var_or_default("JAVA_HOME", "/opt/homebrew/opt/openjdk/libexec/openjdk.jdk/Contents/Home")
 adb := "$HOME/Library/Android/sdk/platform-tools/adb"
 package := "dev.narumi.kestrel"
 activity := package + "/.MainActivity"

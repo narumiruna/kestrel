@@ -1,5 +1,6 @@
 ## GOTCHA
 
+- Symptom: Web-only `just` recipes fail before running because `JAVA_HOME` is unset. Cause: a top-level `env_var("JAVA_HOME")` is evaluated for every recipe. Fix: use a Java 26 `env_var_or_default` at the top level and let Android recipes consume it.
 - Symptom: `just web-check` silently installs and runs obsolete `biome@0.3.3`. Cause: `web/node_modules` is absent, so `npm exec -- biome` resolves the unrelated package name. Fix: run `cd web && npm ci` before Web gates and confirm output reports the repository's `@biomejs/biome` file checks.
 - Symptom: Detekt rejects JVM target 26. Cause: Detekt 1.23.8 only accepts targets through 22. Fix: use Detekt 2.0.0-alpha.5+ with the `dev.detekt` plugin ID and migrate renamed config/report keys and baseline IDs.
 - Next.js 16.2 requires the TypeScript 6 JavaScript API and does not recognize TypeScript 7 alone. Keep TypeScript 7 aliased as `@typescript/native` for the `tsc` binary and alias `typescript` to `@typescript/typescript6` until Next.js supports the TypeScript 7 CLI/API directly.
