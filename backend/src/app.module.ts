@@ -1,4 +1,9 @@
-import { Module } from '@nestjs/common';
+import {
+  MiddlewareConsumer,
+  Module,
+  NestModule,
+  RequestMethod,
+} from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -9,6 +14,7 @@ import { SyncModule } from './sync/sync.module';
 import { SharingModule } from './sharing/sharing.module';
 import { RemoteControlModule } from './remote-control/remote-control.module';
 import { AccountSecurityModule } from './account-security/account-security.module';
+import { HttpRequestLoggingMiddleware } from './http-request-logging.middleware';
 
 @Module({
   imports: [
@@ -22,6 +28,12 @@ import { AccountSecurityModule } from './account-security/account-security.modul
     RemoteControlModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, HttpRequestLoggingMiddleware],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer): void {
+    consumer
+      .apply(HttpRequestLoggingMiddleware)
+      .forRoutes({ method: RequestMethod.ALL, path: '{*splat}' });
+  }
+}

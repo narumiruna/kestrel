@@ -73,6 +73,7 @@ type AuthUserRecord = {
 };
 
 type MockPrismaService = {
+  $queryRaw: jest.Mock<Promise<unknown>, unknown[]>;
   $transaction: jest.Mock<
     Promise<unknown>,
     [(transaction: TransactionClient) => Promise<unknown>]
@@ -246,6 +247,9 @@ describe('AppController (e2e)', () => {
     storedUsersById = new Map();
     storedUsers = new Map();
     prismaService = {
+      $queryRaw: jest
+        .fn<Promise<unknown>, unknown[]>()
+        .mockResolvedValue([{ ready: 1 }]),
       $transaction: jest.fn<
         Promise<unknown>,
         [(transaction: TransactionClient) => Promise<unknown>]
@@ -691,6 +695,20 @@ describe('AppController (e2e)', () => {
       phase: 'bootstrap',
       service: 'kestrel-cloud-api',
     });
+  });
+
+  it('/health (GET)', async () => {
+    await request(app.getHttpServer())
+      .get('/health')
+      .set('x-request-id', 'health-e2e-request')
+      .expect('x-request-id', 'health-e2e-request')
+      .expect(200)
+      .expect({
+        service: 'kestrel-cloud-api',
+        status: 'ok',
+      });
+
+    expect(prismaService.$queryRaw).toHaveBeenCalledTimes(1);
   });
 
   it('/auth/register (POST)', async () => {
