@@ -7,6 +7,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toArgb
@@ -47,6 +48,17 @@ private const val SOURCE_ME = "kestrel-me"
 private const val LAYER_ME_HALO = "kestrel-me-halo-layer"
 private const val LAYER_ME = "kestrel-me-layer"
 
+private data class MapColors(
+    val primary: Int,
+    val mock: Int,
+    val onPrimary: Int,
+)
+
+private data class MapListeners(
+    val click: MapLibreMap.OnMapClickListener,
+    val longClick: MapLibreMap.OnMapLongClickListener,
+)
+
 @Composable
 fun KestrelMap(
     modifier: Modifier = Modifier,
@@ -62,161 +74,255 @@ fun KestrelMap(
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
-
-    val primaryArgb = MaterialTheme.colorScheme.primary.toArgb()
-    val mockArgb = MaterialTheme.colorScheme.error.toArgb()
-    val onPrimaryArgb = MaterialTheme.colorScheme.onPrimary.toArgb()
-
+    val currentMapClick by rememberUpdatedState(onMapClick)
+    val currentMapLongClick by rememberUpdatedState(onMapLongClick)
+    val currentCameraIdle by rememberUpdatedState(onCameraIdle)
+    val colors =
+        MapColors(
+            primary = MaterialTheme.colorScheme.primary.toArgb(),
+            mock = MaterialTheme.colorScheme.error.toArgb(),
+            onPrimary = MaterialTheme.colorScheme.onPrimary.toArgb(),
+        )
     val mapView =
         remember {
             MapLibre.getInstance(context, null, WellKnownTileServer.MapLibre)
             MapView(context)
         }
+    val listeners =
+        remember {
+            MapListeners(
+                click =
+                    MapLibreMap.OnMapClickListener { point ->
+                        currentMapClick(LatLng(point.latitude, point.longitude))
+                        true
+                    },
+                longClick =
+                    MapLibreMap.OnMapLongClickListener { point ->
+                        currentMapLongClick(LatLng(point.latitude, point.longitude))
+                        true
+                    },
+            )
+        }
     var mapRef by remember { mutableStateOf<MapLibreMap?>(null) }
     var styleRef by remember { mutableStateOf<Style?>(null) }
-    val clickHandler =
-        remember(onMapClick) {
-            MapLibreMap.OnMapClickListener { point ->
-                onMapClick(LatLng(point.latitude, point.longitude))
-                true
-            }
-        }
-    val longClickHandler =
-        remember(onMapLongClick) {
-            MapLibreMap.OnMapLongClickListener { point ->
-                onMapLongClick(LatLng(point.latitude, point.longitude))
-                true
-            }
-        }
 
-    DisposableEffect(lifecycleOwner) {
+    BindMapLifecycle(
+        mapView = mapView,
+        lifecycle = lifecycleOwner.lifecycle,
+        initialCenter = initialCenter,
+        initialZoom = initialZoom,
+        colors = colors,
+        listeners = listeners,
+        onCameraIdle = { currentCameraIdle(it) },
+        onMapReady = { mapRef = it },
+        onStyleReady = { styleRef = it },
+        onDisposeMap = {
+            mapRef = null
+            styleRef = null
+        },
+    )
+    UpdatePointSource(styleRef, SOURCE_MOCK, mockLocation)
+    UpdatePointSource(styleRef, SOURCE_ME, myLocation)
+    UpdateCamera(mapRef, cameraTarget)
+    UpdateRoute(styleRef, polyline)
+
+    AndroidView(modifier = modifier, factory = { mapView })
+}
+
+@Composable
+private fun BindMapLifecycle(
+    mapView: MapView,
+    lifecycle: Lifecycle,
+    initialCenter: LatLng,
+    initialZoom: Double,
+    colors: MapColors,
+    listeners: MapListeners,
+    onCameraIdle: (CameraSnapshot) -> Unit,
+    onMapReady: (MapLibreMap) -> Unit,
+    onStyleReady: (Style) -> Unit,
+    onDisposeMap: () -> Unit,
+) {
+    DisposableEffect(lifecycle) {
+        var map: MapLibreMap? = null
+        var cameraListener: MapLibreMap.OnCameraIdleListener? = null
         mapView.onCreate(null)
         mapView.onStart()
         mapView.onResume()
-        mapView.getMapAsync { map ->
-            mapRef = map
-            map.cameraPosition =
-                CameraPosition
-                    .Builder()
-                    .target(MlLatLng(initialCenter.lat, initialCenter.lng))
-                    .zoom(initialZoom)
-                    .build()
-            map.setStyle(Style.Builder().fromJson(OSM_RASTER_STYLE_JSON)) { style ->
-                style.addSource(GeoJsonSource(SOURCE_LINE))
-                style.addLayer(
-                    LineLayer(LAYER_LINE, SOURCE_LINE).withProperties(
-                        PropertyFactory.lineColor(primaryArgb),
-                        PropertyFactory.lineWidth(4f),
-                        PropertyFactory.lineOpacity(0.85f),
-                    ),
-                )
-                style.addSource(GeoJsonSource(SOURCE_WAYPOINTS))
-                style.addLayer(
-                    CircleLayer(LAYER_WAYPOINTS, SOURCE_WAYPOINTS).withProperties(
-                        PropertyFactory.circleRadius(5f),
-                        PropertyFactory.circleColor(primaryArgb),
-                        PropertyFactory.circleStrokeColor(onPrimaryArgb),
-                        PropertyFactory.circleStrokeWidth(1.5f),
-                    ),
-                )
-                style.addSource(GeoJsonSource(SOURCE_MOCK))
-                style.addLayer(
-                    CircleLayer(LAYER_MOCK_HALO, SOURCE_MOCK).withProperties(
-                        PropertyFactory.circleRadius(22f),
-                        PropertyFactory.circleColor(mockArgb),
-                        PropertyFactory.circleOpacity(0.18f),
-                    ),
-                )
-                style.addLayer(
-                    CircleLayer(LAYER_MOCK, SOURCE_MOCK).withProperties(
-                        PropertyFactory.circleRadius(9f),
-                        PropertyFactory.circleColor(mockArgb),
-                        PropertyFactory.circleStrokeColor(onPrimaryArgb),
-                        PropertyFactory.circleStrokeWidth(2f),
-                    ),
-                )
-                style.addSource(GeoJsonSource(SOURCE_ME))
-                style.addLayer(
-                    CircleLayer(LAYER_ME_HALO, SOURCE_ME).withProperties(
-                        PropertyFactory.circleRadius(18f),
-                        PropertyFactory.circleColor(primaryArgb),
-                        PropertyFactory.circleOpacity(0.18f),
-                    ),
-                )
-                style.addLayer(
-                    CircleLayer(LAYER_ME, SOURCE_ME).withProperties(
-                        PropertyFactory.circleRadius(7f),
-                        PropertyFactory.circleColor(primaryArgb),
-                        PropertyFactory.circleStrokeColor(onPrimaryArgb),
-                        PropertyFactory.circleStrokeWidth(2f),
-                    ),
-                )
-                styleRef = style
-            }
-            map.addOnMapClickListener(clickHandler)
-            map.addOnMapLongClickListener(longClickHandler)
-            map.addOnCameraIdleListener {
-                val pos = map.cameraPosition
-                onCameraIdle(
-                    CameraSnapshot(pos.target?.latitude ?: 0.0, pos.target?.longitude ?: 0.0, pos.zoom),
-                )
-            }
+        mapView.getMapAsync { readyMap ->
+            map = readyMap
+            onMapReady(readyMap)
+            initializeMap(readyMap, initialCenter, initialZoom, colors, onStyleReady)
+            readyMap.addOnMapClickListener(listeners.click)
+            readyMap.addOnMapLongClickListener(listeners.longClick)
+            val readyCameraListener = createCameraListener(readyMap, onCameraIdle)
+            cameraListener = readyCameraListener
+            readyMap.addOnCameraIdleListener(readyCameraListener)
         }
-        val observer =
-            LifecycleEventObserver { _, event ->
-                when (event) {
-                    Lifecycle.Event.ON_PAUSE -> mapView.onPause()
-                    Lifecycle.Event.ON_STOP -> mapView.onStop()
-                    Lifecycle.Event.ON_RESUME -> mapView.onResume()
-                    Lifecycle.Event.ON_START -> mapView.onStart()
-                    else -> Unit
-                }
-            }
-        lifecycleOwner.lifecycle.addObserver(observer)
+        val observer = createLifecycleObserver(mapView)
+        lifecycle.addObserver(observer)
         onDispose {
-            mapRef?.removeOnMapClickListener(clickHandler)
-            mapRef?.removeOnMapLongClickListener(longClickHandler)
-            lifecycleOwner.lifecycle.removeObserver(observer)
+            map?.removeOnMapClickListener(listeners.click)
+            map?.removeOnMapLongClickListener(listeners.longClick)
+            cameraListener?.let { map?.removeOnCameraIdleListener(it) }
+            lifecycle.removeObserver(observer)
             mapView.onPause()
             mapView.onStop()
             mapView.onDestroy()
-            mapRef = null
-            styleRef = null
+            onDisposeMap()
+        }
+    }
+}
+
+private fun initializeMap(
+    map: MapLibreMap,
+    initialCenter: LatLng,
+    initialZoom: Double,
+    colors: MapColors,
+    onStyleReady: (Style) -> Unit,
+) {
+    map.cameraPosition =
+        CameraPosition
+            .Builder()
+            .target(MlLatLng(initialCenter.lat, initialCenter.lng))
+            .zoom(initialZoom)
+            .build()
+    map.setStyle(Style.Builder().fromJson(OSM_RASTER_STYLE_JSON)) { style ->
+        addRouteLayers(style, colors)
+        addMockLayers(style, colors)
+        addMyLocationLayers(style, colors)
+        onStyleReady(style)
+    }
+}
+
+private fun addRouteLayers(
+    style: Style,
+    colors: MapColors,
+) {
+    style.addSource(GeoJsonSource(SOURCE_LINE))
+    style.addLayer(
+        LineLayer(LAYER_LINE, SOURCE_LINE).withProperties(
+            PropertyFactory.lineColor(colors.primary),
+            PropertyFactory.lineWidth(4f),
+            PropertyFactory.lineOpacity(0.85f),
+        ),
+    )
+    style.addSource(GeoJsonSource(SOURCE_WAYPOINTS))
+    style.addLayer(
+        CircleLayer(LAYER_WAYPOINTS, SOURCE_WAYPOINTS).withProperties(
+            PropertyFactory.circleRadius(5f),
+            PropertyFactory.circleColor(colors.primary),
+            PropertyFactory.circleStrokeColor(colors.onPrimary),
+            PropertyFactory.circleStrokeWidth(1.5f),
+        ),
+    )
+}
+
+private fun addMockLayers(
+    style: Style,
+    colors: MapColors,
+) {
+    style.addSource(GeoJsonSource(SOURCE_MOCK))
+    style.addLayer(
+        CircleLayer(LAYER_MOCK_HALO, SOURCE_MOCK).withProperties(
+            PropertyFactory.circleRadius(22f),
+            PropertyFactory.circleColor(colors.mock),
+            PropertyFactory.circleOpacity(0.18f),
+        ),
+    )
+    style.addLayer(
+        CircleLayer(LAYER_MOCK, SOURCE_MOCK).withProperties(
+            PropertyFactory.circleRadius(9f),
+            PropertyFactory.circleColor(colors.mock),
+            PropertyFactory.circleStrokeColor(colors.onPrimary),
+            PropertyFactory.circleStrokeWidth(2f),
+        ),
+    )
+}
+
+private fun addMyLocationLayers(
+    style: Style,
+    colors: MapColors,
+) {
+    style.addSource(GeoJsonSource(SOURCE_ME))
+    style.addLayer(
+        CircleLayer(LAYER_ME_HALO, SOURCE_ME).withProperties(
+            PropertyFactory.circleRadius(18f),
+            PropertyFactory.circleColor(colors.primary),
+            PropertyFactory.circleOpacity(0.18f),
+        ),
+    )
+    style.addLayer(
+        CircleLayer(LAYER_ME, SOURCE_ME).withProperties(
+            PropertyFactory.circleRadius(7f),
+            PropertyFactory.circleColor(colors.primary),
+            PropertyFactory.circleStrokeColor(colors.onPrimary),
+            PropertyFactory.circleStrokeWidth(2f),
+        ),
+    )
+}
+
+private fun createCameraListener(
+    map: MapLibreMap,
+    onCameraIdle: (CameraSnapshot) -> Unit,
+) = MapLibreMap.OnCameraIdleListener {
+    val position = map.cameraPosition
+    onCameraIdle(
+        CameraSnapshot(
+            position.target?.latitude ?: 0.0,
+            position.target?.longitude ?: 0.0,
+            position.zoom,
+        ),
+    )
+}
+
+private fun createLifecycleObserver(mapView: MapView) =
+    LifecycleEventObserver { _, event ->
+        when (event) {
+            Lifecycle.Event.ON_PAUSE -> mapView.onPause()
+            Lifecycle.Event.ON_STOP -> mapView.onStop()
+            Lifecycle.Event.ON_RESUME -> mapView.onResume()
+            Lifecycle.Event.ON_START -> mapView.onStart()
+            else -> Unit
         }
     }
 
-    LaunchedEffect(mockLocation, styleRef) {
-        val style = styleRef ?: return@LaunchedEffect
-        val source = style.getSourceAs<GeoJsonSource>(SOURCE_MOCK) ?: return@LaunchedEffect
-        if (mockLocation == null) {
+@Composable
+private fun UpdatePointSource(
+    style: Style?,
+    sourceId: String,
+    location: LatLng?,
+) {
+    LaunchedEffect(location, style) {
+        val source = style?.getSourceAs<GeoJsonSource>(sourceId) ?: return@LaunchedEffect
+        if (location == null) {
             source.setGeoJson(EMPTY_FEATURES)
         } else {
-            source.setGeoJson(Point.fromLngLat(mockLocation.lng, mockLocation.lat))
+            source.setGeoJson(Point.fromLngLat(location.lng, location.lat))
         }
     }
+}
 
-    LaunchedEffect(myLocation, styleRef) {
-        val style = styleRef ?: return@LaunchedEffect
-        val source = style.getSourceAs<GeoJsonSource>(SOURCE_ME) ?: return@LaunchedEffect
-        if (myLocation == null) {
-            source.setGeoJson(EMPTY_FEATURES)
-        } else {
-            source.setGeoJson(Point.fromLngLat(myLocation.lng, myLocation.lat))
-        }
-    }
-
-    LaunchedEffect(cameraTarget, mapRef) {
-        val map = mapRef ?: return@LaunchedEffect
-        val target = cameraTarget ?: return@LaunchedEffect
+@Composable
+private fun UpdateCamera(
+    map: MapLibreMap?,
+    target: CameraSnapshot?,
+) {
+    LaunchedEffect(target, map) {
+        if (map == null || target == null) return@LaunchedEffect
         map.animateCamera(
             CameraUpdateFactory.newLatLngZoom(MlLatLng(target.lat, target.lng), target.zoom),
         )
     }
+}
 
-    LaunchedEffect(polyline, styleRef) {
-        val style = styleRef ?: return@LaunchedEffect
-        val lineSource = style.getSourceAs<GeoJsonSource>(SOURCE_LINE)
-        val pointsSource = style.getSourceAs<GeoJsonSource>(SOURCE_WAYPOINTS)
+@Composable
+private fun UpdateRoute(
+    style: Style?,
+    polyline: List<LatLng>,
+) {
+    LaunchedEffect(polyline, style) {
+        val lineSource = style?.getSourceAs<GeoJsonSource>(SOURCE_LINE)
+        val pointsSource = style?.getSourceAs<GeoJsonSource>(SOURCE_WAYPOINTS)
         if (polyline.size < 2) {
             lineSource?.setGeoJson(EMPTY_FEATURES)
         } else {
@@ -227,13 +333,11 @@ fun KestrelMap(
         if (polyline.isEmpty()) {
             pointsSource?.setGeoJson(EMPTY_FEATURES)
         } else {
-            val features =
-                polyline.map {
-                    Feature.fromGeometry(Point.fromLngLat(it.lng, it.lat))
-                }
-            pointsSource?.setGeoJson(FeatureCollection.fromFeatures(features))
+            pointsSource?.setGeoJson(
+                FeatureCollection.fromFeatures(
+                    polyline.map { Feature.fromGeometry(Point.fromLngLat(it.lng, it.lat)) },
+                ),
+            )
         }
     }
-
-    AndroidView(modifier = modifier, factory = { mapView })
 }
