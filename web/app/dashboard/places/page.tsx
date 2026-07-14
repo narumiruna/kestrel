@@ -41,6 +41,7 @@ export default function PlacesDashboardPage() {
   const auth = useDashboardAuth();
   const router = useRouter();
   const searchRef = useRef<HTMLInputElement | null>(null);
+  const hasAppliedRequestedSelectionRef = useRef(false);
   const [places, setPlaces] = useState<Place[]>([]);
   const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
   const [draftPlaceCoords, setDraftPlaceCoords] = useState<{
@@ -92,8 +93,18 @@ export default function PlacesDashboardPage() {
 
     try {
       const nextPlaces = await auth.apiRequest<Place[]>('/places');
+      const requestedPlaceId = hasAppliedRequestedSelectionRef.current
+        ? null
+        : readRequestedSelectionId();
+      hasAppliedRequestedSelectionRef.current = true;
       setPlaces(nextPlaces);
-      setSelectedPlaceId((current) => current ?? nextPlaces[0]?.id ?? null);
+      setSelectedPlaceId((current) =>
+        nextPlaces.some((place) => place.id === requestedPlaceId)
+          ? requestedPlaceId
+          : nextPlaces.some((place) => place.id === current)
+            ? current
+            : (nextPlaces[0]?.id ?? null),
+      );
       setLastLoadedAt(new Date());
     } catch (nextError) {
       setError(formatError(nextError));
@@ -324,6 +335,10 @@ export default function PlacesDashboardPage() {
 
 function confirmDiscardUnsavedChanges(isDirty: boolean): boolean {
   return !isDirty || window.confirm('Discard unsaved changes? Save first to keep them.');
+}
+
+function readRequestedSelectionId(): string | null {
+  return new URLSearchParams(window.location.search).get('selected');
 }
 
 function NotebookSkeleton() {

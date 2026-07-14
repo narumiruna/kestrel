@@ -6746,3 +6746,86 @@ button.route-marker.route-marker-compact:not(.selected):focus-visible::after {
     width: 100%;
   }
 }
+
+/* Restore the Map / Library information architecture in cartographer chrome. */
+.map-library-panel {
+  grid-template-rows: auto auto minmax(0, 1fr);
+}
+
+.map-library-panel .notebook-list {
+  min-height: 0;
+  overflow-y: auto;
+}
+
+@media (min-width: 1024px) {
+  .workspace-tabs {
+    backdrop-filter: none;
+    background: rgb(255 250 241 / 72%);
+    border-color: var(--cloud-border-soft);
+    border-radius: 10px;
+    box-shadow: none;
+    left: 172px;
+    padding: 3px;
+    position: fixed;
+    top: 8px;
+    z-index: 35;
+  }
+
+  .workspace-tabs a {
+    align-items: center;
+    border-radius: 7px;
+    display: inline-flex;
+    min-height: 34px;
+    padding: 0 12px;
+  }
+
+  .workspace-tabs a.active {
+    background: var(--cloud-surface-card);
+    box-shadow: 0 1px 3px rgb(34 24 15 / 9%);
+    color: var(--accent-hover);
+  }
+}
+
+@media (min-width: 1024px) and (max-width: 1199px) {
+  .status-strip span:nth-child(2) {
+    display: none;
+  }
+}
+
+@media (max-width: 1023px) {
+  .workspace-tabs {
+    backdrop-filter: blur(14px);
+    background: var(--cloud-surface-card);
+    border-color: var(--cloud-border-soft);
+    border-radius: 10px;
+    box-shadow: var(--cloud-shadow);
+    left: 12px;
+    padding: 3px;
+    position: fixed;
+    top: 64px;
+    z-index: 35;
+  }
+
+  .workspace-tabs a {
+    align-items: center;
+    border-radius: 7px;
+    display: inline-flex;
+    min-height: 34px;
+    padding: 0 11px;
+  }
+
+  .workspace-tabs a.active {
+    background: var(--accent);
+    color: #fffaf3;
+  }
+}
+
+@media (max-width: 639px) {
+  .user-mark-button {
+    padding-right: 4px;
+  }
+
+  .user-mark-button > span:last-child {
+    display: none;
+  }
+}
