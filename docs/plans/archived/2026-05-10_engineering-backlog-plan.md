@@ -10,7 +10,7 @@ Completed since the original backlog:
 
 - CI lanes, path filters, backend `build`, backend e2e policy, and Web lint/typecheck/build are in `.github/workflows/ci.yml`.
 - Android app icon, notification copy, route status mode/speed, disabled selected chips, route progress persistence, Web map styles, Web dashboard IA/polish, sharing, and remote control are archived in `docs/plans/archived/`.
-- Release builds currently produce an unsigned APK; signing is still intentionally not configured.
+- Release builds now require the configured release keystore and produce a signed APK; unsigned release builds fail explicitly.
 
 ## Plan
 
