@@ -21,19 +21,18 @@ detekt {
     autoCorrect = false
 }
 
-tasks.withType<io.gitlab.arturbosch.detekt.Detekt>().configureEach {
-    jvmTarget = "11"
+tasks.withType<dev.detekt.gradle.Detekt>().configureEach {
+    jvmTarget = "26"
     reports {
         html.required.set(true)
-        xml.required.set(false)
-        md.required.set(false)
+        checkstyle.required.set(false)
+        markdown.required.set(false)
         sarif.required.set(false)
-        txt.required.set(false)
     }
 }
 
-tasks.withType<io.gitlab.arturbosch.detekt.DetektCreateBaselineTask>().configureEach {
-    jvmTarget = "11"
+tasks.withType<dev.detekt.gradle.DetektCreateBaselineTask>().configureEach {
+    jvmTarget = "26"
 }
 
 spotless {

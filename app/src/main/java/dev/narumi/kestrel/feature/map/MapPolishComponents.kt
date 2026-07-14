@@ -1,15 +1,20 @@
 package dev.narumi.kestrel.feature.map
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import dev.narumi.kestrel.core.location.MovementEngine
@@ -28,7 +33,7 @@ internal fun MapHintPill(modifier: Modifier = Modifier) {
         elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
     ) {
         Text(
-            text = "Tap map to add · Long-press for actions",
+            text = "Tap to add a waypoint · Hold for point actions",
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
             style = MaterialTheme.typography.labelMedium,
         )
@@ -59,7 +64,9 @@ internal fun DraftRouteActionsCard(
             OutlinedButton(onClick = onSaveRoute, enabled = waypointCount >= 2) {
                 Text("Save route", maxLines = 1)
             }
-            OutlinedButton(onClick = onGenerate) { Text("Re-generate", maxLines = 1) }
+            OutlinedButton(onClick = onGenerate) {
+                Text("Replace with random route", maxLines = 1)
+            }
         }
     }
 }
@@ -67,47 +74,67 @@ internal fun DraftRouteActionsCard(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun RouteSettingsCard(
-    waypointCount: Int,
     speedKmh: Double,
     routeMode: MovementEngine.Mode,
-    isRouteRunning: Boolean,
+    expanded: Boolean,
+    onExpandedChange: (Boolean) -> Unit,
     onSpeedChange: (Double) -> Unit,
     onModeChange: (MovementEngine.Mode) -> Unit,
 ) {
     KestrelCard {
-        SectionLabel("Route settings")
-        Text(
-            text = "Preset speed and playback mode apply to the next route start.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        SectionLabel("Speed")
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            SPEED_PRESETS.forEach { preset ->
-                ChipChoice(
-                    label = "${preset.toInt()} km/h",
-                    selected = preset == speedKmh,
-                    enabled = !isRouteRunning,
-                    onClick = { onSpeedChange(preset) },
+            Column(modifier = Modifier.weight(1f)) {
+                SectionLabel("Route settings")
+                Text(
+                    text = "${speedKmh.toDisplaySpeed()} · ${routeMode.label()}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+            TextButton(onClick = { onExpandedChange(!expanded) }) {
+                Text(if (expanded) "Done" else "Change", maxLines = 1)
+            }
         }
-        SectionLabel("Mode")
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            MovementEngine.Mode.entries.forEach { entry ->
-                ChipChoice(
-                    label = entry.label(),
-                    selected = entry == routeMode,
-                    enabled = !isRouteRunning && waypointCount >= 2,
-                    onClick = { onModeChange(entry) },
-                )
+        if (expanded) {
+            Text(
+                text = "Speed and playback mode apply when the route starts.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            SectionLabel("Speed")
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                SPEED_PRESETS.forEach { preset ->
+                    ChipChoice(
+                        label = preset.toDisplaySpeed(),
+                        selected = preset == speedKmh,
+                        enabled = true,
+                        onClick = { onSpeedChange(preset) },
+                    )
+                }
+            }
+            SectionLabel("Mode")
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                MovementEngine.Mode.entries.forEach { entry ->
+                    ChipChoice(
+                        label = entry.label(),
+                        selected = entry == routeMode,
+                        enabled = true,
+                        onClick = { onModeChange(entry) },
+                    )
+                }
             }
         }
     }
 }
+
+private fun Double.toDisplaySpeed(): String = if (this % 1.0 == 0.0) "${toInt()} km/h" else "$this km/h"

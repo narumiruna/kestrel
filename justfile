@@ -1,6 +1,6 @@
 set shell := ["bash", "-cu"]
 
-java_home := env_var_or_default("JAVA_HOME", "/Applications/Android Studio.app/Contents/jbr/Contents/Home")
+java_home := env_var("JAVA_HOME")
 adb := "$HOME/Library/Android/sdk/platform-tools/adb"
 package := "dev.narumi.kestrel"
 activity := package + "/.MainActivity"

@@ -65,7 +65,7 @@ web/                 # Next.js cloud console
 
 ## 🛠️ Development
 
-> **Prerequisites:** Android Studio, JDK (bundled with Android Studio), `adb` on `PATH`.
+> **Prerequisites:** Android Studio, JDK 26 with `JAVA_HOME` configured, and `adb` on `PATH`.
 > All common tasks are driven by the [`justfile`](justfile) — install [just](https://github.com/casey/just) to use them.
 
 | Task | Command |

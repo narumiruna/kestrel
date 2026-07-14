@@ -1,5 +1,7 @@
 ## GOTCHA
 
+- Symptom: `just web-check` silently installs and runs obsolete `biome@0.3.3`. Cause: `web/node_modules` is absent, so `npm exec -- biome` resolves the unrelated package name. Fix: run `cd web && npm ci` before Web gates and confirm output reports the repository's `@biomejs/biome` file checks.
+- Symptom: Detekt rejects JVM target 26. Cause: Detekt 1.23.8 only accepts targets through 22. Fix: use Detekt 2.0.0-alpha.5+ with the `dev.detekt` plugin ID and migrate renamed config/report keys and baseline IDs.
 - Next.js 16.2 requires the TypeScript 6 JavaScript API and does not recognize TypeScript 7 alone. Keep TypeScript 7 aliased as `@typescript/native` for the `tsc` binary and alias `typescript` to `@typescript/typescript6` until Next.js supports the TypeScript 7 CLI/API directly.
 - Browser login smoke scripts must confirm `location.pathname === '/login'` before filling/submitting. An already-authenticated profile redirects to Map; blindly editing the first inputs can rename/save the selected Place or Route.
 - Symptom: Cartographer `Map` / `Library` workspace tabs exist in the DOM but disappear from the header. Cause: the full-width `.status-strip` at `z-index: 30` covers the older absolutely positioned `.workspace-tabs`. Fix: keep workspace tabs fixed above the strip (`z-index: 35`) and verify both desktop and mobile header layouts.
@@ -37,6 +39,8 @@
 
 ## TASTE
 
+- Keep every individual command or tool execution within 3 minutes; split longer work into observable, interruptible steps with timeouts of at most 180 seconds.
+- For small Android code changes, run the narrowest relevant JVM test with `./gradlew :app:testDebugUnitTest --tests '<fully-qualified-test>'` during iteration; run `just android-test` before completion.
 - Prefer `aria2c` for required large downloads (`brew install aria2` if unavailable), verify published checksums when provided, inspect size and transfer rate early, and abort when the ETA is unreasonable. Prefer existing workflow/signature evidence or a small metadata request when it already proves the requirement.
 - Prefer a consistent sans-serif UI typeface for Kestrel Web; avoid decorative serif display fonts that make English/CJK hierarchy feel mismatched.
 - Prefer progressive disclosure in UI/UX: keep each screen focused on its primary task, preserve secondary/advanced functionality in clear contextual locations, and avoid redundant CTAs or extra mode-switch clicks.
