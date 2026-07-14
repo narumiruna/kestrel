@@ -90,7 +90,7 @@ internal class CloudAuthRepository private constructor(
                         .refresh(
                             refreshToken = currentSession.refreshToken,
                             refreshRequestId = refreshRequestId,
-                        ).copy(refreshRequestId = refreshRequestId)
+                        ).copy(refreshRequestId = UUID.randomUUID().toString())
                         .let { saveNewSessionOrRevoke(it) }
                 } catch (failure: CancellationException) {
                     throw failure

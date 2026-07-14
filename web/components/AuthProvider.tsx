@@ -364,7 +364,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         const persistedRefreshedSession = {
           ...refreshedSession,
-          refreshRequestId: storedAfterRefresh.refreshRequestId,
+          refreshRequestId: createOperationId(),
         };
         persistSession(persistedRefreshedSession);
         if (
