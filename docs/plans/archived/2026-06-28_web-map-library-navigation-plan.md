@@ -65,7 +65,7 @@ The current dashboard has top tabs for Places and Routes, and each page combines
 ## 2026-07-14 Implementation Audit
 
 - Restored the top-level `Map` / `Library` tabs above the full-width status strip after a later CSS pass had covered them; browser measurements show both tabs visible with the correct `aria-current` state at `1200×792` and `390×844`.
-- Removed the redundant Map notebook `Open Library` card. The selection preview now exposes `Edit route` / `Edit place` and carries the selected item ID into Library so the matching editor opens.
+- Removed the redundant Map notebook `Open Library` card. A later direct-editing follow-up also removed the intermediate `Edit route` action so selected routes can be changed in place.
 - Reverified `/dashboard` → `/dashboard/map`, `/dashboard/library` → `/dashboard/library/routes`, and the compatibility `/dashboard/places` and `/dashboard/routes` experiences in Chrome.
 - Reverified Place and Route create, update, and delete flows against the seeded Web test stack; temporary smoke records were deleted afterward.
 - Reverified `g m`, `g l`, `g p`, and `g r`, including that shortcuts do not navigate while a search input is focused.

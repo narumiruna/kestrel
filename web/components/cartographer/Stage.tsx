@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import type { ReactNode } from 'react';
+import type { MouseEvent, ReactNode } from 'react';
 
 type StageProps = {
   children: ReactNode;
@@ -10,6 +10,7 @@ type StageProps = {
   map: ReactNode;
   mode: 'places' | 'routes';
   workspace?: 'library' | 'map';
+  onBeforeWorkspaceChange?: () => boolean;
   onToggleLeftPanel?: () => void;
   onToggleMapFocus?: () => void;
   onToggleRightPanel?: () => void;
@@ -21,6 +22,7 @@ export function Stage({
   isRightPanelCollapsed = false,
   map,
   mode,
+  onBeforeWorkspaceChange,
   onToggleLeftPanel,
   onToggleMapFocus,
   onToggleRightPanel,
@@ -38,6 +40,12 @@ export function Stage({
   const isMapFocused = isLeftPanelCollapsed && isRightPanelCollapsed;
   const libraryHref = `/dashboard/library/${mode}`;
 
+  function handleWorkspaceChange(event: MouseEvent<HTMLAnchorElement>) {
+    if (onBeforeWorkspaceChange?.() === false) {
+      event.preventDefault();
+    }
+  }
+
   return (
     <main className={className}>
       <div className="cartographer-map-layer">{map}</div>
@@ -47,6 +55,7 @@ export function Stage({
           aria-current={workspace === 'map' ? 'page' : undefined}
           className={workspace === 'map' ? 'active' : ''}
           href="/dashboard/map"
+          onClick={handleWorkspaceChange}
         >
           Map
         </Link>
@@ -54,6 +63,7 @@ export function Stage({
           aria-current={workspace === 'library' ? 'page' : undefined}
           className={workspace === 'library' ? 'active' : ''}
           href={libraryHref}
+          onClick={handleWorkspaceChange}
         >
           Library
         </Link>
