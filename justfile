@@ -17,7 +17,7 @@ build:
 android-build:
     JAVA_HOME="{{java_home}}" PATH="{{java_home}}/bin:$PATH" ./gradlew :app:assembleDebug
 
-# build the unsigned release APK
+# build the signed release APK (requires KESTREL_RELEASE_* environment variables)
 release:
     JAVA_HOME="{{java_home}}" PATH="{{java_home}}/bin:$PATH" ./gradlew :app:assembleRelease
 

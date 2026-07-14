@@ -26,7 +26,7 @@ version_code="$(grep '^appVersionCode=' "$properties_file" | cut -d= -f2-)"
 backend_version="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["version"])' "$backend_package_file")"
 web_version="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["version"])' "$web_package_file")"
 expected_tag="v${version_name}"
-apk_name="kestrel-${version_name}-release-unsigned.apk"
+apk_name="kestrel-${version_name}-release.apk"
 
 if [ -z "$version_name" ] || [ -z "$version_code" ]; then
   echo "appVersionName/appVersionCode must be set in $properties_file" >&2

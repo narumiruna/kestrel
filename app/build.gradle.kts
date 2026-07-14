@@ -7,6 +7,17 @@ plugins {
 
 val appVersionCode = providers.gradleProperty("appVersionCode").get().toInt()
 val appVersionName = providers.gradleProperty("appVersionName").get()
+val releaseKeystorePath = providers.environmentVariable("KESTREL_RELEASE_KEYSTORE_PATH").orNull
+val releaseStorePassword = providers.environmentVariable("KESTREL_RELEASE_STORE_PASSWORD").orNull
+val releaseKeyAlias = providers.environmentVariable("KESTREL_RELEASE_KEY_ALIAS").orNull
+val releaseKeyPassword = providers.environmentVariable("KESTREL_RELEASE_KEY_PASSWORD").orNull
+val hasReleaseSigning =
+    listOf(
+        releaseKeystorePath,
+        releaseStorePassword,
+        releaseKeyAlias,
+        releaseKeyPassword,
+    ).all { !it.isNullOrBlank() }
 
 android {
     namespace = "dev.narumi.kestrel"
@@ -24,8 +35,20 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("release") {
+                storeFile = file(requireNotNull(releaseKeystorePath))
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
+        }
+    }
+
     buildTypes {
         release {
+            signingConfig = signingConfigs.findByName("release")
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -40,6 +63,24 @@ android {
     buildFeatures {
         compose = true
     }
+}
+
+val verifyReleaseSigning =
+    tasks.register("verifyReleaseSigning") {
+        doLast {
+            check(hasReleaseSigning) {
+                "Release signing requires KESTREL_RELEASE_KEYSTORE_PATH, " +
+                    "KESTREL_RELEASE_STORE_PASSWORD, KESTREL_RELEASE_KEY_ALIAS, and " +
+                    "KESTREL_RELEASE_KEY_PASSWORD"
+            }
+            check(file(requireNotNull(releaseKeystorePath)).isFile) {
+                "Release keystore does not exist: $releaseKeystorePath"
+            }
+        }
+    }
+
+tasks.matching { it.name == "preReleaseBuild" }.configureEach {
+    dependsOn(verifyReleaseSigning)
 }
 
 dependencies {
