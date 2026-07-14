@@ -45,6 +45,13 @@
 - DataStore schema 變更要保持向前相容：`Json { ignoreUnknownKeys = true }` 已開；新欄位用 `T? = null` 預設。
 - pre-commit hooks（prek）：spotless、end-of-files、trailing whitespace、merge conflicts、mixed line endings。NEVER `--no-verify`。
 
+## UI/UX 原則
+
+- 優先降低單一畫面的資訊與操作密度，讓主要任務與下一步清楚可辨；避免同時呈現過多元素、CTA 或功能，以減少使用者的認知負荷。
+- 這不代表刪除或弱化功能。保留完整能力，並以漸進揭露（progressive disclosure）將次要、低頻或進階操作收納到符合情境的位置，例如次級頁面、overflow menu、dialog 或可展開區塊。
+- 被收納的功能仍須容易發現、理解與使用：入口命名清楚、位置符合使用情境、導覽結果可預期。不可為追求極簡而讓功能難找，或增加不必要的操作步驟。
+- 新增畫面元素或操作入口前，先確認現有導覽或操作是否已涵蓋相同目的；避免重複 CTA 與功能重疊。
+
 ## 領域注意事項
 
 - Mock GPS 需要 dev options 開「Select mock location app」指到本 app；UI 用 `StatusBanner` 顯示是否有權限。
