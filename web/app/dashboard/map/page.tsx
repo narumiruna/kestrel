@@ -3,25 +3,27 @@
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { type RefObject, useEffect, useMemo, useRef, useState } from 'react';
+import { IndexCard } from '@/components/cartographer/IndexCard';
 import { KeyboardCheatsheet } from '@/components/cartographer/KeyboardCheatsheet';
 import { ScaleBar } from '@/components/cartographer/ScaleBar';
 import { Stage } from '@/components/cartographer/Stage';
 import { StatusStrip } from '@/components/cartographer/StatusStrip';
 import { UserMark } from '@/components/cartographer/UserMark';
 import { useKeyboardShortcuts } from '@/components/cartographer/useKeyboardShortcuts';
+import RouteEditor from '@/components/dashboard/RouteEditor';
 import { useDashboardLibraryData } from '@/components/dashboard/useDashboardLibraryData';
 import {
   formatCoord,
   formatMode,
   formatRouteDistanceFromWaypoints,
 } from '@/components/dashboard/utils';
-import type { Place, Route } from '@/lib/api';
+import type { Place, Route, RouteInput, RouteWaypoint } from '@/lib/api';
 
 const CartographerPlaceMap = dynamic(
   () => import('@/components/cartographer/CartographerPlaceMap'),
   { ssr: false },
 );
-const RouteMapPreview = dynamic(() => import('@/components/RouteMapPreview'), { ssr: false });
+const RouteMapEditor = dynamic(() => import('@/components/RouteMapEditor'), { ssr: false });
 const ZoomStack = dynamic(
   () => import('@/components/cartographer/ZoomStack').then((module) => module.ZoomStack),
   { ssr: false },
@@ -56,6 +58,12 @@ export default function DashboardMapPage() {
   const [isLibraryCollapsed, setIsLibraryCollapsed] = useState(false);
   const [isPreviewCollapsed, setIsPreviewCollapsed] = useState(false);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
+  const [draftWaypoints, setDraftWaypoints] = useState<RouteWaypoint[]>([]);
+  const [selectedWaypointIndex, setSelectedWaypointIndex] = useState<number | null>(null);
+  const [hoveredWaypointIndex, setHoveredWaypointIndex] = useState<number | null>(null);
+  const [focusTarget, setFocusTarget] = useState<RouteWaypoint | null>(null);
+  const [fitRequest, setFitRequest] = useState(0);
+  const [isRouteDirty, setIsRouteDirty] = useState(false);
 
   const selectedPlace = useMemo(
     () => places.find((place) => place.id === selectedPlaceId) ?? null,
@@ -91,6 +99,35 @@ export default function DashboardMapPage() {
   }, [query, routes]);
   const lastUpdatedLabel = useRelativeUpdatedLabel(lastLoadedAt);
 
+  useEffect(() => {
+    const nextWaypoints = getRouteWaypoints(selectedRoute);
+
+    setDraftWaypoints(nextWaypoints);
+    setSelectedWaypointIndex(null);
+    setHoveredWaypointIndex(null);
+    setFocusTarget(null);
+    setIsRouteDirty(false);
+
+    if (nextWaypoints.length > 0) {
+      setFitRequest((currentRequest) => currentRequest + 1);
+    }
+  }, [selectedRoute]);
+
+  useEffect(() => {
+    if (!isRouteDirty) {
+      return;
+    }
+
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isRouteDirty]);
+
   useKeyboardShortcuts({
     onClose: () => setIsHelpOpen(false),
     onFocusSearch: () => searchRef.current?.focus(),
@@ -116,11 +153,56 @@ export default function DashboardMapPage() {
     });
   }
 
-  const routeWaypoints =
-    selectedRoute?.currentRevision?.waypoints.map((waypoint) => ({
-      latitude: waypoint.latitude,
-      longitude: waypoint.longitude,
-    })) ?? [];
+  async function saveRoute(input: RouteInput) {
+    if (selectedRoute == null) {
+      return;
+    }
+
+    await auth.apiRequest<Route>(`/routes/${selectedRoute.id}`, {
+      body: JSON.stringify(input),
+      method: 'PATCH',
+    });
+    setIsRouteDirty(false);
+    await refresh();
+  }
+
+  function confirmRouteDraftDiscard(): boolean {
+    return (
+      !isRouteDirty || window.confirm('Discard unsaved route changes? Save first to keep them.')
+    );
+  }
+
+  function selectMapKind(kind: MapKind) {
+    if (kind === activeKind || (activeKind === 'routes' && !confirmRouteDraftDiscard())) {
+      return;
+    }
+
+    if (activeKind === 'routes') {
+      setDraftWaypoints(getRouteWaypoints(selectedRoute));
+      setIsRouteDirty(false);
+    }
+    setActiveKind(kind);
+  }
+
+  function selectRoute(routeId: string) {
+    if (routeId === selectedRouteId || !confirmRouteDraftDiscard()) {
+      return;
+    }
+
+    setIsRouteDirty(false);
+    setSelectedRouteId(routeId);
+  }
+
+  function refreshMapData() {
+    if (activeKind === 'routes' && !confirmRouteDraftDiscard()) {
+      return;
+    }
+
+    setIsRouteDirty(false);
+    void refresh();
+  }
+
+  const routeWaypoints = draftWaypoints;
   const map =
     activeKind === 'places' ? (
       <CartographerPlaceMap
@@ -134,16 +216,19 @@ export default function DashboardMapPage() {
         }}
       />
     ) : (
-      <RouteMapPreview
+      <RouteMapEditor
         className="cartographer-map"
-        interactive
+        fitRequest={fitRequest}
+        focusTarget={focusTarget}
+        hoveredWaypointIndex={hoveredWaypointIndex}
+        selectedWaypointIndex={selectedWaypointIndex}
         waypoints={routeWaypoints}
+        onChange={setDraftWaypoints}
+        onHoverWaypoint={setHoveredWaypointIndex}
         onReady={setViewportControls}
+        onSelectWaypoint={setSelectedWaypointIndex}
       />
     );
-  const libraryPath =
-    activeKind === 'places' ? '/dashboard/library/places' : '/dashboard/library/routes';
-  const selectedItemId = activeKind === 'places' ? selectedPlaceId : selectedRouteId;
   const title =
     activeKind === 'places'
       ? (selectedPlace?.name ?? 'Places map')
@@ -163,6 +248,7 @@ export default function DashboardMapPage() {
       isRightPanelCollapsed={isPreviewCollapsed}
       map={map}
       mode={activeKind}
+      onBeforeWorkspaceChange={confirmRouteDraftDiscard}
       onToggleLeftPanel={() => setIsLibraryCollapsed((current) => !current)}
       onToggleMapFocus={() => {
         const shouldRestorePanels = isLibraryCollapsed && isPreviewCollapsed;
@@ -176,7 +262,7 @@ export default function DashboardMapPage() {
         error={error}
         isRefreshing={isLoading}
         lastUpdatedLabel={lastUpdatedLabel}
-        onRefresh={() => void refresh()}
+        onRefresh={refreshMapData}
       />
       <UserMark
         username={auth.session.user.username}
@@ -193,56 +279,72 @@ export default function DashboardMapPage() {
         selectedPlaceId={selectedPlaceId}
         selectedRouteId={selectedRouteId}
         onQueryChange={setQuery}
-        onSelectKind={setActiveKind}
+        onSelectKind={selectMapKind}
         onSelectPlace={(placeId) => {
           setActiveKind('places');
           setSelectedPlaceId(placeId);
         }}
         onSelectRoute={(routeId) => {
           setActiveKind('routes');
-          setSelectedRouteId(routeId);
+          selectRoute(routeId);
         }}
       />
-      <section className="index-card" aria-label="Map selection preview">
-        <span aria-hidden className="index-card-pin" />
-        <div className="index-card-breadcrumb breadcrumb">
-          Map / <span>{activeKind === 'places' ? 'Places' : 'Routes'}</span>
-        </div>
-        <header className="index-card-header">
-          <div>
-            <p className="index-card-stamp font-mono">Map view</p>
-            <h2 className="font-serif">{title}</h2>
-            <p>{subtitle}</p>
+      {activeKind === 'routes' ? (
+        <IndexCard
+          eyebrow={
+            <span>
+              Map / Routes / <span>{selectedRoute?.name ?? 'No route selected'}</span>
+            </span>
+          }
+          stamp={
+            selectedRoute?.currentRevision == null
+              ? 'Map editor'
+              : `Revision ${selectedRoute.currentRevision.revisionNumber}`
+          }
+          subtitle="Adjust the path and playback settings directly on the map."
+          title={title}
+          variant="route"
+        >
+          {selectedRoute == null ? (
+            <p className="muted no-margin">Select a route from the map notebook to edit it.</p>
+          ) : (
+            <RouteEditor
+              key={selectedRoute.id}
+              hoveredWaypointIndex={hoveredWaypointIndex}
+              mapMode="background"
+              places={places}
+              route={selectedRoute}
+              selectedWaypointIndex={selectedWaypointIndex}
+              waypoints={draftWaypoints}
+              onDirtyChange={setIsRouteDirty}
+              onFocusTargetChange={setFocusTarget}
+              onHoverWaypointIndexChange={setHoveredWaypointIndex}
+              onSave={saveRoute}
+              onSelectedWaypointIndexChange={setSelectedWaypointIndex}
+              onWaypointsChange={setDraftWaypoints}
+            />
+          )}
+        </IndexCard>
+      ) : (
+        <section className="index-card" aria-label="Map selection preview">
+          <span aria-hidden className="index-card-pin" />
+          <div className="index-card-breadcrumb breadcrumb">
+            Map / <span>Places</span>
           </div>
-          <div className="index-card-actions">
-            <button
-              className="secondary"
-              type="button"
-              onClick={() =>
-                router.push(
-                  selectedItemId == null
-                    ? libraryPath
-                    : `${libraryPath}?selected=${encodeURIComponent(selectedItemId)}`,
-                )
-              }
-            >
-              {activeKind === 'places'
-                ? selectedPlace == null
-                  ? 'Browse places'
-                  : 'Edit place'
-                : selectedRoute == null
-                  ? 'Browse routes'
-                  : 'Edit route'}
-            </button>
+          <header className="index-card-header">
+            <div>
+              <p className="index-card-stamp font-mono">Map view</p>
+              <h2 className="font-serif">{title}</h2>
+              <p>{subtitle}</p>
+            </div>
+          </header>
+          <div className="index-card-body stack">
+            <p className="muted no-margin">
+              Review saved coordinates here. Use Library to create, edit, share, or remove places.
+            </p>
           </div>
-        </header>
-        <div className="index-card-body stack">
-          <p className="muted no-margin">
-            Use Map for spatial review and quick device-ready context. Use Library for editing,
-            sharing, and cleanup.
-          </p>
-        </div>
-      </section>
+        </section>
+      )}
       <ZoomStack
         onFit={() => viewportControls?.fit()}
         onZoomIn={() => viewportControls?.zoomIn()}
@@ -348,6 +450,15 @@ function MapLibraryPanel({
         ) : null}
       </div>
     </aside>
+  );
+}
+
+function getRouteWaypoints(route: Route | null): RouteWaypoint[] {
+  return (
+    route?.currentRevision?.waypoints.map((waypoint) => ({
+      latitude: waypoint.latitude,
+      longitude: waypoint.longitude,
+    })) ?? []
   );
 }
 
