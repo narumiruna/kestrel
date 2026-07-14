@@ -1,7 +1,8 @@
 import 'maplibre-gl/dist/maplibre-gl.css';
 import './globals.css';
+import './redesign.css';
 import type { Metadata } from 'next';
-import { Cormorant_Garamond, Inter, JetBrains_Mono } from 'next/font/google';
+import { Inter, JetBrains_Mono } from 'next/font/google';
 import Script from 'next/script';
 import { AuthProvider } from '@/components/AuthProvider';
 import { ThemeProvider } from '@/components/ThemeProvider';
@@ -10,12 +11,6 @@ const fontSans = Inter({
   display: 'swap',
   subsets: ['latin'],
   variable: '--font-sans',
-});
-const fontSerif = Cormorant_Garamond({
-  display: 'swap',
-  subsets: ['latin'],
-  variable: '--font-serif',
-  weight: ['500', '600', '700'],
 });
 const fontMono = JetBrains_Mono({
   display: 'swap',
@@ -31,7 +26,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html
-      className={`${fontSans.variable} ${fontSerif.variable} ${fontMono.variable}`}
+      className={`${fontSans.variable} ${fontMono.variable}`}
       lang="en"
       suppressHydrationWarning
       style={{ colorScheme: 'light dark' }}

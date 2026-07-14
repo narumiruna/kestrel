@@ -1,5 +1,6 @@
 ## GOTCHA
 
+- Browser login smoke scripts must confirm `location.pathname === '/login'` before filling/submitting. An already-authenticated profile redirects to Map; blindly editing the first inputs can rename/save the selected Place or Route.
 - Symptom: Cartographer `Map` / `Library` workspace tabs exist in the DOM but disappear from the header. Cause: the full-width `.status-strip` at `z-index: 30` covers the older absolutely positioned `.workspace-tabs`. Fix: keep workspace tabs fixed above the strip (`z-index: 35`) and verify both desktop and mobile header layouts.
 - Symptom: Concurrent or response-lost refreshes can strand Web/Android sessions or let replay races revoke the winner. Cause: one-time token rotation was not idempotent across tabs, process death, and transport ambiguity. Fix: bind retries to a durable per-session `refreshRequestId`, retain the encrypted immediate successor plus consumed-token history, and CAS recovery against the observed rotation.
 - Web route markers are `<button>` MapLibre markers. Symptom: route point labels/dots look vertically stretched or offset, especially compact markers. Cause: global `button { min-height: 36px; }` leaks into `.route-marker`. Fix: keep `button.route-marker { min-height: 0; }`; visual dot is a 14px `::before`, label is `::after`, and the button hit target stays larger.
@@ -35,6 +36,7 @@
 
 ## TASTE
 
+- Prefer a consistent sans-serif UI typeface for Kestrel Web; avoid decorative serif display fonts that make English/CJK hierarchy feel mismatched.
 - Prefer progressive disclosure in UI/UX: keep each screen focused on its primary task, preserve secondary/advanced functionality in clear contextual locations, and avoid redundant CTAs or extra mode-switch clicks.
 - When reviewing or closing plan docs, do not move unfinished items into backlog/other plans just to make the current plan archivable unless the user explicitly asks for that re-scoping.
 - Keep local Docker Compose optimized for live reload, but keep deploy Compose production-only: no source bind mounts, built images, `next start`, and Nest `start:prod` after Prisma migrations.
