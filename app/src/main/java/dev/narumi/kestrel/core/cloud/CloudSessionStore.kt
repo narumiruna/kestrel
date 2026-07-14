@@ -33,11 +33,16 @@ class CloudSessionStore(
 
     fun save(session: CloudSession) {
         val encodedValue = encrypt(json.encodeToString(CloudSession.serializer(), session))
-        prefs.edit().putString(KEY_SESSION, encodedValue).apply()
+        if (!prefs.edit().putString(KEY_SESSION, encodedValue).commit()) {
+            prefs.edit().remove(KEY_SESSION).commit()
+            error("Failed to persist cloud session")
+        }
     }
 
     fun clear() {
-        prefs.edit().remove(KEY_SESSION).apply()
+        check(prefs.edit().remove(KEY_SESSION).commit()) {
+            "Failed to clear cloud session"
+        }
     }
 
     private fun encrypt(plainText: String): String {
