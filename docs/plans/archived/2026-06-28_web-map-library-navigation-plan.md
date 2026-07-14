@@ -61,3 +61,13 @@ The current dashboard has top tabs for Places and Routes, and each page combines
 - Chrome DevTools keyboard smoke verified `g l` navigates Map → Library and `g m` navigates Library → Map.
 - Chrome DevTools Map smoke verified selected route and selected place previews render with map markers.
 - Chrome DevTools Library CRUD smoke created and deleted one Place and one Route through the UI against the dev seed account.
+
+## 2026-07-14 Implementation Audit
+
+- Restored the top-level `Map` / `Library` tabs above the full-width status strip after a later CSS pass had covered them; browser measurements show both tabs visible with the correct `aria-current` state at `1200×792` and `390×844`.
+- Removed the redundant Map notebook `Open Library` card. The selection preview now exposes `Edit route` / `Edit place` and carries the selected item ID into Library so the matching editor opens.
+- Reverified `/dashboard` → `/dashboard/map`, `/dashboard/library` → `/dashboard/library/routes`, and the compatibility `/dashboard/places` and `/dashboard/routes` experiences in Chrome.
+- Reverified Place and Route create, update, and delete flows against the seeded Web test stack; temporary smoke records were deleted afterward.
+- Reverified `g m`, `g l`, `g p`, and `g r`, including that shortcuts do not navigate while a search input is focused.
+- Reverified responsive UI in Chrome at `1200×792` and headless Chrome at `390×844`; mobile `Map` / `Library` navigation does not overlap the account control. Screenshots: `/tmp/kestrel-map-library-map-desktop.png`, `/tmp/kestrel-map-library-library-desktop.png`, `/tmp/kestrel-map-library-map-mobile.png`, and `/tmp/kestrel-map-library-library-mobile.png`.
+- Current quality gates pass: `just web-check`, `just web-lint`, `cd web && npm run typecheck`, `cd web && npm run build`, and `git diff --check`.

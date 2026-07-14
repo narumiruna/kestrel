@@ -35,6 +35,7 @@ export default function RoutesDashboardPage() {
   const auth = useDashboardAuth();
   const router = useRouter();
   const searchRef = useRef<HTMLInputElement | null>(null);
+  const hasAppliedRequestedSelectionRef = useRef(false);
   const [places, setPlaces] = useState<Place[]>([]);
   const [routes, setRoutes] = useState<Route[]>([]);
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
@@ -84,9 +85,19 @@ export default function RoutesDashboardPage() {
         auth.apiRequest<Route[]>('/routes'),
         auth.apiRequest<Place[]>('/places'),
       ]);
+      const requestedRouteId = hasAppliedRequestedSelectionRef.current
+        ? null
+        : readRequestedSelectionId();
+      hasAppliedRequestedSelectionRef.current = true;
       setRoutes(nextRoutes);
       setPlaces(nextPlaces);
-      setSelectedRouteId((current) => current ?? nextRoutes[0]?.id ?? null);
+      setSelectedRouteId((current) =>
+        nextRoutes.some((route) => route.id === requestedRouteId)
+          ? requestedRouteId
+          : nextRoutes.some((route) => route.id === current)
+            ? current
+            : (nextRoutes[0]?.id ?? null),
+      );
       setLastLoadedAt(new Date());
     } catch (nextError) {
       setError(formatError(nextError));
@@ -345,6 +356,10 @@ export default function RoutesDashboardPage() {
 
 function confirmDiscardUnsavedChanges(isDirty: boolean): boolean {
   return !isDirty || window.confirm('Discard unsaved changes? Save first to keep them.');
+}
+
+function readRequestedSelectionId(): string | null {
+  return new URLSearchParams(window.location.search).get('selected');
 }
 
 function NotebookSkeleton() {
