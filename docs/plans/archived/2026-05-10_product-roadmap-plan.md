@@ -22,8 +22,8 @@ Completed foundations:
 
 ## Plan
 
-- [ ] Harden production operations and Android releases through the concrete health, logging, operations, and signing tasks in `2026-05-10_engineering-backlog-plan.md`; verify with that plan's completion evidence.
-- [ ] Complete the production URL and copied-shared-route Android cloud smokes in `2026-05-10_engineering-backlog-plan.md`; verify with recorded real-device evidence.
+- [x] Harden production operations and Android releases through the concrete health, logging, operations, and signing tasks in `2026-05-10_engineering-backlog-plan.md`; verified by its isolated deploy/restore evidence, successful production deploy run `29342918346`, production `/health`, and signed `v0.6.1` release run `29342929175`.
+- [x] Complete the production URL and copied-shared-route Android cloud smokes in `2026-05-10_engineering-backlog-plan.md`; verified 2026-07-15 on a moto g34 5G by recorded real-device login/sync and shared-route sync/playback evidence.
 
 ## Risks
 
@@ -34,5 +34,5 @@ Completed foundations:
 ## Completion Checklist
 
 - [x] The implemented Android, backend, Web, sync, sharing, remote-control, and device/session security baseline is recorded in this plan's Context and linked archived plans.
-- [ ] Production operations and Android release hardening are verified in `2026-05-10_engineering-backlog-plan.md`.
-- [ ] Both remaining Android cloud smokes pass or have concrete external-blocker evidence in `2026-05-10_engineering-backlog-plan.md`.
+- [x] Production operations and Android release hardening are verified in `2026-05-10_engineering-backlog-plan.md` by local quality gates, isolated deploy/restore checks, production deploy health, and the signed GitHub release.
+- [x] Both remaining Android cloud smokes passed and are recorded with device/build evidence in `2026-05-10_engineering-backlog-plan.md`.

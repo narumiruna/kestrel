@@ -4,10 +4,7 @@ Top-level `*-plan.md` files are active. Closed or superseded plans live in `arch
 
 ## Active files
 
-| Plan | Status |
-|---|---|
-| `2026-05-10_product-roadmap-plan.md` | Current product baseline and priorities |
-| `2026-05-10_engineering-backlog-plan.md` | Curated ops/release/manual-validation backlog |
+No active plans. Create a focused plan when the next concrete product or engineering goal is accepted.
 
 ## Security references
 
