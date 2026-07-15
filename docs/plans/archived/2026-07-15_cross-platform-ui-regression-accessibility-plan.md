@@ -40,13 +40,13 @@ Web 目前沒有 Playwright/visual-test dependency；Android 已有 Compose UI t
 - [x] Android screenshot方案有相容性 decision record與可重現 golden task；以 clean checkout/CI evidence驗證。
 - [x] Android Map、Favorites、Options 的核心狀態具 light/dark、窄寬與大字體 baselines，semantics tests 同時通過。
 - [x] Web Playwright matrix覆蓋 auth、Map、Library、Share 的窄/寬與 light/dark，且 interaction/a11y assertions通過。
-- [x] MapLibre、font、locale、fixture與時間來源已穩定化或採用明確 fallback，沒有已知 flaky baseline。
+- [x] MapLibre、font、locale、fixture與時間來源已穩定化或採用明確 fallback，沒有已知 flaky baseline；public Share 改以 unauthenticated context 的 header/copy-card snapshots 排除 hostname auth 與 WebGL tile 變異。
 - [x] CI 能在每步180秒內驗證並上傳失敗 diff artifacts；以成功 run與一次 red/green proof驗證。
 - [x] README/just recipes清楚區分 verify/update與任何 destructive instrumentation，並由 clean checkout smoke驗證。
 
 ## Evidence
 
-- Decision record：`docs/design/ui-regression-testing.md`；Android committed references：7；Web committed references：13。
+- Decision record：`docs/design/ui-regression-testing.md`；Android committed references：7；Web committed references：14。
 - Local green：Android screenshot validate、focused semantics presentation tests，以及 Web mobile-light/desktop-light/desktop-dark Playwright projects 全數通過。
 - Red/green proof：暫時破壞 Options reference 時 `validateDebugScreenshotTest` 失敗，還原後同 task 通過。
 - CI workflow 已加入 Android/Web screenshot validation、170 秒 command timeout 與 failure artifacts；clean run [29435714884](https://github.com/narumiruna/kestrel/actions/runs/29435714884) 的 Android、Web、Backend jobs 全數通過。
