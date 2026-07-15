@@ -2,6 +2,7 @@ package dev.narumi.kestrel.feature.options
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -18,13 +19,16 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.autofill.ContentDataType
 import androidx.compose.ui.autofill.ContentType
@@ -32,6 +36,7 @@ import androidx.compose.ui.autofill.contentType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDataType
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
@@ -97,6 +102,50 @@ private fun OptionsCard(
 }
 
 @Composable
+internal fun OptionsDisclosureCard(
+    title: String,
+    subtitle: String,
+    summary: String,
+    expanded: Boolean,
+    onExpandedChange: (Boolean) -> Unit,
+    content: @Composable () -> Unit,
+) {
+    KestrelCard(
+        modifier =
+            Modifier.semantics {
+                stateDescription = optionsDisclosureStateDescription(expanded)
+            },
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            KestrelSectionHeader(
+                title = title,
+                subtitle = subtitle,
+                modifier = Modifier.weight(1f),
+            )
+            TextButton(
+                onClick = { onExpandedChange(!expanded) },
+                modifier =
+                    Modifier.semantics {
+                        stateDescription = optionsDisclosureStateDescription(expanded)
+                    },
+            ) {
+                Text(if (expanded) "Done" else "Change", maxLines = 1)
+            }
+        }
+        Text(
+            text = summary,
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        if (expanded) content()
+    }
+}
+
+@Composable
 fun OptionsScreen(modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val prefs = remember { KestrelPrefs(context) }
@@ -110,6 +159,9 @@ fun OptionsScreen(modifier: Modifier = Modifier) {
 
     var defaultPointCount by remember { mutableStateOf("") }
     var defaultSpacingMeters by remember { mutableStateOf("") }
+    var mapLinksExpanded by rememberSaveable { mutableStateOf(OptionsSection.MapLinks.defaultExpanded) }
+    var playbackExpanded by rememberSaveable { mutableStateOf(OptionsSection.Playback.defaultExpanded) }
+    var randomRouteExpanded by rememberSaveable { mutableStateOf(OptionsSection.RandomRoute.defaultExpanded) }
 
     LaunchedEffect(randomRoute.defaultPointCount, randomRoute.defaultSpacingMeters) {
         defaultPointCount = randomRoute.defaultPointCount.toString()
@@ -139,10 +191,15 @@ fun OptionsScreen(modifier: Modifier = Modifier) {
             onUpdate = ::update,
         )
 
-        MapLinksOptionsCard()
+        MapLinksOptionsCard(
+            expanded = mapLinksExpanded,
+            onExpandedChange = { mapLinksExpanded = it },
+        )
 
         MockPlaybackSettingsCard(
             settings = mockPlayback,
+            expanded = playbackExpanded,
+            onExpandedChange = { playbackExpanded = it },
             onProgressWriteIntervalChange = { seconds ->
                 scope.launch { prefs.setProgressWriteIntervalSeconds(seconds) }
             },
@@ -151,7 +208,9 @@ fun OptionsScreen(modifier: Modifier = Modifier) {
         RandomRouteDefaultsCard(
             pointCount = defaultPointCount,
             spacingMeters = defaultSpacingMeters,
-            hasLastUsed = randomRoute.usesLastSettings,
+            preference = randomRoute,
+            expanded = randomRouteExpanded,
+            onExpandedChange = { randomRouteExpanded = it },
             onPointCountChange = { defaultPointCount = it.filter(Char::isDigit).take(4) },
             onSpacingMetersChange = {
                 defaultSpacingMeters = it.filter { ch -> ch.isDigit() || ch == '.' }.take(7)
@@ -189,6 +248,9 @@ private fun CloudSettingsSection() {
 
     var loginForm by remember { mutableStateOf(CloudLoginForm()) }
     var cloudSession by remember { mutableStateOf<CloudSession?>(null) }
+    var cloudSessionLoaded by remember { mutableStateOf(false) }
+    var cloudExpanded by rememberSaveable { mutableStateOf(OptionsSection.Cloud.defaultExpanded) }
+    var remoteExpanded by rememberSaveable { mutableStateOf(OptionsSection.RemoteControl.defaultExpanded) }
     var cloudMessage by remember { mutableStateOf<String?>(null) }
     var cloudError by remember { mutableStateOf<String?>(null) }
     var cloudLoading by remember { mutableStateOf(false) }
@@ -196,6 +258,7 @@ private fun CloudSettingsSection() {
 
     LaunchedEffect(Unit) {
         cloudSession = authRepository.currentSession()
+        cloudSessionLoaded = true
     }
 
     LaunchedEffect(cloudSettings.apiBaseUrl) {
@@ -213,6 +276,9 @@ private fun CloudSettingsSection() {
                 syncState = cloudSyncState,
             ),
         loginForm = loginForm,
+        sessionLoaded = cloudSessionLoaded,
+        expanded = cloudExpanded,
+        onExpandedChange = { cloudExpanded = it },
         onApiBaseUrlChange = { apiBaseUrl = it },
         onLoginFormChange = { loginForm = it },
         onSaveApiBaseUrl = {
@@ -303,6 +369,8 @@ private fun CloudSettingsSection() {
         status = remoteControlStatus,
         signedIn = cloudSession != null,
         loading = cloudLoading,
+        expanded = remoteExpanded,
+        onExpandedChange = { remoteExpanded = it },
         onEnabledChange = { enabled ->
             launchCloudUiAction(
                 scope = scope,
@@ -358,6 +426,9 @@ private fun CloudSettingsSection() {
 private fun CloudSettingsCard(
     uiState: CloudSettingsUiState,
     loginForm: CloudLoginForm,
+    sessionLoaded: Boolean,
+    expanded: Boolean,
+    onExpandedChange: (Boolean) -> Unit,
     onApiBaseUrlChange: (String) -> Unit,
     onLoginFormChange: (CloudLoginForm) -> Unit,
     onSaveApiBaseUrl: () -> Unit,
@@ -366,9 +437,21 @@ private fun CloudSettingsCard(
     onLogout: () -> Unit,
     onSyncNow: () -> Unit,
 ) {
-    OptionsCard(
-        title = "Cloud sync",
+    OptionsDisclosureCard(
+        title = OptionsSection.Cloud.title,
         subtitle = "Connect to Kestrel cloud and keep favorites synced.",
+        summary =
+            if (uiState.loading) {
+                "Working…"
+            } else {
+                cloudSummary(
+                    sessionLoaded = sessionLoaded,
+                    username = uiState.session?.username,
+                    error = uiState.error ?: uiState.syncState.lastError,
+                )
+            },
+        expanded = expanded,
+        onExpandedChange = onExpandedChange,
     ) {
         OutlinedTextField(
             value = uiState.apiBaseUrl,
@@ -417,11 +500,26 @@ private fun RemoteControlSettingsCard(
     status: RemoteControlRuntimeStatus,
     signedIn: Boolean,
     loading: Boolean,
+    expanded: Boolean,
+    onExpandedChange: (Boolean) -> Unit,
     onEnabledChange: (Boolean) -> Unit,
 ) {
-    OptionsCard(
-        title = "Web remote control",
+    OptionsDisclosureCard(
+        title = OptionsSection.RemoteControl.title,
         subtitle = "Let the web dashboard send mock commands to this Android device.",
+        summary =
+            if (loading) {
+                "Working…"
+            } else {
+                remoteControlSummary(
+                    enabled = settings.enabled,
+                    signedIn = signedIn,
+                    deviceName = settings.deviceName,
+                    error = status.error,
+                )
+            },
+        expanded = expanded,
+        onExpandedChange = onExpandedChange,
     ) {
         ListItem(
             headlineContent = { Text("Allow web remote control") },
@@ -665,8 +763,8 @@ private fun StartupPreferenceCard(
     }
 
     OptionsCard(
-        title = "When opening the app",
-        subtitle = "Choose where the map starts after launch.",
+        title = OptionsSection.Startup.title,
+        subtitle = startupSummary(startup.mode, selectedItem?.name),
     ) {
         StartupRadioRow(
             label = "Last position",
@@ -741,12 +839,17 @@ private fun LibraryItemKind?.toggle(kind: LibraryItemKind): LibraryItemKind? = i
 @Composable
 private fun MockPlaybackSettingsCard(
     settings: MockPlaybackSettings,
+    expanded: Boolean,
+    onExpandedChange: (Boolean) -> Unit,
     onProgressWriteIntervalChange: (Int) -> Unit,
 ) {
     val seconds = settings.progressWriteIntervalSeconds
-    OptionsCard(
-        title = "Mock playback",
-        subtitle = "Balance route restore accuracy with DataStore write frequency.",
+    OptionsDisclosureCard(
+        title = OptionsSection.Playback.title,
+        subtitle = "Balance restore accuracy with write frequency.",
+        summary = playbackSummary(seconds),
+        expanded = expanded,
+        onExpandedChange = onExpandedChange,
     ) {
         Text(
             text = "Route progress write interval: $seconds s",
@@ -784,7 +887,9 @@ private fun MockPlaybackSettingsCard(
 private fun RandomRouteDefaultsCard(
     pointCount: String,
     spacingMeters: String,
-    hasLastUsed: Boolean,
+    preference: RandomRoutePreference,
+    expanded: Boolean,
+    onExpandedChange: (Boolean) -> Unit,
     onPointCountChange: (String) -> Unit,
     onSpacingMetersChange: (String) -> Unit,
     onSave: () -> Unit,
@@ -793,16 +898,24 @@ private fun RandomRouteDefaultsCard(
     val parsedPointCount = pointCount.toIntOrNull()
     val parsedSpacing = spacingMeters.toDoubleOrNull()
     val valid = isValidRandomRoute(parsedPointCount, parsedSpacing)
-    OptionsCard(
-        title = "Random route defaults",
+    OptionsDisclosureCard(
+        title = OptionsSection.RandomRoute.title,
         subtitle = "Set the fallback shape for generated routes.",
+        summary =
+            randomRouteSummary(
+                pointCount = preference.effectivePointCount,
+                spacingMeters = preference.effectiveSpacingMeters,
+                usesLastSettings = preference.usesLastSettings,
+            ),
+        expanded = expanded,
+        onExpandedChange = onExpandedChange,
     ) {
         Text(
             text = "Used when no previous random route settings exist.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        if (hasLastUsed) {
+        if (preference.usesLastSettings) {
             Text(
                 text = "Generate random route is currently using last used settings.",
                 style = MaterialTheme.typography.bodySmall,
@@ -936,6 +1049,8 @@ private fun MockPlaybackSettingsCardPreview() {
     MaterialTheme {
         MockPlaybackSettingsCard(
             settings = MockPlaybackSettings(progressWriteIntervalSeconds = 10),
+            expanded = true,
+            onExpandedChange = {},
             onProgressWriteIntervalChange = {},
         )
     }

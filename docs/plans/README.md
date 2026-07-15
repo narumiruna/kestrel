@@ -4,7 +4,12 @@ Top-level `*-plan.md` files are active. Closed or superseded plans live in `arch
 
 ## Active files
 
-No active plans. Create a focused plan when the next concrete product or engineering goal is accepted.
+Recommended execution order:
+
+1. `2026-07-15_android-options-progressive-disclosure-plan.md` — reduce Options density while preserving safety/status state.
+2. `2026-07-15_android-favorites-action-hierarchy-plan.md` — remove duplicate row actions without losing management capability.
+3. `2026-07-15_web-mobile-library-density-plan.md` — compact mobile Library actions and unify route-mode labels.
+4. `2026-07-15_cross-platform-ui-regression-accessibility-plan.md` — add stable visual/a11y regression coverage after the UI changes settle.
 
 ## Security references
 

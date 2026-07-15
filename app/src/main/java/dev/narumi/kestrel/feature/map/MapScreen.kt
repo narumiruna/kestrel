@@ -810,7 +810,7 @@ private fun handlePrimary(
 @OptIn(ExperimentalLayoutApi::class)
 @Suppress("LongParameterList")
 @Composable
-private fun MapSheet(
+internal fun MapSheet(
     runState: RunState,
     waypointCount: Int,
     mockNow: LatLng?,
@@ -1045,6 +1045,27 @@ private fun StatusBanner(
             MapSetupStep.MockLocationApp -> "Open developer options and choose Kestrel as the mock location app."
             MapSetupStep.Ready -> return
         }
+    SetupPromptCard(
+        setupStep = setupStep,
+        title = title,
+        message = message,
+        modifier = modifier,
+        onAllowPermissions = { permissionState.launchMultiplePermissionRequest() },
+        onOpenDeveloperOptions = onOpenDeveloperOptions,
+        onRefreshMockCheck = onRefreshMockCheck,
+    )
+}
+
+@Composable
+internal fun SetupPromptCard(
+    setupStep: MapSetupStep,
+    title: String,
+    message: String,
+    modifier: Modifier = Modifier,
+    onAllowPermissions: () -> Unit = {},
+    onOpenDeveloperOptions: () -> Unit = {},
+    onRefreshMockCheck: () -> Unit = {},
+) {
     Card(
         modifier = modifier,
         colors =
@@ -1062,7 +1083,7 @@ private fun StatusBanner(
             KestrelActionRow {
                 when (setupStep) {
                     MapSetupStep.Permissions -> {
-                        Button(onClick = { permissionState.launchMultiplePermissionRequest() }) {
+                        Button(onClick = onAllowPermissions) {
                             Text("Allow permissions", maxLines = 1)
                         }
                     }

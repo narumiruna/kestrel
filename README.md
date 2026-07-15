@@ -74,6 +74,10 @@ web/                 # Next.js cloud console
 | Build release APK | `just release` |
 | Build → install → launch | `just` (or `just br`) |
 | Run unit tests | `just test` |
+| Validate Android UI screenshots | `just android-ui` |
+| Update Android UI screenshots | `just android-ui-update` |
+| Run Web UI regression tests | `just webtest-up`, then `just web-ui` |
+| Update Web UI screenshots | `just webtest-up`, then `just web-ui-update` |
 | Auto-format (Spotless + ktlint + Biome) | `just format` |
 | Verify formatting (no writes) | `just check` |
 | Detekt static analysis | `just lint` |

@@ -68,6 +68,22 @@ test:
 android-test:
     JAVA_HOME="{{java_home}}" PATH="{{java_home}}/bin:$PATH" ./gradlew :app:testDebugUnitTest
 
+# validate Android Compose screenshot references (host-side; does not install or clear app data)
+android-ui:
+    JAVA_HOME="{{java_home}}" PATH="{{java_home}}/bin:$PATH" ./gradlew :app:validateDebugScreenshotTest
+
+# update Android Compose screenshot references (review image diffs before committing)
+android-ui-update:
+    JAVA_HOME="{{java_home}}" PATH="{{java_home}}/bin:$PATH" ./gradlew :app:updateDebugScreenshotTest
+
+# run Web UI regression tests (requires `just webtest-up` in another terminal)
+web-ui:
+    cd web && npm run test:ui
+
+# update Web UI screenshots (requires `just webtest-up`; review image diffs)
+web-ui-update:
+    cd web && npm run test:ui:update
+
 # start the web/backend/Postgres dev stack with hot reload
 cloud-up:
     docker compose -f compose.dev.yaml --profile watch up --build
