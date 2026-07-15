@@ -82,7 +82,8 @@ test('map workspace keeps labeled regions and recovery controls', async ({ page 
 
 test('share remains directly discoverable and public view is usable', async ({
   page,
-  context,
+  browser,
+  baseURL,
 }, testInfo) => {
   test.skip(
     testInfo.project.name !== 'desktop-light',
@@ -112,12 +113,24 @@ test('share remains directly discoverable and public view is usable', async ({
     mask: [...dynamicMasks(page), dialog.getByLabel('Public URL')],
   });
 
-  const publicPage = await context.newPage();
-  await publicPage.goto(publicUrl);
+  const publicContext = await browser.newContext({
+    baseURL,
+    colorScheme: 'light',
+    viewport: { width: 1200, height: 792 },
+  });
+  const publicPage = await publicContext.newPage();
+  await publicPage.goto(new URL(publicUrl).pathname);
   await expect(publicPage.getByRole('heading', { name: 'Taipei 101' })).toBeVisible();
+  await expect(publicPage.getByRole('link', { name: 'Sign in' })).toBeVisible();
+  await expect(publicPage.getByRole('button', { name: 'Sign in to copy' })).toBeVisible();
   await expectNoHorizontalOverflow(publicPage);
-  await expect(publicPage).toHaveScreenshot('public-share.png');
-  await publicPage.close();
+  await expect(publicPage.locator('.public-share-header')).toHaveScreenshot(
+    'public-share-header.png',
+  );
+  await expect(publicPage.locator('.public-share-card').last()).toHaveScreenshot(
+    'public-share-copy-card.png',
+  );
+  await publicContext.close();
 
   const disableLink = dialog.getByRole('button', { name: 'Disable link' });
   if (await disableLink.isVisible()) await disableLink.click();
