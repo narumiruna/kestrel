@@ -25,7 +25,7 @@ Web 目前沒有 Playwright/visual-test dependency；Android 已有 Compose UI t
 - [x] 導入固定版本的 Playwright 與 Web test scripts，建立 dev/test auth fixture與可清理資料；以 `/login`、Map、Library、public Share 在 CI 可重跑為驗證，且不得污染 production/deploy stack。
 - [x] 建立 Web screenshot matrix：390×844、1200×792、light/dark、Map/Choose/Edit、Library empty/dense、auth與share；MapLibre case依 spike決定 SwiftShader或非像素 DOM/geometry fallback。
 - [x] 加入 Web accessibility assertions：no horizontal overflow、visible focus、dialog label/focus return、44px targets、noncolor status、reduced motion、200% zoom equivalent、RTL與 keyboard shortcuts；以 Playwright assertions 與 bounded screenshots 驗證。
-- [ ] 將 Android/Web visual jobs接入 CI，分開 cache與 artifact，上限/timeout符合每個 command不超過180秒；以一次 clean CI run及故意改壞 baseline的 red/green proof 驗證。
+- [x] 將 Android/Web visual jobs接入 CI，分開 cache與 artifact，上限/timeout符合每個 command不超過180秒；以一次 clean CI run及故意改壞 baseline的 red/green proof 驗證。
 - [x] 更新 `justfile` 與 README，提供 baseline verify/update 指令，明確標示任何可能清資料的 instrumentation path；以 `just --list`、docs review與 clean checkout smoke驗證。
 
 ## Risks
@@ -41,7 +41,7 @@ Web 目前沒有 Playwright/visual-test dependency；Android 已有 Compose UI t
 - [x] Android Map、Favorites、Options 的核心狀態具 light/dark、窄寬與大字體 baselines，semantics tests 同時通過。
 - [x] Web Playwright matrix覆蓋 auth、Map、Library、Share 的窄/寬與 light/dark，且 interaction/a11y assertions通過。
 - [x] MapLibre、font、locale、fixture與時間來源已穩定化或採用明確 fallback，沒有已知 flaky baseline。
-- [ ] CI 能在每步180秒內驗證並上傳失敗 diff artifacts；以成功 run與一次 red/green proof驗證。
+- [x] CI 能在每步180秒內驗證並上傳失敗 diff artifacts；以成功 run與一次 red/green proof驗證。
 - [x] README/just recipes清楚區分 verify/update與任何 destructive instrumentation，並由 clean checkout smoke驗證。
 
 ## Evidence
@@ -49,4 +49,4 @@ Web 目前沒有 Playwright/visual-test dependency；Android 已有 Compose UI t
 - Decision record：`docs/design/ui-regression-testing.md`；Android committed references：7；Web committed references：13。
 - Local green：Android screenshot validate、focused semantics presentation tests，以及 Web mobile-light/desktop-light/desktop-dark Playwright projects 全數通過。
 - Red/green proof：暫時破壞 Options reference 時 `validateDebugScreenshotTest` 失敗，還原後同 task 通過。
-- CI workflow 已加入 Android/Web screenshot validation、170 秒 command timeout 與 failure artifacts；成功 clean run 尚待本分支 push 後確認。
+- CI workflow 已加入 Android/Web screenshot validation、170 秒 command timeout 與 failure artifacts；clean run [29435714884](https://github.com/narumiruna/kestrel/actions/runs/29435714884) 的 Android、Web、Backend jobs 全數通過。
