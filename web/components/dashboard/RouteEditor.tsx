@@ -340,7 +340,7 @@ export default function RouteEditor({
           <select value={mode} onChange={(event) => setMode(event.target.value as RouteMode)}>
             <option value="ONCE">Once</option>
             <option value="LOOP">Loop</option>
-            <option value="PING_PONG">PingPong</option>
+            <option value="PING_PONG">Ping-pong</option>
           </select>
         </label>
       </div>

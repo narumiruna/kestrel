@@ -26,7 +26,7 @@ export function formatCoord(value: number): string {
 }
 
 export function formatMode(mode: RouteMode): string {
-  return mode === 'PING_PONG' ? 'PingPong' : mode[0] + mode.slice(1).toLowerCase();
+  return mode === 'PING_PONG' ? 'Ping-pong' : mode[0] + mode.slice(1).toLowerCase();
 }
 
 export function formatRouteDistanceFromWaypoints(waypoints: Coordinate[]): string {

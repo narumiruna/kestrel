@@ -12,17 +12,20 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
 import dev.narumi.kestrel.ui.components.KestrelActionRow
-import dev.narumi.kestrel.ui.components.KestrelCard
-import dev.narumi.kestrel.ui.components.KestrelSectionHeader
 
 @Composable
-internal fun MapLinksOptionsCard() {
+internal fun MapLinksOptionsCard(
+    expanded: Boolean,
+    onExpandedChange: (Boolean) -> Unit,
+) {
     val context = LocalContext.current
-    KestrelCard {
-        KestrelSectionHeader(
-            title = "Map links",
-            subtitle = "Let Android open map coordinates with Kestrel.",
-        )
+    OptionsDisclosureCard(
+        title = OptionsSection.MapLinks.title,
+        subtitle = "Let Android open map coordinates with Kestrel.",
+        summary = "geo: and coordinate Google Maps links",
+        expanded = expanded,
+        onExpandedChange = onExpandedChange,
+    ) {
         Text(
             text = "Kestrel supports geo: coordinate links and Google Maps links that include coordinates.",
             style = MaterialTheme.typography.bodySmall,

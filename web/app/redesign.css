@@ -7,6 +7,12 @@
 }
 
 /* Shared typography, focus, targets, and reduced motion. */
+.kc-topbar .kc-signed-in,
+.kc-topbar .dashboard-last-updated {
+  color: var(--text-secondary);
+  opacity: 1;
+}
+
 .font-serif,
 .library-catalog-header h1,
 .auth-brand h1 {
@@ -329,14 +335,14 @@
 .library-open-map {
   background: var(--accent);
   border-radius: 9px;
-  color: #fff;
+  color: var(--color-primary-text);
   font-weight: 700;
   padding: 0 14px;
 }
 
 .library-open-map:hover {
   background: var(--accent-hover);
-  color: #fff;
+  color: var(--color-primary-text);
 }
 
 .library-item-error {
@@ -610,10 +616,14 @@
   .library-item-actions > a,
   .library-item-actions > button,
   .library-item-actions > details {
-    flex: 1 1 auto;
+    flex: 1 1 calc(50% - 4px);
   }
 
-  .library-item-actions > a,
+  .library-item-actions > .library-open-map {
+    flex-basis: 100%;
+    width: 100%;
+  }
+
   .library-item-actions > button,
   .library-more-menu summary {
     width: 100%;

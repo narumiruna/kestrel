@@ -100,7 +100,7 @@
 
     --text-primary: #f2ede5;
     --text-secondary: #a8998a;
-    --text-muted: #6b6157;
+    --text-muted: #aa9578;
 
     --accent: #e88a5c;
     --accent-hover: #f0a07a;
@@ -161,7 +161,7 @@
 
   --text-primary: #f2ede5;
   --text-secondary: #a8998a;
-  --text-muted: #6b6157;
+  --text-muted: #aa9578;
 
   --accent: #e88a5c;
   --accent-hover: #f0a07a;
@@ -255,6 +255,7 @@
     --kestrel-rust: #df8a58;
     --kestrel-rust-dark: #f0a06f;
     --kestrel-rust-soft: #432b1e;
+    --color-primary-text: #22180f;
   }
 }
 
@@ -269,6 +270,7 @@
   --kestrel-rust: #df8a58;
   --kestrel-rust-dark: #f0a06f;
   --kestrel-rust-soft: #432b1e;
+  --color-primary-text: #22180f;
 }
 
 .font-serif {

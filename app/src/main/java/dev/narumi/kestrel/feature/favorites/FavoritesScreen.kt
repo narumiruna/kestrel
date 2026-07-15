@@ -378,7 +378,7 @@ private fun SortModeMenu(
 }
 
 @Composable
-private fun FavoriteRow(
+internal fun FavoriteRow(
     item: LibraryItemWithContent,
     canReorder: Boolean,
     canMoveUp: Boolean,
@@ -418,17 +418,15 @@ private fun FavoriteRow(
             }
             Box {
                 IconButton(onClick = { menuExpanded = true }) {
-                    Icon(Icons.Filled.MoreVert, contentDescription = "More actions for ${item.name}")
+                    Icon(Icons.Filled.MoreVert, contentDescription = favoriteMoreActionsLabel(item.name))
                 }
                 FavoriteRowMenu(
                     expanded = menuExpanded,
-                    item = item,
                     canReorder = canReorder,
                     canMoveUp = canMoveUp,
                     canMoveDown = canMoveDown,
                     onDismiss = { menuExpanded = false },
                     onRename = onRename,
-                    onEdit = onEdit,
                     onMoveUp = onMoveUp,
                     onMoveDown = onMoveDown,
                     onDelete = onDelete,
@@ -438,7 +436,7 @@ private fun FavoriteRow(
         KestrelActionRow {
             Button(onClick = onApply) { Text("Apply to map", maxLines = 1) }
             TextButton(onClick = onEdit) {
-                Text(if (item.kind == LibraryItemKind.Place) "Edit coordinates" else "Edit route", maxLines = 1)
+                Text(favoriteEditLabel(item.kind), maxLines = 1)
             }
         }
     }
@@ -447,13 +445,11 @@ private fun FavoriteRow(
 @Composable
 private fun FavoriteRowMenu(
     expanded: Boolean,
-    item: LibraryItemWithContent,
     canReorder: Boolean,
     canMoveUp: Boolean,
     canMoveDown: Boolean,
     onDismiss: () -> Unit,
     onRename: () -> Unit,
-    onEdit: () -> Unit,
     onMoveUp: () -> Unit,
     onMoveDown: () -> Unit,
     onDelete: () -> Unit,
@@ -467,13 +463,6 @@ private fun FavoriteRowMenu(
             onClick = {
                 onDismiss()
                 onRename()
-            },
-        )
-        DropdownMenuItem(
-            text = { Text(if (item.kind == LibraryItemKind.Place) "Edit coordinates" else "Edit route") },
-            onClick = {
-                onDismiss()
-                onEdit()
             },
         )
         if (canReorder) {
