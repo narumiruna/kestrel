@@ -33,6 +33,7 @@ const RouteMapEditor = dynamic(() => import('@/components/RouteMapEditor'), {
 export default function RouteEditor({
   compactSummary = false,
   mapMode = 'embedded',
+  onBeforeNavigateAway,
   onDelete,
   onDirtyChange,
   onFocusTargetChange,
@@ -48,6 +49,7 @@ export default function RouteEditor({
 }: {
   compactSummary?: boolean;
   mapMode?: 'background' | 'embedded';
+  onBeforeNavigateAway?: () => boolean;
   onDelete?: () => void;
   onDirtyChange?: (isDirty: boolean) => void;
   onFocusTargetChange?: (waypoint: RouteWaypoint | null) => void;
@@ -352,6 +354,7 @@ export default function RouteEditor({
             inputMode="decimal"
             value={defaultSpeedKmh}
             onChange={(event) => setDefaultSpeedKmh(event.target.value)}
+            onInvalid={() => setIsRouteSettingsOpen(true)}
           />
         </label>
         <label>
@@ -413,6 +416,7 @@ export default function RouteEditor({
           mode={favoritePickerMode}
           places={places}
           showHeading={false}
+          onBeforeNavigate={onBeforeNavigateAway}
           onSelect={addFavoriteWaypoint}
         />
       </div>
@@ -579,6 +583,7 @@ export default function RouteEditor({
               <FavoriteWaypointPicker
                 mode={favoritePickerMode}
                 places={places}
+                onBeforeNavigate={onBeforeNavigateAway}
                 onSelect={addFavoriteWaypoint}
               />
             </div>

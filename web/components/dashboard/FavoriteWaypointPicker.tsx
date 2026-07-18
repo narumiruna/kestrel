@@ -6,11 +6,13 @@ import type { Place } from '@/lib/api';
 
 export function FavoriteWaypointPicker({
   mode,
+  onBeforeNavigate,
   onSelect,
   places,
   showHeading = true,
 }: {
   mode: 'append' | 'start';
+  onBeforeNavigate?: () => boolean;
   onSelect: (place: Place) => void;
   places: Place[];
   showHeading?: boolean;
@@ -61,7 +63,16 @@ export function FavoriteWaypointPicker({
     return (
       <div className="favorite-picker empty-state">
         <p className="muted">No saved places yet.</p>
-        <Link href="/dashboard/library/places">Create a saved place first</Link>
+        <Link
+          href="/dashboard/library/places"
+          onClick={(event) => {
+            if (onBeforeNavigate?.() === false) {
+              event.preventDefault();
+            }
+          }}
+        >
+          Create a saved place first
+        </Link>
       </div>
     );
   }

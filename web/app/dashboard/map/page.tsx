@@ -468,6 +468,7 @@ export default function DashboardMapPage() {
               route={isNewRoute ? null : selectedRoute}
               selectedWaypointIndex={selectedWaypointIndex}
               waypoints={draftWaypoints}
+              onBeforeNavigateAway={confirmDraftDiscard}
               onDirtyChange={setIsRouteDirty}
               onFocusTargetChange={setFocusTarget}
               onHoverWaypointIndexChange={setHoveredWaypointIndex}
