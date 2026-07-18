@@ -1,0 +1,239 @@
+/* Map workspace polish — scoped hierarchy, controls, selection, and responsive disclosure. */
+
+.cartographer-stage-map {
+  --ink-muted: #72583f;
+  --text-muted: var(--ink-muted);
+}
+
+/* Separate viewport manipulation from the less-frequent appearance choice. */
+.cartographer-stage-map .map-control-stack {
+  border: 0;
+  gap: 8px;
+  margin-inline-start: 0;
+  min-inline-size: 0;
+  padding: 0;
+}
+
+.cartographer-stage-map .map-appearance-control {
+  border: 0;
+  margin: 0;
+  min-inline-size: 0;
+  padding: 0;
+}
+
+.cartographer-stage-map .map-viewport-controls,
+.cartographer-stage-map .map-appearance-control > .map-style-trigger {
+  background: rgb(252 247 237 / 96%);
+  border: 1px solid var(--cloud-border-soft, var(--border));
+  box-shadow: 0 8px 22px rgb(34 24 15 / 12%);
+}
+
+.cartographer-stage-map .map-appearance-control > .map-style-trigger {
+  border-radius: 8px;
+  height: 40px;
+}
+
+.cartographer-stage-map .map-style-menu {
+  border-color: var(--cloud-border-soft, var(--border));
+}
+
+/* Floating panels keep one workspace boundary; rows carry selection rather than card chrome. */
+.cartographer-stage-map .field-notebook,
+.cartographer-stage-map .index-card {
+  border-color: var(--cloud-border-soft, var(--border));
+  box-shadow: 0 12px 34px rgb(34 24 15 / 9%);
+}
+
+.cartographer-stage-map .map-library-panel .notebook-list {
+  gap: 4px;
+  padding: 2px;
+}
+
+.cartographer-stage-map .map-library-panel .notebook-entry {
+  background: transparent;
+  border-color: transparent;
+  border-radius: 10px;
+  box-shadow: none;
+  padding: 10px 34px 10px 14px;
+}
+
+.cartographer-stage-map .map-library-panel .notebook-entry:hover:not(:disabled) {
+  background: rgb(180 95 50 / 7%);
+  border-color: transparent;
+}
+
+.cartographer-stage-map .map-library-panel .notebook-entry.active {
+  background: rgb(180 95 50 / 11%);
+  border-color: transparent;
+  box-shadow: none;
+  font-weight: 750;
+}
+
+.cartographer-stage-map .map-library-panel .notebook-entry::before {
+  bottom: 8px;
+  left: 4px;
+  top: 8px;
+  width: 3px;
+}
+
+.cartographer-stage-map .map-library-panel .notebook-entry:focus-visible {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgb(180 95 50 / 20%);
+  outline: none;
+  z-index: 1;
+}
+
+.notebook-entry-selected-mark {
+  align-items: center;
+  background: var(--accent);
+  border-radius: 999px;
+  color: #fffaf3;
+  display: inline-flex;
+  font-size: 9px;
+  font-weight: 900;
+  height: 17px;
+  justify-content: center;
+  line-height: 1;
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  width: 17px;
+}
+
+.cartographer-stage-map .sidebar-tabs {
+  border-color: transparent;
+}
+
+.cartographer-stage-map .route-editor-section,
+.cartographer-stage-map .route-editor-collapsible,
+.cartographer-stage-map .place-editor-share-section {
+  border-color: var(--cloud-border-soft, var(--border));
+  box-shadow: none;
+}
+
+.cartographer-stage-map .map-panel-control {
+  border-color: var(--cloud-border-soft, var(--border));
+  box-shadow: 0 5px 16px rgb(34 24 15 / 10%);
+}
+
+.cartographer-stage-map .map-panel-control:hover:not(:disabled) {
+  box-shadow: 0 7px 20px rgb(34 24 15 / 12%);
+}
+
+@media (min-width: 1024px) and (max-width: 1150px) {
+  .cartographer-stage-map {
+    --cloud-editor-width: 340px;
+    --cloud-sidebar-width: 240px;
+  }
+}
+
+/* Tablet and phone use one contextual panel at a time while preserving mounted draft state. */
+@media (max-width: 1023px) {
+  .cartographer-stage-map {
+    grid-template-rows: 56px minmax(340px, 46vh) auto auto;
+    padding: 64px 14px 92px;
+  }
+
+  .cartographer-stage-map .cartographer-map-layer {
+    grid-row: 2;
+  }
+
+  .cartographer-stage-map .mobile-workspace-bar {
+    align-items: center;
+    align-self: start;
+    background: var(--cloud-surface-card);
+    border: 1px solid var(--cloud-border-soft);
+    border-radius: 14px;
+    box-shadow: 0 8px 22px rgb(34 24 15 / 8%);
+    display: grid;
+    gap: 8px;
+    grid-row: 3;
+    margin-top: 0;
+    padding: 10px;
+    position: sticky;
+    top: 62px;
+    z-index: 20;
+  }
+
+  .cartographer-stage-map .mobile-workspace-selection {
+    font-size: 13px;
+    font-weight: 800;
+    overflow: hidden;
+    padding-inline: 4px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .cartographer-stage-map .mobile-workspace-actions {
+    background: var(--bg-subtle);
+    border-radius: 10px;
+    display: grid;
+    gap: 3px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    padding: 3px;
+  }
+
+  .cartographer-stage-map .mobile-workspace-bar button {
+    background: transparent;
+    border: 0;
+    border-radius: 8px;
+    color: var(--text-secondary);
+    min-height: 40px;
+    padding-inline: 6px;
+  }
+
+  .cartographer-stage-map .mobile-workspace-bar button.active {
+    background: var(--bg-surface);
+    box-shadow: 0 1px 3px rgb(34 24 15 / 8%);
+    color: var(--accent-hover);
+  }
+
+  .cartographer-stage-map .map-panel-controls {
+    display: none;
+  }
+
+  .cartographer-stage-map .field-notebook,
+  .cartographer-stage-map .index-card {
+    grid-row: 4;
+    margin-top: 0;
+  }
+
+  .cartographer-stage-map.cartographer-stage-mobile-map .field-notebook,
+  .cartographer-stage-map.cartographer-stage-mobile-map .index-card,
+  .cartographer-stage-map.cartographer-stage-mobile-picker .index-card,
+  .cartographer-stage-map.cartographer-stage-mobile-inspector .field-notebook {
+    display: none;
+  }
+
+  .cartographer-stage-map.cartographer-stage-mobile-picker .field-notebook,
+  .cartographer-stage-map.cartographer-stage-mobile-inspector .index-card {
+    display: grid;
+  }
+
+  .cartographer-stage-map.cartographer-stage-mobile-inspector .index-card,
+  .cartographer-stage-map.cartographer-stage-mobile-inspector .index-card-route,
+  .cartographer-stage-map.cartographer-stage-mobile-inspector .index-card-place,
+  .cartographer-stage-map.cartographer-stage-mobile-inspector .index-card-body,
+  .cartographer-stage-map.cartographer-stage-mobile-inspector .route-editor,
+  .cartographer-stage-map.cartographer-stage-mobile-inspector .route-editor-content,
+  .cartographer-stage-map.cartographer-stage-mobile-inspector .place-editor-embedded,
+  .cartographer-stage-map.cartographer-stage-mobile-inspector .place-editor-content {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .cartographer-stage-map .map-control-stack {
+    margin: 0 12px 12px 0;
+  }
+}
+
+@media (max-width: 639px) {
+  .cartographer-stage-map {
+    grid-template-rows: 56px minmax(300px, 42vh) auto auto;
+    padding-inline: 10px;
+  }
+
+  .cartographer-stage-map .map-control-stack {
+    margin: 0 8px 8px 0;
+  }
+}

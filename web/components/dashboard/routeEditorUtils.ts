@@ -96,7 +96,7 @@ export function getRouteBuilderHint(
   if (waypointCount === 0) {
     return placeCount === 0
       ? 'Start by clicking the map to add your first waypoint.'
-      : 'Choose a favorite place as the start, or click the map to add your first waypoint.';
+      : 'Choose a saved place as the start, or click the map to add your first waypoint.';
   }
 
   if (waypointCount === 1) {
