@@ -342,6 +342,23 @@ test('new route exposes required settings and both waypoint entry paths', async 
   await expect(inspector.getByRole('button', { name: 'Save route' })).toBeEnabled();
 });
 
+test('route settings reopen when hidden speed validation fails', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-light', 'One native validation path is sufficient.');
+  await page.goto('/dashboard/map?kind=routes');
+
+  const settings = page.locator('.route-settings-disclosure');
+  await settings.locator(':scope > summary').click();
+  const speed = settings.getByLabel('Default speed (km/h)');
+  await speed.fill('');
+  await settings.locator(':scope > summary').click();
+  await expect(settings).not.toHaveAttribute('open', '');
+  await page.getByRole('button', { name: 'Save route' }).click();
+
+  await expect(settings).toHaveAttribute('open', '');
+  await expect(speed).toBeVisible();
+  await expect(speed).toBeFocused();
+});
+
 test('route inspector preserves settings, dialog, and error recovery paths', async ({
   page,
 }, testInfo) => {
@@ -454,6 +471,34 @@ test('route inspector adapts to long and dense content without nested scrolling'
     document.documentElement.style.fontSize = '200%';
   });
   await expectNoHorizontalOverflow(page);
+});
+
+test('dirty route guards the empty saved-place navigation', async ({ page }, testInfo) => {
+  test.skip(
+    testInfo.project.name !== 'desktop-light',
+    'One guarded navigation path is sufficient.',
+  );
+  await page.route('**/api/backend/places', (route) =>
+    route.fulfill({ body: '[]', contentType: 'application/json', status: 200 }),
+  );
+  await page.goto('/dashboard/map?kind=routes&new=1');
+  const name = page.getByLabel('Name');
+  await name.fill('Guarded route draft');
+  const createSavedPlace = page.getByRole('link', { name: 'Create a saved place first' });
+
+  let dismissedPrompt = '';
+  page.once('dialog', async (dialog) => {
+    dismissedPrompt = dialog.message();
+    await dialog.dismiss();
+  });
+  await createSavedPlace.click();
+  expect(dismissedPrompt).toBe('Discard unsaved changes? Save first to keep them.');
+  await expect(page).toHaveURL(/\/dashboard\/map\?kind=routes&new=1$/);
+  await expect(name).toHaveValue('Guarded route draft');
+
+  page.once('dialog', (dialog) => dialog.accept());
+  await createSavedPlace.click();
+  await expect(page).toHaveURL(/\/dashboard\/library\/places$/);
 });
 
 test('route inspector explains the empty saved places state', async ({ page }, testInfo) => {
