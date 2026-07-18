@@ -1,27 +1,30 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import Link from 'next/link';
 import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useAuth } from '@/components/AuthProvider';
+import { FavoriteWaypointPicker } from '@/components/dashboard/FavoriteWaypointPicker';
 import { RouteRemoteControlAction } from '@/components/dashboard/RemoteControlPanel';
+import { RouteSharePanel } from '@/components/dashboard/RouteSharePanel';
+import {
+  formatWaypointCoords,
+  formatWaypointName,
+  formatWaypointSummary,
+  getRouteBaseline,
+  getRouteBuilderHint,
+  getSaveDisabledReason,
+  getWaypointBadgeClassName,
+  getWaypointKey,
+  isRouteDraftEqual,
+  moveWaypoint,
+} from '@/components/dashboard/routeEditorUtils';
 import {
   formatError,
   formatMode,
   formatRouteDistanceFromWaypoints,
   normalizeNullable,
   parseNumber,
-  toAbsolutePublicUrl,
 } from '@/components/dashboard/utils';
-import {
-  ApiError,
-  type Place,
-  type Route,
-  type RouteInput,
-  type RouteMode,
-  type RouteShareLink,
-  type RouteWaypoint,
-} from '@/lib/api';
+import type { Place, Route, RouteInput, RouteMode, RouteWaypoint } from '@/lib/api';
 
 const RouteMapEditor = dynamic(() => import('@/components/RouteMapEditor'), {
   ssr: false,
@@ -80,6 +83,8 @@ export default function RouteEditor({
   const [saveNotice, setSaveNotice] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
+  const [isFavoritesOpen, setIsFavoritesOpen] = useState(route == null);
+  const [isRouteSettingsOpen, setIsRouteSettingsOpen] = useState(route == null);
   const saveNoticeTimeoutRef = useRef<number | null>(null);
   const shareDialogRef = useRef<HTMLDialogElement | null>(null);
   const onDirtyChangeRef = useRef(onDirtyChange);
@@ -238,6 +243,15 @@ export default function RouteEditor({
     setSelectedWaypointIndex(waypoints.length);
   }
 
+  function moveWaypointTo(index: number, nextIndex: number) {
+    if (nextIndex < 0 || nextIndex >= waypoints.length || index === nextIndex) {
+      return;
+    }
+
+    moveWaypoint(waypoints, setWaypoints, index, nextIndex);
+    setSelectedWaypointIndex(nextIndex);
+  }
+
   function insertWaypointAfter(index: number) {
     const waypoint = waypoints[index];
 
@@ -323,7 +337,12 @@ export default function RouteEditor({
     <>
       <label className="route-title-field">
         Name
-        <input required value={name} onChange={(event) => setName(event.target.value)} />
+        <input
+          required
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          onInvalid={() => setIsRouteSettingsOpen(true)}
+        />
       </label>
       <div className="split">
         <label>
@@ -364,6 +383,42 @@ export default function RouteEditor({
     </>
   );
 
+  const routeSettingsDisclosure = (
+    <details
+      className="route-editor-section route-editor-collapsible route-editor-details-section route-settings-disclosure"
+      open={isRouteSettingsOpen}
+      onToggle={(event) => setIsRouteSettingsOpen(event.currentTarget.open)}
+    >
+      <summary>
+        <span>Route settings</span>
+        <span className="muted">
+          {name || 'Name'} · {defaultSpeedKmh || '—'} km/h · {formatMode(mode)}
+        </span>
+      </summary>
+      <div className="route-editor-collapsible-content">{routeSettingsFields}</div>
+    </details>
+  );
+  const favoritesDisclosure = (
+    <details
+      className="route-editor-section route-editor-collapsible route-add-from-favorites"
+      open={isFavoritesOpen}
+      onToggle={(event) => setIsFavoritesOpen(event.currentTarget.open)}
+    >
+      <summary>
+        <span>Add from favorites</span>
+        <span className="muted">Or click the map</span>
+      </summary>
+      <div className="route-editor-collapsible-content">
+        <FavoriteWaypointPicker
+          mode={favoritePickerMode}
+          places={places}
+          showHeading={false}
+          onSelect={addFavoriteWaypoint}
+        />
+      </div>
+    </details>
+  );
+
   return (
     <form
       className={`panel route-editor${compactSummary ? ' route-editor-compact' : ''}`}
@@ -394,16 +449,25 @@ export default function RouteEditor({
         {compactSummary ? (
           <section className="route-compact-status" aria-label="Route status">
             <p>
-              <strong>{waypoints.length}</strong> waypoints · <strong>{distanceLabel}</strong> ·{' '}
-              <strong>{defaultSpeedKmh || '—'} km/h</strong> · <strong>{formatMode(mode)}</strong>
+              <strong>{waypoints.length}</strong> pins · <strong>{distanceLabel}</strong>
             </p>
             {route == null ? null : (
-              <RouteRemoteControlAction
-                mode={mode}
-                route={route}
-                speedKmh={Number(defaultSpeedKmh)}
-                waypoints={waypoints}
-              />
+              <div className="route-compact-actions">
+                <RouteRemoteControlAction
+                  mode={mode}
+                  route={route}
+                  speedKmh={Number(defaultSpeedKmh)}
+                  waypoints={waypoints}
+                />
+                <button
+                  aria-haspopup="dialog"
+                  className="secondary route-share-action"
+                  type="button"
+                  onClick={() => setIsShareDialogOpen(true)}
+                >
+                  Share
+                </button>
+              </div>
             )}
           </section>
         ) : (
@@ -445,11 +509,7 @@ export default function RouteEditor({
           </section>
         )}
 
-        {compactSummary ? (
-          <section className="route-core-fields" aria-label="Route settings">
-            {routeSettingsFields}
-          </section>
-        ) : (
+        {compactSummary ? null : (
           <details
             className="route-editor-section route-editor-collapsible route-editor-details-section"
             open
@@ -462,66 +522,68 @@ export default function RouteEditor({
           </details>
         )}
 
-        <details
-          className="route-editor-section route-editor-collapsible route-editor-map-section"
-          open={waypoints.length === 0}
-        >
-          <summary>
-            <span>Add waypoints</span>
-            <span className="muted">Map clicks or favorites</span>
-          </summary>
-          <div className="route-editor-collapsible-content">
-            {isBackgroundMapMode ? null : (
-              <>
-                <div>
-                  <h3>Route builder</h3>
-                  <p className="muted">Add pins on the map or pick from favorites.</p>
-                </div>
-                <div className="route-builder-hint">
-                  <InfoIcon />
-                  {routeBuilderHint}
-                </div>
-              </>
-            )}
-            {mapMode === 'embedded' ? (
-              <>
-                <div className="map-builder">
-                  <RouteMapEditor
-                    fitRequest={fitRequest}
-                    focusTarget={focusTarget}
-                    selectedWaypointIndex={selectedWaypointIndex}
-                    waypoints={waypoints}
-                    onChange={setWaypoints}
-                    onSelectWaypoint={setSelectedWaypointIndex}
-                  />
-                  <div className="map-instruction">
-                    Click map to add waypoint · Drag markers to adjust
+        {compactSummary ? null : (
+          <details
+            className="route-editor-section route-editor-collapsible route-editor-map-section"
+            open={waypoints.length === 0}
+          >
+            <summary>
+              <span>Add waypoints</span>
+              <span className="muted">Map clicks or favorites</span>
+            </summary>
+            <div className="route-editor-collapsible-content">
+              {isBackgroundMapMode ? null : (
+                <>
+                  <div>
+                    <h3>Route builder</h3>
+                    <p className="muted">Add pins on the map or pick from favorites.</p>
                   </div>
-                </div>
-                <div className="map-action-row">
-                  <button
-                    className="secondary"
-                    disabled={waypoints.length === 0}
-                    title="Auto-frame the map to show all waypoints"
-                    type="button"
-                    onClick={() => setFitRequest((currentRequest) => currentRequest + 1)}
-                  >
-                    Fit route
-                  </button>
-                  <span className="muted">
-                    Use Waypoints below to review, reorder, or edit pins.
-                  </span>
-                </div>
-              </>
-            ) : null}
+                  <div className="route-builder-hint">
+                    <InfoIcon />
+                    {routeBuilderHint}
+                  </div>
+                </>
+              )}
+              {mapMode === 'embedded' ? (
+                <>
+                  <div className="map-builder">
+                    <RouteMapEditor
+                      fitRequest={fitRequest}
+                      focusTarget={focusTarget}
+                      selectedWaypointIndex={selectedWaypointIndex}
+                      waypoints={waypoints}
+                      onChange={setWaypoints}
+                      onSelectWaypoint={setSelectedWaypointIndex}
+                    />
+                    <div className="map-instruction">
+                      Click map to add waypoint · Drag markers to adjust
+                    </div>
+                  </div>
+                  <div className="map-action-row">
+                    <button
+                      className="secondary"
+                      disabled={waypoints.length === 0}
+                      title="Auto-frame the map to show all waypoints"
+                      type="button"
+                      onClick={() => setFitRequest((currentRequest) => currentRequest + 1)}
+                    >
+                      Fit route
+                    </button>
+                    <span className="muted">
+                      Use Waypoints below to review, reorder, or edit pins.
+                    </span>
+                  </div>
+                </>
+              ) : null}
 
-            <FavoriteWaypointPicker
-              mode={favoritePickerMode}
-              places={places}
-              onSelect={addFavoriteWaypoint}
-            />
-          </div>
-        </details>
+              <FavoriteWaypointPicker
+                mode={favoritePickerMode}
+                places={places}
+                onSelect={addFavoriteWaypoint}
+              />
+            </div>
+          </details>
+        )}
 
         <details
           className="route-editor-section route-editor-collapsible route-editor-waypoints-section"
@@ -620,11 +682,13 @@ export default function RouteEditor({
                             index + 1
                           )}
                         </span>
-                        <span className="waypoint-name" title={waypointName}>
-                          {waypointName}
-                        </span>
-                        <span className="waypoint-coordinates mono">
-                          {formatWaypointCoords(waypoint)}
+                        <span className="waypoint-main">
+                          <span className="waypoint-name" title={waypointName}>
+                            {waypointName}
+                          </span>
+                          <span className="waypoint-coordinates mono">
+                            {formatWaypointCoords(waypoint)}
+                          </span>
                         </span>
                       </button>
                       <details className="waypoint-menu">
@@ -632,14 +696,32 @@ export default function RouteEditor({
                           <MoreHorizontalIcon />
                         </summary>
                         <div className="waypoint-menu-content">
-                          <button type="button" onClick={() => removeWaypoint(index)}>
-                            Remove from route
+                          <button
+                            disabled={index === 0}
+                            type="button"
+                            onClick={() => moveWaypointTo(index, index - 1)}
+                          >
+                            Move up
+                          </button>
+                          <button
+                            disabled={index === waypoints.length - 1}
+                            type="button"
+                            onClick={() => moveWaypointTo(index, index + 1)}
+                          >
+                            Move down
                           </button>
                           <button type="button" onClick={() => insertWaypointAfter(index)}>
                             Insert pin after
                           </button>
                           <button type="button" onClick={() => editWaypointCoordinates(index)}>
                             Edit coordinates
+                          </button>
+                          <button
+                            className="waypoint-remove"
+                            type="button"
+                            onClick={() => removeWaypoint(index)}
+                          >
+                            Remove from route
                           </button>
                         </div>
                       </details>
@@ -659,6 +741,20 @@ export default function RouteEditor({
             </button>
           </div>
         </details>
+
+        {compactSummary ? (
+          route == null ? (
+            <>
+              {routeSettingsDisclosure}
+              {favoritesDisclosure}
+            </>
+          ) : (
+            <>
+              {favoritesDisclosure}
+              {routeSettingsDisclosure}
+            </>
+          )
+        ) : null}
       </div>
 
       <footer className="route-editor-footer">
@@ -686,7 +782,7 @@ export default function RouteEditor({
                   Discard changes
                 </button>
               ) : null}
-              {route == null ? null : (
+              {route == null || compactSummary ? null : (
                 <button
                   aria-haspopup="dialog"
                   className="secondary"
@@ -746,457 +842,12 @@ export default function RouteEditor({
   );
 }
 
-function getRouteBaseline(route: Route | null) {
-  return {
-    defaultSpeedKmh: route?.defaultSpeedKmh.toString() ?? '5',
-    description: route?.description ?? '',
-    isPublic: route?.isPublic ?? false,
-    mode: route?.mode ?? ('ONCE' as RouteMode),
-    name: route?.name ?? '',
-    waypoints:
-      route?.currentRevision?.waypoints.map((waypoint) => ({
-        latitude: waypoint.latitude,
-        longitude: waypoint.longitude,
-      })) ?? [],
-  };
-}
-
-function isRouteDraftEqual(
-  draft: {
-    defaultSpeedKmh: string;
-    description: string;
-    isPublic: boolean;
-    mode: RouteMode;
-    name: string;
-    waypoints: RouteWaypoint[];
-  },
-  baseline: ReturnType<typeof getRouteBaseline>,
-): boolean {
-  return (
-    numberInputsEqual(draft.defaultSpeedKmh, baseline.defaultSpeedKmh) &&
-    normalizeNullable(draft.description) === normalizeNullable(baseline.description) &&
-    draft.isPublic === baseline.isPublic &&
-    draft.mode === baseline.mode &&
-    draft.name.trim() === baseline.name.trim() &&
-    waypointsEqual(draft.waypoints, baseline.waypoints)
-  );
-}
-
-function numberInputsEqual(left: string, right: string): boolean {
-  const leftNumber = Number(left);
-  const rightNumber = Number(right);
-
-  return Number.isFinite(leftNumber) && Number.isFinite(rightNumber) && leftNumber === rightNumber;
-}
-
-function waypointsEqual(left: RouteWaypoint[], right: RouteWaypoint[]): boolean {
-  return (
-    left.length === right.length &&
-    left.every(
-      (waypoint, index) =>
-        waypoint.latitude === right[index]?.latitude &&
-        waypoint.longitude === right[index]?.longitude,
-    )
-  );
-}
-
-function FavoriteWaypointPicker({
-  mode,
-  onSelect,
-  places,
-}: {
-  mode: 'append' | 'start';
-  onSelect: (place: Place) => void;
-  places: Place[];
-}) {
-  const [query, setQuery] = useState('');
-  const [copiedPlaceId, setCopiedPlaceId] = useState<string | null>(null);
-  const copiedTimeoutRef = useRef<number | null>(null);
-  const filteredPlaces = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
-
-    if (normalizedQuery.length === 0) {
-      return places;
-    }
-
-    return places.filter((place) => {
-      const haystack = [place.name, place.description ?? '', ...place.tags].join(' ').toLowerCase();
-
-      return haystack.includes(normalizedQuery);
-    });
-  }, [places, query]);
-
-  useEffect(
-    () => () => {
-      if (copiedTimeoutRef.current != null) {
-        window.clearTimeout(copiedTimeoutRef.current);
-      }
-    },
-    [],
-  );
-
-  async function copyFavoriteCoords(place: Place) {
-    try {
-      await navigator.clipboard.writeText(formatFavoritePlaceCoords(place));
-      setCopiedPlaceId(place.id);
-      if (copiedTimeoutRef.current != null) {
-        window.clearTimeout(copiedTimeoutRef.current);
-      }
-      copiedTimeoutRef.current = window.setTimeout(() => {
-        setCopiedPlaceId((currentPlaceId) => (currentPlaceId === place.id ? null : currentPlaceId));
-        copiedTimeoutRef.current = null;
-      }, 1400);
-    } catch {
-      setCopiedPlaceId(null);
-    }
-  }
-
-  if (places.length === 0) {
-    return (
-      <div className="favorite-picker empty-state">
-        <p className="muted">No favorite places yet.</p>
-        <Link href="/dashboard/library/places">Create a favorite place first</Link>
-      </div>
-    );
-  }
-
-  return (
-    <section className="favorite-picker stack">
-      <div>
-        <h3>{mode === 'start' ? 'Add from favorites' : 'Add from favorites'}</h3>
-        <p className="muted">
-          {mode === 'start'
-            ? 'Pick a saved place as the first waypoint, or click the map to start manually.'
-            : 'Append a saved place. Drag, or click to add.'}
-        </p>
-      </div>
-      <label className="favorite-search">
-        Search favorites
-        <span className="favorite-search-box">
-          <SearchIcon />
-          <input
-            placeholder="Search favorites..."
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-          />
-          <kbd>⌘K</kbd>
-        </span>
-      </label>
-      <div className="favorite-place-list">
-        {filteredPlaces.map((place) => (
-          <div className="favorite-place-option" key={place.id}>
-            <span className="favorite-place-main">
-              <MapPinIcon />
-              <strong>{place.name}</strong>
-              <button
-                className="favorite-add button-icon-label"
-                type="button"
-                onClick={() => onSelect(place)}
-              >
-                <PlusIcon />
-                Add
-              </button>
-            </span>
-            <button
-              aria-label={`Copy coordinates for ${place.name}`}
-              className="coordinate-copy muted mono"
-              type="button"
-              onClick={() => void copyFavoriteCoords(place)}
-            >
-              {formatFavoritePlaceCoords(place)}
-              {copiedPlaceId === place.id ? (
-                <span className="coordinate-copy-tooltip">copied</span>
-              ) : null}
-            </button>
-            {place.tags.length === 0 ? null : (
-              <span className="chip-row">
-                {place.tags.map((tag) => (
-                  <span className="chip" key={tag}>
-                    {tag}
-                  </span>
-                ))}
-              </span>
-            )}
-          </div>
-        ))}
-        {filteredPlaces.length === 0 ? <p className="muted">No favorite places match.</p> : null}
-      </div>
-    </section>
-  );
-}
-
-function formatFavoritePlaceCoords(place: Place): string {
-  return `${place.latitude.toFixed(6)}, ${place.longitude.toFixed(6)}`;
-}
-
-function getWaypointKey(waypoint: RouteWaypoint, index: number): string {
-  return `${waypoint.sequence ?? index}-${waypoint.latitude}-${waypoint.longitude}`;
-}
-
-function formatWaypointSummary(waypoints: RouteWaypoint[], places: Place[]): string {
-  const firstWaypoint = waypoints[0];
-  const lastWaypoint = waypoints.at(-1);
-
-  if (firstWaypoint == null || lastWaypoint == null) {
-    return 'Start by adding a point';
-  }
-
-  if (waypoints.length === 1) {
-    return 'Add one more waypoint to save';
-  }
-
-  return `${formatWaypointName(firstWaypoint, places, 'Pin 1')} → ${formatWaypointName(
-    lastWaypoint,
-    places,
-    `Pin ${waypoints.length}`,
-  )}`;
-}
-
-function formatWaypointName(waypoint: RouteWaypoint, places: Place[], fallback: string): string {
-  return (
-    places.find(
-      (place) =>
-        Math.abs(place.latitude - waypoint.latitude) < 0.00001 &&
-        Math.abs(place.longitude - waypoint.longitude) < 0.00001,
-    )?.name ?? fallback
-  );
-}
-
-function getWaypointBadgeClassName(index: number, waypointCount: number): string {
-  const positionClass = index === 0 || index === waypointCount - 1 ? 'is-terminal' : 'is-middle';
-
-  return `waypoint-badge ${positionClass}`;
-}
-
-function formatWaypointCoords(waypoint: RouteWaypoint): string {
-  return `${waypoint.latitude.toFixed(5)}, ${waypoint.longitude.toFixed(5)}`;
-}
-
-function getRouteBuilderHint(
-  waypointCount: number,
-  placeCount: number,
-  mapMode: 'background' | 'embedded',
-): string {
-  if (mapMode === 'background' && waypointCount >= 2) {
-    return 'Straight segments connect waypoints · Drag pins to adjust';
-  }
-
-  if (waypointCount === 0) {
-    return placeCount === 0
-      ? 'Start by clicking the map to add your first waypoint.'
-      : 'Choose a favorite place as the start, or click the map to add your first waypoint.';
-  }
-
-  if (waypointCount === 1) {
-    return 'Add at least one more waypoint to save this route.';
-  }
-
-  return 'Click the map to add a waypoint, or drag any pin to nudge the path.';
-}
-
-function getSaveDisabledReason(waypointCount: number): string | null {
-  if (waypointCount === 0) {
-    return 'Add at least 2 waypoints before saving.';
-  }
-
-  if (waypointCount === 1) {
-    return 'Add 1 more waypoint before saving.';
-  }
-
-  return null;
-}
-
-function RouteSharePanel({ route }: { route: Route | null }) {
-  const auth = useAuth();
-  const [shareLink, setShareLink] = useState<RouteShareLink | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isMutating, setIsMutating] = useState(false);
-
-  const loadShareLink = useCallback(async () => {
-    if (route == null) {
-      setShareLink(null);
-      setError(null);
-      return;
-    }
-
-    setError(null);
-    setIsLoading(true);
-
-    try {
-      const nextShareLink = await auth.apiRequest<RouteShareLink>(`/routes/${route.id}/share-link`);
-      setShareLink(nextShareLink);
-    } catch (nextError) {
-      if (nextError instanceof ApiError && nextError.status === 404) {
-        setShareLink(null);
-        return;
-      }
-
-      setError(formatError(nextError));
-    } finally {
-      setIsLoading(false);
-    }
-  }, [auth, route]);
-
-  useEffect(() => {
-    setNotice(null);
-    void loadShareLink();
-  }, [loadShareLink]);
-
-  async function createShareLink() {
-    if (route == null) {
-      return;
-    }
-
-    setNotice(null);
-    setError(null);
-    setIsMutating(true);
-
-    try {
-      const nextShareLink = await auth.apiRequest<RouteShareLink>(
-        `/routes/${route.id}/share-link`,
-        {
-          method: 'POST',
-        },
-      );
-      setShareLink(nextShareLink);
-    } catch (nextError) {
-      setError(formatError(nextError));
-    } finally {
-      setIsMutating(false);
-    }
-  }
-
-  async function setDisabled(disabled: boolean) {
-    if (route == null) {
-      return;
-    }
-
-    setNotice(null);
-    setError(null);
-    setIsMutating(true);
-
-    try {
-      const nextShareLink = await auth.apiRequest<RouteShareLink>(
-        `/routes/${route.id}/share-link`,
-        {
-          body: JSON.stringify({ disabled }),
-          method: 'PATCH',
-        },
-      );
-      setShareLink(nextShareLink);
-    } catch (nextError) {
-      setError(formatError(nextError));
-    } finally {
-      setIsMutating(false);
-    }
-  }
-
-  async function copyPublicUrl() {
-    if (shareLink == null) {
-      return;
-    }
-
-    try {
-      await navigator.clipboard.writeText(toAbsolutePublicUrl(shareLink.publicUrl));
-      setNotice('Share URL copied.');
-    } catch {
-      setNotice('Copy failed; select the URL manually.');
-    }
-  }
-
-  if (route == null) {
-    return (
-      <p className="muted no-margin">Save this route before creating a public latest-route link.</p>
-    );
-  }
-
-  return (
-    <section className="stack">
-      <div className="route-share-header">
-        <h3>Share link</h3>
-        {isLoading ? <span className="muted">Loading…</span> : null}
-      </div>
-      <p className="muted no-margin">
-        Visitors can open the public page without login. Signed-in users can copy the visible route
-        snapshot into their own library.
-      </p>
-      <p className="muted no-margin">
-        Public link:{' '}
-        {shareLink == null ? 'Not created' : shareLink.disabledAt == null ? 'Active' : 'Disabled'}
-      </p>
-      {error == null ? null : (
-        <div className="error" role="alert">
-          {error}
-        </div>
-      )}
-      {notice == null ? null : (
-        <div className="success" role="status">
-          {notice}
-        </div>
-      )}
-      {shareLink == null ? (
-        <div className="row">
-          <button disabled={isMutating} type="button" onClick={() => void createShareLink()}>
-            {isMutating ? 'Creating…' : 'Create public link'}
-          </button>
-        </div>
-      ) : (
-        <div className="stack">
-          <label>
-            Public URL
-            <input readOnly value={toAbsolutePublicUrl(shareLink.publicUrl)} />
-          </label>
-          <div className="chip-row">
-            {shareLink.disabledAt == null ? (
-              <span className="chip">active</span>
-            ) : (
-              <span className="chip">disabled</span>
-            )}
-            <span className="chip">latest route</span>
-          </div>
-          <div className="row">
-            <button className="secondary" type="button" onClick={() => void copyPublicUrl()}>
-              Copy URL
-            </button>
-            <a href={shareLink.publicUrl} rel="noreferrer" target="_blank">
-              Open public page
-            </a>
-            <button
-              className={shareLink.disabledAt == null ? 'danger' : 'secondary'}
-              disabled={isMutating}
-              type="button"
-              onClick={() => void setDisabled(shareLink.disabledAt == null)}
-            >
-              {isMutating
-                ? 'Saving…'
-                : shareLink.disabledAt == null
-                  ? 'Disable link'
-                  : 'Re-enable link'}
-            </button>
-          </div>
-        </div>
-      )}
-    </section>
-  );
-}
-
 function InfoIcon() {
   return (
     <svg aria-hidden="true" className="lucide-icon" fill="none" viewBox="0 0 24 24">
       <circle cx="12" cy="12" r="10" />
       <path d="M12 16v-4" />
       <path d="M12 8h.01" />
-    </svg>
-  );
-}
-
-function SearchIcon() {
-  return (
-    <svg aria-hidden="true" className="lucide-icon" fill="none" viewBox="0 0 24 24">
-      <path d="m21 21-4.3-4.3" />
-      <circle cx="11" cy="11" r="8" />
     </svg>
   );
 }
@@ -1254,16 +905,4 @@ function FlagIcon() {
       <path d="M4 4h12l-1 4 1 4H4" />
     </svg>
   );
-}
-
-function moveWaypoint(
-  waypoints: RouteWaypoint[],
-  setWaypoints: (waypoints: RouteWaypoint[]) => void,
-  fromIndex: number,
-  toIndex: number,
-) {
-  const nextWaypoints = [...waypoints];
-  const [waypoint] = nextWaypoints.splice(fromIndex, 1);
-  nextWaypoints.splice(toIndex, 0, waypoint);
-  setWaypoints(nextWaypoints);
 }

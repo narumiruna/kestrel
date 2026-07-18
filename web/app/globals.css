@@ -1,3 +1,10 @@
+/*
+ * Size justification: this legacy global cascade intentionally remains above 1,000 lines because
+ * dashboard, cartographer, auth, share, and responsive overrides still depend on source order.
+ * Splitting it without first mapping those dependencies would silently change visual precedence;
+ * new bounded UI work should stay scoped, and cascade decomposition belongs in a dedicated pass.
+ */
+
 /* ==========================================================================
    DESIGN TOKENS — Light mode (default)
    ========================================================================== */
@@ -1178,7 +1185,7 @@ label {
   padding: 0;
 }
 
-.route-editor-collapsible summary {
+.route-editor-collapsible > summary {
   align-items: center;
   cursor: pointer;
   display: flex;
@@ -1188,22 +1195,22 @@ label {
   padding: 0.9rem 1rem;
 }
 
-.route-editor-collapsible summary::-webkit-details-marker {
+.route-editor-collapsible > summary::-webkit-details-marker {
   display: none;
 }
 
-.route-editor-collapsible summary::after {
+.route-editor-collapsible > summary::after {
   color: var(--color-text-secondary);
   content: "▾";
   font-size: 0.85rem;
   transition: transform var(--transition-fast);
 }
 
-.route-editor-collapsible:not([open]) summary::after {
+.route-editor-collapsible:not([open]) > summary::after {
   transform: rotate(-90deg);
 }
 
-.route-editor-collapsible summary > span:first-child {
+.route-editor-collapsible > summary > span:first-child {
   color: var(--color-text);
   font-weight: 700;
 }
@@ -3204,7 +3211,7 @@ button.is-loading {
   color: inherit;
   display: grid;
   gap: 8px;
-  grid-template-columns: 20px 28px minmax(0, 1fr) auto;
+  grid-template-columns: 20px 28px minmax(0, 1fr);
   min-height: 44px;
   padding: 0;
   text-align: left;
@@ -3279,6 +3286,12 @@ button.is-loading {
   color: var(--accent-hover);
 }
 
+.waypoint-main {
+  display: grid;
+  min-width: 0;
+  padding-block: 8px;
+}
+
 .waypoint-name {
   color: var(--text-primary);
   font-size: 14px;
@@ -3290,9 +3303,16 @@ button.is-loading {
 
 .waypoint-coordinates {
   color: var(--text-muted);
-  font-size: 12px;
-  text-align: right;
+  display: none;
+  font-size: 11px;
+  line-height: 1.35;
+  text-align: left;
   white-space: nowrap;
+}
+
+.waypoint-row.selected .waypoint-coordinates,
+.waypoint-row:focus-within .waypoint-coordinates {
+  display: block;
 }
 
 .waypoint-menu {
@@ -3349,8 +3369,12 @@ button.is-loading {
   text-align: left;
 }
 
-.waypoint-menu-content button:first-child {
+.waypoint-menu-content .waypoint-remove {
   color: var(--danger);
+}
+
+.waypoint-menu-content button:disabled {
+  opacity: 0.42;
 }
 
 .waypoint-menu-content button:hover:not(:disabled) {
@@ -3363,17 +3387,17 @@ button.is-loading {
   transition: padding 200ms ease-out;
 }
 
-.route-editor-collapsible summary::after {
+.route-editor-collapsible > summary::after {
   content: "▼";
   transform: none;
   transition: transform 200ms ease;
 }
 
-.route-editor-collapsible[open] summary::after {
+.route-editor-collapsible[open] > summary::after {
   transform: rotate(180deg);
 }
 
-.route-editor-collapsible:not([open]) summary::after {
+.route-editor-collapsible:not([open]) > summary::after {
   transform: none;
 }
 
@@ -5339,7 +5363,7 @@ button.is-loading {
     font-size: 13px;
   }
 
-  .route-editor-collapsible summary {
+  .route-editor-collapsible > summary {
     min-height: 48px;
     padding: 0 16px;
   }
@@ -5921,11 +5945,11 @@ button.route-marker.selected::after {
 
 .cartographer-stage label,
 .cartographer-stage .muted,
-.cartographer-stage .route-editor-collapsible summary .muted {
+.cartographer-stage .route-editor-collapsible > summary .muted {
   color: var(--text-secondary);
 }
 
-.cartographer-stage .route-editor-collapsible summary > span:first-child,
+.cartographer-stage .route-editor-collapsible > summary > span:first-child,
 .cartographer-stage .route-editor-section h3,
 .cartographer-stage .place-editor-share-section summary > span:first-child {
   color: var(--text-primary);
@@ -6361,6 +6385,31 @@ button.route-marker.route-marker-compact:not(.selected):focus-visible::after {
   padding-block: 7px;
 }
 
+.route-compact-actions {
+  align-items: center;
+  display: flex;
+  flex-shrink: 0;
+  gap: 6px;
+}
+
+.route-compact-actions .device-action-button {
+  align-items: center;
+  display: inline-flex;
+  gap: 5px;
+  min-height: 34px;
+  min-width: 0;
+  padding: 5px 9px;
+}
+
+.route-compact-actions .device-action-button .muted::before {
+  content: "· ";
+}
+
+.route-share-action {
+  min-height: 34px;
+  padding: 5px 9px;
+}
+
 .device-action-button .muted {
   font-size: 12px;
   line-height: 1.1;
@@ -6557,6 +6606,49 @@ button.route-marker.route-marker-compact:not(.selected):focus-visible::after {
     position: relative;
     width: auto;
   }
+}
+
+/* Route map inspector: one scroll owner and waypoint-first disclosure. */
+.route-editor-compact .route-editor-waypoints-section .route-editor-collapsible-content {
+  padding-bottom: 16px;
+}
+
+.route-editor-compact .route-editor-waypoints-section .waypoint-list {
+  max-height: none;
+  overflow: visible;
+  scrollbar-gutter: auto;
+}
+
+.route-editor-compact .route-add-from-favorites .favorite-picker {
+  background: transparent;
+  border: 0;
+  padding: 0;
+}
+
+.route-editor-compact .route-add-from-favorites .favorite-search {
+  margin-top: 0;
+}
+
+.route-settings-disclosure > summary > span:first-child {
+  flex-shrink: 0;
+}
+
+.route-settings-disclosure > summary .muted {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.index-card-route .index-card-stamp {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  color: var(--text-muted);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  margin-bottom: 4px;
+  padding: 0;
 }
 
 @media (min-width: 1024px) and (max-width: 1199px) {
