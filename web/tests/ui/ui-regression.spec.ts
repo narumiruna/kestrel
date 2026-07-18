@@ -11,6 +11,32 @@ function dynamicMasks(page: import('@playwright/test').Page) {
   return [page.locator('.dashboard-last-updated')];
 }
 
+async function stabilizeMapForScreenshot(page: import('@playwright/test').Page) {
+  await page.addStyleTag({
+    content: `
+      .cartographer-map-layer { background: #d8cfbf !important; }
+      .cartographer-map-layer > * { visibility: hidden !important; }
+    `,
+  });
+}
+
+function contrastRatio(foreground: string, background: string): number {
+  const luminance = (hex: string) => {
+    const channels = hex
+      .replace('#', '')
+      .match(/.{2}/g)
+      ?.map((channel) => Number.parseInt(channel, 16) / 255);
+    if (channels == null) throw new Error(`Invalid color: ${hex}`);
+    const [red, green, blue] = channels.map((channel) =>
+      channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4,
+    );
+    return red * 0.2126 + green * 0.7152 + blue * 0.0722;
+  };
+  const lighter = Math.max(luminance(foreground), luminance(background));
+  const darker = Math.min(luminance(foreground), luminance(background));
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
 test('login keeps one clear authentication path', async ({ browser, baseURL }, testInfo) => {
   const context = await browser.newContext({
     colorScheme: testInfo.project.use.colorScheme,
@@ -78,6 +104,163 @@ test('map workspace keeps labeled regions and recovery controls', async ({ page 
   } else {
     await expect(page.locator('.index-card')).toHaveScreenshot('map-editor.png');
   }
+});
+
+test('map workspace groups controls and preserves draft through panel focus', async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-light', 'Desktop panel controls are sufficient.');
+  await page.goto('/dashboard/map?kind=routes');
+
+  const picker = page.getByRole('complementary', { name: 'Map item picker' });
+  const selectedItem = picker.locator('.notebook-entry.active');
+  await expect(selectedItem).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('group', { name: 'Map viewport' })).toBeVisible();
+  await expect(page.getByRole('group', { name: 'Map appearance' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Zoom in' })).toHaveAttribute('title', 'Zoom in');
+  await expect(page.getByRole('button', { name: 'Zoom out' })).toHaveAttribute('title', 'Zoom out');
+  await expect(page.getByRole('button', { name: 'Fit to all pins' })).toBeVisible();
+  await page.getByRole('link', { name: 'Map' }).first().focus();
+  await page.keyboard.press('?');
+  await expect(page.getByRole('dialog', { name: 'Keyboard shortcuts' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog', { name: 'Keyboard shortcuts' })).toHaveCount(0);
+
+  const settings = page.locator('.route-settings-disclosure');
+  await settings.locator(':scope > summary').click();
+  const name = settings.getByLabel('Name');
+  await name.fill('Panel focus draft');
+  const focus = page.getByRole('button', { name: 'Focus map' });
+  await focus.click();
+  await expect(page.getByRole('button', { name: 'Show item picker' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Show inspector' })).toBeVisible();
+  const restore = page.getByRole('button', { name: 'Show map panels' });
+  await expect(restore).toHaveAttribute('aria-pressed', 'true');
+  await restore.click();
+  await expect(page.getByRole('button', { name: 'Hide item picker' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Hide inspector' })).toBeVisible();
+  await expect(name).toHaveValue('Panel focus draft');
+  await expect(page.getByText('Unsaved changes')).toBeVisible();
+
+  const appearance = page.getByRole('button', { name: /Map appearance/ });
+  await appearance.click();
+  await expect(page.getByRole('menu')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('menu')).toHaveCount(0);
+  await expect(appearance).toBeFocused();
+});
+
+test('map workspace keeps one contextual panel across mobile and tablet modes', async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'mobile-light', 'Mobile draft continuity is sufficient.');
+  await page.goto('/dashboard/map?kind=routes');
+  await page.getByRole('button', { name: 'Edit' }).click();
+  const settings = page.locator('.route-settings-disclosure');
+  await settings.locator(':scope > summary').click();
+  const name = settings.getByLabel('Name');
+  await name.fill('Mobile panel draft');
+
+  await page.getByRole('button', { name: 'Map', exact: true }).click();
+  await expect(page.locator('.map-library-panel')).toBeHidden();
+  await expect(page.locator('.index-card')).toBeHidden();
+  await page.getByRole('button', { name: 'Choose' }).click();
+  await expect(page.locator('.map-library-panel')).toBeVisible();
+  await expect(page.locator('.index-card')).toBeHidden();
+  await page.getByRole('button', { name: 'Edit' }).click();
+  await expect(name).toHaveValue('Mobile panel draft');
+  await expect(page.getByText('Unsaved changes')).toBeVisible();
+
+  await page.setViewportSize({ width: 768, height: 1024 });
+  await expect(page.getByRole('navigation', { name: 'Map workspace panels' })).toBeVisible();
+  await expect(page.locator('.map-library-panel')).toBeHidden();
+  await expect(page.locator('.index-card')).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+  await stabilizeMapForScreenshot(page);
+  await expect(page).toHaveScreenshot('map-workspace-tablet.png', {
+    fullPage: true,
+    mask: [page.locator('.status-strip span').nth(1)],
+    maskColor: '#d8cfbf',
+  });
+});
+
+test('route builder consistently calls Place records saved places', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-light', 'One copy audit fixture is sufficient.');
+  await page.goto('/dashboard/map?kind=routes&new=1');
+  await expect(page.getByText('Add from saved places')).toBeVisible();
+  await expect(page.getByLabel('Search saved places')).toBeVisible();
+  await expect(page.getByText(/favorites/i)).toHaveCount(0);
+});
+
+test('map workspace picker stays scannable, focused, and accessible when dense', async ({
+  page,
+}, testInfo) => {
+  test.skip(
+    testInfo.project.name === 'mobile-light',
+    'Desktop light/dark fixtures are sufficient.',
+  );
+  await page.goto('/dashboard/map?kind=routes');
+  await page.setViewportSize({ width: 1440, height: 900 });
+
+  const stage = page.locator('.cartographer-stage-map');
+  const picker = page.locator('.map-library-panel');
+  const list = picker.locator('.notebook-list');
+  const selected = picker.locator('.notebook-entry.active');
+  await expect(selected.locator('.notebook-entry-selected-mark')).toBeVisible();
+  await selected.focus();
+  await expect(selected).toBeFocused();
+  await expect(selected).toHaveCSS('outline-style', 'none');
+  await expect(selected).not.toHaveCSS('box-shadow', 'none');
+  await expect(selected.locator('.route-card-meta-line')).toHaveCSS('color', 'rgb(114, 88, 63)');
+  expect(contrastRatio('#72583f', '#fff9ec')).toBeGreaterThanOrEqual(4.5);
+
+  await list.evaluate((element) => {
+    const source = element.querySelector('.notebook-entry:not(.active)');
+    if (source == null) return;
+    for (let index = element.children.length; index < 50; index += 1) {
+      const clone = source.cloneNode(true) as HTMLElement;
+      clone.setAttribute('aria-pressed', 'false');
+      clone.setAttribute('data-dense-map-item', String(index));
+      element.append(clone);
+    }
+  });
+  await expect(list.locator('.notebook-entry')).toHaveCount(50);
+  await stabilizeMapForScreenshot(page);
+  await expect(picker).toHaveScreenshot('map-picker-dense.png');
+  await expect(page).toHaveScreenshot('map-workspace-polished.png', {
+    mask: [page.locator('.status-strip span').nth(1)],
+    maskColor: '#d8cfbf',
+  });
+
+  const results = await new AxeBuilder({ page }).include('.cartographer-stage-map').analyze();
+  expect(results.violations).toEqual([]);
+  await expect(stage).toBeVisible();
+});
+
+test('map workspace keeps useful map width at the compact desktop breakpoint', async ({
+  page,
+}, testInfo) => {
+  test.skip(
+    testInfo.project.name !== 'desktop-light',
+    'One compact desktop fixture is sufficient.',
+  );
+  await page.goto('/dashboard/map?kind=places');
+  await page.setViewportSize({ width: 1024, height: 768 });
+
+  const picker = page.locator('.map-library-panel');
+  const inspector = page.locator('.index-card');
+  const pickerBox = await picker.boundingBox();
+  const inspectorBox = await inspector.boundingBox();
+  expect(
+    (inspectorBox?.x ?? 0) - ((pickerBox?.x ?? 0) + (pickerBox?.width ?? 0)),
+  ).toBeGreaterThanOrEqual(380);
+  await expect(picker.locator('.notebook-entry.active')).toHaveAttribute('aria-pressed', 'true');
+  await expectNoHorizontalOverflow(page);
+  await stabilizeMapForScreenshot(page);
+  await expect(page).toHaveScreenshot('map-workspace-compact-desktop.png', {
+    mask: [page.locator('.status-strip span').nth(1)],
+    maskColor: '#d8cfbf',
+  });
 });
 
 test('route inspector prioritizes waypoints with one scroll region', async ({ page }, testInfo) => {
@@ -273,14 +456,14 @@ test('route inspector adapts to long and dense content without nested scrolling'
   await expectNoHorizontalOverflow(page);
 });
 
-test('route inspector explains the empty favorites state', async ({ page }, testInfo) => {
+test('route inspector explains the empty saved places state', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-light', 'One empty-state fixture is sufficient.');
   await page.route('**/api/backend/places', (route) =>
     route.fulfill({ body: '[]', contentType: 'application/json', status: 200 }),
   );
   await page.goto('/dashboard/map?kind=routes&new=1');
-  await expect(page.getByText('No favorite places yet.')).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Create a favorite place first' })).toBeVisible();
+  await expect(page.getByText('No saved places yet.')).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Create a saved place first' })).toBeVisible();
 });
 
 test('share remains directly discoverable and public view is usable', async ({

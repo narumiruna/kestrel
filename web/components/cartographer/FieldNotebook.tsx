@@ -40,7 +40,7 @@ export function FieldNotebook({
           <strong>{newLabel}</strong>
           <small>
             {activeSection === 'routes'
-              ? 'Create from map pins or favorites'
+              ? 'Create from map pins or saved places'
               : 'Save a place with coordinates'}
           </small>
         </span>
