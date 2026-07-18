@@ -4,9 +4,9 @@ Top-level `*-plan.md` files are active. Closed or superseded plans live in `arch
 
 ## Active files
 
-No active implementation plans.
+- `2026-07-18_web-map-workspace-polish-plan.md` — follow-up workspace polish for map controls, picker selection, containers, terminology, contrast, and responsive behavior.
 
-The 2026-07-15 Options, Favorites, Web Library, and cross-platform UI regression plans are complete and archived in `archived/`.
+The route-inspector declutter plan and the 2026-07-15 Options, Favorites, Web Library, and cross-platform UI regression plans are complete and archived in `archived/`.
 
 ## Security references
 
