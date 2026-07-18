@@ -600,11 +600,17 @@ function MapLibraryPanel({
         {activeKind === 'places'
           ? filteredPlaces.map((place) => (
               <button
+                aria-pressed={selectedPlaceId === place.id}
                 className={`notebook-entry${selectedPlaceId === place.id ? ' active' : ''}`}
                 key={place.id}
                 type="button"
                 onClick={() => onSelectPlace(place.id)}
               >
+                {selectedPlaceId === place.id ? (
+                  <span aria-hidden className="notebook-entry-selected-mark">
+                    ✓
+                  </span>
+                ) : null}
                 <strong>{place.name}</strong>
                 <span className="font-mono">
                   {formatCoord(place.latitude)}, {formatCoord(place.longitude)}
@@ -613,11 +619,17 @@ function MapLibraryPanel({
             ))
           : filteredRoutes.map((route) => (
               <button
+                aria-pressed={selectedRouteId === route.id}
                 className={`notebook-entry route-notebook-entry${selectedRouteId === route.id ? ' active' : ''}`}
                 key={route.id}
                 type="button"
                 onClick={() => onSelectRoute(route.id)}
               >
+                {selectedRouteId === route.id ? (
+                  <span aria-hidden className="notebook-entry-selected-mark">
+                    ✓
+                  </span>
+                ) : null}
                 <strong className="route-card-title">{route.name}</strong>
                 <span className="route-card-meta-line">
                   {formatRouteDistanceFromWaypoints(route.currentRevision?.waypoints ?? [])} ·{' '}

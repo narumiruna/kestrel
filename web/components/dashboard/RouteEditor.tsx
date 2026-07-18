@@ -405,7 +405,7 @@ export default function RouteEditor({
       onToggle={(event) => setIsFavoritesOpen(event.currentTarget.open)}
     >
       <summary>
-        <span>Add from favorites</span>
+        <span>Add from saved places</span>
         <span className="muted">Or click the map</span>
       </summary>
       <div className="route-editor-collapsible-content">
@@ -529,14 +529,14 @@ export default function RouteEditor({
           >
             <summary>
               <span>Add waypoints</span>
-              <span className="muted">Map clicks or favorites</span>
+              <span className="muted">Map clicks or saved places</span>
             </summary>
             <div className="route-editor-collapsible-content">
               {isBackgroundMapMode ? null : (
                 <>
                   <div>
                     <h3>Route builder</h3>
-                    <p className="muted">Add pins on the map or pick from favorites.</p>
+                    <p className="muted">Add pins on the map or pick from saved places.</p>
                   </div>
                   <div className="route-builder-hint">
                     <InfoIcon />
@@ -599,7 +599,7 @@ export default function RouteEditor({
                 <MapPinIcon />
                 <strong>No waypoints yet</strong>
                 <span className="muted">
-                  Click the map to add your first waypoint, or pick from favorites above.
+                  Click the map to add your first waypoint, or pick from saved places nearby.
                 </span>
               </div>
             ) : (

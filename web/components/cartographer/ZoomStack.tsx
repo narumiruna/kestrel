@@ -12,7 +12,7 @@ type ZoomStackProps = {
 export function ZoomStack({ onFit, onZoomIn, onZoomOut }: ZoomStackProps) {
   const { availableStyles, label, setStyleName, styleName } = useMapStyle();
   const [isStyleMenuOpen, setIsStyleMenuOpen] = useState(false);
-  const styleControlRef = useRef<HTMLDivElement | null>(null);
+  const styleControlRef = useRef<HTMLFieldSetElement | null>(null);
 
   useEffect(() => {
     if (!isStyleMenuOpen) {
@@ -43,58 +43,61 @@ export function ZoomStack({ onFit, onZoomIn, onZoomOut }: ZoomStackProps) {
   }, [isStyleMenuOpen]);
 
   return (
-    <div className="map-control-stack">
-      <fieldset className="map-control-bar">
-        <legend className="sr-only">Map controls</legend>
-        <button aria-label="Zoom in" type="button" onClick={onZoomIn}>
+    <fieldset className="map-control-stack">
+      <legend className="sr-only">Map tools</legend>
+      <fieldset className="map-control-bar map-viewport-controls">
+        <legend className="sr-only">Map viewport</legend>
+        <button aria-label="Zoom in" title="Zoom in" type="button" onClick={onZoomIn}>
           <PlusIcon />
         </button>
         <span aria-hidden className="map-control-divider" />
-        <button aria-label="Zoom out" type="button" onClick={onZoomOut}>
+        <button aria-label="Zoom out" title="Zoom out" type="button" onClick={onZoomOut}>
           <MinusIcon />
         </button>
         <span aria-hidden className="map-control-divider" />
         <button aria-label="Fit to all pins" title="Fit to all pins" type="button" onClick={onFit}>
           <MaximizeIcon />
         </button>
-        <span aria-hidden className="map-control-divider" />
-        <div className="map-style-control" ref={styleControlRef}>
-          <button
-            aria-expanded={isStyleMenuOpen}
-            aria-haspopup="menu"
-            className="map-style-trigger"
-            type="button"
-            onClick={() => setIsStyleMenuOpen((current) => !current)}
-          >
-            <MapIcon />
-            <span>{label}</span>
-            <ChevronDownIcon />
-          </button>
-          {isStyleMenuOpen ? (
-            <div className="map-style-menu" role="menu">
-              {availableStyles.map((styleOption) => (
-                <button
-                  aria-checked={styleOption.name === styleName}
-                  className={styleOption.name === styleName ? 'active' : ''}
-                  key={styleOption.name}
-                  role="menuitemradio"
-                  type="button"
-                  onClick={() => {
-                    setStyleName(styleOption.name);
-                    setIsStyleMenuOpen(false);
-                  }}
-                >
-                  <span aria-hidden className="map-style-check">
-                    {styleOption.name === styleName ? '✓' : ''}
-                  </span>
-                  {styleOption.label}
-                </button>
-              ))}
-            </div>
-          ) : null}
-        </div>
       </fieldset>
-    </div>
+      <fieldset className="map-style-control map-appearance-control" ref={styleControlRef}>
+        <legend className="sr-only">Map appearance</legend>
+        <button
+          aria-expanded={isStyleMenuOpen}
+          aria-haspopup="menu"
+          aria-label={`Map appearance: ${label}`}
+          className="map-style-trigger"
+          title={`Map appearance: ${label}`}
+          type="button"
+          onClick={() => setIsStyleMenuOpen((current) => !current)}
+        >
+          <MapIcon />
+          <span>{label}</span>
+          <ChevronDownIcon />
+        </button>
+        {isStyleMenuOpen ? (
+          <div aria-label="Map styles" className="map-style-menu" role="menu">
+            {availableStyles.map((styleOption) => (
+              <button
+                aria-checked={styleOption.name === styleName}
+                className={styleOption.name === styleName ? 'active' : ''}
+                key={styleOption.name}
+                role="menuitemradio"
+                type="button"
+                onClick={() => {
+                  setStyleName(styleOption.name);
+                  setIsStyleMenuOpen(false);
+                }}
+              >
+                <span aria-hidden className="map-style-check">
+                  {styleOption.name === styleName ? '✓' : ''}
+                </span>
+                {styleOption.label}
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </fieldset>
+    </fieldset>
   );
 }
 
