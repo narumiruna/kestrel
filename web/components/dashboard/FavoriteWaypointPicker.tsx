@@ -60,8 +60,8 @@ export function FavoriteWaypointPicker({
   if (places.length === 0) {
     return (
       <div className="favorite-picker empty-state">
-        <p className="muted">No favorite places yet.</p>
-        <Link href="/dashboard/library/places">Create a favorite place first</Link>
+        <p className="muted">No saved places yet.</p>
+        <Link href="/dashboard/library/places">Create a saved place first</Link>
       </div>
     );
   }
@@ -70,20 +70,20 @@ export function FavoriteWaypointPicker({
     <section className="favorite-picker stack">
       {showHeading ? (
         <div>
-          <h3>Add from favorites</h3>
+          <h3>Add from saved places</h3>
           <p className="muted">
             {mode === 'start'
               ? 'Pick a saved place as the first waypoint, or click the map to start manually.'
-              : 'Append a saved place. Drag, or click to add.'}
+              : 'Append a saved place, or click the map to add a custom point.'}
           </p>
         </div>
       ) : null}
       <label className="favorite-search">
-        Search favorites
+        Search saved places
         <span className="favorite-search-box">
           <SearchIcon />
           <input
-            placeholder="Search favorites..."
+            placeholder="Search saved places..."
             value={query}
             onChange={(event) => setQuery(event.target.value)}
           />
@@ -127,7 +127,7 @@ export function FavoriteWaypointPicker({
             )}
           </div>
         ))}
-        {filteredPlaces.length === 0 ? <p className="muted">No favorite places match.</p> : null}
+        {filteredPlaces.length === 0 ? <p className="muted">No saved places match.</p> : null}
       </div>
     </section>
   );
