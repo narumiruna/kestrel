@@ -735,8 +735,14 @@
     flex-direction: column;
   }
 
-  .route-compact-status .device-action-button {
+  .route-compact-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
     width: 100%;
+  }
+
+  .route-compact-status .route-compact-actions .device-action-button {
+    width: auto;
   }
 
   .route-editor-footer-actions,
