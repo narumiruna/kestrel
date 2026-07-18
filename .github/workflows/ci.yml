@@ -172,10 +172,20 @@ jobs:
           docker compose -p kestrel-webtest -f compose.dev.yaml logs
           exit 1
 
-      - name: Run Web UI regression tests
+      - name: Run desktop-light Web UI regression tests
         env:
           KESTREL_UI_BASE_URL: http://127.0.0.1:3401
-        run: timeout 170s npm run test:ui
+        run: timeout 170s npm run test:ui -- --project=desktop-light
+
+      - name: Run mobile-light Web UI regression tests
+        env:
+          KESTREL_UI_BASE_URL: http://127.0.0.1:3401
+        run: timeout 170s npm run test:ui -- --project=mobile-light
+
+      - name: Run desktop-dark Web UI regression tests
+        env:
+          KESTREL_UI_BASE_URL: http://127.0.0.1:3401
+        run: timeout 170s npm run test:ui -- --project=desktop-dark
 
       - uses: actions/upload-artifact@v7
         if: failure()
