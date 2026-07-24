@@ -5,6 +5,7 @@ import { type FormEvent, type ReactNode, useEffect, useState } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import { formatError } from '@/components/dashboard/utils';
 import { useTheme } from '@/components/ThemeProvider';
+import { Button, PopoverFrame, TextInput } from '@/components/ui/radix-ui';
 
 type DashboardSection = 'library' | 'map';
 
@@ -45,7 +46,7 @@ export default function DashboardShell({
   }
 
   return (
-    <main className="shell kc-shell">
+    <main className={`shell kc-shell kc-shell-${activeSection}`}>
       <header className="kc-topbar">
         <div className="kc-brand">
           <span aria-hidden className="kc-logo">
@@ -60,7 +61,7 @@ export default function DashboardShell({
           {lastUpdatedLabel == null ? null : (
             <span className="dashboard-last-updated">Updated {lastUpdatedLabel}</span>
           )}
-          <button
+          <Button
             aria-busy={isRefreshing}
             aria-label={refreshLabel}
             className={`secondary kc-icon-button ${isRefreshAnimating ? 'is-rotating' : ''}`}
@@ -70,21 +71,25 @@ export default function DashboardShell({
             onClick={handleRefresh}
           >
             <RefreshCwIcon />
-          </button>
+          </Button>
           <div className="kc-user-menu">
-            <button
-              aria-expanded={isAccountOpen}
-              className="secondary kc-user-button"
-              type="button"
-              onClick={() => setIsAccountOpen((current) => !current)}
+            <PopoverFrame
+              className="kc-account-popover"
+              open={isAccountOpen}
+              title="Account controls"
+              trigger={
+                <Button className="secondary kc-user-button" type="button">
+                  <span aria-hidden className="kc-avatar">
+                    {username.slice(0, 1).toUpperCase()}
+                  </span>
+                  <span>{username}</span>
+                  <ChevronDownIcon />
+                </Button>
+              }
+              onOpenChange={setIsAccountOpen}
             >
-              <span aria-hidden className="kc-avatar">
-                {username.slice(0, 1).toUpperCase()}
-              </span>
-              <span>{username}</span>
-              <ChevronDownIcon />
-            </button>
-            {isAccountOpen ? <AccountMenu onLogout={onLogout} /> : null}
+              <AccountMenu onLogout={onLogout} />
+            </PopoverFrame>
           </div>
         </div>
       </header>
@@ -139,61 +144,61 @@ function AccountMenu({ onLogout }: { onLogout: () => void }) {
   }
 
   return (
-    <div className="kc-account-popover">
-      <div className="stack">
-        <div>
-          <strong>Account</strong>
-          <p className="muted no-margin">Change your password or sign out.</p>
-        </div>
-        {error == null ? null : (
-          <div className="error" role="alert">
-            {error}
-          </div>
-        )}
-        {notice == null ? null : (
-          <div className="success" role="status">
-            {notice}
-          </div>
-        )}
-        <button
-          className="secondary kc-theme-toggle"
-          disabled={!isHydrated}
-          type="button"
-          onClick={toggleTheme}
-        >
-          {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
-          {theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-        </button>
-        <form className="stack" onSubmit={submitPasswordChange}>
-          <label>
-            Current password
-            <input
-              autoComplete="current-password"
-              required
-              type="password"
-              value={currentPassword}
-              onChange={(event) => setCurrentPassword(event.target.value)}
-            />
-          </label>
-          <label>
-            New password
-            <input
-              autoComplete="new-password"
-              minLength={12}
-              required
-              type="password"
-              value={newPassword}
-              onChange={(event) => setNewPassword(event.target.value)}
-            />
-          </label>
-          <button disabled={isSaving} type="submit">
-            {isSaving ? 'Saving…' : 'Change password'}
-          </button>
-        </form>
-        <button className="secondary" type="button" onClick={onLogout}>
-          Logout
-        </button>
+    <div className="stack">
+      <div>
+        <strong>Account</strong>
+        <p className="muted no-margin">Change your password or sign out.</p>
       </div>
+      {error == null ? null : (
+        <div className="error" role="alert">
+          {error}
+        </div>
+      )}
+      {notice == null ? null : (
+        <div className="success" role="status">
+          {notice}
+        </div>
+      )}
+      <Button
+        className="secondary kc-theme-toggle"
+        disabled={!isHydrated}
+        type="button"
+        onClick={toggleTheme}
+      >
+        {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
+        {theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+      </Button>
+      <form className="stack" onSubmit={submitPasswordChange}>
+        <label htmlFor="radix-field-components-dashboard-dashboardshell-tsx-1">
+          Current password
+          <TextInput
+            id="radix-field-components-dashboard-dashboardshell-tsx-1"
+            autoComplete="current-password"
+            required
+            type="password"
+            value={currentPassword}
+            onChange={(event) => setCurrentPassword(event.target.value)}
+          />
+        </label>
+        <label htmlFor="radix-field-components-dashboard-dashboardshell-tsx-2">
+          New password
+          <TextInput
+            id="radix-field-components-dashboard-dashboardshell-tsx-2"
+            autoComplete="new-password"
+            minLength={12}
+            required
+            type="password"
+            value={newPassword}
+            onChange={(event) => setNewPassword(event.target.value)}
+          />
+        </label>
+        <Button disabled={isSaving} type="submit">
+          {isSaving ? 'Saving…' : 'Change password'}
+        </Button>
+      </form>
+      <Button className="secondary" type="button" onClick={onLogout}>
+        Logout
+      </Button>
     </div>
   );
 }

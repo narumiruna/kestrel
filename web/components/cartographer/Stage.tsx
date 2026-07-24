@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import type { MouseEvent, ReactNode } from 'react';
+import { Button, Toggle, ToggleGroup } from '@/components/ui/radix-ui';
 
 export type MobileWorkspacePanel = 'inspector' | 'map' | 'picker';
 
@@ -14,7 +15,7 @@ type StageProps = {
   mode: 'places' | 'routes';
   selectedItemLabel?: string;
   workspace?: 'library' | 'map';
-  onBeforeWorkspaceChange?: () => boolean;
+  onBeforeWorkspaceChange?: (href: string) => boolean;
   onMobilePanelChange?: (panel: MobileWorkspacePanel) => void;
   onToggleLeftPanel?: () => void;
   onToggleMapFocus?: () => void;
@@ -50,7 +51,7 @@ export function Stage({
   const libraryHref = '/dashboard/library';
 
   function handleWorkspaceChange(event: MouseEvent<HTMLAnchorElement>) {
-    if (onBeforeWorkspaceChange?.() === false) {
+    if (onBeforeWorkspaceChange?.(event.currentTarget.getAttribute('href') ?? '/') === false) {
       event.preventDefault();
     }
   }
@@ -82,32 +83,21 @@ export function Stage({
           <span className="mobile-workspace-selection" title={selectedItemLabel}>
             {selectedItemLabel}
           </span>
-          <span className="mobile-workspace-actions">
-            <button
-              aria-pressed={mobilePanel === 'map'}
-              className={mobilePanel === 'map' ? 'active' : ''}
-              type="button"
-              onClick={() => onMobilePanelChange('map')}
-            >
-              Map
-            </button>
-            <button
-              aria-pressed={mobilePanel === 'picker'}
-              className={mobilePanel === 'picker' ? 'active' : ''}
-              type="button"
-              onClick={() => onMobilePanelChange('picker')}
-            >
-              Choose
-            </button>
-            <button
-              aria-pressed={mobilePanel === 'inspector'}
-              className={mobilePanel === 'inspector' ? 'active' : ''}
-              type="button"
-              onClick={() => onMobilePanelChange('inspector')}
-            >
-              Edit
-            </button>
-          </span>
+          <ToggleGroup
+            aria-label="Map panel view"
+            className="mobile-workspace-actions"
+            value={[mobilePanel]}
+            onValueChange={(values) => {
+              const nextPanel = values.at(-1) as MobileWorkspacePanel | undefined;
+              if (nextPanel != null) {
+                onMobilePanelChange(nextPanel);
+              }
+            }}
+          >
+            <Toggle value="map">Map</Toggle>
+            <Toggle value="picker">Choose</Toggle>
+            <Toggle value="inspector">Edit</Toggle>
+          </ToggleGroup>
         </nav>
       )}
       {onToggleLeftPanel == null &&
@@ -116,7 +106,7 @@ export function Stage({
         <fieldset className="map-panel-controls map-panel-icon-controls">
           <legend className="sr-only">Map panel controls</legend>
           {onToggleLeftPanel == null ? null : (
-            <button
+            <Button
               aria-expanded={!isLeftPanelCollapsed}
               aria-label={isLeftPanelCollapsed ? 'Show item picker' : 'Hide item picker'}
               className={`map-panel-control map-panel-control-library ${
@@ -128,10 +118,10 @@ export function Stage({
               onClick={onToggleLeftPanel}
             >
               <PanelLeftIcon collapsed={isLeftPanelCollapsed} />
-            </button>
+            </Button>
           )}
           {onToggleRightPanel == null ? null : (
-            <button
+            <Button
               aria-expanded={!isRightPanelCollapsed}
               aria-label={isRightPanelCollapsed ? 'Show inspector' : 'Hide inspector'}
               className={`map-panel-control map-panel-control-editor ${
@@ -143,10 +133,10 @@ export function Stage({
               onClick={onToggleRightPanel}
             >
               <PanelRightIcon collapsed={isRightPanelCollapsed} />
-            </button>
+            </Button>
           )}
           {onToggleMapFocus == null ? null : (
-            <button
+            <Button
               aria-label={isMapFocused ? 'Show map panels' : 'Focus map'}
               aria-pressed={isMapFocused}
               className={`map-panel-control map-panel-control-focus ${isMapFocused ? 'active' : ''}`}
@@ -156,7 +146,7 @@ export function Stage({
               onClick={onToggleMapFocus}
             >
               <FocusIcon compressed={isMapFocused} />
-            </button>
+            </Button>
           )}
         </fieldset>
       )}

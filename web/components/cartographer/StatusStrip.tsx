@@ -1,3 +1,5 @@
+import { Button } from '@/components/ui/radix-ui';
+
 type StatusStripProps = {
   error?: string | null;
   isRefreshing?: boolean;
@@ -17,7 +19,7 @@ export function StatusStrip({
       <span>
         {error ?? (lastUpdatedLabel == null ? 'Survey sheet ready' : `Updated ${lastUpdatedLabel}`)}
       </span>
-      <button
+      <Button
         aria-busy={isRefreshing}
         className="status-refresh"
         disabled={isRefreshing}
@@ -25,7 +27,7 @@ export function StatusStrip({
         onClick={onRefresh}
       >
         Refresh
-      </button>
+      </Button>
     </div>
   );
 }

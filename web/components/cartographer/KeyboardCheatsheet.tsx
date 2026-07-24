@@ -1,3 +1,7 @@
+'use client';
+
+import { DialogFrame } from '@/components/ui/radix-ui';
+
 type KeyboardCheatsheetProps = {
   isOpen: boolean;
   onClose: () => void;
@@ -15,36 +19,26 @@ const shortcuts = [
 ];
 
 export function KeyboardCheatsheet({ isOpen, onClose }: KeyboardCheatsheetProps) {
-  if (!isOpen) {
-    return null;
-  }
-
   return (
-    <div
-      className="keyboard-cheatsheet"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Keyboard shortcuts"
+    <DialogFrame
+      className="keyboard-cheatsheet-card"
+      eyebrow="shortcuts"
+      open={isOpen}
+      title="Keyboard field notes"
+      onOpenChange={(open) => {
+        if (!open) {
+          onClose();
+        }
+      }}
     >
-      <div className="keyboard-cheatsheet-card">
-        <header>
-          <div>
-            <p className="field-kicker font-mono">shortcuts</p>
-            <h2 className="font-serif">Keyboard field notes</h2>
+      <dl>
+        {shortcuts.map(([keys, label]) => (
+          <div key={keys}>
+            <dt className="font-mono">{keys}</dt>
+            <dd>{label}</dd>
           </div>
-          <button className="secondary" type="button" onClick={onClose}>
-            Close
-          </button>
-        </header>
-        <dl>
-          {shortcuts.map(([keys, label]) => (
-            <div key={keys}>
-              <dt className="font-mono">{keys}</dt>
-              <dd>{label}</dd>
-            </div>
-          ))}
-        </dl>
-      </div>
-    </div>
+        ))}
+      </dl>
+    </DialogFrame>
   );
 }

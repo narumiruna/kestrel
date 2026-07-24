@@ -10,31 +10,31 @@
    ========================================================================== */
 
 :root {
-  /* Warm Kestrel palette */
-  --bg-canvas: #faf7f2;
-  --bg-surface: #ffffff;
-  --bg-subtle: #f2ede5;
-  --border: #e8e0d3;
-  --border-strong: #d6cbb8;
+  /* Radix Colors mapped to Kestrel's warm semantic palette. */
+  --bg-canvas: var(--orange-2);
+  --bg-surface: var(--sand-1);
+  --bg-subtle: var(--sand-3);
+  --border: var(--sand-6);
+  --border-strong: var(--sand-8);
 
-  --text-primary: #2a2520;
-  --text-secondary: #6b6157;
-  --text-muted: #9a8f82;
+  --text-primary: var(--sand-12);
+  --text-secondary: var(--sand-11);
+  --text-muted: var(--sand-10);
 
-  --accent: #d97644;
-  --accent-hover: #c5612f;
-  --accent-soft: #fbede2;
+  --accent: var(--orange-9);
+  --accent-hover: var(--orange-10);
+  --accent-soft: var(--orange-3);
 
-  --success: #7a8c3f;
-  --warning: #c99a2e;
-  --danger: #b8483a;
-  --danger-soft: #f7e4df;
+  --success: var(--grass-11);
+  --warning: var(--amber-11);
+  --danger: var(--red-11);
+  --danger-soft: var(--red-3);
 
-  --bg-canvas-end: #f5efe5;
-  --bg-header-end: #f5efe5;
-  --overlay-surface: rgb(255 255 255 / 96%);
-  --sticky-surface: rgb(255 255 255 / 82%);
-  --toolbar-bg: rgb(255 255 255 / 74%);
+  --bg-canvas-end: var(--orange-3);
+  --bg-header-end: var(--orange-3);
+  --overlay-surface: color-mix(in srgb, var(--sand-1) 96%, transparent);
+  --sticky-surface: color-mix(in srgb, var(--sand-1) 82%, transparent);
+  --toolbar-bg: color-mix(in srgb, var(--sand-1) 74%, transparent);
 
   /* Brand */
   --color-topbar: var(--bg-surface);
@@ -68,9 +68,9 @@
 
   /* Status — success */
   --color-success: var(--success);
-  --color-success-bg: #eef1dd;
-  --color-success-border: #d9dfbc;
-  --color-success-text: #56642f;
+  --color-success-bg: var(--grass-3);
+  --color-success-border: var(--grass-6);
+  --color-success-text: var(--grass-11);
 
   /* Radii */
   --radius-xs: 0.375rem;
@@ -86,7 +86,7 @@
   --shadow-lg: 0 1px 2px rgb(42 37 32 / 4%);
 
   /* Focus ring */
-  --focus-ring: 0 0 0 3px rgb(217 118 68 / 30%);
+  --focus-ring: 0 0 0 3px color-mix(in srgb, var(--orange-9) 30%, transparent);
 
   /* Transitions */
   --transition-fast: 0.15s ease;
@@ -99,30 +99,30 @@
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg-canvas: #1a1714;
-    --bg-surface: #221e1a;
-    --bg-subtle: #2d2823;
-    --border: #3a332c;
-    --border-strong: #4a4138;
+    --bg-canvas: var(--sand-1);
+    --bg-surface: var(--sand-2);
+    --bg-subtle: var(--sand-3);
+    --border: var(--sand-6);
+    --border-strong: var(--sand-8);
 
-    --text-primary: #f2ede5;
-    --text-secondary: #a8998a;
-    --text-muted: #aa9578;
+    --text-primary: var(--sand-12);
+    --text-secondary: var(--sand-11);
+    --text-muted: var(--sand-10);
 
-    --accent: #e88a5c;
-    --accent-hover: #f0a07a;
-    --accent-soft: #3a2820;
+    --accent: var(--orange-9);
+    --accent-hover: var(--orange-10);
+    --accent-soft: var(--orange-3);
 
-    --success: #a3b560;
-    --warning: #e0b358;
-    --danger: #d6685a;
-    --danger-soft: #3a2622;
+    --success: var(--grass-11);
+    --warning: var(--amber-11);
+    --danger: var(--red-11);
+    --danger-soft: var(--red-3);
 
-    --bg-canvas-end: #211c18;
+    --bg-canvas-end: var(--sand-2);
     --bg-header-end: var(--bg-subtle);
-    --overlay-surface: rgb(34 30 26 / 96%);
-    --sticky-surface: rgb(34 30 26 / 82%);
-    --toolbar-bg: rgb(34 30 26 / 74%);
+    --overlay-surface: color-mix(in srgb, var(--sand-2) 96%, transparent);
+    --sticky-surface: color-mix(in srgb, var(--sand-2) 82%, transparent);
+    --toolbar-bg: color-mix(in srgb, var(--sand-2) 74%, transparent);
 
     --color-primary: var(--accent);
     --color-primary-dark: var(--accent-hover);
@@ -146,44 +146,44 @@
     --color-danger-text: var(--danger);
 
     --color-success: var(--success);
-    --color-success-bg: rgb(163 181 96 / 16%);
-    --color-success-border: rgb(163 181 96 / 35%);
-    --color-success-text: #d9e7a2;
+    --color-success-bg: var(--grass-3);
+    --color-success-border: var(--grass-6);
+    --color-success-text: var(--grass-11);
 
     --shadow-xs: none;
     --shadow-sm: none;
     --shadow-md: none;
     --shadow-lg: none;
 
-    --focus-ring: 0 0 0 3px rgb(232 138 92 / 35%);
+    --focus-ring: 0 0 0 3px color-mix(in srgb, var(--orange-9) 35%, transparent);
   }
 }
 
 :root[data-theme="dark"] {
-  --bg-canvas: #1a1714;
-  --bg-surface: #221e1a;
-  --bg-subtle: #2d2823;
-  --border: #3a332c;
-  --border-strong: #4a4138;
+  --bg-canvas: var(--sand-1);
+  --bg-surface: var(--sand-2);
+  --bg-subtle: var(--sand-3);
+  --border: var(--sand-6);
+  --border-strong: var(--sand-8);
 
-  --text-primary: #f2ede5;
-  --text-secondary: #a8998a;
-  --text-muted: #aa9578;
+  --text-primary: var(--sand-12);
+  --text-secondary: var(--sand-11);
+  --text-muted: var(--sand-10);
 
-  --accent: #e88a5c;
-  --accent-hover: #f0a07a;
-  --accent-soft: #3a2820;
+  --accent: var(--orange-9);
+  --accent-hover: var(--orange-10);
+  --accent-soft: var(--orange-3);
 
-  --success: #a3b560;
-  --warning: #e0b358;
-  --danger: #d6685a;
-  --danger-soft: #3a2622;
+  --success: var(--grass-11);
+  --warning: var(--amber-11);
+  --danger: var(--red-11);
+  --danger-soft: var(--red-3);
 
-  --bg-canvas-end: #211c18;
+  --bg-canvas-end: var(--sand-2);
   --bg-header-end: var(--bg-subtle);
-  --overlay-surface: rgb(34 30 26 / 96%);
-  --sticky-surface: rgb(34 30 26 / 82%);
-  --toolbar-bg: rgb(34 30 26 / 74%);
+  --overlay-surface: color-mix(in srgb, var(--sand-2) 96%, transparent);
+  --sticky-surface: color-mix(in srgb, var(--sand-2) 82%, transparent);
+  --toolbar-bg: color-mix(in srgb, var(--sand-2) 74%, transparent);
 
   --color-primary: var(--accent);
   --color-primary-dark: var(--accent-hover);
@@ -207,77 +207,98 @@
   --color-danger-text: var(--danger);
 
   --color-success: var(--success);
-  --color-success-bg: rgb(163 181 96 / 16%);
-  --color-success-border: rgb(163 181 96 / 35%);
-  --color-success-text: #d9e7a2;
+  --color-success-bg: var(--grass-3);
+  --color-success-border: var(--grass-6);
+  --color-success-text: var(--grass-11);
 
   --shadow-xs: none;
   --shadow-sm: none;
   --shadow-md: none;
   --shadow-lg: none;
 
-  --focus-ring: 0 0 0 3px rgb(232 138 92 / 35%);
+  --focus-ring: 0 0 0 3px color-mix(in srgb, var(--orange-9) 35%, transparent);
 }
 
-/* Field notebook token override — keeps existing aliases stable. */
+/* Field notebook aliases — backed by Radix Colors semantic scales. */
 :root {
-  --paper-cream: #f4ead5;
-  --paper-parchment: #ead9b8;
-  --paper-card: #fff9ec;
-  --paper-card-warm: #f8edd7;
-  --ink-black: #22180f;
-  --ink-brown: #5f4a35;
-  --ink-muted: #7d6247;
-  --kestrel-rust: #b45f32;
-  --kestrel-rust-dark: #8f4726;
-  --kestrel-rust-soft: #ead1b9;
+  --paper-cream: var(--orange-2);
+  --paper-parchment: var(--orange-3);
+  --paper-card: var(--sand-1);
+  --paper-card-warm: var(--sand-2);
+  --ink-black: var(--sand-12);
+  --ink-brown: var(--sand-11);
+  --ink-muted: var(--sand-10);
+  --kestrel-rust: var(--orange-9);
+  --kestrel-rust-dark: var(--orange-10);
+  --kestrel-rust-soft: var(--orange-3);
 
   --bg-canvas: var(--paper-cream);
   --bg-surface: var(--paper-card);
   --bg-subtle: var(--paper-card-warm);
-  --border: #dbc9a9;
-  --border-strong: #b99f79;
+  --border: var(--sand-6);
+  --border-strong: var(--sand-8);
   --text-primary: var(--ink-black);
   --text-secondary: var(--ink-brown);
   --text-muted: var(--ink-muted);
   --accent: var(--kestrel-rust);
   --accent-hover: var(--kestrel-rust-dark);
   --accent-soft: var(--kestrel-rust-soft);
-  --bg-canvas-end: #ead8b6;
-  --bg-header-end: #ead8b6;
-  --overlay-surface: rgb(255 249 236 / 95%);
-  --sticky-surface: rgb(255 249 236 / 86%);
-  --toolbar-bg: rgb(248 237 215 / 82%);
+  --bg-canvas-end: var(--orange-3);
+  --bg-header-end: var(--orange-3);
+  --overlay-surface: color-mix(in srgb, var(--paper-card) 95%, transparent);
+  --sticky-surface: color-mix(in srgb, var(--paper-card) 86%, transparent);
+  --toolbar-bg: color-mix(in srgb, var(--paper-card-warm) 82%, transparent);
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --paper-cream: #1f1a14;
-    --paper-parchment: #2b231a;
-    --paper-card: #2a2118;
-    --paper-card-warm: #35291f;
-    --ink-black: #f0e4cd;
-    --ink-brown: #cbb89b;
-    --ink-muted: #aa9578;
-    --kestrel-rust: #df8a58;
-    --kestrel-rust-dark: #f0a06f;
-    --kestrel-rust-soft: #432b1e;
-    --color-primary-text: #22180f;
+    --paper-cream: var(--sand-1);
+    --paper-parchment: var(--sand-2);
+    --paper-card: var(--sand-2);
+    --paper-card-warm: var(--sand-3);
+    --ink-black: var(--sand-12);
+    --ink-brown: var(--sand-11);
+    --ink-muted: var(--sand-10);
+    --kestrel-rust: var(--orange-9);
+    --kestrel-rust-dark: var(--orange-10);
+    --kestrel-rust-soft: var(--orange-3);
+    --color-primary-text: var(--sand-1);
   }
 }
 
 :root[data-theme="dark"] {
-  --paper-cream: #1f1a14;
-  --paper-parchment: #2b231a;
-  --paper-card: #2a2118;
-  --paper-card-warm: #35291f;
-  --ink-black: #f0e4cd;
-  --ink-brown: #cbb89b;
-  --ink-muted: #aa9578;
-  --kestrel-rust: #df8a58;
-  --kestrel-rust-dark: #f0a06f;
-  --kestrel-rust-soft: #432b1e;
-  --color-primary-text: #22180f;
+  --paper-cream: var(--sand-1);
+  --paper-parchment: var(--sand-2);
+  --paper-card: var(--sand-2);
+  --paper-card-warm: var(--sand-3);
+  --ink-black: var(--sand-12);
+  --ink-brown: var(--sand-11);
+  --ink-muted: var(--sand-10);
+  --kestrel-rust: var(--orange-9);
+  --kestrel-rust-dark: var(--orange-10);
+  --kestrel-rust-soft: var(--orange-3);
+  --color-primary-text: var(--sand-1);
+}
+
+/* Radix Orange 9 is not dark enough for small light-theme text or white button labels. */
+.radix-themes.light {
+  --accent: #b94400;
+  --accent-hover: #983900;
+  --accent-9: #b94400;
+  --accent-10: #a33c00;
+  --color-primary: var(--accent);
+  --color-primary-dark: var(--accent-hover);
+  --ink-muted: var(--sand-11);
+  --kestrel-rust: var(--accent);
+  --kestrel-rust-dark: var(--accent-hover);
+  --text-muted: var(--sand-11);
+}
+
+.radix-themes.dark {
+  --accent-9: #b94400;
+  --accent-10: #a33c00;
+  --ink-muted: var(--sand-11);
+  --text-muted: var(--sand-11);
 }
 
 .font-serif {
@@ -1608,6 +1629,14 @@ label {
 
 .route-editor button[type="submit"]:hover:not(:disabled) {
   background: var(--color-primary-dark);
+}
+
+.radix-themes.dark .route-editor button[type="submit"] {
+  background: #b94400;
+}
+
+.radix-themes.dark .route-editor button[type="submit"]:hover:not(:disabled) {
+  background: #a33c00;
 }
 
 .route-editor .danger {
@@ -4739,14 +4768,6 @@ button.is-loading {
   text-align: left;
 }
 
-.map-style-check {
-  color: var(--accent-hover);
-  display: inline-block;
-  font-family: var(--font-mono), ui-monospace, monospace;
-  font-size: 12px;
-  width: 1rem;
-}
-
 @media (prefers-color-scheme: dark) {
   .map-control-group,
   .map-style-trigger,
@@ -4999,9 +5020,9 @@ button.is-loading {
   --cloud-shell-gap: 16px;
   --cloud-sidebar-width: 320px;
   --cloud-editor-width: 440px;
-  --cloud-surface-paper: rgb(255 249 236 / 88%);
-  --cloud-surface-card: rgb(255 250 241 / 94%);
-  --cloud-border-soft: rgb(185 159 121 / 34%);
+  --cloud-surface-paper: color-mix(in srgb, var(--paper-card) 88%, transparent);
+  --cloud-surface-card: color-mix(in srgb, var(--paper-card) 94%, transparent);
+  --cloud-border-soft: color-mix(in srgb, var(--border-strong) 34%, transparent);
   --cloud-shadow: 0 18px 44px rgb(34 24 15 / 10%);
 }
 
@@ -5879,54 +5900,7 @@ button.route-marker.selected::after {
   }
 }
 
-/* Keep the cartographer workspace on the intended cream paper palette. */
-.cartographer-stage {
-  --paper-cream: #f4ead5;
-  --paper-parchment: #ead9b8;
-  --paper-card: #fff9ec;
-  --paper-card-warm: #f8edd7;
-  --ink-black: #22180f;
-  --ink-brown: #5f4a35;
-  --ink-muted: #7d6247;
-  --kestrel-rust: #b45f32;
-  --kestrel-rust-dark: #8f4726;
-  --kestrel-rust-soft: #ead1b9;
-  --bg-canvas: var(--paper-cream);
-  --bg-surface: var(--paper-card);
-  --bg-subtle: var(--paper-card-warm);
-  --border: #dbc9a9;
-  --border-strong: #b99f79;
-  --text-primary: var(--ink-black);
-  --text-secondary: var(--ink-brown);
-  --text-muted: var(--ink-muted);
-  --accent: var(--kestrel-rust);
-  --accent-hover: var(--kestrel-rust-dark);
-  --accent-soft: var(--kestrel-rust-soft);
-  --bg-canvas-end: #ead8b6;
-  --bg-header-end: #ead8b6;
-  --overlay-surface: rgb(255 249 236 / 95%);
-  --sticky-surface: rgb(255 249 236 / 86%);
-  --toolbar-bg: rgb(248 237 215 / 82%);
-  color-scheme: light;
-}
-
-/* Light aliases for form controls inside the cartographer workspace. */
-.cartographer-stage {
-  --color-bg: var(--paper-cream);
-  --color-surface-bg: var(--paper-cream);
-  --color-surface: var(--paper-card);
-  --color-secondary: var(--accent-soft);
-  --color-text: var(--text-primary);
-  --color-text-secondary: var(--text-secondary);
-  --color-border: var(--border);
-  --color-border-focus: var(--accent);
-  --color-primary: var(--accent);
-  --color-primary-dark: var(--accent-hover);
-  --color-primary-text: #ffffff;
-  --color-danger: var(--danger);
-  --color-danger-border: var(--danger);
-  --color-danger-text: var(--danger);
-}
+/* Cartographer inherits the active Radix semantic palette just like Library. */
 
 .cartographer-stage input,
 .cartographer-stage select,
