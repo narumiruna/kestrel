@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Button, TextInput } from '@/components/ui/radix-ui';
 import type { Place } from '@/lib/api';
 
 export function FavoriteWaypointPicker({
@@ -89,11 +90,15 @@ export function FavoriteWaypointPicker({
           </p>
         </div>
       ) : null}
-      <label className="favorite-search">
+      <label
+        htmlFor="radix-field-components-dashboard-favoritewaypointpicker-tsx-1"
+        className="favorite-search"
+      >
         Search saved places
         <span className="favorite-search-box">
           <SearchIcon />
-          <input
+          <TextInput
+            id="radix-field-components-dashboard-favoritewaypointpicker-tsx-1"
             placeholder="Search saved places..."
             value={query}
             onChange={(event) => setQuery(event.target.value)}
@@ -107,16 +112,16 @@ export function FavoriteWaypointPicker({
             <span className="favorite-place-main">
               <MapPinIcon />
               <strong>{place.name}</strong>
-              <button
+              <Button
                 className="favorite-add button-icon-label"
                 type="button"
                 onClick={() => onSelect(place)}
               >
                 <PlusIcon />
                 Add
-              </button>
+              </Button>
             </span>
-            <button
+            <Button
               aria-label={`Copy coordinates for ${place.name}`}
               className="coordinate-copy muted mono"
               type="button"
@@ -126,7 +131,7 @@ export function FavoriteWaypointPicker({
               {copiedPlaceId === place.id ? (
                 <span className="coordinate-copy-tooltip">copied</span>
               ) : null}
-            </button>
+            </Button>
             {place.tags.length === 0 ? null : (
               <span className="chip-row">
                 {place.tags.map((tag) => (

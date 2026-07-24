@@ -110,3 +110,4 @@ replay_pid*
 .idea/
 *.jks
 *.keystore
+*.png

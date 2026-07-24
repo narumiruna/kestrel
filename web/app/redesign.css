@@ -47,16 +47,21 @@
 
 /* Library is a catalog, never a map workspace. */
 .library-page-shell {
+  background: var(--workspace-canvas, var(--paper-parchment));
   min-height: 100dvh;
   padding: 24px;
 }
 
 .library-catalog {
+  background: var(--workspace-panel, var(--cloud-surface-card));
+  border: 1px solid var(--workspace-border, var(--cloud-border-soft));
+  border-radius: 18px;
+  box-shadow: var(--workspace-shadow, var(--cloud-shadow));
   display: grid;
   gap: var(--ui-section-gap);
   margin: 0 auto;
   max-width: var(--ui-content-max);
-  padding: 8px 0 56px;
+  padding: 28px 28px 56px;
 }
 
 .library-catalog-header {
@@ -537,8 +542,12 @@
 }
 
 @media (max-width: 1023px) {
+  .library-page-shell {
+    padding: 16px;
+  }
+
   .library-catalog {
-    padding-inline: 4px;
+    padding-inline: 20px;
   }
 
   .library-item-row {
@@ -559,8 +568,13 @@
     padding-inline: 12px;
   }
 
+  .library-page-shell {
+    padding: 12px;
+  }
+
   .library-catalog {
-    padding-bottom: 32px;
+    border-radius: 14px;
+    padding: 20px 16px 32px;
   }
 
   .library-catalog-header {
