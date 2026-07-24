@@ -21,6 +21,7 @@ import {
   formatRouteDistanceFromWaypoints,
 } from '@/components/dashboard/utils';
 import { DEFAULT_MAP_CENTER } from '@/components/mapStyle';
+import { Button, ConfirmDialog, TextInput, Toggle, ToggleGroup } from '@/components/ui/radix-ui';
 import type { Place, PlaceInput, Route, RouteInput, RouteWaypoint } from '@/lib/api';
 
 const CartographerPlaceMap = dynamic(
@@ -79,6 +80,7 @@ export default function DashboardMapPage() {
   const [isPlaceDirty, setIsPlaceDirty] = useState(false);
   const [isNewPlace, setIsNewPlace] = useState(false);
   const [placeDraftNonce, setPlaceDraftNonce] = useState(0);
+  const [pendingDraftAction, setPendingDraftAction] = useState<(() => void) | null>(null);
 
   const selectedPlace = useMemo(
     () => places.find((place) => place.id === selectedPlaceId) ?? null,
@@ -249,25 +251,29 @@ export default function DashboardMapPage() {
     await refresh();
   }
 
-  function confirmDraftDiscard(): boolean {
-    return !hasDirtyDraft || window.confirm('Discard unsaved changes? Save first to keep them.');
+  function requestDraftAction(action: () => void) {
+    if (hasDirtyDraft) {
+      setPendingDraftAction(() => action);
+    } else {
+      action();
+    }
   }
 
   function navigateIfDraftSafe(href: string) {
-    if (confirmDraftDiscard()) {
-      router.push(href);
-    }
+    requestDraftAction(() => router.push(href));
   }
 
   function selectMapKind(kind: MapKind) {
-    if (kind === activeKind || !confirmDraftDiscard()) {
+    if (kind === activeKind) {
       return;
     }
 
-    resetDraftState();
-    setActiveKind(kind);
-    setMobilePanel('picker');
-    router.replace(`/dashboard/map?kind=${kind}`);
+    requestDraftAction(() => {
+      resetDraftState();
+      setActiveKind(kind);
+      setMobilePanel('picker');
+      router.replace(`/dashboard/map?kind=${kind}`);
+    });
   }
 
   function selectRoute(routeId: string) {
@@ -276,15 +282,13 @@ export default function DashboardMapPage() {
       return;
     }
 
-    if (!confirmDraftDiscard()) {
-      return;
-    }
-
-    resetDraftState();
-    setActiveKind('routes');
-    setSelectedRouteId(routeId);
-    setMobilePanel('inspector');
-    router.replace(`/dashboard/map?kind=routes&selected=${encodeURIComponent(routeId)}`);
+    requestDraftAction(() => {
+      resetDraftState();
+      setActiveKind('routes');
+      setSelectedRouteId(routeId);
+      setMobilePanel('inspector');
+      router.replace(`/dashboard/map?kind=routes&selected=${encodeURIComponent(routeId)}`);
+    });
   }
 
   function selectPlace(placeId: string) {
@@ -293,45 +297,39 @@ export default function DashboardMapPage() {
       return;
     }
 
-    if (!confirmDraftDiscard()) {
-      return;
-    }
-
-    resetDraftState();
-    setActiveKind('places');
-    setSelectedPlaceId(placeId);
-    setMobilePanel('inspector');
-    router.replace(`/dashboard/map?kind=places&selected=${encodeURIComponent(placeId)}`);
+    requestDraftAction(() => {
+      resetDraftState();
+      setActiveKind('places');
+      setSelectedPlaceId(placeId);
+      setMobilePanel('inspector');
+      router.replace(`/dashboard/map?kind=places&selected=${encodeURIComponent(placeId)}`);
+    });
   }
 
   function startNewRoute() {
-    if (!confirmDraftDiscard()) {
-      return;
-    }
-
-    resetDraftState();
-    setActiveKind('routes');
-    setSelectedRouteId(null);
-    setDraftWaypoints([]);
-    setIsNewRoute(true);
-    setRouteDraftNonce((current) => current + 1);
-    setMobilePanel('inspector');
-    router.replace('/dashboard/map?kind=routes&new=1');
+    requestDraftAction(() => {
+      resetDraftState();
+      setActiveKind('routes');
+      setSelectedRouteId(null);
+      setDraftWaypoints([]);
+      setIsNewRoute(true);
+      setRouteDraftNonce((current) => current + 1);
+      setMobilePanel('inspector');
+      router.replace('/dashboard/map?kind=routes&new=1');
+    });
   }
 
   function startNewPlace() {
-    if (!confirmDraftDiscard()) {
-      return;
-    }
-
-    resetDraftState();
-    setActiveKind('places');
-    setSelectedPlaceId(null);
-    setDraftPlaceCoords(DEFAULT_MAP_CENTER);
-    setIsNewPlace(true);
-    setPlaceDraftNonce((current) => current + 1);
-    setMobilePanel('inspector');
-    router.replace('/dashboard/map?kind=places&new=1');
+    requestDraftAction(() => {
+      resetDraftState();
+      setActiveKind('places');
+      setSelectedPlaceId(null);
+      setDraftPlaceCoords(DEFAULT_MAP_CENTER);
+      setIsNewPlace(true);
+      setPlaceDraftNonce((current) => current + 1);
+      setMobilePanel('inspector');
+      router.replace('/dashboard/map?kind=places&new=1');
+    });
   }
 
   function resetDraftState() {
@@ -342,25 +340,23 @@ export default function DashboardMapPage() {
   }
 
   function refreshMapData() {
-    if (!confirmDraftDiscard()) {
-      return;
-    }
-
-    if (isRouteDirty) {
-      setDraftWaypoints(isNewRoute ? [] : getRouteWaypoints(selectedRoute));
-      setRouteDraftNonce((current) => current + 1);
-    }
-    if (isPlaceDirty) {
-      setDraftPlaceCoords(
-        selectedPlace == null || isNewPlace
-          ? DEFAULT_MAP_CENTER
-          : { latitude: selectedPlace.latitude, longitude: selectedPlace.longitude },
-      );
-      setPlaceDraftNonce((current) => current + 1);
-    }
-    setIsRouteDirty(false);
-    setIsPlaceDirty(false);
-    void refresh();
+    requestDraftAction(() => {
+      if (isRouteDirty) {
+        setDraftWaypoints(isNewRoute ? [] : getRouteWaypoints(selectedRoute));
+        setRouteDraftNonce((current) => current + 1);
+      }
+      if (isPlaceDirty) {
+        setDraftPlaceCoords(
+          selectedPlace == null || isNewPlace
+            ? DEFAULT_MAP_CENTER
+            : { latitude: selectedPlace.latitude, longitude: selectedPlace.longitude },
+        );
+        setPlaceDraftNonce((current) => current + 1);
+      }
+      setIsRouteDirty(false);
+      setIsPlaceDirty(false);
+      void refresh();
+    });
   }
 
   const map =
@@ -405,7 +401,10 @@ export default function DashboardMapPage() {
       mode={activeKind}
       selectedItemLabel={selectedLabel}
       workspace="map"
-      onBeforeWorkspaceChange={confirmDraftDiscard}
+      onBeforeWorkspaceChange={(href) => {
+        navigateIfDraftSafe(href);
+        return false;
+      }}
       onMobilePanelChange={setMobilePanel}
       onToggleLeftPanel={() => setIsLibraryCollapsed((current) => !current)}
       onToggleMapFocus={() => {
@@ -468,7 +467,10 @@ export default function DashboardMapPage() {
               route={isNewRoute ? null : selectedRoute}
               selectedWaypointIndex={selectedWaypointIndex}
               waypoints={draftWaypoints}
-              onBeforeNavigateAway={confirmDraftDiscard}
+              onBeforeNavigateAway={() => {
+                navigateIfDraftSafe('/dashboard/library/places');
+                return false;
+              }}
               onDirtyChange={setIsRouteDirty}
               onFocusTargetChange={setFocusTarget}
               onHoverWaypointIndexChange={setHoveredWaypointIndex}
@@ -528,6 +530,22 @@ export default function DashboardMapPage() {
       />
       <ScaleBar />
       <KeyboardCheatsheet isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
+      <ConfirmDialog
+        confirmLabel="Discard changes"
+        description="Your unsaved map edits will be lost. Save first if you want to keep them."
+        open={pendingDraftAction != null}
+        title="Discard unsaved changes?"
+        onConfirm={() => {
+          const action = pendingDraftAction;
+          setPendingDraftAction(null);
+          action?.();
+        }}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingDraftAction(null);
+          }
+        }}
+      />
     </Stage>
   );
 }
@@ -566,41 +584,43 @@ function MapLibraryPanel({
   return (
     <aside className="field-notebook map-library-panel" aria-label="Map item picker">
       <div aria-hidden className="field-notebook-spine" />
-      <nav aria-label="Map item type" className="sidebar-tabs">
-        <button
-          className={activeKind === 'places' ? 'active' : ''}
-          type="button"
-          onClick={() => onSelectKind('places')}
-        >
-          Places
-        </button>
-        <button
-          className={activeKind === 'routes' ? 'active' : ''}
-          type="button"
-          onClick={() => onSelectKind('routes')}
-        >
-          Routes
-        </button>
-      </nav>
+      <ToggleGroup
+        aria-label="Map item type"
+        className="sidebar-tabs"
+        value={[activeKind]}
+        onValueChange={(values) => {
+          const nextKind = values.at(-1) as MapKind | undefined;
+          if (nextKind != null) {
+            onSelectKind(nextKind);
+          }
+        }}
+      >
+        <Toggle value="places">Places</Toggle>
+        <Toggle value="routes">Routes</Toggle>
+      </ToggleGroup>
       <div className="map-picker-tools">
-        <label className="sidebar-search font-mono">
+        <label
+          htmlFor="radix-field-app-dashboard-map-page-tsx-1"
+          className="sidebar-search font-mono"
+        >
           <span className="sr-only">Search map items</span>
-          <input
+          <TextInput
+            id="radix-field-app-dashboard-map-page-tsx-1"
             ref={searchRef}
             placeholder={`Search ${activeKind}…`}
             value={query}
             onChange={(event) => onQueryChange(event.target.value)}
           />
         </label>
-        <button className="secondary map-picker-new" type="button" onClick={onNew}>
+        <Button className="secondary map-picker-new" type="button" onClick={onNew}>
           New
-        </button>
+        </Button>
       </div>
       <div className="notebook-list">
         {isLoading ? <NotebookSkeleton /> : null}
         {activeKind === 'places'
           ? filteredPlaces.map((place) => (
-              <button
+              <Button
                 aria-pressed={selectedPlaceId === place.id}
                 className={`notebook-entry${selectedPlaceId === place.id ? ' active' : ''}`}
                 key={place.id}
@@ -616,10 +636,10 @@ function MapLibraryPanel({
                 <span className="font-mono">
                   {formatCoord(place.latitude)}, {formatCoord(place.longitude)}
                 </span>
-              </button>
+              </Button>
             ))
           : filteredRoutes.map((route) => (
-              <button
+              <Button
                 aria-pressed={selectedRouteId === route.id}
                 className={`notebook-entry route-notebook-entry${selectedRouteId === route.id ? ' active' : ''}`}
                 key={route.id}
@@ -636,7 +656,7 @@ function MapLibraryPanel({
                   {formatRouteDistanceFromWaypoints(route.currentRevision?.waypoints ?? [])} ·{' '}
                   {formatMode(route.mode)}
                 </span>
-              </button>
+              </Button>
             ))}
         {activeItems.length === 0 && !isLoading ? (
           <div className="notebook-empty">

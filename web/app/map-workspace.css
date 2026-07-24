@@ -23,7 +23,7 @@
 
 .cartographer-stage-map .map-viewport-controls,
 .cartographer-stage-map .map-appearance-control > .map-style-trigger {
-  background: rgb(252 247 237 / 96%);
+  background: var(--workspace-panel, var(--bg-surface));
   border: 1px solid var(--cloud-border-soft, var(--border));
   box-shadow: 0 8px 22px rgb(34 24 15 / 12%);
 }

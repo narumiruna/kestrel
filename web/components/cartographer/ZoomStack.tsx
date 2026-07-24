@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { Button, Hint, Menu, MenuSurface } from '@/components/ui/radix-ui';
 import { useMapStyle } from '@/hooks/useMapStyle';
 
 type ZoomStackProps = {
@@ -11,91 +11,70 @@ type ZoomStackProps = {
 
 export function ZoomStack({ onFit, onZoomIn, onZoomOut }: ZoomStackProps) {
   const { availableStyles, label, setStyleName, styleName } = useMapStyle();
-  const [isStyleMenuOpen, setIsStyleMenuOpen] = useState(false);
-  const styleControlRef = useRef<HTMLFieldSetElement | null>(null);
-
-  useEffect(() => {
-    if (!isStyleMenuOpen) {
-      return;
-    }
-
-    function handlePointerDown(event: PointerEvent) {
-      if (styleControlRef.current?.contains(event.target as Node) === true) {
-        return;
-      }
-
-      setIsStyleMenuOpen(false);
-    }
-
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') {
-        setIsStyleMenuOpen(false);
-      }
-    }
-
-    window.addEventListener('pointerdown', handlePointerDown);
-    window.addEventListener('keydown', handleKeyDown);
-
-    return () => {
-      window.removeEventListener('pointerdown', handlePointerDown);
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [isStyleMenuOpen]);
 
   return (
     <fieldset className="map-control-stack">
       <legend className="sr-only">Map tools</legend>
       <fieldset className="map-control-bar map-viewport-controls">
         <legend className="sr-only">Map viewport</legend>
-        <button aria-label="Zoom in" title="Zoom in" type="button" onClick={onZoomIn}>
-          <PlusIcon />
-        </button>
+        <Hint label="Zoom in">
+          <Button aria-label="Zoom in" title="Zoom in" type="button" onClick={onZoomIn}>
+            <PlusIcon />
+          </Button>
+        </Hint>
         <span aria-hidden className="map-control-divider" />
-        <button aria-label="Zoom out" title="Zoom out" type="button" onClick={onZoomOut}>
-          <MinusIcon />
-        </button>
+        <Hint label="Zoom out">
+          <Button aria-label="Zoom out" title="Zoom out" type="button" onClick={onZoomOut}>
+            <MinusIcon />
+          </Button>
+        </Hint>
         <span aria-hidden className="map-control-divider" />
-        <button aria-label="Fit to all pins" title="Fit to all pins" type="button" onClick={onFit}>
-          <MaximizeIcon />
-        </button>
+        <Hint label="Fit to all pins">
+          <Button
+            aria-label="Fit to all pins"
+            title="Fit to all pins"
+            type="button"
+            onClick={onFit}
+          >
+            <MaximizeIcon />
+          </Button>
+        </Hint>
       </fieldset>
-      <fieldset className="map-style-control map-appearance-control" ref={styleControlRef}>
+      <fieldset className="map-style-control map-appearance-control">
         <legend className="sr-only">Map appearance</legend>
-        <button
-          aria-expanded={isStyleMenuOpen}
-          aria-haspopup="menu"
-          aria-label={`Map appearance: ${label}`}
-          className="map-style-trigger"
-          title={`Map appearance: ${label}`}
-          type="button"
-          onClick={() => setIsStyleMenuOpen((current) => !current)}
+        <MenuSurface
+          align="end"
+          className="map-style-menu"
+          side="top"
+          trigger={
+            <Button
+              aria-label={`Map appearance: ${label}`}
+              className="map-style-trigger"
+              title={`Map appearance: ${label}`}
+              type="button"
+            >
+              <MapIcon />
+              <span>{label}</span>
+              <ChevronDownIcon />
+            </Button>
+          }
         >
-          <MapIcon />
-          <span>{label}</span>
-          <ChevronDownIcon />
-        </button>
-        {isStyleMenuOpen ? (
-          <div aria-label="Map styles" className="map-style-menu" role="menu">
+          <Menu.RadioGroup
+            value={styleName}
+            onValueChange={(value) => setStyleName(value as typeof styleName)}
+          >
             {availableStyles.map((styleOption) => (
-              <button
-                aria-checked={styleOption.name === styleName}
-                className={styleOption.name === styleName ? 'active' : ''}
+              <Menu.RadioItem
+                className="ui-menu-item"
                 key={styleOption.name}
-                role="menuitemradio"
-                type="button"
-                onClick={() => {
-                  setStyleName(styleOption.name);
-                  setIsStyleMenuOpen(false);
-                }}
+                value={styleOption.name}
               >
-                <span aria-hidden className="map-style-check">
-                  {styleOption.name === styleName ? '✓' : ''}
-                </span>
+                <Menu.RadioItemIndicator className="map-style-check">✓</Menu.RadioItemIndicator>
                 {styleOption.label}
-              </button>
+              </Menu.RadioItem>
             ))}
-          </div>
-        ) : null}
+          </Menu.RadioGroup>
+        </MenuSurface>
       </fieldset>
     </fieldset>
   );

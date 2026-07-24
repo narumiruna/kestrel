@@ -4,6 +4,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { type FormEvent, useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/components/AuthProvider';
+import { Button, CheckboxField, Tabs, TextInput } from '@/components/ui/radix-ui';
 import { ApiError, login, register, setupTotp, verifyTotp } from '@/lib/api';
 
 type AuthTab = 'login' | 'register';
@@ -137,147 +138,143 @@ export default function LoginPage() {
           <span className="muted">Edit places and routes for Android sync.</span>
         </div>
 
-        <div className="tabs">
-          <button
-            className={tab === 'login' ? 'active' : ''}
-            type="button"
-            onClick={() => setTab('login')}
-          >
-            Login
-          </button>
-          <button
-            className={tab === 'register' ? 'active' : ''}
-            type="button"
-            onClick={() => setTab('register')}
-          >
-            Register
-          </button>
-        </div>
+        <Tabs.Root
+          className="auth-tabs-root"
+          value={tab}
+          onValueChange={(value) => setTab(value as AuthTab)}
+        >
+          <Tabs.List className="tabs" activateOnFocus>
+            <Tabs.Tab value="login">Login</Tabs.Tab>
+            <Tabs.Tab value="register">Register</Tabs.Tab>
+            <Tabs.Indicator className="ui-tabs-indicator" />
+          </Tabs.List>
 
-        {error == null ? null : <div className="error">{error}</div>}
+          {error == null ? null : <div className="error">{error}</div>}
 
-        {tab === 'login' ? (
-          <form className="stack" onSubmit={submitLogin}>
-            <CredentialsFields
-              password={password}
-              setPassword={setPassword}
-              setUsername={setUsername}
-              username={username}
-            />
-            <label>
-              {isRecoveryCode ? 'Recovery code' : 'TOTP code'}
-              <input
-                autoComplete="one-time-code"
-                inputMode="numeric"
-                placeholder="Optional when password-only login is allowed"
-                value={oneTimeCode}
-                onChange={(event) => setOneTimeCode(event.target.value)}
+          <Tabs.Panel className="auth-tab-panel" value="login">
+            <form className="stack" onSubmit={submitLogin}>
+              <CredentialsFields
+                password={password}
+                setPassword={setPassword}
+                setUsername={setUsername}
+                username={username}
               />
-            </label>
-            <label className="row">
-              <input
-                checked={isRecoveryCode}
-                className="inline-control"
-                type="checkbox"
-                onChange={(event) => setIsRecoveryCode(event.target.checked)}
-              />
-              Use a recovery code instead
-            </label>
-            <button disabled={isSubmitting} type="submit">
-              {isSubmitting ? 'Signing in…' : 'Sign in'}
-            </button>
-          </form>
-        ) : (
-          <form className="stack" onSubmit={submitRegister}>
-            <CredentialsFields
-              password={password}
-              passwordMinLength={REGISTER_PASSWORD_MIN_LENGTH}
-              setPassword={setPassword}
-              setUsername={setUsername}
-              username={username}
-            />
-
-            {totpSetup == null ? (
-              <p className="muted">
-                Passwords must be at least 12 characters. TOTP is optional; you can sign in with
-                username and password only.
-              </p>
-            ) : (
-              <div className="stack">
-                <div className="success">
-                  Scan this QR code, then enter the current authenticator code.
-                </div>
-                <Image
-                  alt="TOTP QR code"
-                  className="qr"
-                  height={224}
-                  src={totpSetup.qrCodeDataUrl}
-                  unoptimized
-                  width={224}
+              <label htmlFor="radix-field-app-login-page-tsx-1">
+                {isRecoveryCode ? 'Recovery code' : 'TOTP code'}
+                <TextInput
+                  id="radix-field-app-login-page-tsx-1"
+                  autoComplete="one-time-code"
+                  inputMode="numeric"
+                  placeholder="Optional when password-only login is allowed"
+                  value={oneTimeCode}
+                  onChange={(event) => setOneTimeCode(event.target.value)}
                 />
-                <label>
-                  Secret
-                  <input readOnly value={totpSetup.secret} />
-                </label>
-                <label>
-                  TOTP code
-                  <input
-                    autoComplete="one-time-code"
-                    inputMode="numeric"
-                    required
-                    value={oneTimeCode}
-                    onChange={(event) => setOneTimeCode(event.target.value)}
+              </label>
+              <CheckboxField checked={isRecoveryCode} onCheckedChange={setIsRecoveryCode}>
+                Use a recovery code instead
+              </CheckboxField>
+              <Button disabled={isSubmitting} type="submit">
+                {isSubmitting ? 'Signing in…' : 'Sign in'}
+              </Button>
+            </form>
+          </Tabs.Panel>
+          <Tabs.Panel className="auth-tab-panel" value="register">
+            <form className="stack" onSubmit={submitRegister}>
+              <CredentialsFields
+                password={password}
+                passwordMinLength={REGISTER_PASSWORD_MIN_LENGTH}
+                setPassword={setPassword}
+                setUsername={setUsername}
+                username={username}
+              />
+
+              {totpSetup == null ? (
+                <p className="muted">
+                  Passwords must be at least 12 characters. TOTP is optional; you can sign in with
+                  username and password only.
+                </p>
+              ) : (
+                <div className="stack">
+                  <div className="success">
+                    Scan this QR code, then enter the current authenticator code.
+                  </div>
+                  <Image
+                    alt="TOTP QR code"
+                    className="qr"
+                    height={224}
+                    src={totpSetup.qrCodeDataUrl}
+                    unoptimized
+                    width={224}
                   />
-                </label>
-              </div>
-            )}
-
-            {recoveryCodes == null ? null : (
-              <div className="success stack">
-                <strong>Save these recovery codes now. They will not be shown again.</strong>
-                <div className="chip-row">
-                  {recoveryCodes.map((code) => (
-                    <code className="chip" key={code}>
-                      {code}
-                    </code>
-                  ))}
+                  <label htmlFor="radix-field-app-login-page-tsx-2">
+                    Secret
+                    <TextInput
+                      id="radix-field-app-login-page-tsx-2"
+                      readOnly
+                      value={totpSetup.secret}
+                    />
+                  </label>
+                  <label htmlFor="radix-field-app-login-page-tsx-3">
+                    TOTP code
+                    <TextInput
+                      id="radix-field-app-login-page-tsx-3"
+                      autoComplete="one-time-code"
+                      inputMode="numeric"
+                      required
+                      value={oneTimeCode}
+                      onChange={(event) => setOneTimeCode(event.target.value)}
+                    />
+                  </label>
                 </div>
-              </div>
-            )}
+              )}
 
-            <button disabled={isSubmitting || recoveryCodes != null} type="submit">
-              {totpSetup == null ? 'Create account' : 'Verify TOTP'}
-            </button>
-            {totpSetup == null ? (
-              <button
-                className="secondary"
-                disabled={
-                  isSubmitting ||
-                  username.length === 0 ||
-                  password.length < REGISTER_PASSWORD_MIN_LENGTH
-                }
-                type="button"
-                onClick={() => void startTotpSetup()}
-              >
-                Create account + set up optional TOTP
-              </button>
-            ) : null}
-            {recoveryCodes == null ? null : (
-              <button
-                className="secondary"
-                type="button"
-                onClick={() => {
-                  setTab('login');
-                  setOneTimeCode('');
-                  setRecoveryCodes(null);
-                  setTotpSetup(null);
-                }}
-              >
-                Continue to login
-              </button>
-            )}
-          </form>
-        )}
+              {recoveryCodes == null ? null : (
+                <div className="success stack">
+                  <strong>Save these recovery codes now. They will not be shown again.</strong>
+                  <div className="chip-row">
+                    {recoveryCodes.map((code) => (
+                      <code className="chip" key={code}>
+                        {code}
+                      </code>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <Button disabled={isSubmitting || recoveryCodes != null} type="submit">
+                {totpSetup == null ? 'Create account' : 'Verify TOTP'}
+              </Button>
+              {totpSetup == null ? (
+                <Button
+                  className="secondary"
+                  disabled={
+                    isSubmitting ||
+                    username.length === 0 ||
+                    password.length < REGISTER_PASSWORD_MIN_LENGTH
+                  }
+                  type="button"
+                  onClick={() => void startTotpSetup()}
+                >
+                  Create account + set up optional TOTP
+                </Button>
+              ) : null}
+              {recoveryCodes == null ? null : (
+                <Button
+                  className="secondary"
+                  type="button"
+                  onClick={() => {
+                    setTab('login');
+                    setOneTimeCode('');
+                    setRecoveryCodes(null);
+                    setTotpSetup(null);
+                  }}
+                >
+                  Continue to login
+                </Button>
+              )}
+            </form>
+          </Tabs.Panel>
+        </Tabs.Root>
       </section>
     </main>
   );
@@ -298,18 +295,20 @@ function CredentialsFields({
 }) {
   return (
     <>
-      <label>
+      <label htmlFor="radix-field-app-login-page-tsx-4">
         Username
-        <input
+        <TextInput
+          id="radix-field-app-login-page-tsx-4"
           autoComplete="username"
           required
           value={username}
           onChange={(event) => setUsername(event.target.value)}
         />
       </label>
-      <label>
+      <label htmlFor="radix-field-app-login-page-tsx-5">
         Password
-        <input
+        <TextInput
+          id="radix-field-app-login-page-tsx-5"
           autoComplete={passwordMinLength == null ? 'current-password' : 'new-password'}
           minLength={passwordMinLength}
           required

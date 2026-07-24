@@ -1,0 +1,45 @@
+/* Shared cloud-workspace color and surface treatment for Map and Library. */
+
+:root {
+  --workspace-canvas: var(--paper-parchment);
+  --workspace-chrome: color-mix(in srgb, var(--paper-card) 88%, transparent);
+  --workspace-panel: var(--cloud-surface-card);
+  --workspace-control: var(--paper-card-warm);
+  --workspace-border: var(--cloud-border-soft);
+  --workspace-shadow: var(--cloud-shadow);
+}
+
+.library-page-shell,
+.kc-shell-library,
+.cartographer-stage-map {
+  background: var(--workspace-canvas);
+}
+
+.library-catalog,
+.cartographer-stage-map .field-notebook,
+.cartographer-stage-map .index-card {
+  background: var(--workspace-panel);
+  border-color: var(--workspace-border);
+  box-shadow: var(--workspace-shadow);
+}
+
+.kc-shell .kc-topbar,
+.cartographer-stage-map .status-strip {
+  backdrop-filter: blur(14px);
+  background: var(--workspace-chrome);
+  border-bottom: 1px solid var(--workspace-border);
+}
+
+.kc-shell .kc-tabs.kc-tabs,
+.cartographer-stage-map .workspace-tabs {
+  background: var(--workspace-control);
+  border: 1px solid var(--workspace-border);
+  box-shadow: none;
+}
+
+.kc-shell .kc-tab.active,
+.kc-shell .kc-tab.active:hover,
+.cartographer-stage-map .workspace-tabs a.active {
+  background: var(--workspace-panel);
+  color: var(--accent-hover);
+}

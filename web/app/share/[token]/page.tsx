@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/components/AuthProvider';
+import { Button } from '@/components/ui/radix-ui';
 import {
   ApiError,
   apiFetch,
@@ -121,13 +122,13 @@ export default function SharedItemPage() {
               </div>
             )}
             <div className="row">
-              <button disabled={isCopying} type="button" onClick={() => void copyToLibrary()}>
+              <Button disabled={isCopying} type="button" onClick={() => void copyToLibrary()}>
                 {isCopying
                   ? 'Copying…'
                   : auth.isAuthenticated
                     ? 'Copy to my library'
                     : 'Sign in to copy'}
-              </button>
+              </Button>
             </div>
           </article>
         </section>

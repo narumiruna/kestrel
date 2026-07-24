@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import { formatError, toAbsolutePublicUrl } from '@/components/dashboard/utils';
+import { Button, TextInput } from '@/components/ui/radix-ui';
 import { ApiError, type Route, type RouteShareLink } from '@/lib/api';
 
 export function RouteSharePanel({ route }: { route: Route | null }) {
@@ -137,15 +138,19 @@ export function RouteSharePanel({ route }: { route: Route | null }) {
       )}
       {shareLink == null ? (
         <div className="row">
-          <button disabled={isMutating} type="button" onClick={() => void createShareLink()}>
+          <Button disabled={isMutating} type="button" onClick={() => void createShareLink()}>
             {isMutating ? 'Creating…' : 'Create public link'}
-          </button>
+          </Button>
         </div>
       ) : (
         <div className="stack">
-          <label>
+          <label htmlFor="radix-field-components-dashboard-routesharepanel-tsx-1">
             Public URL
-            <input readOnly value={toAbsolutePublicUrl(shareLink.publicUrl)} />
+            <TextInput
+              id="radix-field-components-dashboard-routesharepanel-tsx-1"
+              readOnly
+              value={toAbsolutePublicUrl(shareLink.publicUrl)}
+            />
           </label>
           <div className="chip-row">
             {shareLink.disabledAt == null ? (
@@ -156,13 +161,13 @@ export function RouteSharePanel({ route }: { route: Route | null }) {
             <span className="chip">latest route</span>
           </div>
           <div className="row">
-            <button className="secondary" type="button" onClick={() => void copyPublicUrl()}>
+            <Button className="secondary" type="button" onClick={() => void copyPublicUrl()}>
               Copy URL
-            </button>
+            </Button>
             <a href={shareLink.publicUrl} rel="noreferrer" target="_blank">
               Open public page
             </a>
-            <button
+            <Button
               className={shareLink.disabledAt == null ? 'danger' : 'secondary'}
               disabled={isMutating}
               type="button"
@@ -173,7 +178,7 @@ export function RouteSharePanel({ route }: { route: Route | null }) {
                 : shareLink.disabledAt == null
                   ? 'Disable link'
                   : 'Re-enable link'}
-            </button>
+            </Button>
           </div>
         </div>
       )}

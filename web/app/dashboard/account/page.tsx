@@ -5,6 +5,7 @@ import { type FormEvent, useCallback, useEffect, useState } from 'react';
 import { UserMark } from '@/components/cartographer/UserMark';
 import { useDashboardAuth } from '@/components/dashboard/useDashboardAuth';
 import { formatError } from '@/components/dashboard/utils';
+import { Button, ConfirmDialog, DialogFrame, TextInput } from '@/components/ui/radix-ui';
 import type {
   AuthSessionSummary,
   AuthSessionsResponse,
@@ -29,6 +30,7 @@ export default function AccountSecurityPage() {
   const [currentPassword, setCurrentPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showAllSessions, setShowAllSessions] = useState(false);
+  const [isSignOutOpen, setIsSignOutOpen] = useState(false);
 
   const loadSecurityData = useCallback(async () => {
     if (!auth.isAuthenticated) {
@@ -63,9 +65,6 @@ export default function AccountSecurityPage() {
   }
 
   async function revokeCurrentSession() {
-    if (!window.confirm('Sign out this session now?')) {
-      return;
-    }
     await auth.logout();
   }
 
@@ -157,14 +156,14 @@ export default function AccountSecurityPage() {
               <p className="eyebrow">Authentication</p>
               <h2 id="sessions-heading">Active sessions</h2>
             </div>
-            <button
+            <Button
               className="secondary"
               disabled={isLoading || otherSessionCount === 0 || isSubmitting}
               type="button"
               onClick={() => setPendingAction({ kind: 'others', label: 'Other sessions' })}
             >
               Revoke all others
-            </button>
+            </Button>
           </div>
           {isLoading ? <p className="muted">Loading sessions…</p> : null}
           {!isLoading && sessions.length === 0 ? (
@@ -178,7 +177,7 @@ export default function AccountSecurityPage() {
                 disabled={isSubmitting}
                 onRevoke={() => {
                   if (session.isCurrent) {
-                    void revokeCurrentSession();
+                    setIsSignOutOpen(true);
                   } else {
                     setPendingAction({
                       id: session.id,
@@ -191,13 +190,13 @@ export default function AccountSecurityPage() {
             ))}
           </div>
           {sessions.length > 5 ? (
-            <button
+            <Button
               className="secondary account-security-show-more"
               type="button"
               onClick={() => setShowAllSessions((current) => !current)}
             >
               {showAllSessions ? 'Show fewer sessions' : `Show ${hiddenSessionCount} more sessions`}
-            </button>
+            </Button>
           ) : null}
         </section>
 
@@ -207,14 +206,14 @@ export default function AccountSecurityPage() {
               <p className="eyebrow">Remote control</p>
               <h2 id="devices-heading">Android devices</h2>
             </div>
-            <button
+            <Button
               className="secondary"
               disabled={isLoading}
               type="button"
               onClick={() => void loadSecurityData()}
             >
               Refresh
-            </button>
+            </Button>
           </div>
           <p className="muted">
             Revoking a device also revokes the Android session that last registered it. A command
@@ -242,46 +241,57 @@ export default function AccountSecurityPage() {
         </section>
       </div>
 
-      {pendingAction == null ? null : (
-        <section className="panel account-security-confirm" aria-labelledby="confirm-heading">
-          <div>
-            <p className="eyebrow">Confirm sensitive action</p>
-            <h2 id="confirm-heading">Revoke {pendingAction.label}</h2>
-            <p className="muted">
-              Enter your current password. Existing credentials are accepted even if they predate
-              the current password-length policy.
-            </p>
+      <ConfirmDialog
+        confirmLabel="Sign out"
+        description="This browser session will end immediately. You will need to sign in again."
+        open={isSignOutOpen}
+        title="Sign out this session?"
+        onConfirm={revokeCurrentSession}
+        onOpenChange={setIsSignOutOpen}
+      />
+
+      <DialogFrame
+        description="Enter your current password. Existing credentials are accepted even if they predate the current password-length policy."
+        eyebrow="Confirm sensitive action"
+        open={pendingAction != null}
+        title={`Revoke ${pendingAction?.label ?? 'access'}`}
+        onOpenChange={(open) => {
+          if (!open && !isSubmitting) {
+            setPendingAction(null);
+            setCurrentPassword('');
+          }
+        }}
+      >
+        <form className="account-security-confirm-form" onSubmit={submitSensitiveAction}>
+          <label htmlFor="radix-field-app-dashboard-account-page-tsx-1">
+            Current password
+            <TextInput
+              id="radix-field-app-dashboard-account-page-tsx-1"
+              autoComplete="current-password"
+              required
+              type="password"
+              value={currentPassword}
+              onChange={(event) => setCurrentPassword(event.target.value)}
+            />
+          </label>
+          <div className="account-security-actions">
+            <Button
+              className="secondary"
+              disabled={isSubmitting}
+              type="button"
+              onClick={() => {
+                setPendingAction(null);
+                setCurrentPassword('');
+              }}
+            >
+              Cancel
+            </Button>
+            <Button className="danger" disabled={isSubmitting} type="submit">
+              {isSubmitting ? 'Revoking…' : 'Revoke access'}
+            </Button>
           </div>
-          <form className="account-security-confirm-form" onSubmit={submitSensitiveAction}>
-            <label>
-              Current password
-              <input
-                autoComplete="current-password"
-                required
-                type="password"
-                value={currentPassword}
-                onChange={(event) => setCurrentPassword(event.target.value)}
-              />
-            </label>
-            <div className="account-security-actions">
-              <button
-                className="secondary"
-                disabled={isSubmitting}
-                type="button"
-                onClick={() => {
-                  setPendingAction(null);
-                  setCurrentPassword('');
-                }}
-              >
-                Cancel
-              </button>
-              <button className="danger" disabled={isSubmitting} type="submit">
-                {isSubmitting ? 'Revoking…' : 'Revoke access'}
-              </button>
-            </div>
-          </form>
-        </section>
-      )}
+        </form>
+      </DialogFrame>
     </main>
   );
 }
@@ -308,9 +318,9 @@ function SessionRow({
           {session.ipAddress == null ? '' : ` · ${session.ipAddress}`}
         </p>
       </div>
-      <button className="danger secondary" disabled={disabled} type="button" onClick={onRevoke}>
+      <Button className="danger secondary" disabled={disabled} type="button" onClick={onRevoke}>
         {session.isCurrent ? 'Sign out' : 'Revoke'}
-      </button>
+      </Button>
     </article>
   );
 }
@@ -345,14 +355,14 @@ function DeviceRow({
           {device.appVersion == null ? '' : ` · Kestrel ${device.appVersion}`}
         </p>
       </div>
-      <button
+      <Button
         className="danger secondary"
         disabled={disabled || device.revokedAt != null}
         type="button"
         onClick={onRevoke}
       >
         {device.revokedAt == null ? 'Revoke' : 'Revoked'}
-      </button>
+      </Button>
     </article>
   );
 }

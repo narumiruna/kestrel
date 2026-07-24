@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import type { ReactNode, RefObject } from 'react';
+import { Button, TextInput } from '@/components/ui/radix-ui';
 
 type FieldNotebookProps = {
   activeSection: 'places' | 'routes';
@@ -32,7 +33,7 @@ export function FieldNotebook({
         searchValue={searchValue}
         onSearchChange={onSearchChange}
       />
-      <button className="notebook-new-entry" type="button" onClick={onNewEntry}>
+      <Button className="notebook-new-entry" type="button" onClick={onNewEntry}>
         <span aria-hidden className="notebook-new-entry-icon">
           +
         </span>
@@ -44,7 +45,7 @@ export function FieldNotebook({
               : 'Save a place with coordinates'}
           </small>
         </span>
-      </button>
+      </Button>
       <div className="notebook-list">{children}</div>
     </aside>
   );
@@ -83,9 +84,13 @@ function SidebarSearch({
   searchValue: string;
 }) {
   return (
-    <label className="sidebar-search font-mono">
+    <label
+      htmlFor="radix-field-components-cartographer-fieldnotebook-tsx-1"
+      className="sidebar-search font-mono"
+    >
       <span className="sr-only">Search</span>
-      <input
+      <TextInput
+        id="radix-field-components-cartographer-fieldnotebook-tsx-1"
         ref={searchRef}
         placeholder={searchPlaceholder}
         value={searchValue}

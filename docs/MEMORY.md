@@ -43,6 +43,9 @@
 
 ## TASTE
 
+- Use `@radix-ui/themes` as Kestrel Web’s single UI component system, with Radix Colors for palette tokens; do not mix in Base UI or another primitive library.
+- Never add images or other binary files to Git changes, commits, or pull requests (for example PNG, JPG/JPEG, HEIF/HEIC, WebP, GIF, or screenshot artifacts); keep browser-validation captures outside Git.
+- Use Chrome DevTools for browser validation; do not run Playwright.
 - Keep every individual command or tool execution within 3 minutes; split longer work into observable, interruptible steps with timeouts of at most 180 seconds.
 - For small Android code changes, run the narrowest relevant JVM test with `./gradlew :app:testDebugUnitTest --tests '<fully-qualified-test>'` during iteration; run `just android-test` before completion.
 - Prefer `aria2c` for required large downloads (`brew install aria2` if unavailable), verify published checksums when provided, inspect size and transfer rate early, and abort when the ETA is unreasonable. Prefer existing workflow/signature evidence or a small metadata request when it already proves the requirement.
