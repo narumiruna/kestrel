@@ -76,14 +76,6 @@ android-ui:
 android-ui-update:
     JAVA_HOME="{{java_home}}" PATH="{{java_home}}/bin:$PATH" ./gradlew :app:updateDebugScreenshotTest
 
-# run Web UI regression tests (requires `just webtest-up` in another terminal)
-web-ui:
-    cd web && npm run test:ui
-
-# update Web UI screenshots (requires `just webtest-up`; review image diffs)
-web-ui-update:
-    cd web && npm run test:ui:update
-
 # start the web/backend/Postgres dev stack with hot reload
 cloud-up:
     docker compose -f compose.dev.yaml --profile watch up --build
@@ -96,15 +88,15 @@ cloud-down:
 cloud-log:
     docker compose -f compose.dev.yaml logs -f web-watch backend-watch postgres
 
-# start the browser-test dev stack with hot reload on localhost:3401
+# start the isolated browser-review dev stack with hot reload on localhost:3401
 webtest-up:
     KESTREL_DEV_WEB_PORT=3401 KESTREL_DEV_BACKEND_PORT=3400 KESTREL_DEV_POSTGRES_PORT=15433 docker compose -p kestrel-webtest -f compose.dev.yaml --profile watch up --build
 
-# stop the browser-test stack without removing its database volume
+# stop the isolated browser-review stack without removing its database volume
 webtest-down:
     docker compose -p kestrel-webtest -f compose.dev.yaml --profile watch --profile image down
 
-# follow browser-test stack logs
+# follow isolated browser-review stack logs
 webtest-log:
     docker compose -p kestrel-webtest -f compose.dev.yaml logs -f web-watch backend-watch postgres
 
