@@ -10,6 +10,14 @@ import {
   toAbsolutePublicUrl,
 } from '@/components/dashboard/utils';
 import { DEFAULT_MAP_CENTER } from '@/components/mapStyle';
+import {
+  Button,
+  ConfirmDialog,
+  DialogFrame,
+  Disclosure,
+  TextArea,
+  TextInput,
+} from '@/components/ui/radix-ui';
 import { ApiError, type Place, type PlaceInput, type PlaceShareLink } from '@/lib/api';
 
 const PlaceMapEditor = dynamic(() => import('@/components/PlaceMapEditor'), {
@@ -54,7 +62,6 @@ export default function PlaceEditor({
   const [saveNotice, setSaveNotice] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
-  const shareDialogRef = useRef<HTMLDialogElement | null>(null);
   const saveNoticeTimeoutRef = useRef<number | null>(null);
   const lastEmittedCoordsRef = useRef<{ latitude: number; longitude: number } | null>(null);
   const onDirtyChangeRef = useRef(onDirtyChange);
@@ -132,23 +139,6 @@ export default function PlaceEditor({
     [],
   );
 
-  useEffect(() => {
-    const dialog = shareDialogRef.current;
-
-    if (dialog == null) {
-      return;
-    }
-
-    if (isShareDialogOpen && !dialog.open) {
-      dialog.showModal();
-      return;
-    }
-
-    if (!isShareDialogOpen && dialog.open) {
-      dialog.close();
-    }
-  }, [isShareDialogOpen]);
-
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
@@ -190,12 +180,6 @@ export default function PlaceEditor({
     setError(null);
     setSaveNotice(null);
     onDiscard?.(baselineCoords);
-  }
-
-  function confirmDelete() {
-    if (window.confirm('Delete this place? This cannot be undone.')) {
-      onDelete?.();
-    }
   }
 
   function updateCoordinate(axis: 'latitude' | 'longitude', value: string) {
@@ -250,23 +234,30 @@ export default function PlaceEditor({
             }}
           />
         ) : null}
-        <label>
+        <label htmlFor="radix-field-components-dashboard-placeeditor-tsx-1">
           Name
-          <input required value={name} onChange={(event) => setName(event.target.value)} />
+          <TextInput
+            id="radix-field-components-dashboard-placeeditor-tsx-1"
+            required
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+          />
         </label>
         <div className="split">
-          <label>
+          <label htmlFor="radix-field-components-dashboard-placeeditor-tsx-2">
             Latitude
-            <input
+            <TextInput
+              id="radix-field-components-dashboard-placeeditor-tsx-2"
               required
               inputMode="decimal"
               value={latitude}
               onChange={(event) => updateCoordinate('latitude', event.target.value)}
             />
           </label>
-          <label>
+          <label htmlFor="radix-field-components-dashboard-placeeditor-tsx-3">
             Longitude
-            <input
+            <TextInput
+              id="radix-field-components-dashboard-placeeditor-tsx-3"
               required
               inputMode="decimal"
               value={longitude}
@@ -275,31 +266,40 @@ export default function PlaceEditor({
           </label>
         </div>
         {compactDetails ? (
-          <details className="editor-more-details">
-            <summary>More details</summary>
+          <Disclosure className="editor-more-details" summary="More details">
             <div className="stack">
-              <label>
+              <label htmlFor="radix-field-components-dashboard-placeeditor-tsx-4">
                 Tags (comma separated)
-                <input value={tags} onChange={(event) => setTags(event.target.value)} />
+                <TextInput
+                  id="radix-field-components-dashboard-placeeditor-tsx-4"
+                  value={tags}
+                  onChange={(event) => setTags(event.target.value)}
+                />
               </label>
-              <label>
+              <label htmlFor="radix-field-components-dashboard-placeeditor-tsx-5">
                 Description
-                <textarea
+                <TextArea
+                  id="radix-field-components-dashboard-placeeditor-tsx-5"
                   value={description}
                   onChange={(event) => setDescription(event.target.value)}
                 />
               </label>
             </div>
-          </details>
+          </Disclosure>
         ) : (
           <>
-            <label>
+            <label htmlFor="radix-field-components-dashboard-placeeditor-tsx-6">
               Tags (comma separated)
-              <input value={tags} onChange={(event) => setTags(event.target.value)} />
+              <TextInput
+                id="radix-field-components-dashboard-placeeditor-tsx-6"
+                value={tags}
+                onChange={(event) => setTags(event.target.value)}
+              />
             </label>
-            <label>
+            <label htmlFor="radix-field-components-dashboard-placeeditor-tsx-7">
               Description
-              <textarea
+              <TextArea
+                id="radix-field-components-dashboard-placeeditor-tsx-7"
                 value={description}
                 onChange={(event) => setDescription(event.target.value)}
               />
@@ -311,64 +311,53 @@ export default function PlaceEditor({
         <div className="place-editor-footer-actions">
           <div className="place-editor-danger-actions">
             {onDelete == null ? null : (
-              <button className="danger" disabled={isSaving} type="button" onClick={confirmDelete}>
-                Delete
-              </button>
+              <ConfirmDialog
+                confirmLabel="Delete place"
+                description="This cannot be undone. The place and its public share link will be permanently removed."
+                disabled={isSaving}
+                title="Delete this place?"
+                trigger={
+                  <Button className="danger" disabled={isSaving} type="button">
+                    Delete
+                  </Button>
+                }
+                onConfirm={onDelete}
+              />
             )}
           </div>
           <div className="place-editor-save-actions">
             {isDirty ? <span className="unsaved-changes-label">Unsaved changes</span> : null}
             {isDirty ? (
-              <button
+              <Button
                 className="secondary"
                 disabled={isSaving}
                 type="button"
                 onClick={discardChanges}
               >
                 Discard changes
-              </button>
+              </Button>
             ) : null}
             {place == null ? null : (
-              <button
-                aria-haspopup="dialog"
-                className="secondary"
-                type="button"
-                onClick={() => setIsShareDialogOpen(true)}
+              <DialogFrame
+                className="place-action-dialog-card"
+                eyebrow="secondary action"
+                open={isShareDialogOpen}
+                title="Share place"
+                trigger={
+                  <Button className="secondary" type="button">
+                    Share
+                  </Button>
+                }
+                onOpenChange={setIsShareDialogOpen}
               >
-                Share
-              </button>
+                <PlaceSharePanel place={place} />
+              </DialogFrame>
             )}
-            <button disabled={isSaving} type="submit">
+            <Button disabled={isSaving} type="submit">
               {isSaving ? 'Saving…' : saveNotice == null ? 'Save place' : 'Saved ✓'}
-            </button>
+            </Button>
           </div>
         </div>
-        <dialog
-          aria-labelledby="place-share-dialog-title"
-          className="place-action-dialog"
-          ref={shareDialogRef}
-          onCancel={() => setIsShareDialogOpen(false)}
-          onClose={() => setIsShareDialogOpen(false)}
-        >
-          <div className="place-action-dialog-card">
-            <header>
-              <div>
-                <p className="field-kicker font-mono">secondary action</p>
-                <h3 className="font-serif" id="place-share-dialog-title">
-                  Share place
-                </h3>
-              </div>
-              <button
-                className="secondary"
-                type="button"
-                onClick={() => setIsShareDialogOpen(false)}
-              >
-                Close
-              </button>
-            </header>
-            <PlaceSharePanel place={place} />
-          </div>
-        </dialog>
       </footer>
     </form>
   );
@@ -551,20 +540,24 @@ function PlaceSharePanel({ place }: { place: Place | null }) {
       )}
       {shareLink == null ? (
         <div className="row">
-          <button
+          <Button
             className="secondary"
             disabled={isMutating}
             type="button"
             onClick={() => void createShareLink()}
           >
             {isMutating ? 'Creating…' : 'Create public link'}
-          </button>
+          </Button>
         </div>
       ) : (
         <div className="stack">
-          <label>
+          <label htmlFor="radix-field-components-dashboard-placeeditor-tsx-8">
             Public URL
-            <input readOnly value={toAbsolutePublicUrl(shareLink.publicUrl)} />
+            <TextInput
+              id="radix-field-components-dashboard-placeeditor-tsx-8"
+              readOnly
+              value={toAbsolutePublicUrl(shareLink.publicUrl)}
+            />
           </label>
           <div className="chip-row">
             {shareLink.disabledAt == null ? (
@@ -575,13 +568,13 @@ function PlaceSharePanel({ place }: { place: Place | null }) {
             <span className="chip">place</span>
           </div>
           <div className="row">
-            <button className="secondary" type="button" onClick={() => void copyPublicUrl()}>
+            <Button className="secondary" type="button" onClick={() => void copyPublicUrl()}>
               Copy URL
-            </button>
+            </Button>
             <a href={shareLink.publicUrl} rel="noreferrer" target="_blank">
               Open public page
             </a>
-            <button
+            <Button
               className={shareLink.disabledAt == null ? 'danger' : 'secondary'}
               disabled={isMutating}
               type="button"
@@ -592,7 +585,7 @@ function PlaceSharePanel({ place }: { place: Place | null }) {
                 : shareLink.disabledAt == null
                   ? 'Disable link'
                   : 'Re-enable link'}
-            </button>
+            </Button>
           </div>
         </div>
       )}

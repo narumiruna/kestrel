@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   getRemoteDeviceUnavailableReason,
   isRemoteDeviceCommandReady,
   useRemoteDevices,
 } from '@/components/dashboard/useRemoteDevices';
 import { formatError } from '@/components/dashboard/utils';
+import { Button, DialogFrame, SelectField } from '@/components/ui/radix-ui';
 import type {
   CreateRemoteCommandRequest,
   Place,
@@ -38,82 +39,46 @@ const STOP_COMMAND: CreateRemoteCommandRequest = {
 
 export function PlaceRemoteControlAction({ place }: { place: Place | null }) {
   const remote = useRemoteDevices();
-  const dialogRef = useRef<HTMLDialogElement | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
-  useEffect(() => {
-    const dialog = dialogRef.current;
-
-    if (dialog == null) {
-      return;
-    }
-
-    if (isDialogOpen && !dialog.open) {
-      dialog.showModal();
-      return;
-    }
-
-    if (!isDialogOpen && dialog.open) {
-      dialog.close();
-    }
-  }, [isDialogOpen]);
-
   return (
-    <>
-      <button
-        aria-haspopup="dialog"
-        className="secondary device-action-button"
-        type="button"
-        onClick={() => setIsDialogOpen(true)}
-      >
-        <span>Device</span>
-        <span className="muted">{formatDeviceSummary(remote.devices)}</span>
-      </button>
-      <dialog
-        aria-labelledby="place-device-dialog-title"
-        className="place-action-dialog"
-        ref={dialogRef}
-        onCancel={() => setIsDialogOpen(false)}
-        onClose={() => setIsDialogOpen(false)}
-      >
-        <div className="place-action-dialog-card">
-          <header>
-            <div>
-              <p className="field-kicker font-mono">advanced tool</p>
-              <h3 className="font-serif" id="place-device-dialog-title">
-                Web remote control
-              </h3>
-            </div>
-            <button className="secondary" type="button" onClick={() => setIsDialogOpen(false)}>
-              Close
-            </button>
-          </header>
-          <RemoteControlControls
-            buildPrimaryCommand={() => {
-              if (place == null) {
-                throw new Error('Save this place before sending it to Android.');
-              }
+    <DialogFrame
+      className="place-action-dialog-card"
+      eyebrow="advanced tool"
+      open={isDialogOpen}
+      title="Web remote control"
+      trigger={
+        <Button className="secondary device-action-button" type="button">
+          <span>Device</span>
+          <span className="muted">{formatDeviceSummary(remote.devices)}</span>
+        </Button>
+      }
+      onOpenChange={setIsDialogOpen}
+    >
+      <RemoteControlControls
+        buildPrimaryCommand={() => {
+          if (place == null) {
+            throw new Error('Save this place before sending it to Android.');
+          }
 
-              return {
-                payload: {
-                  point: {
-                    latitude: place.latitude,
-                    longitude: place.longitude,
-                  },
-                },
-                type: 'SET_POINT',
-              };
-            }}
-            className="place-action-dialog-content remote-control-content"
-            primaryActionLabel="Mock on device"
-            primaryDisabledReason={
-              place == null ? 'Save this place before sending it to Android.' : null
-            }
-            remote={remote}
-          />
-        </div>
-      </dialog>
-    </>
+          return {
+            payload: {
+              point: {
+                latitude: place.latitude,
+                longitude: place.longitude,
+              },
+            },
+            type: 'SET_POINT',
+          };
+        }}
+        className="place-action-dialog-content remote-control-content"
+        primaryActionLabel="Mock on device"
+        primaryDisabledReason={
+          place == null ? 'Save this place before sending it to Android.' : null
+        }
+        remote={remote}
+      />
+    </DialogFrame>
   );
 }
 
@@ -129,67 +94,31 @@ export function RouteRemoteControlAction({
   waypoints: RouteWaypoint[];
 }) {
   const remote = useRemoteDevices();
-  const dialogRef = useRef<HTMLDialogElement | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const routeDisabledReason = getRouteDisabledReason(route, waypoints, speedKmh);
 
-  useEffect(() => {
-    const dialog = dialogRef.current;
-
-    if (dialog == null) {
-      return;
-    }
-
-    if (isDialogOpen && !dialog.open) {
-      dialog.showModal();
-      return;
-    }
-
-    if (!isDialogOpen && dialog.open) {
-      dialog.close();
-    }
-  }, [isDialogOpen]);
-
   return (
-    <>
-      <button
-        aria-haspopup="dialog"
-        className="secondary device-action-button"
-        type="button"
-        onClick={() => setIsDialogOpen(true)}
-      >
-        <span>Device</span>
-        <span className="muted">{formatDeviceSummary(remote.devices)}</span>
-      </button>
-      <dialog
-        aria-labelledby="route-device-dialog-title"
-        className="place-action-dialog"
-        ref={dialogRef}
-        onCancel={() => setIsDialogOpen(false)}
-        onClose={() => setIsDialogOpen(false)}
-      >
-        <div className="place-action-dialog-card">
-          <header>
-            <div>
-              <p className="field-kicker font-mono">advanced tool</p>
-              <h3 className="font-serif" id="route-device-dialog-title">
-                Web remote control
-              </h3>
-            </div>
-            <button className="secondary" type="button" onClick={() => setIsDialogOpen(false)}>
-              Close
-            </button>
-          </header>
-          <RemoteControlControls
-            buildPrimaryCommand={() => buildRouteRemoteCommand(route, waypoints, speedKmh, mode)}
-            className="place-action-dialog-content remote-control-content"
-            primaryActionLabel="Play on device"
-            primaryDisabledReason={routeDisabledReason}
-            remote={remote}
-          />
-        </div>
-      </dialog>
-    </>
+    <DialogFrame
+      className="place-action-dialog-card"
+      eyebrow="advanced tool"
+      open={isDialogOpen}
+      title="Web remote control"
+      trigger={
+        <Button className="secondary device-action-button" type="button">
+          <span>Device</span>
+          <span className="muted">{formatDeviceSummary(remote.devices)}</span>
+        </Button>
+      }
+      onOpenChange={setIsDialogOpen}
+    >
+      <RemoteControlControls
+        buildPrimaryCommand={() => buildRouteRemoteCommand(route, waypoints, speedKmh, mode)}
+        className="place-action-dialog-content remote-control-content"
+        primaryActionLabel="Play on device"
+        primaryDisabledReason={routeDisabledReason}
+        remote={remote}
+      />
+    </DialogFrame>
   );
 }
 
@@ -293,42 +222,37 @@ function RemoteControlControls({
     <div className={className}>
       {remote.error == null ? null : <div className="error">{remote.error}</div>}
       {commandError == null ? null : <div className="error">{commandError}</div>}
-      <label>
-        Device
-        <select
-          disabled={remote.devices.length === 0 || remote.isLoading || pendingAction != null}
-          value={selectedDeviceId}
-          onChange={(event) => setSelectedDeviceId(event.target.value)}
-        >
-          {remote.devices.length === 0 ? (
-            <option value="">No Android devices</option>
-          ) : (
-            remote.devices.map((device) => (
-              <option key={device.id} value={device.id}>
-                {formatDeviceOption(device)}
-              </option>
-            ))
-          )}
-        </select>
-      </label>
+      <SelectField
+        disabled={remote.devices.length === 0 || remote.isLoading || pendingAction != null}
+        label="Device"
+        options={remote.devices.map((device) => ({
+          label: formatDeviceOption(device),
+          value: device.id,
+        }))}
+        placeholder={
+          remote.devices.length === 0 ? 'No Android devices' : 'Choose an Android device'
+        }
+        value={selectedDeviceId}
+        onValueChange={setSelectedDeviceId}
+      />
       <DeviceStatus device={selectedDevice} />
       <div className="remote-control-actions">
-        <button
+        <Button
           disabled={primaryUnavailableReason != null || pendingAction != null}
           type="button"
           onClick={sendPrimaryCommand}
         >
           {pendingAction === 'primary' ? 'Sending...' : primaryActionLabel}
-        </button>
-        <button
+        </Button>
+        <Button
           className="secondary"
           disabled={stopUnavailableReason != null || pendingAction != null}
           type="button"
           onClick={sendStopCommand}
         >
           {pendingAction === 'stop' ? 'Stopping...' : 'Stop on device'}
-        </button>
-        <button
+        </Button>
+        <Button
           className="secondary"
           disabled={remote.isLoading || pendingAction != null}
           type="button"
@@ -339,7 +263,7 @@ function RemoteControlControls({
           }}
         >
           {remote.isLoading ? 'Refreshing...' : 'Refresh'}
-        </button>
+        </Button>
       </div>
       <div className={getStatusClassName(command)} role="status">
         {command == null ? null : <strong>{formatCommandStatusLabel(command.status)}</strong>}

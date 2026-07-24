@@ -1,5 +1,6 @@
 'use client';
 
+import { Theme as RadixTheme } from '@radix-ui/themes';
 import {
   createContext,
   type ReactNode,
@@ -74,7 +75,18 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     [isHydrated, theme, toggleTheme],
   );
 
-  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
+  return (
+    <RadixTheme
+      accentColor="orange"
+      appearance={isHydrated ? theme : 'inherit'}
+      grayColor="sand"
+      panelBackground="translucent"
+      radius="large"
+      scaling="100%"
+    >
+      <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>
+    </RadixTheme>
+  );
 }
 
 export function useTheme() {
@@ -111,6 +123,8 @@ function getSystemTheme(mediaQuery: MediaQueryList): Theme {
 
 function applyTheme(theme: Theme) {
   document.documentElement.dataset.theme = theme;
+  document.documentElement.classList.remove('light', 'dark', 'light-theme', 'dark-theme');
+  document.documentElement.classList.add(theme, `${theme}-theme`);
   document.documentElement.style.colorScheme = theme;
 }
 

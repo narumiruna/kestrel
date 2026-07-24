@@ -10,6 +10,14 @@ import {
   formatMode,
   formatRouteDistanceFromWaypoints,
 } from '@/components/dashboard/utils';
+import {
+  Button,
+  Menu,
+  MenuSurface,
+  TextInput,
+  Toggle,
+  ToggleGroup,
+} from '@/components/ui/radix-ui';
 import type { Place, Route } from '@/lib/api';
 
 export type LibraryFilter = 'all' | 'places' | 'routes';
@@ -76,45 +84,58 @@ export default function LibraryCatalog({
               Find and organize saved items here. Open an item on Map when you want to change it.
             </p>
           </div>
-          <details className="library-new-menu">
-            <summary>New item</summary>
-            <div className="library-new-menu-content">
-              <Link href="/dashboard/map?kind=places&new=1">New place</Link>
-              <Link href="/dashboard/map?kind=routes&new=1">New route</Link>
-            </div>
-          </details>
+          <MenuSurface
+            className="library-new-menu-content"
+            trigger={
+              <Button className="library-new-menu-trigger" type="button">
+                New item <span aria-hidden>⌄</span>
+              </Button>
+            }
+          >
+            <Menu.LinkItem
+              className="ui-menu-link-item"
+              render={<Link href="/dashboard/map?kind=places&new=1" />}
+            >
+              New place
+            </Menu.LinkItem>
+            <Menu.LinkItem
+              className="ui-menu-link-item"
+              render={<Link href="/dashboard/map?kind=routes&new=1" />}
+            >
+              New route
+            </Menu.LinkItem>
+          </MenuSurface>
         </header>
 
         <div className="library-toolbar">
-          <nav aria-label="Library item type" className="library-filter-tabs">
-            <button
-              aria-pressed={filter === 'all'}
-              className={filter === 'all' ? 'active' : ''}
-              type="button"
-              onClick={() => setFilter('all')}
-            >
+          <ToggleGroup
+            aria-label="Library item type"
+            className="library-filter-tabs"
+            value={[filter]}
+            onValueChange={(values) => {
+              const nextFilter = values.at(-1) as LibraryFilter | undefined;
+              if (nextFilter != null) {
+                setFilter(nextFilter);
+              }
+            }}
+          >
+            <Toggle value="all">
               All <span>{places.length + routes.length}</span>
-            </button>
-            <button
-              aria-pressed={filter === 'places'}
-              className={filter === 'places' ? 'active' : ''}
-              type="button"
-              onClick={() => setFilter('places')}
-            >
+            </Toggle>
+            <Toggle value="places">
               Places <span>{places.length}</span>
-            </button>
-            <button
-              aria-pressed={filter === 'routes'}
-              className={filter === 'routes' ? 'active' : ''}
-              type="button"
-              onClick={() => setFilter('routes')}
-            >
+            </Toggle>
+            <Toggle value="routes">
               Routes <span>{routes.length}</span>
-            </button>
-          </nav>
-          <label className="library-search">
+            </Toggle>
+          </ToggleGroup>
+          <label
+            htmlFor="radix-field-components-dashboard-librarycatalog-tsx-1"
+            className="library-search"
+          >
             <span className="library-search-label">Search library</span>
-            <input
+            <TextInput
+              id="radix-field-components-dashboard-librarycatalog-tsx-1"
               placeholder="Search names, notes, tags, or modes…"
               type="search"
               value={query}

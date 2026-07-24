@@ -7,20 +7,19 @@
     "build": "next build",
     "start": "next start --port 3301",
     "lint": "biome lint .",
-    "typecheck": "next typegen && tsc --noEmit",
-    "test:ui": "playwright test",
-    "test:ui:update": "playwright test --update-snapshots"
+    "typecheck": "next typegen && tsc --noEmit"
   },
   "dependencies": {
+    "@radix-ui/colors": "^3.0.0",
+    "@radix-ui/themes": "^3.3.0",
     "maplibre-gl": "^5.24.0",
     "next": "^16.2.10",
+    "radix-ui": "^1.6.6",
     "react": "^19.2.7",
     "react-dom": "^19.2.7"
   },
   "devDependencies": {
-    "@axe-core/playwright": "^4.12.1",
     "@biomejs/biome": "^2.5.3",
-    "@playwright/test": "^1.61.1",
     "@types/node": "^26.1.1",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
