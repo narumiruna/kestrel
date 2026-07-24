@@ -2,13 +2,13 @@
 
 ## Decision
 
-Use the official Compose Preview Screenshot Testing plugin `0.0.1-alpha15` for Android and Playwright with axe-core for Web.
+Use the official Compose Preview Screenshot Testing plugin `0.0.1-alpha15` for Android. During the Kestrel Web PoC phase, use Chrome DevTools for browser validation at one presentation target only: `1440×900` wide-screen desktop in light mode.
 
 ## Why
 
 - The official Android tool is host-side, uses the existing `@Preview` model, does not install or clear an app on a physical device, and supports AGP 9+, Kotlin 2.2.10+, and JDK 17+. Kestrel uses AGP 9.2.1, Kotlin 2.4, and Java 26.
 - The spike generated and validated seven deterministic Android references in under 60 seconds with `updateDebugScreenshotTest` / `validateDebugScreenshotTest`.
-- Playwright can validate responsive geometry, keyboard/dialog behavior, accessibility, and screenshots in one browser harness. Map tiles/WebGL are not deterministic, so the mobile Map workspace masks `.cartographer-map-layer`, while desktop baselines capture the editor panel; interaction and overflow assertions still exercise the real MapLibre workspace.
+- One Web target keeps PoC feedback fast. Chrome DevTools is the source of truth for visual and interaction review; Kestrel Web does not maintain Playwright tests or browser screenshot baselines.
 
 ## Android coverage
 
@@ -23,17 +23,13 @@ References live under `app/src/screenshotTestDebug/reference/` and cover:
 
 ## Web coverage
 
-Playwright references live beside `web/tests/ui/ui-regression.spec.ts`. Projects cover `390×844`, `1200×792`, light, and dark. Additional assertions exercise 320px, 1024px, 1440px, dense 55-row data, 200%-equivalent text, RTL, public Share, no horizontal overflow, action geometry, Map/Choose/Edit, and axe-core.
+Use `just webtest-up` to start the isolated seeded browser-review stack at `http://127.0.0.1:3401`. Review authentication, Library, Map, sharing, remote control, account security, keyboard/focus behavior, error recovery, accessibility semantics, and horizontal overflow in Chrome DevTools at `1440×900` with light mode.
 
-The browser-test stack is isolated under the `kestrel-webtest` Compose project and seeded development account. Share links created by the test are disabled before completion. The stack never targets the deploy Compose project.
+Do not add mobile, tablet, dark-mode, compact, zoom, or RTL matrices during the PoC unless explicitly requested. Do not commit browser screenshots or other binary evidence.
 
-## Stability controls
+## Quality gates
 
-- Animations are disabled for screenshot comparison.
-- Dynamic last-updated text, generated public URLs, and the MapLibre map layer are masked.
-- Fixtures use seeded deterministic library data.
-- Web projects run with one worker to respect authentication rate limits and avoid refresh-token rotation races.
-- Screenshot failures retain trace, actual image, diff, and HTML report artifacts.
+Web CI runs formatting/lint, TypeScript typecheck, and the production build. Browser acceptance remains an explicit Chrome DevTools review rather than automated Playwright execution.
 
 ## Safety
 
