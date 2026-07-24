@@ -4768,14 +4768,6 @@ button.is-loading {
   text-align: left;
 }
 
-.map-style-check {
-  color: var(--accent-hover);
-  display: inline-block;
-  font-family: var(--font-mono), ui-monospace, monospace;
-  font-size: 12px;
-  width: 1rem;
-}
-
 @media (prefers-color-scheme: dark) {
   .map-control-group,
   .map-style-trigger,

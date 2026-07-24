@@ -69,7 +69,6 @@ export function ZoomStack({ onFit, onZoomIn, onZoomOut }: ZoomStackProps) {
                 key={styleOption.name}
                 value={styleOption.name}
               >
-                <Menu.RadioItemIndicator className="map-style-check">✓</Menu.RadioItemIndicator>
                 {styleOption.label}
               </Menu.RadioItem>
             ))}
