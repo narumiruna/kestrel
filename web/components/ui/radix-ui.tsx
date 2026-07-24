@@ -98,20 +98,9 @@ function MenuLinkItem({
   );
 }
 
-function MenuRadioItemIndicator({
-  children,
-  className,
-}: {
-  children: ReactNode;
-  className?: string;
-}) {
-  return <span className={className}>{children}</span>;
-}
-
 export const Menu = {
   ...DropdownMenu,
   LinkItem: MenuLinkItem,
-  RadioItemIndicator: MenuRadioItemIndicator,
 };
 
 export { Tooltip };

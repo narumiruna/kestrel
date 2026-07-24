@@ -923,6 +923,7 @@ function WaypointCoordinateDialog({
 
   function submitCoordinates(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    event.stopPropagation();
     if (index == null) {
       return;
     }
