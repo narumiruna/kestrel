@@ -16,7 +16,7 @@
     "next": "^16.2.10",
     "radix-ui": "^1.6.6",
     "react": "^19.2.7",
-    "react-dom": "^19.2.7"
+    "react-dom": "^19.2.8"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.5",
