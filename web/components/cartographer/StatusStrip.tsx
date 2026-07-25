@@ -1,3 +1,4 @@
+import { BrandMark } from '@/components/BrandMark';
 import { Button } from '@/components/ui/radix-ui';
 
 type StatusStripProps = {
@@ -15,8 +16,8 @@ export function StatusStrip({
 }: StatusStripProps) {
   return (
     <div className="status-strip" role={error == null ? undefined : 'status'}>
-      <span className="font-mono">Kestrel Cloud</span>
-      <span>
+      <BrandMark className="status-brand" subtitle="Map workspace" />
+      <span className={error == null ? undefined : 'status-error'}>
         {error ?? (lastUpdatedLabel == null ? 'Survey sheet ready' : `Updated ${lastUpdatedLabel}`)}
       </span>
       <Button

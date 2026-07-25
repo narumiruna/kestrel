@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { type FormEvent, type ReactNode, useEffect, useState } from 'react';
 import { useAuth } from '@/components/AuthProvider';
+import { BrandMark } from '@/components/BrandMark';
 import { formatError } from '@/components/dashboard/utils';
 import { useTheme } from '@/components/ThemeProvider';
 import { Button, PopoverFrame, TextInput } from '@/components/ui/radix-ui';
@@ -48,15 +49,7 @@ export default function DashboardShell({
   return (
     <main className={`shell kc-shell kc-shell-${activeSection}`}>
       <header className="kc-topbar">
-        <div className="kc-brand">
-          <span aria-hidden className="kc-logo">
-            <KestrelIcon />
-          </span>
-          <div>
-            <strong>Kestrel Cloud</strong>
-            <span className="kc-signed-in">Routes and places workspace</span>
-          </div>
-        </div>
+        <BrandMark subtitle="Routes and places workspace" />
         <div className="kc-topbar-actions">
           {lastUpdatedLabel == null ? null : (
             <span className="dashboard-last-updated">Updated {lastUpdatedLabel}</span>
@@ -88,7 +81,7 @@ export default function DashboardShell({
               }
               onOpenChange={setIsAccountOpen}
             >
-              <AccountMenu onLogout={onLogout} />
+              <AccountMenu username={username} onLogout={onLogout} />
             </PopoverFrame>
           </div>
         </div>
@@ -113,7 +106,7 @@ export default function DashboardShell({
   );
 }
 
-function AccountMenu({ onLogout }: { onLogout: () => void }) {
+function AccountMenu({ onLogout, username }: { onLogout: () => void; username: string }) {
   const auth = useAuth();
   const { isHydrated, theme, toggleTheme } = useTheme();
   const [currentPassword, setCurrentPassword] = useState('');
@@ -169,6 +162,14 @@ function AccountMenu({ onLogout }: { onLogout: () => void }) {
         {theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
       </Button>
       <form className="stack" onSubmit={submitPasswordChange}>
+        <input
+          aria-hidden="true"
+          autoComplete="username"
+          className="sr-only"
+          readOnly
+          tabIndex={-1}
+          value={username}
+        />
         <label htmlFor="radix-field-components-dashboard-dashboardshell-tsx-1">
           Current password
           <TextInput
@@ -200,21 +201,6 @@ function AccountMenu({ onLogout }: { onLogout: () => void }) {
         Logout
       </Button>
     </div>
-  );
-}
-
-function KestrelIcon() {
-  return (
-    <svg aria-hidden="true" fill="none" height="36" viewBox="0 0 28 28" width="36">
-      <path
-        d="M4 16.5C9.8 8.2 17.3 5.4 24 6.3c-4.8 1.7-8 5.2-9.9 10.8"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="2"
-      />
-      <path d="M5.4 16.7c5.2-.4 9.1.9 12 4.1-4.7.8-8.6-.2-12-4.1Z" fill="currentColor" />
-    </svg>
   );
 }
 

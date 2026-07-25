@@ -5016,7 +5016,7 @@ button.is-loading {
 
 /* Kestrel Cloud route editor redesign pass */
 :root {
-  --cloud-topbar-height: 56px;
+  --cloud-topbar-height: 64px;
   --cloud-shell-gap: 16px;
   --cloud-sidebar-width: 320px;
   --cloud-editor-width: 440px;

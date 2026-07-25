@@ -1,9 +1,9 @@
 /* Kestrel Web workspace redesign — task hierarchy and responsive disclosure. */
 
 :root {
-  --ui-content-max: 1180px;
+  --ui-content-max: 1240px;
   --ui-control-height: 44px;
-  --ui-section-gap: 24px;
+  --ui-section-gap: 22px;
 }
 
 /* Shared typography, focus, targets, and reduced motion. */
@@ -11,6 +11,47 @@
 .kc-topbar .dashboard-last-updated {
   color: var(--text-secondary);
   opacity: 1;
+}
+
+.status-strip .status-brand {
+  gap: 10px;
+  min-width: 0;
+}
+
+.status-strip .status-brand .kc-logo {
+  background: var(--paper-card-warm);
+  border: 1px solid var(--workspace-border, var(--border));
+  border-radius: 10px;
+  color: var(--accent);
+  height: 40px;
+  width: 40px;
+}
+
+.status-strip .status-brand .kc-logo svg {
+  height: 32px;
+  width: 32px;
+}
+
+.status-strip .status-brand .kc-signed-in {
+  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+.status-strip .status-error {
+  color: var(--danger);
+  font-weight: 700;
+}
+
+@media (min-width: 1024px) {
+  .cartographer-stage-map .workspace-tabs {
+    left: 190px;
+    top: 10px;
+  }
+
+  .cartographer-stage-map .user-mark {
+    top: 13px;
+  }
 }
 
 .font-serif,
@@ -61,7 +102,7 @@
   gap: var(--ui-section-gap);
   margin: 0 auto;
   max-width: var(--ui-content-max);
-  padding: 28px 28px 56px;
+  padding: 24px 28px 44px;
 }
 
 .library-catalog-header {
@@ -72,7 +113,7 @@
 }
 
 .library-catalog-header h1 {
-  font-size: clamp(2rem, 4vw, 3.25rem);
+  font-size: clamp(2rem, 3vw, 2.5rem);
   letter-spacing: -0.035em;
   line-height: 1;
   margin: 4px 0 10px;
@@ -258,10 +299,10 @@
 .library-item-row {
   align-items: center;
   display: grid;
-  gap: 16px;
+  gap: 14px;
   grid-template-columns: 38px minmax(0, 1fr) auto;
-  min-height: 92px;
-  padding: 16px 4px;
+  min-height: 88px;
+  padding: 12px 4px;
 }
 
 .library-item-row + .library-item-row {
@@ -338,16 +379,18 @@
 }
 
 .library-open-map {
-  background: var(--accent);
+  background: transparent;
+  border: 1px solid var(--border);
   border-radius: 9px;
-  color: var(--color-primary-text);
+  color: var(--text-primary);
   font-weight: 700;
   padding: 0 14px;
 }
 
 .library-open-map:hover {
-  background: var(--accent-hover);
-  color: var(--color-primary-text);
+  background: var(--accent-soft);
+  border-color: color-mix(in srgb, var(--accent) 44%, var(--border));
+  color: var(--accent-hover);
 }
 
 .library-item-error {
@@ -646,6 +689,10 @@
   .library-more-menu-content {
     left: 0;
     right: auto;
+  }
+
+  .status-strip .status-brand .kc-signed-in {
+    display: none;
   }
 
   .cartographer-stage {
