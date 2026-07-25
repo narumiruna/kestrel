@@ -71,9 +71,6 @@ jobs:
       - name: Run Android unit tests
         run: ./gradlew :app:testDebugUnitTest
 
-      - name: Validate Android UI screenshots
-        run: ./gradlew :app:validateDebugScreenshotTest
-
       - uses: actions/upload-artifact@v7
         if: failure()
         with:

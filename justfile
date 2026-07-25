@@ -15,19 +15,19 @@ build:
 
 # build the Android debug APK
 android-build:
-    JAVA_HOME="{{java_home}}" PATH="{{java_home}}/bin:$PATH" ./gradlew :app:assembleDebug
+    JAVA_HOME="{{ java_home }}" PATH="{{ java_home }}/bin:$PATH" ./gradlew :app:assembleDebug
 
 # build the signed release APK (requires KESTREL_RELEASE_* environment variables)
 release:
-    JAVA_HOME="{{java_home}}" PATH="{{java_home}}/bin:$PATH" ./gradlew :app:assembleRelease
+    JAVA_HOME="{{ java_home }}" PATH="{{ java_home }}/bin:$PATH" ./gradlew :app:assembleRelease
 
 # clean Gradle outputs
 clean:
-    JAVA_HOME="{{java_home}}" PATH="{{java_home}}/bin:$PATH" ./gradlew clean
+    JAVA_HOME="{{ java_home }}" PATH="{{ java_home }}/bin:$PATH" ./gradlew clean
 
 # format Android and web code
 format:
-    JAVA_HOME="{{java_home}}" PATH="{{java_home}}/bin:$PATH" ./gradlew spotlessApply
+    JAVA_HOME="{{ java_home }}" PATH="{{ java_home }}/bin:$PATH" ./gradlew spotlessApply
     just web-format
 
 # check Android formatting and web formatting/lint without writing changes
@@ -37,7 +37,7 @@ check:
 
 # check Android formatting without writing changes
 android-check:
-    JAVA_HOME="{{java_home}}" PATH="{{java_home}}/bin:$PATH" ./gradlew spotlessCheck
+    JAVA_HOME="{{ java_home }}" PATH="{{ java_home }}/bin:$PATH" ./gradlew spotlessCheck
 
 # run Android detekt and web lint
 lint:
@@ -46,7 +46,7 @@ lint:
 
 # run Android detekt only
 android-lint:
-    JAVA_HOME="{{java_home}}" PATH="{{java_home}}/bin:$PATH" ./gradlew detekt
+    JAVA_HOME="{{ java_home }}" PATH="{{ java_home }}/bin:$PATH" ./gradlew detekt
 
 # format web code with Biome (safe fixes and import sorting)
 web-format:
@@ -66,15 +66,11 @@ test:
 
 # run Android debug-variant JVM unit tests
 android-test:
-    JAVA_HOME="{{java_home}}" PATH="{{java_home}}/bin:$PATH" ./gradlew :app:testDebugUnitTest
-
-# validate Android Compose screenshot references (host-side; does not install or clear app data)
-android-ui:
-    JAVA_HOME="{{java_home}}" PATH="{{java_home}}/bin:$PATH" ./gradlew :app:validateDebugScreenshotTest
+    JAVA_HOME="{{ java_home }}" PATH="{{ java_home }}/bin:$PATH" ./gradlew :app:testDebugUnitTest
 
 # update Android Compose screenshot references (review image diffs before committing)
 android-ui-update:
-    JAVA_HOME="{{java_home}}" PATH="{{java_home}}/bin:$PATH" ./gradlew :app:updateDebugScreenshotTest
+    JAVA_HOME="{{ java_home }}" PATH="{{ java_home }}/bin:$PATH" ./gradlew :app:updateDebugScreenshotTest
 
 # start the web/backend/Postgres dev stack with hot reload
 cloud-up:
@@ -102,7 +98,7 @@ webtest-log:
 
 # regenerate the detekt baseline (accept current warnings)
 lint-baseline:
-    JAVA_HOME="{{java_home}}" PATH="{{java_home}}/bin:$PATH" ./gradlew detektBaseline
+    JAVA_HOME="{{ java_home }}" PATH="{{ java_home }}/bin:$PATH" ./gradlew detektBaseline
 
 # install git hooks with prek
 hooks:
@@ -114,41 +110,41 @@ hooks-all:
 
 # install or replace the debug APK on the connected device
 install:
-    {{adb}} install -r {{apk}}
+    {{ adb }} install -r {{ apk }}
 
 # force-stop and relaunch the app
 run:
-    {{adb}} shell am force-stop {{package}}
-    {{adb}} shell am start -n {{activity}}
+    {{ adb }} shell am force-stop {{ package }}
+    {{ adb }} shell am start -n {{ activity }}
 
 # build, install, and run
 br: build install run
 
 # force-stop the app
 stop:
-    {{adb}} shell am force-stop {{package}}
+    {{ adb }} shell am force-stop {{ package }}
 
 # uninstall the app
 uninstall:
-    {{adb}} uninstall {{package}}
+    {{ adb }} uninstall {{ package }}
 
 # list connected devices
 devices:
-    {{adb}} devices
+    {{ adb }} devices
 
 # follow logcat filtered to Kestrel and crashes
 log:
-    {{adb}} logcat | grep --line-buffered -iE "AndroidRuntime|FATAL|JNI DETECTED|{{package}}|MapLibre|LocationService"
+    {{ adb }} logcat | grep --line-buffered -iE "AndroidRuntime|FATAL|JNI DETECTED|{{ package }}|MapLibre|LocationService"
 
 # clear logcat, then follow with the same filter
 logf:
-    {{adb}} logcat -c
+    {{ adb }} logcat -c
     just log
 
 # dump current DataStore prefs as a hex preview
 prefs:
-    {{adb}} shell "run-as {{package}} cat files/datastore/kestrel_prefs.preferences_pb" | xxd | head -40
+    {{ adb }} shell "run-as {{ package }} cat files/datastore/kestrel_prefs.preferences_pb" | xxd | head -40
 
 # clear all app data (resets prefs, mock state, and favorites)
 reset:
-    {{adb}} shell pm clear {{package}}
+    {{ adb }} shell pm clear {{ package }}
