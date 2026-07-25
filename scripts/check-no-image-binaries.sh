@@ -113,7 +113,7 @@ check_blob() {
 scan_staged() {
   local path oid
   while IFS= read -r -d '' path; do
-    oid="$(git -C "$repo" rev-parse ":$path" 2>/dev/null || true)"
+    oid="$(git -C "$repo" rev-parse --verify ":$path" 2>/dev/null || true)"
     test -n "$oid" || continue
     check_blob "staged" "$path" "$oid"
   done < <(git -C "$repo" diff --cached --name-only --diff-filter=ACMR -z)
@@ -122,7 +122,7 @@ scan_staged() {
 scan_tracked() {
   local path oid
   while IFS= read -r -d '' path; do
-    oid="$(git -C "$repo" rev-parse ":$path" 2>/dev/null || true)"
+    oid="$(git -C "$repo" rev-parse --verify ":$path" 2>/dev/null || true)"
     test -n "$oid" || continue
     check_blob "tracked" "$path" "$oid"
   done < <(git -C "$repo" ls-files -z)
@@ -134,7 +134,7 @@ scan_history() {
   while IFS= read -r commit; do
     test -n "$commit" || continue
     while IFS= read -r -d '' path; do
-      oid="$(git -C "$repo" rev-parse "$commit:$path" 2>/dev/null || true)"
+      oid="$(git -C "$repo" rev-parse --verify "$commit:$path" 2>/dev/null || true)"
       test -n "$oid" || continue
       check_blob "commit:$commit" "$path" "$oid"
     done < <(git -C "$repo" diff-tree --root -m --no-commit-id --name-only -r -z "$commit")
