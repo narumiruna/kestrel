@@ -65,28 +65,28 @@ web/                 # Next.js cloud console
 
 ## 🛠️ Development
 
-> **Prerequisites:** Android Studio, JDK 26 with `JAVA_HOME` configured, and `adb` on `PATH`.
-> All common tasks are driven by the [`justfile`](justfile) — install [just](https://github.com/casey/just) to use them.
+> **Prerequisites:** Android Studio, JDK 26 with `JAVA_HOME` configured, and the Android SDK available through `ANDROID_HOME`, `ANDROID_SDK_ROOT`, or the default macOS location.
+> All common tasks are driven by the [`justfile`](justfile) — install [just](https://github.com/casey/just) to use them. Run bare `just` or `just help` to see the grouped, non-destructive command list.
 
 | Task | Command |
 |---|---|
-| Build debug APK | `just build` |
+| Show available recipes | `just` or `just help` |
+| Build debug APK | `just android-build` (or `just build`) |
 | Build release APK | `just release` |
-| Build → install → launch | `just` (or `just br`) |
-| Run unit tests | `just test` |
+| Build → install → launch on a selected device | `just br` |
+| Run Android unit tests | `just android-test` (or `just test`) |
 | Validate Android UI screenshots | `just android-ui` |
-| Update Android UI screenshots | `just android-ui-update` |
-| Run Web UI regression tests | `just webtest-up`, then `just web-ui` |
-| Update Web UI screenshots | `just webtest-up`, then `just web-ui-update` |
-| Auto-format (Spotless + ktlint + Biome) | `just format` |
-| Verify formatting (no writes) | `just check` |
-| Detekt static analysis | `just lint` |
-| Regenerate Detekt baseline | `just lint-baseline` |
+| Update Android UI screenshots | `just android-ui-update` (requires confirmation) |
+| Install exact Backend / Web dependencies | `just backend-install`, `just web-install` |
+| Verify Backend / Web | `just backend-check`, `just web-verify` |
+| Verify every workspace | `just verify` |
+| Auto-format Android + Web | `just format` |
+| Check Android + Web formatting/lint | `just check`, `just lint` |
+| Regenerate Detekt baseline | `just lint-baseline` (requires confirmation) |
 | Install git hooks (prek) | `just hooks` |
-| Reset app data | `just reset` |
+| Reset app data permanently | `just reset` (requires confirmation) |
 | Follow logcat | `just log` |
-| Start full dev stack (Docker Compose) | `just cloud-up` |
-| Stop Docker Compose stack | `just cloud-down` |
+| Start / stop the dev stack | `just cloud-up`, `just cloud-down` |
 
 ### 🧪 Unit tests
 
@@ -101,8 +101,8 @@ just test
 The NestJS + Prisma backend lives in `backend/`.
 
 ```bash
+just backend-install
 cd backend
-npm install
 npm run db:up
 npm run prisma:migrate:dev
 npm run start:dev
@@ -113,8 +113,8 @@ npm run start:dev
 The Next.js cloud console lives in `web/` and proxies `/api/backend/*` to the NestJS API.
 
 ```bash
+just web-install
 cd web
-npm install
 npm run dev
 ```
 
@@ -125,7 +125,7 @@ Open `http://localhost:3301`. Set `KESTREL_API_BASE_URL` if the API is not runni
 To run PostgreSQL, the NestJS backend, and the Next.js web console together:
 
 ```bash
-just cloud-up   # or: docker compose up --build
+just cloud-up   # or: docker compose -f compose.dev.yaml --profile watch up --build
 ```
 
 | Service | Address |
