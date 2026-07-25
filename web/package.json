@@ -15,7 +15,7 @@
     "maplibre-gl": "^5.24.0",
     "next": "^16.2.10",
     "radix-ui": "^1.6.6",
-    "react": "^19.2.7",
+    "react": "^19.2.8",
     "react-dom": "^19.2.7"
   },
   "devDependencies": {
