@@ -17,7 +17,7 @@ test "$#" -ge 1 || usage
 mode="$1"
 shift
 repo="."
-if test "$#" -gt 0 && test -d "$1/.git"; then
+if test "$#" -gt 0 && git -C "$1" rev-parse --git-dir >/dev/null 2>&1; then
   repo="$1"
   shift
 fi
