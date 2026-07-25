@@ -111,3 +111,4 @@ replay_pid*
 *.jks
 *.keystore
 *.png
+!app/src/screenshotTestDebug/reference/**/*.png
