@@ -168,12 +168,12 @@
 - [x] 執行Iteration 1：隨機抽取三個safe journeys、記錄before evidence、列出P0–P3 findings、選一個最高價值coherent theme並更新本計畫；evidence見Iteration 1 log及三張`/tmp/kestrel-cdp-output/iter1-before-*.png`。
 - [x] 實作Iteration 1 approved theme，保留capabilities／state／cancel semantics；抽出shared `BrandMark`、統一Map chrome高度／brand、收斂Library scale與row action emphasis，並補account username autofill context；三個sampled journeys均保留原流程。
 - [x] 重跑Iteration 1 journeys並執行`just web-check`、`just web-lint`、`cd web && npm run typecheck`、`git diff --check`；全部通過，Chrome after evidence無horizontal overflow或新console error，`web/next-env.d.ts`已恢復為pre-existing diff且未納入stage。
-- [ ] 若仍有P0／P1／P2，依同一protocol逐輪新增並完成「random audit → one coherent improvement → Chrome after-smoke → required gates → focused commit」tasks；每輪立即記錄sample、findings、screenshots、checks與commit，不可合併多輪或移出未完成finding。
-- [ ] 執行一輪全新的三journeyfinal audit；只有三個journeys都無P0／P1／P2 actionable finding才可break，並以iteration log、DOM/accessibility/overflow evidence及外部screenshots驗證。
+- [x] 若仍有P0／P1／P2，依同一protocol逐輪新增並完成「random audit → one coherent improvement → Chrome after-smoke → required gates → focused commit」tasks；Iteration 2修正Auth identity，Iteration 3修正controlled confirmation focus recovery，均有獨立evidence與commit。
+- [x] 執行一輪全新的三journeyfinal audit；`2026-07-25T05:38:58.655576+00:00`隨機抽中Share、Map Route、Device，三者在所有修正後均無P0／P1／P2、無app console error且無horizontal overflow，evidence見Iteration 3。
 
 ### Phase 3 — Final verification and archive
 
-- [ ] 重跑最終受影響primary flows及cancel/error recovery，確認Map／Library／Auth主要capabilities、focus與compatibility均保留；以Chrome DevTools evidence驗證。
+- [x] 重跑最終受影響primary flows及cancel/error recovery，確認Map／Library／Auth主要capabilities、focus與compatibility均保留；Auth tabs、Library search/no-match/Share/Delete-cancel、Map Place dirty cancel/discard、Map Route panel round-trip、Device與Account focus return均有Chrome evidence。
 - [ ] 執行`just web-check`、`just web-lint`、`cd web && npm run typecheck`、`cd web && npm run build`與`git diff --check`，並確認staged diff沒有images且`web/next-env.d.ts`未進入本任務commits。
 - [ ] 完成本計畫所有checkbox與iteration evidence，移至`docs/plans/archived/`，以plan-only Conventional Commit收尾，不push。
 
@@ -206,7 +206,18 @@
 - **Implementation**：`BrandMark`新增`titleAs`語意選項；Login以同一logo/title/subtitle composition取代獨立文字brand，保留唯一h1與原copy。
 - **After evidence**：`/tmp/kestrel-cdp-output/iter2-after-auth.png`顯示52pxbrand mark、唯一h1、Register fields及disabled optional-TOTP action；`iter2-after-map-route.png`與`iter2-after-device.png`證明shared component未回歸Map、panel state、Save或dialog focus。三journeys均`scrollWidth===clientWidth===1440`，無app console/runtime error（被navigation取消的tile fetch不計failure）。
 - **Checks**：`just web-check`、`just web-lint`、Web typecheck與`git diff --check`通過；`web/next-env.d.ts`pre-existing diff已恢復。
-- **Commit**：將以`feat(web): align authentication branding`建立focused commit；hash於後續log更新。
+- **Commit**：`57a94f5 feat(web): align authentication branding`（unsigned、hooks保留、未push）。
+
+### Iteration 3 — Controlled confirmation focus recovery
+
+- **Discovery evidence**：final capability smoke在Library More → Delete confirmation按Escape後顯示dialog已關閉、item count仍為5，但focus落到`body`；相同pattern的Map Place dirty navigation在cancel後也落到`body`。這是**P2 accessibility/recovery**：取消沒有side effect但keyboard context遺失。Red evidence為`/tmp/kestrel-cdp-output/final-delete-confirm.png`及Map cancel DOM result。
+- **Random sample**：`2026-07-25T05:38:58.655576+00:00`；抽中Existing Share dialog open/close、Map Route browse/waypoint/map-control/cancel、Device dialog open/close，涵蓋Library與Map URLs。
+- **Approved scope**：既有approval涵蓋focus management；只修controlled AlertDialog close-focus，不改confirm/cancel/delete/draft action語意。
+- **Implementation**：`ConfirmDialog`新增optional `restoreFocusElement`並在`onCloseAutoFocus`明確回復；Library delete保存More trigger ref；Map dirty-navigation保存active control，無focus時fallback到current selected notebook item。
+- **After evidence**：Library delete Cancel／Escape關閉後focus回`More`且item count仍為5（`/tmp/kestrel-cdp-output/iter3-after-delete-confirm.png`）；Map Place Cancel及Escape都保留dirty draft並focus回current selected item，之後Discard回原值。隨機sample screenshots為`iter3-after-share.png`、`iter3-after-map-route.png`、`iter3-after-device.png`：Share/Device Escape focus return，Map panels restore、selected waypoint/draft/Save保留，三者`1440×900`無overflow或app errors。
+- **Checks**：`just web-check`、`just web-lint`、Web typecheck與`git diff --check`通過；format red先由focused Biome format修正後green。
+- **Commit**：將以`fix(web): restore focus after confirmations`建立focused commit；hash於final plan update補記。
+- **Break audit**：上述修正後的新三journey random sample沒有P0／P1／P2；P3 cosmetic preferences不阻擋loop完成。
 
 批准後每輪追加：
 

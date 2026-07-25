@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import { formatError, toAbsolutePublicUrl } from '@/components/dashboard/utils';
 import {
@@ -32,6 +32,7 @@ export function LibraryItemActions({ itemId, itemKind, itemName, onDeleted }: Pr
   const [notice, setNotice] = useState<string | null>(null);
   const [isLoadingShare, setIsLoadingShare] = useState(false);
   const [isMutating, setIsMutating] = useState(false);
+  const moreButtonRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
     if (!isShareOpen) {
@@ -152,7 +153,7 @@ export function LibraryItemActions({ itemId, itemKind, itemName, onDeleted }: Pr
       <MenuSurface
         className="library-more-menu-content"
         trigger={
-          <Button className="secondary library-more-menu-trigger" type="button">
+          <Button ref={moreButtonRef} className="secondary library-more-menu-trigger" type="button">
             More <span aria-hidden>⌄</span>
           </Button>
         }
@@ -170,6 +171,7 @@ export function LibraryItemActions({ itemId, itemKind, itemName, onDeleted }: Pr
         description="This cannot be undone. The item and its share link will be permanently removed."
         isConfirming={isMutating}
         open={isDeleteOpen}
+        restoreFocusElement={moreButtonRef.current}
         title={`Delete “${itemName}”?`}
         onConfirm={deleteItem}
         onOpenChange={setIsDeleteOpen}

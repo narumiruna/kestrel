@@ -291,6 +291,7 @@ type ConfirmDialogProps = {
   eyebrow?: ReactNode;
   isConfirming?: boolean;
   open?: boolean;
+  restoreFocusElement?: HTMLElement | null;
   title: ReactNode;
   trigger?: ReactElement;
   onConfirm: () => Promise<void> | void;
@@ -307,6 +308,7 @@ export function ConfirmDialog({
   onConfirm,
   onOpenChange,
   open,
+  restoreFocusElement,
   title,
   trigger,
 }: ConfirmDialogProps) {
@@ -327,7 +329,16 @@ export function ConfirmDialog({
       {trigger == null ? null : (
         <AlertDialog.Trigger disabled={disabled}>{trigger}</AlertDialog.Trigger>
       )}
-      <AlertDialog.Content className="ui-dialog-popup ui-alert-dialog-popup" maxWidth="500px">
+      <AlertDialog.Content
+        className="ui-dialog-popup ui-alert-dialog-popup"
+        maxWidth="500px"
+        onCloseAutoFocus={(event) => {
+          if (restoreFocusElement != null) {
+            event.preventDefault();
+            restoreFocusElement.focus();
+          }
+        }}
+      >
         <div>
           <p className="field-kicker font-mono">{eyebrow}</p>
           <AlertDialog.Title className="ui-dialog-title font-serif">{title}</AlertDialog.Title>

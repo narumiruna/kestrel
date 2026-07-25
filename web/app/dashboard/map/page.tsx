@@ -59,6 +59,7 @@ export default function DashboardMapPage() {
   } = useDashboardLibraryData();
   const router = useRouter();
   const searchRef = useRef<HTMLInputElement | null>(null);
+  const pendingDraftRestoreFocusRef = useRef<HTMLElement | null>(null);
   const hasAppliedInitialRequestRef = useRef(false);
   const initialCreationKindRef = useRef<MapKind | null>(null);
   const [activeKind, setActiveKind] = useState<MapKind>('routes');
@@ -253,6 +254,11 @@ export default function DashboardMapPage() {
 
   function requestDraftAction(action: () => void) {
     if (hasDirtyDraft) {
+      const activeElement = document.activeElement;
+      pendingDraftRestoreFocusRef.current =
+        activeElement instanceof HTMLElement && activeElement !== document.body
+          ? activeElement
+          : document.querySelector<HTMLElement>('.notebook-entry[aria-pressed="true"]');
       setPendingDraftAction(() => action);
     } else {
       action();
@@ -534,6 +540,7 @@ export default function DashboardMapPage() {
         confirmLabel="Discard changes"
         description="Your unsaved map edits will be lost. Save first if you want to keep them."
         open={pendingDraftAction != null}
+        restoreFocusElement={pendingDraftRestoreFocusRef.current}
         title="Discard unsaved changes?"
         onConfirm={() => {
           const action = pendingDraftAction;
