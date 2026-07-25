@@ -4,6 +4,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { type FormEvent, useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/components/AuthProvider';
+import { BrandMark } from '@/components/BrandMark';
 import { Button, CheckboxField, Tabs, TextInput } from '@/components/ui/radix-ui';
 import { ApiError, login, register, setupTotp, verifyTotp } from '@/lib/api';
 
@@ -133,10 +134,11 @@ export default function LoginPage() {
   return (
     <main className="auth-page">
       <section className="card auth-card stack">
-        <div className="brand auth-brand">
-          <h1>Kestrel Cloud</h1>
-          <span className="muted">Edit places and routes for Android sync.</span>
-        </div>
+        <BrandMark
+          className="auth-brand"
+          subtitle="Edit places and routes for Android sync."
+          titleAs="h1"
+        />
 
         <Tabs.Root
           className="auth-tabs-root"

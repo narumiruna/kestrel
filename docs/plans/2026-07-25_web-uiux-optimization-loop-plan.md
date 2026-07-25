@@ -192,7 +192,21 @@
 - **Implementation**：新增`web/components/BrandMark.tsx`供Dashboard／Map共用；Map top chrome改為64px並顯示一致brand/subtitle；Library content max-width調為1240px、hero上限40px、rows縮短且`Open on map`降為outlined contextual action；Account password form加入不可tab至的username autofill context。未改URL、API、draft、Save、Share、Device或destructive semantics。
 - **After evidence**：Library `/tmp/kestrel-cdp-output/iter1-after-library.png`（h1 40px、catalog 1240px、outlined row actions）、Map Place `/tmp/kestrel-cdp-output/iter1-after-map-place.png`（64px shared chrome、dialog Cancel focus、Escape與Discard回復原值）、Account `/tmp/kestrel-cdp-output/iter1-after-account.png`（username context存在、Tab到current password、Escape focus return）。另以`iter1-after-library-menu.png`驗證More可由Enter開啟、Escape關閉並focus return；所有頁面`scrollWidth===clientWidth===1440`。
 - **Checks**：`just web-check`、`just web-lint`、Web typecheck與`git diff --check`通過；Chrome只有既有MapLibre initial style warning，Account password-form recommendation已消失。
-- **Commit**：將以`feat(web): unify workspace visual hierarchy`建立focused commit；hash於後續log更新。
+- **Commit**：`df1d71b feat(web): unify workspace visual hierarchy`（因1Password SSH signer無法寫入buffer，保留hooks並以單次`commit.gpgsign=false`完成unsigned commit；未push）。
+
+### Iteration 2 — Auth brand alignment
+
+- **Random sample**：`2026-07-25T05:26:54.877990+00:00`；抽中Auth Login/Register tab inspection、Map Route browse/waypoint/map-control/cancel、Device dialog open/close。
+- **Before evidence**：`/tmp/kestrel-cdp-output/iter2-before-auth.png`及`iter2-before-auth-register.png`、`iter2-before-map-route.png`、`iter2-before-device.png`；均為`1440×900` light且無horizontal overflow。Map Focus map round-trip保留selected route/waypoint與clean draft；Device dialog focus在Close、disabled commands具disabled semantics、Escape回Device trigger。
+- **Findings**：
+  - **P2** Auth仍只有文字brand，與剛統一的Map／Library kestrel mark缺少視覺連續性；Login/Register切換時功能清楚但entry surface像獨立utility form。
+  - **P3** Device empty dialog的disabled actions偏淡，但instruction、Refresh與Close仍清楚且語意正確；不值得在無ready-device fixture時churn。
+  - **P3** Map route inspector資訊密度高，但Waypoints-first、selected cue、Save、Share、Device、settings disclosure與panel round-trip均清楚，屬已接受的expert editing density。
+- **Approved scope**：只把shared `BrandMark`擴充為可渲染page `h1`並用於Auth；不改credential/TOTP流程、fields、validation或submission。
+- **Implementation**：`BrandMark`新增`titleAs`語意選項；Login以同一logo/title/subtitle composition取代獨立文字brand，保留唯一h1與原copy。
+- **After evidence**：`/tmp/kestrel-cdp-output/iter2-after-auth.png`顯示52pxbrand mark、唯一h1、Register fields及disabled optional-TOTP action；`iter2-after-map-route.png`與`iter2-after-device.png`證明shared component未回歸Map、panel state、Save或dialog focus。三journeys均`scrollWidth===clientWidth===1440`，無app console/runtime error（被navigation取消的tile fetch不計failure）。
+- **Checks**：`just web-check`、`just web-lint`、Web typecheck與`git diff --check`通過；`web/next-env.d.ts`pre-existing diff已恢復。
+- **Commit**：將以`feat(web): align authentication branding`建立focused commit；hash於後續log更新。
 
 批准後每輪追加：
 

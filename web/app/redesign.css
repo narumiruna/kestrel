@@ -13,6 +13,19 @@
   opacity: 1;
 }
 
+.auth-brand .kc-logo {
+  background: var(--accent-soft);
+  border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--border));
+  border-radius: 14px;
+  height: 52px;
+  width: 52px;
+}
+
+.auth-brand .kc-logo svg {
+  height: 40px;
+  width: 40px;
+}
+
 .status-strip .status-brand {
   gap: 10px;
   min-width: 0;
@@ -551,10 +564,20 @@
   padding: clamp(22px, 5vw, 36px);
 }
 
-.auth-brand h1 {
-  font-size: 2.25rem;
+.auth-brand.kc-brand {
+  align-items: center;
+  gap: 14px;
+}
+
+.auth-brand .kc-brand-title {
+  font-size: 2rem;
   line-height: 1;
-  margin: 0 0 8px;
+  margin: 0 0 7px;
+}
+
+.auth-brand .kc-signed-in {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
 }
 
 .public-share-shell {

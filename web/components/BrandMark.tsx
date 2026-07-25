@@ -1,16 +1,21 @@
 type BrandMarkProps = {
   className?: string;
   subtitle: string;
+  titleAs?: 'h1' | 'strong';
 };
 
-export function BrandMark({ className = '', subtitle }: BrandMarkProps) {
+export function BrandMark({ className = '', subtitle, titleAs = 'strong' }: BrandMarkProps) {
   return (
     <div className={`kc-brand ${className}`.trim()}>
       <span aria-hidden className="kc-logo">
         <KestrelIcon />
       </span>
       <div>
-        <strong>Kestrel Cloud</strong>
+        {titleAs === 'h1' ? (
+          <h1 className="kc-brand-title">Kestrel Cloud</h1>
+        ) : (
+          <strong className="kc-brand-title">Kestrel Cloud</strong>
+        )}
         <span className="kc-signed-in">{subtitle}</span>
       </div>
     </div>
