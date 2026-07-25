@@ -174,8 +174,8 @@
 ### Phase 3 — Final verification and archive
 
 - [x] 重跑最終受影響primary flows及cancel/error recovery，確認Map／Library／Auth主要capabilities、focus與compatibility均保留；Auth tabs、Library search/no-match/Share/Delete-cancel、Map Place dirty cancel/discard、Map Route panel round-trip、Device與Account focus return均有Chrome evidence。
-- [ ] 執行`just web-check`、`just web-lint`、`cd web && npm run typecheck`、`cd web && npm run build`與`git diff --check`，並確認staged diff沒有images且`web/next-env.d.ts`未進入本任務commits。
-- [ ] 完成本計畫所有checkbox與iteration evidence，移至`docs/plans/archived/`，以plan-only Conventional Commit收尾，不push。
+- [x] 執行`just web-check`、`just web-lint`、`cd web && npm run typecheck`、`cd web && npm run build`與`git diff --check`；Next 16.2.10 Turbopack build成功產生16 routes，staged/image/UI-library audits通過，`web/next-env.d.ts`維持pre-existing unstaged diff。
+- [x] 完成本計畫所有checkbox與iteration evidence，移至`docs/plans/archived/`，以plan-only Conventional Commit收尾，不push；archive與commit在本次finalization完成。
 
 ## Iteration Log
 
@@ -216,7 +216,7 @@
 - **Implementation**：`ConfirmDialog`新增optional `restoreFocusElement`並在`onCloseAutoFocus`明確回復；Library delete保存More trigger ref；Map dirty-navigation保存active control，無focus時fallback到current selected notebook item。
 - **After evidence**：Library delete Cancel／Escape關閉後focus回`More`且item count仍為5（`/tmp/kestrel-cdp-output/iter3-after-delete-confirm.png`）；Map Place Cancel及Escape都保留dirty draft並focus回current selected item，之後Discard回原值。隨機sample screenshots為`iter3-after-share.png`、`iter3-after-map-route.png`、`iter3-after-device.png`：Share/Device Escape focus return，Map panels restore、selected waypoint/draft/Save保留，三者`1440×900`無overflow或app errors。
 - **Checks**：`just web-check`、`just web-lint`、Web typecheck與`git diff --check`通過；format red先由focused Biome format修正後green。
-- **Commit**：將以`fix(web): restore focus after confirmations`建立focused commit；hash於final plan update補記。
+- **Commit**：`1a89e54 fix(web): restore focus after confirmations`（unsigned、hooks保留、未push）。
 - **Break audit**：上述修正後的新三journey random sample沒有P0／P1／P2；P3 cosmetic preferences不阻擋loop完成。
 
 批准後每輪追加：
@@ -232,15 +232,24 @@ After evidence: <same journeys / screenshot / checks>
 Commit: <hash and Conventional Commit message>
 ```
 
+## Final Validation Record
+
+- **Fresh break audit**：Auth、Account、Map Route及最後random Share／Map Route／Device screenshots都在`1440×900`、DPR 1、light；所有量測`scrollWidth===clientWidth===1440`，沒有unnamed sampled map controls或duplicate IDs。
+- **State coverage**：`final-library-loading-partial.png`顯示refresh `aria-busy=true`、disabled且5 stale rows保留；`final-library-error.png`顯示`Failed to fetch` alert且5 rows仍可用；unblock後alert消失、5 rows恢復。另覆蓋Library no-match、Share Disabled、Device no-device/disabled commands、Auth disabled optional TOTP、Map dirty/clean、confirm cancel與focus recovery。
+- **Capability/recovery**：Share只是GET並以Escape關閉；Delete confirmation取消後item count仍5；Map Place dirty cancel保留draft、Discard回原值；Map Route focus round-trip保留selected waypoint與Save；Account／Share／Device／Delete／dirty confirmations均有focus return。
+- **Accessibility**：keyboard Enter／Tab／Escape、dialog initial focus、close focus return、labels、unique IDs與non-color selected/dirty/error cues通過。Compact desktop chrome controls實測32–40px高但具有大寬度／隔離間距並超過WCAG 24px minimum；fields與主要editing targets為40px，既有mobile 44px rules未改。已知palette ratio：white on `#b94400` 5.40:1、`#983900` on white 7.19:1、muted `#72583f` on cream 6.29:1、primary ink on light surface 17.12:1。
+- **Architecture/dependencies**：repository search沒有Base UI／MUI／Chakra／Ant／Mantine／Lucide／React Icons imports，也沒有Google Maps／Leaflet／OpenLayers／Mapbox GL；Radix Themes／Colors／primitives及MapLibre ownership未變，package files未修改。
+- **Quality**：每輪`just web-check`、`just web-lint`、Web typecheck與`git diff --check`通過；final `npm run build`成功。三個implementation commits均focused、Conventional、無images、無push，並排除pre-existing `web/next-env.d.ts`。
+
 ## Completion Checklist
 
 - [x] 使用者已明確批准proposal，所有implementation與commits均發生於批准之後；approval evidence為本goal的plan implementation指令。
-- [ ] Map／Library／Auth呈現一致且清楚的Kestrel visual hierarchy，同時保有各自task responsibility；由final three-journey audit與screenshots驗證。
-- [ ] 所有audit發現的P0／P1／P2均已修正並驗證，沒有為結案移至backlog；由完整Iteration Log證明。
-- [ ] Primary、secondary、advanced、destructive與compatibility-only capabilities仍有明確且可達路徑；由capability/state smoke證明。
-- [ ] Loading、empty、success、error、disabled、partial、dirty、saving與cancel/recovery等受影響states有清楚feedback且不破壞previous valid state；由affected state evidence證明。
-- [ ] `1440×900` light desktop沒有horizontal overflow、clipped primary actions、harmful layout shifts或無法辨識的focus/status；由actual viewport measurements及Chrome evidence證明。
-- [ ] Keyboard、focus return、accessible names、non-color cues、contrast、target sizing與gesture alternatives在受影響flows通過review。
-- [ ] Radix Themes／Radix Colors／radix-ui primitives維持唯一UI system，MapLibre維持唯一map backend，沒有新增重複dependency。
-- [ ] 每輪required checks及最終Web build均通過，所有commits均focused、Conventional、無push、無image binaries、未包含pre-existing `web/next-env.d.ts`。
-- [ ] 一輪新的三journeyaudit無P0／P1／P2，plan已完整勾選並移至`docs/plans/archived/`。
+- [x] Map／Library／Auth呈現一致且清楚的Kestrel visual hierarchy，同時保有各自task responsibility；由final three-journey audit與screenshots驗證。
+- [x] 所有audit發現的P0／P1／P2均已修正並驗證，沒有為結案移至backlog；由完整Iteration Log證明。
+- [x] Primary、secondary、advanced、destructive與compatibility-only capabilities仍有明確且可達路徑；由capability/state smoke證明。
+- [x] Loading、empty、success、error、disabled、partial、dirty、saving與cancel/recovery等受影響states有清楚feedback且不破壞previous valid state；由Final Validation Record及state screenshots證明，saving behavior未改且現有disabled/submitting semantics由code/typecheck保留。
+- [x] `1440×900` light desktop沒有horizontal overflow、clipped primary actions、harmful layout shifts或無法辨識的focus/status；由actual viewport measurements及Chrome evidence證明。
+- [x] Keyboard、focus return、accessible names、non-color cues、contrast、target sizing與gesture alternatives在受影響flows通過review。
+- [x] Radix Themes／Radix Colors／radix-ui primitives維持唯一UI system，MapLibre維持唯一map backend，沒有新增重複dependency。
+- [x] 每輪required checks及最終Web build均通過，所有commits均focused、Conventional、無push、無image binaries、未包含pre-existing `web/next-env.d.ts`。
+- [x] 一輪新的三journeyaudit無P0／P1／P2，plan已完整勾選並移至`docs/plans/archived/`。

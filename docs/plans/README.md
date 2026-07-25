@@ -4,9 +4,9 @@ Top-level `*-plan.md` files are active. Closed or superseded plans live in `arch
 
 ## Active files
 
-- `2026-07-25_web-uiux-optimization-loop-plan.md` — approval-gated iterative Web visual and UX optimization.
+No active implementation plans.
 
-The Web Map workspace/route-inspector plans and the 2026-07-15 Options, Favorites, Web Library, and cross-platform UI regression plans are complete and archived in `archived/`.
+The Web UI/UX optimization loop, Web Map workspace/route-inspector plans, and the 2026-07-15 Options, Favorites, Web Library, and cross-platform UI regression plans are complete and archived in `archived/`.
 
 ## Security references
 
