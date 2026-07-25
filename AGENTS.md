@@ -65,7 +65,6 @@
 - 任何單一執行任務（command / tool call）都不可超過 3 分鐘；預估較久的工作必須拆成可觀察、可中斷的步驟，每一步設定不超過 180 秒的 timeout。
 - 大改動先寫/更新 `docs/plans/<topic>-plan.md`，再拆 PR 實作。Plan 必須有 Goal / Plan / Completion Checklist；做完同步 checkbox。
 - `docs/plans/2026-05-10_engineering-backlog-plan.md` 的小項目適合零碎時間做；做完打 `[x]`。
-- 網頁 UI 修改（`web/`、CSS、dashboard/MapLibre overlay 等）不能只靠 lint/typecheck 驗收；完成前必須用瀏覽器實際打開相關頁面看過結果，並在回報列出看過的 URL / viewport 或截圖。若瀏覽器驗收不可用，要明確標成 blocker。
 - Git：不要 `git add -A`，只 stage 改動的檔案。Commit message 用 conventional 風格 + `Co-Authored-By` trailer。push 之前先 `just check && just lint`。
 
 ## 不要做
