@@ -13,7 +13,7 @@
     "@radix-ui/colors": "^3.0.0",
     "@radix-ui/themes": "^3.3.0",
     "maplibre-gl": "^5.24.0",
-    "next": "^16.2.10",
+    "next": "^16.2.12",
     "radix-ui": "^1.6.6",
     "react": "^19.2.7",
     "react-dom": "^19.2.7"
