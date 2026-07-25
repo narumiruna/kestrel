@@ -1,0 +1,1 @@
+This temporary text-only change verifies repository policy enforcement.
