@@ -57,7 +57,7 @@ Kestrel 是不需 root 的 Android 模擬定位應用程式，並包含雲端同
 - `just build` 只建置 Android，不代表三個工作區都已驗證。
 - 小型 Android 修改可先用 `./gradlew :app:testDebugUnitTest --tests '<完整測試類別名稱>'` 跑最窄測試，完成前再跑 `just android-test`。
 - 純 Kotlin 測試放 `app/src/test/`；需要 Android Context 的測試放 `app/src/androidTest/`。
-- 瀏覽器行為與畫面使用 Chrome DevTools 驗證，不要使用 Playwright。驗證截圖放在儲存庫外，不要把新的或更新後的二進位影像檔納入 Git 變更。
+- 瀏覽器行為與畫面使用 Chrome DevTools 驗證，不要使用 Playwright。所有驗證截圖一律放在儲存庫外。
 
 ## 程式碼與資料規則
 
@@ -97,6 +97,7 @@ Kestrel 是不需 root 的 Android 模擬定位應用程式，並包含雲端同
 - 大型、跨工作區或有 migration／安全性／生命週期風險的變更，先新增或更新 `docs/plans/<主題>-plan.md`。計畫至少包含目標（Goal）、計畫（Plan）與完成檢核（Completion Checklist）；完成後勾選並移至 `archived/`。
 - 不要為了關閉計畫而把未完成項目移到 backlog 或其他計畫；只有使用者明確要求時才能重新劃分範圍。
 - 只 stage 預定檔案，不要使用 `git add -A`。不得使用 `--no-verify`。
+- 絕對不得對任何圖片二進位檔執行 `git add` 或納入 commit，包括新增或修改的 PNG、JPG／JPEG、GIF、WebP、AVIF、HEIF／HEIC、BMP、TIFF、ICO，以及任何其他圖片二進位格式。即使是測試基準圖、快照、螢幕截圖或產生檔也不例外；一旦出現在 staged diff，立即取消 stage 並停止 commit。
 - Commit message 使用 Conventional Commits；除非使用者明確要求，不要加入 `Co-Authored-By` 或其他代理程式署名。
 - Push 前執行所有受影響工作區的相關檢查；`just check && just lint` 不能取代 Backend 測試、型別檢查與建置。
 
