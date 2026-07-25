@@ -15,6 +15,20 @@ repos:
 
   - repo: local
     hooks:
+      - id: no-image-binaries-staged
+        name: reject staged image binaries
+        entry: scripts/check-no-image-binaries.sh --staged
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+      - id: no-image-binaries-push
+        name: reject image binaries in pushed history
+        entry: scripts/check-no-image-binaries.sh --pre-push
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]
       - id: spotless
         name: spotless apply (ktlint + format)
         entry: bash -c 'export JAVA_HOME="${JAVA_HOME:-/Applications/Android Studio.app/Contents/jbr/Contents/Home}"; export PATH="$JAVA_HOME/bin:$PATH"; ./gradlew --quiet spotlessApply'

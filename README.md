@@ -74,10 +74,7 @@ web/                 # Next.js cloud console
 | Build release APK | `just release` |
 | Build → install → launch | `just` (or `just br`) |
 | Run unit tests | `just test` |
-| Validate Android UI screenshots | `just android-ui` |
-| Update Android UI screenshots | `just android-ui-update` |
-| Run Web UI regression tests | `just webtest-up`, then `just web-ui` |
-| Update Web UI screenshots | `just webtest-up`, then `just web-ui-update` |
+| Check the no-image-binary policy | `scripts/check-no-image-binaries.sh --tracked` |
 | Auto-format (Spotless + ktlint + Biome) | `just format` |
 | Verify formatting (no writes) | `just check` |
 | Detekt static analysis | `just lint` |
@@ -142,11 +139,12 @@ Use `just cloud-down` to stop the stack.
 
 ## 🤖 Continuous Integration
 
-`.github/workflows/ci.yml` runs three lanes on every PR and push to `main`:
+`.github/workflows/ci.yml` runs an always-on repository policy check plus three workspace lanes on every PR and push to `main`:
 
 | Lane | What it runs | Triggers on |
 |---|---|---|
-| `android` | `spotlessCheck`, `detekt`, `:app:assembleDebug`, unit tests (non-blocking), uploads `app-debug.apk` artifact | changes under `app/`, top-level Gradle files, `detekt*`, `justfile`, or `.github/workflows/**` |
+| `image-policy` | Rejects forbidden image extensions and image binary blobs in the result tree and pushed commit range | every PR and push to `main` |
+| `android` | `spotlessCheck`, `detekt`, `:app:assembleDebug`, unit tests, uploads `app-debug.apk` artifact | changes under `app/`, top-level Gradle files, `detekt*`, `justfile`, or `.github/workflows/**` |
 | `backend` | `npm ci`, `prisma generate`, `lint`, `test`, `test:e2e`, `typecheck`, `build` | changes under `backend/` or `.github/workflows/**` |
 | `web` | `npm ci`, `lint`, `typecheck`, `build` | changes under `web/` or `.github/workflows/**` |
 

@@ -4,7 +4,7 @@ Top-level `*-plan.md` files are active. Closed or superseded plans live in `arch
 
 ## Active files
 
-No active implementation plans.
+- [`2026-07-25_remove-image-binaries-from-git-history-plan.md`](2026-07-25_remove-image-binaries-from-git-history-plan.md) — 從所有可控 Git 歷史清除圖片二進位檔，並建立防止再次提交的本機與遠端控制。
 
 The Web Map workspace/route-inspector plans and the 2026-07-15 Options, Favorites, Web Library, and cross-platform UI regression plans are complete and archived in `archived/`.
 

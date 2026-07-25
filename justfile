@@ -68,14 +68,6 @@ test:
 android-test:
     JAVA_HOME="{{java_home}}" PATH="{{java_home}}/bin:$PATH" ./gradlew :app:testDebugUnitTest
 
-# validate Android Compose screenshot references (host-side; does not install or clear app data)
-android-ui:
-    JAVA_HOME="{{java_home}}" PATH="{{java_home}}/bin:$PATH" ./gradlew :app:validateDebugScreenshotTest
-
-# update Android Compose screenshot references (review image diffs before committing)
-android-ui-update:
-    JAVA_HOME="{{java_home}}" PATH="{{java_home}}/bin:$PATH" ./gradlew :app:updateDebugScreenshotTest
-
 # start the web/backend/Postgres dev stack with hot reload
 cloud-up:
     docker compose -f compose.dev.yaml --profile watch up --build
@@ -104,9 +96,9 @@ webtest-log:
 lint-baseline:
     JAVA_HOME="{{java_home}}" PATH="{{java_home}}/bin:$PATH" ./gradlew detektBaseline
 
-# install git hooks with prek
+# install staged and push policy hooks with prek
 hooks:
-    prek install
+    prek install --hook-type pre-commit --hook-type pre-push
 
 # run all hooks on every tracked file
 hooks-all:

@@ -42,7 +42,7 @@ Kestrel 是不需 root 的 Android 模擬定位應用程式，並包含雲端同
 | Android 格式檢查 | `just android-check` |
 | Android Detekt | `just android-lint` |
 | Android JVM 單元測試 | `just android-test`（或 `just test`） |
-| Android Compose 截圖驗證 | `just android-ui` |
+| 圖片二進位政策檢查 | `scripts/check-no-image-binaries.sh --tracked` |
 | Android + Web 自動格式化 | `just format` |
 | Android + Web 格式／lint 檢查 | `just check`、`just lint` |
 | Backend 全套檢查 | `cd backend && npm run lint && npm run test && npm run test:e2e && npm run typecheck && npm run build` |

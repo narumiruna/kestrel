@@ -13,6 +13,28 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  image-policy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Check tracked tree
+        run: scripts/check-no-image-binaries.sh --tracked
+
+      - name: Check changed history
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+        run: |
+          if [[ "$BASE_SHA" =~ ^0+$ ]]; then
+            scripts/check-no-image-binaries.sh --range "$HEAD_SHA"
+          else
+            scripts/check-no-image-binaries.sh --range "$BASE_SHA..$HEAD_SHA"
+          fi
+
   changes:
     runs-on: ubuntu-latest
     outputs:
@@ -70,16 +92,6 @@ jobs:
 
       - name: Run Android unit tests
         run: ./gradlew :app:testDebugUnitTest
-
-      - name: Validate Android UI screenshots
-        run: ./gradlew :app:validateDebugScreenshotTest
-
-      - uses: actions/upload-artifact@v7
-        if: failure()
-        with:
-          name: android-ui-screenshot-report
-          path: app/build/reports/screenshotTest/
-          if-no-files-found: ignore
 
       - uses: actions/upload-artifact@v7
         with:

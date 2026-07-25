@@ -106,69 +106,36 @@ replay_pid*
 # Kotlin Gradle plugin data, see https://kotlinlang.org/docs/whatsnew20.html#new-directory-for-kotlin-data-in-gradle-projects
 .kotlin/
 
-# JPEG
-*.jpg
-*.jpeg
-*.jpe
-*.jif
-*.jfif
-*.jfi
-
-# JPEG 2000
-*.jp2
-*.j2k
-*.jpf
-*.jpx
-*.jpm
-*.mj2
-
-# JPEG XR
-*.jxr
-*.hdp
-*.wdp
-
-# Graphics Interchange Format
-*.gif
-
-# RAW
-*.raw
-
-# Web P
-*.webp
-
-# Portable Network Graphics
-*.png
-
-# Animated Portable Network Graphics
-*.apng
-
-# Multiple-image Network Graphics
-*.mng
-
-# Tagged Image File Format
-*.tiff
-*.tif
-
-# Scalable Vector Graphics
-*.svg
-*.svgz
-
-# Portable Document Format
-*.pdf
-
-# X BitMap
-*.xbm
-
-# BMP
-*.bmp
-*.dib
-
-# ICO
-*.ico
-
-# 3D Images
-*.3dm
-*.max
+# Image binaries must stay outside Git. SVG/XML source assets remain allowed.
+*.[jJ][pP][gG]
+*.[jJ][pP][eE][gG]
+*.[jJ][pP][eE]
+*.[jJ][iI][fF]
+*.[jJ][fF][iI][fF]
+*.[jJ][fF][iI]
+*.[jJ][pP]2
+*.[jJ]2[kK]
+*.[jJ][pP][fF]
+*.[jJ][pP][xX]
+*.[jJ][pP][mM]
+*.[mM][jJ]2
+*.[jJ][xX][rR]
+*.[hH][dD][pP]
+*.[wW][dD][pP]
+*.[gG][iI][fF]
+*.[rR][aA][wW]
+*.[wW][eE][bB][pP]
+*.[pP][nN][gG]
+*.[aA][pP][nN][gG]
+*.[mM][nN][gG]
+*.[tT][iI][fF][fF]
+*.[tT][iI][fF]
+*.[aA][vV][iI][fF]
+*.[hH][eE][iI][fF]
+*.[hH][eE][iI][cC]
+*.[bB][mM][pP]
+*.[dD][iI][bB]
+*.[iI][cC][oO]
 
 # Project specific
 .idea/
