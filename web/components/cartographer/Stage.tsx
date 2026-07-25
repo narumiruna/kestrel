@@ -1,7 +1,6 @@
 'use client';
 
-import Link from 'next/link';
-import type { MouseEvent, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { Button, Toggle, ToggleGroup } from '@/components/ui/radix-ui';
 
 export type MobileWorkspacePanel = 'inspector' | 'map' | 'picker';
@@ -15,7 +14,6 @@ type StageProps = {
   mode: 'places' | 'routes';
   selectedItemLabel?: string;
   workspace?: 'library' | 'map';
-  onBeforeWorkspaceChange?: (href: string) => boolean;
   onMobilePanelChange?: (panel: MobileWorkspacePanel) => void;
   onToggleLeftPanel?: () => void;
   onToggleMapFocus?: () => void;
@@ -29,7 +27,6 @@ export function Stage({
   map,
   mobilePanel = 'map',
   mode,
-  onBeforeWorkspaceChange,
   onMobilePanelChange,
   onToggleLeftPanel,
   onToggleMapFocus,
@@ -48,36 +45,11 @@ export function Stage({
     .filter(Boolean)
     .join(' ');
   const isMapFocused = isLeftPanelCollapsed && isRightPanelCollapsed;
-  const libraryHref = '/dashboard/library';
-
-  function handleWorkspaceChange(event: MouseEvent<HTMLAnchorElement>) {
-    if (onBeforeWorkspaceChange?.(event.currentTarget.getAttribute('href') ?? '/') === false) {
-      event.preventDefault();
-    }
-  }
 
   return (
     <main className={className}>
       <div className="cartographer-map-layer">{map}</div>
       <div aria-hidden className="cartographer-paper-vignette" />
-      <nav className="workspace-tabs" aria-label="Workspace tabs">
-        <Link
-          aria-current={workspace === 'map' ? 'page' : undefined}
-          className={workspace === 'map' ? 'active' : ''}
-          href="/dashboard/map"
-          onClick={handleWorkspaceChange}
-        >
-          Map
-        </Link>
-        <Link
-          aria-current={workspace === 'library' ? 'page' : undefined}
-          className={workspace === 'library' ? 'active' : ''}
-          href={libraryHref}
-          onClick={handleWorkspaceChange}
-        >
-          Library
-        </Link>
-      </nav>
       {onMobilePanelChange == null ? null : (
         <nav aria-label="Map workspace panels" className="mobile-workspace-bar">
           <span className="mobile-workspace-selection" title={selectedItemLabel}>

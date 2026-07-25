@@ -407,10 +407,6 @@ export default function DashboardMapPage() {
       mode={activeKind}
       selectedItemLabel={selectedLabel}
       workspace="map"
-      onBeforeWorkspaceChange={(href) => {
-        navigateIfDraftSafe(href);
-        return false;
-      }}
       onMobilePanelChange={setMobilePanel}
       onToggleLeftPanel={() => setIsLibraryCollapsed((current) => !current)}
       onToggleMapFocus={() => {
@@ -424,6 +420,10 @@ export default function DashboardMapPage() {
         error={error}
         isRefreshing={isLoading}
         lastUpdatedLabel={lastUpdatedLabel}
+        onBeforeWorkspaceChange={(href) => {
+          navigateIfDraftSafe(href);
+          return false;
+        }}
         onRefresh={refreshMapData}
       />
       <UserMark

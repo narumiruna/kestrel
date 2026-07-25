@@ -1,6 +1,7 @@
 /* Shared cloud-workspace color and surface treatment for Map and Library. */
 
 :root {
+  --cloud-topbar-height: 68px;
   --workspace-canvas: var(--paper-parchment);
   --workspace-chrome: color-mix(in srgb, var(--paper-card) 88%, transparent);
   --workspace-panel: var(--cloud-surface-card);
@@ -30,16 +31,114 @@
   border-bottom: 1px solid var(--workspace-border);
 }
 
-.kc-shell .kc-tabs.kc-tabs,
-.cartographer-stage-map .workspace-tabs {
-  background: var(--workspace-control);
-  border: 1px solid var(--workspace-border);
-  box-shadow: none;
+.kc-shell {
+  max-width: none;
+  width: 100%;
 }
 
-.kc-shell .kc-tab.active,
-.kc-shell .kc-tab.active:hover,
-.cartographer-stage-map .workspace-tabs a.active {
+.workspace-header-start {
+  align-items: center;
+  display: flex;
+  flex: none;
+  gap: 12px;
+  min-width: 0;
+}
+
+.workspace-header-start .kc-brand {
+  flex: none;
+  gap: 12px;
+}
+
+.workspace-header-start .kc-logo {
+  height: 44px;
+  width: 44px;
+}
+
+.workspace-header-start .kc-logo svg {
+  height: 36px;
+  width: 36px;
+}
+
+.workspace-header-start .kc-signed-in {
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.workspace-header-start .workspace-tabs {
+  background: var(--workspace-control);
+  border: 1px solid var(--workspace-border);
+  border-radius: 10px;
+  box-shadow: none;
+  flex: none;
+  left: auto;
+  margin: 0;
+  padding: 3px;
+  position: static;
+  top: auto;
+  z-index: auto;
+}
+
+.workspace-header-start .workspace-tabs a {
+  align-items: center;
+  border-radius: 7px;
+  display: inline-flex;
+  min-height: 34px;
+  padding: 0 12px;
+}
+
+.workspace-header-start .workspace-tabs a.active,
+.workspace-header-start .workspace-tabs a.active:hover {
   background: var(--workspace-panel);
+  box-shadow: 0 1px 3px rgb(34 24 15 / 9%);
   color: var(--accent-hover);
+}
+
+@media (max-width: 700px) {
+  .kc-shell .kc-topbar {
+    flex-wrap: wrap;
+    gap: 8px;
+    height: auto;
+    min-height: 68px;
+  }
+
+  .kc-topbar .workspace-header-start {
+    width: 100%;
+  }
+
+  .kc-topbar-actions {
+    margin-left: auto;
+  }
+}
+
+@media (max-width: 639px) {
+  .workspace-header-start {
+    gap: 8px;
+  }
+
+  .workspace-header-start .kc-logo {
+    height: 36px;
+    width: 36px;
+  }
+
+  .workspace-header-start .kc-logo svg {
+    height: 30px;
+    width: 30px;
+  }
+
+  .workspace-header-start .kc-signed-in {
+    display: none;
+  }
+
+  .workspace-header-start .workspace-tabs a {
+    padding-inline: 9px;
+  }
+
+  .cartographer-stage-map .status-strip {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .cartographer-stage-map .status-strip .workspace-header-start {
+    grid-column: 1 / -1;
+  }
 }

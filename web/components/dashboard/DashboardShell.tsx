@@ -1,17 +1,15 @@
 'use client';
 
-import Link from 'next/link';
 import { type FormEvent, type ReactNode, useEffect, useState } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import { BrandMark } from '@/components/BrandMark';
 import { formatError } from '@/components/dashboard/utils';
 import { useTheme } from '@/components/ThemeProvider';
 import { Button, PopoverFrame, TextInput } from '@/components/ui/radix-ui';
-
-type DashboardSection = 'library' | 'map';
+import { type WorkspaceSection, WorkspaceTabs } from '@/components/WorkspaceTabs';
 
 type Props = {
-  activeSection: DashboardSection;
+  activeSection: WorkspaceSection;
   children: ReactNode;
   isRefreshing?: boolean;
   lastUpdatedAt?: Date | null;
@@ -19,11 +17,6 @@ type Props = {
   onRefresh: () => void;
   username: string;
 };
-
-const sections: Array<{ href: string; icon: ReactNode; key: DashboardSection; label: string }> = [
-  { href: '/dashboard/map', icon: <MapPinIcon />, key: 'map', label: 'Map' },
-  { href: '/dashboard/library', icon: <RouteIcon />, key: 'library', label: 'Library' },
-];
 
 export default function DashboardShell({
   activeSection,
@@ -49,7 +42,10 @@ export default function DashboardShell({
   return (
     <main className={`shell kc-shell kc-shell-${activeSection}`}>
       <header className="kc-topbar">
-        <BrandMark subtitle="Routes and places workspace" />
+        <div className="workspace-header-start">
+          <BrandMark subtitle="Routes and places workspace" />
+          <WorkspaceTabs activeSection={activeSection} />
+        </div>
         <div className="kc-topbar-actions">
           {lastUpdatedLabel == null ? null : (
             <span className="dashboard-last-updated">Updated {lastUpdatedLabel}</span>
@@ -86,20 +82,6 @@ export default function DashboardShell({
           </div>
         </div>
       </header>
-
-      <nav aria-label="Dashboard sections" className="kc-tabs">
-        {sections.map((section) => (
-          <Link
-            aria-current={activeSection === section.key ? 'page' : undefined}
-            className={`kc-tab ${activeSection === section.key ? 'active' : ''}`}
-            href={section.href}
-            key={section.key}
-          >
-            {section.icon}
-            {section.label}
-          </Link>
-        ))}
-      </nav>
 
       {children}
     </main>
@@ -201,25 +183,6 @@ function AccountMenu({ onLogout, username }: { onLogout: () => void; username: s
         Logout
       </Button>
     </div>
-  );
-}
-
-function MapPinIcon() {
-  return (
-    <svg aria-hidden="true" className="lucide-icon" fill="none" viewBox="0 0 24 24">
-      <path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 0 1 16 0Z" />
-      <circle cx="12" cy="10" r="3" />
-    </svg>
-  );
-}
-
-function RouteIcon() {
-  return (
-    <svg aria-hidden="true" className="lucide-icon" fill="none" viewBox="0 0 24 24">
-      <circle cx="6" cy="19" r="3" />
-      <path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15" />
-      <circle cx="18" cy="5" r="3" />
-    </svg>
   );
 }
 
