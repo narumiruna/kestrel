@@ -474,13 +474,35 @@
 }
 
 .ui-disclosure-panel {
-  height: var(--radix-collapsible-content-height);
   overflow: hidden;
-  transition: height 160ms ease-out;
+}
+
+.ui-disclosure-panel[data-state="open"] {
+  animation: ui-disclosure-open 160ms ease-out;
 }
 
 .ui-disclosure-panel[data-state="closed"] {
-  height: 0;
+  animation: ui-disclosure-close 160ms ease-out;
+}
+
+@keyframes ui-disclosure-open {
+  from {
+    height: 0;
+  }
+
+  to {
+    height: var(--radix-collapsible-content-height);
+  }
+}
+
+@keyframes ui-disclosure-close {
+  from {
+    height: var(--radix-collapsible-content-height);
+  }
+
+  to {
+    height: 0;
+  }
 }
 
 .route-editor-collapsible.ui-disclosure,
@@ -619,5 +641,9 @@
   .ui-disclosure-panel,
   .ui-tooltip-popup {
     transition-duration: 0.01ms;
+  }
+
+  .ui-disclosure-panel {
+    animation-duration: 0.01ms;
   }
 }
