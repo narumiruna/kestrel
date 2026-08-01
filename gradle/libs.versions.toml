@@ -19,7 +19,7 @@ datastore = "1.2.1"
 spotless = "8.8.0"
 ktlint = "1.5.0"
 detekt = "2.0.0-alpha.5"
-screenshot = "0.0.1-alpha15"
+screenshot = "0.0.1-alpha16"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
