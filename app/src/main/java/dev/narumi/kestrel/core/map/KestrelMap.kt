@@ -44,12 +44,19 @@ private const val SOURCE_LINE = "kestrel-line"
 private const val LAYER_LINE = "kestrel-line-layer"
 private const val SOURCE_WAYPOINTS = "kestrel-waypoints"
 private const val LAYER_WAYPOINTS = "kestrel-waypoints-layer"
+private const val SOURCE_PREVIEW_LINE = "kestrel-preview-line"
+private const val LAYER_PREVIEW_LINE = "kestrel-preview-line-layer"
+private const val SOURCE_PREVIEW_WAYPOINTS = "kestrel-preview-waypoints"
+private const val LAYER_PREVIEW_WAYPOINTS = "kestrel-preview-waypoints-layer"
+private const val SOURCE_PREVIEW_POINT = "kestrel-preview-point"
+private const val LAYER_PREVIEW_POINT = "kestrel-preview-point-layer"
 private const val SOURCE_ME = "kestrel-me"
 private const val LAYER_ME_HALO = "kestrel-me-halo-layer"
 private const val LAYER_ME = "kestrel-me-layer"
 
 private data class MapColors(
     val primary: Int,
+    val preview: Int,
     val mock: Int,
     val onPrimary: Int,
 )
@@ -65,7 +72,9 @@ fun KestrelMap(
     initialCenter: LatLng = LatLng(25.0330, 121.5654),
     initialZoom: Double = 11.0,
     mockLocation: LatLng? = null,
-    polyline: List<LatLng> = emptyList(),
+    currentRoute: List<LatLng> = emptyList(),
+    previewRoute: List<LatLng> = emptyList(),
+    previewPoint: LatLng? = null,
     myLocation: LatLng? = null,
     cameraTarget: CameraSnapshot? = null,
     onMapClick: (LatLng) -> Unit = {},
@@ -80,6 +89,7 @@ fun KestrelMap(
     val colors =
         MapColors(
             primary = MaterialTheme.colorScheme.primary.toArgb(),
+            preview = MaterialTheme.colorScheme.tertiary.toArgb(),
             mock = MaterialTheme.colorScheme.error.toArgb(),
             onPrimary = MaterialTheme.colorScheme.onPrimary.toArgb(),
         )
@@ -122,9 +132,11 @@ fun KestrelMap(
         },
     )
     UpdatePointSource(styleRef, SOURCE_MOCK, mockLocation)
+    UpdatePointSource(styleRef, SOURCE_PREVIEW_POINT, previewPoint)
     UpdatePointSource(styleRef, SOURCE_ME, myLocation)
     UpdateCamera(mapRef, cameraTarget)
-    UpdateRoute(styleRef, polyline)
+    UpdateRoute(styleRef, currentRoute, SOURCE_LINE, SOURCE_WAYPOINTS)
+    UpdateRoute(styleRef, previewRoute, SOURCE_PREVIEW_LINE, SOURCE_PREVIEW_WAYPOINTS)
 
     AndroidView(modifier = modifier, factory = { mapView })
 }
@@ -188,6 +200,7 @@ private fun initializeMap(
             .build()
     map.setStyle(Style.Builder().fromJson(OSM_RASTER_STYLE_JSON)) { style ->
         addRouteLayers(style, colors)
+        addPreviewLayers(style, colors)
         addMockLayers(style, colors)
         addMyLocationLayers(style, colors)
         onStyleReady(style)
@@ -213,6 +226,39 @@ private fun addRouteLayers(
             PropertyFactory.circleColor(colors.primary),
             PropertyFactory.circleStrokeColor(colors.onPrimary),
             PropertyFactory.circleStrokeWidth(1.5f),
+        ),
+    )
+}
+
+private fun addPreviewLayers(
+    style: Style,
+    colors: MapColors,
+) {
+    style.addSource(GeoJsonSource(SOURCE_PREVIEW_LINE))
+    style.addLayer(
+        LineLayer(LAYER_PREVIEW_LINE, SOURCE_PREVIEW_LINE).withProperties(
+            PropertyFactory.lineColor(colors.preview),
+            PropertyFactory.lineWidth(5f),
+            PropertyFactory.lineOpacity(0.92f),
+            PropertyFactory.lineDasharray(arrayOf(1.5f, 1.5f)),
+        ),
+    )
+    style.addSource(GeoJsonSource(SOURCE_PREVIEW_WAYPOINTS))
+    style.addLayer(
+        CircleLayer(LAYER_PREVIEW_WAYPOINTS, SOURCE_PREVIEW_WAYPOINTS).withProperties(
+            PropertyFactory.circleRadius(6f),
+            PropertyFactory.circleColor(colors.preview),
+            PropertyFactory.circleStrokeColor(colors.onPrimary),
+            PropertyFactory.circleStrokeWidth(2f),
+        ),
+    )
+    style.addSource(GeoJsonSource(SOURCE_PREVIEW_POINT))
+    style.addLayer(
+        CircleLayer(LAYER_PREVIEW_POINT, SOURCE_PREVIEW_POINT).withProperties(
+            PropertyFactory.circleRadius(10f),
+            PropertyFactory.circleColor(colors.preview),
+            PropertyFactory.circleStrokeColor(colors.onPrimary),
+            PropertyFactory.circleStrokeWidth(3f),
         ),
     )
 }
@@ -319,10 +365,12 @@ private fun UpdateCamera(
 private fun UpdateRoute(
     style: Style?,
     polyline: List<LatLng>,
+    lineSourceId: String,
+    pointsSourceId: String,
 ) {
-    LaunchedEffect(polyline, style) {
-        val lineSource = style?.getSourceAs<GeoJsonSource>(SOURCE_LINE)
-        val pointsSource = style?.getSourceAs<GeoJsonSource>(SOURCE_WAYPOINTS)
+    LaunchedEffect(polyline, style, lineSourceId, pointsSourceId) {
+        val lineSource = style?.getSourceAs<GeoJsonSource>(lineSourceId)
+        val pointsSource = style?.getSourceAs<GeoJsonSource>(pointsSourceId)
         if (polyline.size < 2) {
             lineSource?.setGeoJson(EMPTY_FEATURES)
         } else {

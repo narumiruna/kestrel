@@ -2,6 +2,15 @@ package dev.narumi.kestrel.feature.favorites
 
 import dev.narumi.kestrel.core.library.LibraryItemKind
 
+internal enum class FavoritesFilter { All, Points, Routes }
+
+internal fun FavoritesFilter.includes(kind: LibraryItemKind): Boolean =
+    when (this) {
+        FavoritesFilter.All -> true
+        FavoritesFilter.Points -> kind == LibraryItemKind.Place
+        FavoritesFilter.Routes -> kind == LibraryItemKind.Route
+    }
+
 internal enum class FavoriteRowAction {
     Apply,
     EditCoordinates,
@@ -43,5 +52,12 @@ internal fun favoriteRowActions(
     )
 
 internal fun favoriteEditLabel(kind: LibraryItemKind): String = if (kind == LibraryItemKind.Place) "Edit coordinates" else "Edit route"
+
+internal fun FavoritesFilter.label(): String =
+    when (this) {
+        FavoritesFilter.All -> "All"
+        FavoritesFilter.Points -> "Points"
+        FavoritesFilter.Routes -> "Routes"
+    }
 
 internal fun favoriteMoreActionsLabel(name: String): String = "More actions for $name"

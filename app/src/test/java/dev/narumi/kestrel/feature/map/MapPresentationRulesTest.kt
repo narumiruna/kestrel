@@ -42,5 +42,12 @@ class MapPresentationRulesTest {
         assertTrue(shouldShowRouteSettings(RunState.Single, waypointCount = 2))
         assertFalse(shouldShowRouteSettings(RunState.RoutePlaying, waypointCount = 2))
         assertFalse(shouldShowRouteSettings(RunState.RoutePaused, waypointCount = 2))
+        assertTrue(
+            shouldShowRouteSettings(
+                RunState.RoutePlaying,
+                waypointCount = 2,
+                hasReplacementPreview = true,
+            ),
+        )
     }
 }

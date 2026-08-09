@@ -16,8 +16,10 @@ import dev.narumi.kestrel.core.library.db.RouteRevisionEntity
 import dev.narumi.kestrel.core.library.db.SyncStatus
 import dev.narumi.kestrel.core.library.db.WaypointEntity
 import dev.narumi.kestrel.core.location.LatLng
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.util.UUID
@@ -198,33 +200,45 @@ private class RoomLibraryRepository(
         dao.updateRoute(routeId, speedKmh, mode, System.currentTimeMillis())
     }
 
+    @Suppress("TooGenericExceptionCaught")
     override suspend fun removeItem(itemId: String) {
         val record = dao.getLibraryItem(itemId) ?: return
         val startupPreference = prefs.startupPreferenceValue()
         val shouldResetStartupPreference = isStartupFavoriteItem(startupPreference, itemId)
-        database.withTransaction {
-            when (record.item.kind) {
-                LibraryItemKind.Place ->
-                    record.item.placeId?.let {
-                        if (record.item.remoteId == null) {
-                            dao.deletePendingSyncChangesForItem(record.item.id)
-                            dao.deletePlace(it)
-                        } else {
-                            val updatedAt = System.currentTimeMillis()
-                            upsertPendingPlaceChange(
-                                record = record,
-                                type = CloudPlaceUploadChangeTypes.DELETE,
-                                updatedAt = updatedAt,
-                            )
-                            dao.updatePlaceSyncStatus(it, SyncStatus.Deleted, updatedAt)
-                            dao.updateLibraryItemSyncStatus(record.item.id, SyncStatus.Deleted, updatedAt)
-                        }
-                    }
-                LibraryItemKind.Route -> record.item.routeId?.let { dao.deleteRoute(it) }
-            }
-        }
         if (shouldResetStartupPreference) {
+            // Move the cross-store preference first so a successful delete can never leave a
+            // dangling startup reference. A database failure restores the previous preference.
             prefs.setStartupPreference(StartupPreference(StartupPreference.Mode.Last))
+        }
+        try {
+            database.withTransaction {
+                when (record.item.kind) {
+                    LibraryItemKind.Place ->
+                        record.item.placeId?.let {
+                            if (record.item.remoteId == null) {
+                                dao.deletePendingSyncChangesForItem(record.item.id)
+                                dao.deletePlace(it)
+                            } else {
+                                val updatedAt = System.currentTimeMillis()
+                                upsertPendingPlaceChange(
+                                    record = record,
+                                    type = CloudPlaceUploadChangeTypes.DELETE,
+                                    updatedAt = updatedAt,
+                                )
+                                dao.updatePlaceSyncStatus(it, SyncStatus.Deleted, updatedAt)
+                                dao.updateLibraryItemSyncStatus(record.item.id, SyncStatus.Deleted, updatedAt)
+                            }
+                        }
+                    LibraryItemKind.Route -> record.item.routeId?.let { dao.deleteRoute(it) }
+                }
+            }
+        } catch (error: Exception) {
+            if (shouldResetStartupPreference) {
+                withContext(NonCancellable) {
+                    runCatching { prefs.setStartupPreference(startupPreference) }
+                }
+            }
+            throw error
         }
     }
 

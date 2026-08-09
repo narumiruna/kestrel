@@ -1,5 +1,6 @@
 package dev.narumi.kestrel.feature.options
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -7,16 +8,15 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -33,8 +33,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.autofill.ContentDataType
 import androidx.compose.ui.autofill.ContentType
 import androidx.compose.ui.autofill.contentType
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDataType
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.input.KeyboardType
@@ -48,24 +52,27 @@ import dev.narumi.kestrel.core.cloud.CloudPlaceConflict
 import dev.narumi.kestrel.core.cloud.CloudSession
 import dev.narumi.kestrel.core.cloud.CloudSyncRepository
 import dev.narumi.kestrel.core.cloud.CloudSyncState
+import dev.narumi.kestrel.core.cloud.RemoteCommandStatus
 import dev.narumi.kestrel.core.cloud.RemoteControlRepository
 import dev.narumi.kestrel.core.cloud.RemoteControlRuntimeStatus
+import dev.narumi.kestrel.core.cloud.normalizeCloudApiBaseUrl
 import dev.narumi.kestrel.core.data.CloudSettings
 import dev.narumi.kestrel.core.data.KestrelPrefs
 import dev.narumi.kestrel.core.data.MockPlaybackSettings
 import dev.narumi.kestrel.core.data.RandomRoutePreference
 import dev.narumi.kestrel.core.data.RemoteControlSettings
 import dev.narumi.kestrel.core.data.StartupPreference
-import dev.narumi.kestrel.core.library.LibraryItemKind
-import dev.narumi.kestrel.core.library.LibraryItemWithContent
 import dev.narumi.kestrel.core.library.LibraryRepository
-import dev.narumi.kestrel.core.library.description
 import dev.narumi.kestrel.ui.components.KestrelActionRow
 import dev.narumi.kestrel.ui.components.KestrelCard
 import dev.narumi.kestrel.ui.components.KestrelScreenHeader
 import dev.narumi.kestrel.ui.components.KestrelSectionHeader
+import dev.narumi.kestrel.ui.components.PersistedActionResult
+import dev.narumi.kestrel.ui.components.runPersistedAction
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import java.io.IOException
+import java.net.URI
 import java.util.Date
 
 private data class CloudLoginForm(
@@ -73,6 +80,13 @@ private data class CloudLoginForm(
     val password: String = "",
     val oneTimeCode: String = "",
     val useRecoveryCode: Boolean = false,
+)
+
+private enum class ConflictResolutionChoice { KeepDevice, KeepCloud, KeepBoth }
+
+private data class PendingConflictResolution(
+    val conflict: CloudPlaceConflict,
+    val choice: ConflictResolutionChoice,
 )
 
 private data class CloudSettingsUiState(
@@ -110,6 +124,13 @@ internal fun OptionsDisclosureCard(
     onExpandedChange: (Boolean) -> Unit,
     content: @Composable () -> Unit,
 ) {
+    val changeFocusRequester = remember { FocusRequester() }
+    var wasExpanded by remember { mutableStateOf(expanded) }
+    LaunchedEffect(expanded) {
+        if (wasExpanded && !expanded) changeFocusRequester.requestFocus()
+        wasExpanded = expanded
+    }
+    BackHandler(enabled = expanded) { onExpandedChange(false) }
     KestrelCard(
         modifier =
             Modifier.semantics {
@@ -129,11 +150,13 @@ internal fun OptionsDisclosureCard(
             TextButton(
                 onClick = { onExpandedChange(!expanded) },
                 modifier =
-                    Modifier.semantics {
-                        stateDescription = optionsDisclosureStateDescription(expanded)
-                    },
+                    Modifier
+                        .focusRequester(changeFocusRequester)
+                        .semantics {
+                            stateDescription = optionsDisclosureStateDescription(expanded)
+                        },
             ) {
-                Text(if (expanded) "Done" else "Change", maxLines = 1)
+                Text(if (expanded) "Cancel" else "Change")
             }
         }
         Text(
@@ -145,6 +168,7 @@ internal fun OptionsDisclosureCard(
     }
 }
 
+@Suppress("LongMethod")
 @Composable
 fun OptionsScreen(modifier: Modifier = Modifier) {
     val context = LocalContext.current
@@ -152,7 +176,9 @@ fun OptionsScreen(modifier: Modifier = Modifier) {
     val libraryRepository = remember { LibraryRepository.getInstance(context) }
     val scope = rememberCoroutineScope()
 
-    val items by libraryRepository.items.collectAsStateWithLifecycle(emptyList())
+    val loadedItems by
+        libraryRepository.items.collectAsStateWithLifecycle(initialValue = null)
+    val items = loadedItems.orEmpty()
     val startup by prefs.startupPreference.collectAsStateWithLifecycle(StartupPreference())
     val randomRoute by prefs.randomRoutePreference.collectAsStateWithLifecycle(RandomRoutePreference())
     val mockPlayback by prefs.mockPlaybackSettings.collectAsStateWithLifecycle(MockPlaybackSettings())
@@ -162,14 +188,44 @@ fun OptionsScreen(modifier: Modifier = Modifier) {
     var mapLinksExpanded by rememberSaveable { mutableStateOf(OptionsSection.MapLinks.defaultExpanded) }
     var playbackExpanded by rememberSaveable { mutableStateOf(OptionsSection.Playback.defaultExpanded) }
     var randomRouteExpanded by rememberSaveable { mutableStateOf(OptionsSection.RandomRoute.defaultExpanded) }
+    var settingsBusy by remember { mutableStateOf(false) }
+    var settingsMessage by remember { mutableStateOf<String?>(null) }
+    var settingsError by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(randomRoute.defaultPointCount, randomRoute.defaultSpacingMeters) {
         defaultPointCount = randomRoute.defaultPointCount.toString()
         defaultSpacingMeters = formatMeters(randomRoute.defaultSpacingMeters)
     }
 
-    fun update(pref: StartupPreference) {
-        scope.launch { prefs.setStartupPreference(pref) }
+    fun runSettingsAction(
+        successMessage: String,
+        onSuccess: () -> Unit,
+        block: suspend () -> Unit,
+    ) {
+        if (settingsBusy) return
+        settingsBusy = true
+        settingsMessage = null
+        settingsError = null
+        scope.launch {
+            try {
+                when (
+                    val result =
+                        runPersistedAction(
+                            failureMessage =
+                                "Could not save this setting. The previous value is unchanged; try again.",
+                            block = block,
+                        )
+                ) {
+                    PersistedActionResult.Success -> {
+                        settingsMessage = successMessage
+                        onSuccess()
+                    }
+                    is PersistedActionResult.Failure -> settingsError = result.message
+                }
+            } finally {
+                settingsBusy = false
+            }
+        }
     }
 
     Column(
@@ -181,28 +237,41 @@ fun OptionsScreen(modifier: Modifier = Modifier) {
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         KestrelScreenHeader(
-            title = "Options",
-            subtitle = "Choose startup, map links, playback, routes, and cloud sync.",
+            title = "Settings",
+            subtitle = "Choose how Kestrel opens, recovers routes, syncs, and accepts Web control.",
         )
+
+        (settingsError ?: settingsMessage)?.let {
+            KestrelCard(
+                modifier =
+                    Modifier.semantics {
+                        liveRegion =
+                            if (settingsError != null) LiveRegionMode.Assertive else LiveRegionMode.Polite
+                    },
+            ) {
+                Text(
+                    text = it,
+                    color = if (settingsError != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                )
+            }
+        }
 
         StartupPreferenceCard(
             items = items,
+            itemsLoading = loadedItems == null,
             startup = startup,
-            onUpdate = ::update,
+            saving = settingsBusy,
+            error = settingsError,
+            onSave = { preference, onSuccess ->
+                runSettingsAction("Saved app opening behavior.", onSuccess) {
+                    prefs.setStartupPreference(preference)
+                }
+            },
         )
 
         MapLinksOptionsCard(
             expanded = mapLinksExpanded,
             onExpandedChange = { mapLinksExpanded = it },
-        )
-
-        MockPlaybackSettingsCard(
-            settings = mockPlayback,
-            expanded = playbackExpanded,
-            onExpandedChange = { playbackExpanded = it },
-            onProgressWriteIntervalChange = { seconds ->
-                scope.launch { prefs.setProgressWriteIntervalSeconds(seconds) }
-            },
         )
 
         RandomRouteDefaultsCard(
@@ -215,22 +284,40 @@ fun OptionsScreen(modifier: Modifier = Modifier) {
             onSpacingMetersChange = {
                 defaultSpacingMeters = it.filter { ch -> ch.isDigit() || ch == '.' }.take(7)
             },
-            onSave = {
-                scope.launch {
-                    prefs.setRandomRouteDefaults(
-                        defaultPointCount.toIntOrNull() ?: return@launch,
-                        defaultSpacingMeters.toDoubleOrNull() ?: return@launch,
-                    )
+            saving = settingsBusy,
+            error = settingsError,
+            onSave = { resetToRecommended, onSuccess ->
+                runSettingsAction("Saved random route defaults.", onSuccess) {
+                    if (resetToRecommended) {
+                        prefs.resetRandomRoutePreference()
+                    } else {
+                        prefs.setRandomRouteDefaults(
+                            defaultPointCount.toIntOrNull() ?: return@runSettingsAction,
+                            defaultSpacingMeters.toDoubleOrNull() ?: return@runSettingsAction,
+                        )
+                    }
                 }
             },
-            onReset = { scope.launch { prefs.resetRandomRoutePreference() } },
+        )
+
+        MockPlaybackSettingsCard(
+            settings = mockPlayback,
+            expanded = playbackExpanded,
+            onExpandedChange = { playbackExpanded = it },
+            saving = settingsBusy,
+            error = settingsError,
+            onSave = { seconds, onSuccess ->
+                runSettingsAction("Saved route recovery behavior.", onSuccess) {
+                    prefs.setProgressWriteIntervalSeconds(seconds)
+                }
+            },
         )
 
         CloudSettingsSection()
     }
 }
 
-@Suppress("LongMethod")
+@Suppress("CyclomaticComplexMethod", "LongMethod")
 @Composable
 private fun CloudSettingsSection() {
     val context = LocalContext.current
@@ -255,14 +342,114 @@ private fun CloudSettingsSection() {
     var cloudError by remember { mutableStateOf<String?>(null) }
     var cloudLoading by remember { mutableStateOf(false) }
     var apiBaseUrl by remember { mutableStateOf(cloudSettings.apiBaseUrl) }
+    var confirmRemoteEnable by remember { mutableStateOf(false) }
+    var confirmSignOut by remember { mutableStateOf(false) }
+    var pendingConflictResolution by remember { mutableStateOf<PendingConflictResolution?>(null) }
 
     LaunchedEffect(Unit) {
-        cloudSession = authRepository.currentSession()
-        cloudSessionLoaded = true
+        try {
+            cloudSession = authRepository.currentSession()
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: IllegalStateException) {
+            cloudError = "Could not read the saved cloud session: ${error.toCloudErrorMessage()}"
+        } finally {
+            cloudSessionLoaded = true
+        }
     }
 
     LaunchedEffect(cloudSettings.apiBaseUrl) {
         apiBaseUrl = cloudSettings.apiBaseUrl
+    }
+
+    fun setRemoteControlEnabled(enabled: Boolean) {
+        launchCloudUiAction(
+            scope = scope,
+            setLoading = { cloudLoading = it },
+            setError = { cloudError = it },
+            setMessage = { cloudMessage = it },
+        ) {
+            val changed = remoteControlRepository.setEnabled(enabled)
+            check(changed) { remoteControlRepository.runtimeStatus.value.error ?: "Remote control was not changed" }
+            cloudMessage = if (enabled) "Web remote control enabled" else "Web remote control disabled"
+        }
+    }
+
+    fun resolveConflict(pending: PendingConflictResolution) {
+        launchCloudUiAction(
+            scope = scope,
+            setLoading = { cloudLoading = it },
+            setError = { cloudError = it },
+            setMessage = { cloudMessage = it },
+        ) {
+            when (pending.choice) {
+                ConflictResolutionChoice.KeepDevice -> {
+                    syncRepository.resolveConflictUseLocal(pending.conflict.id)
+                    cloudMessage = "Kept this device's version"
+                }
+                ConflictResolutionChoice.KeepCloud -> {
+                    syncRepository.resolveConflictUseCloud(pending.conflict.id)
+                    cloudMessage = "Kept the cloud version"
+                }
+                ConflictResolutionChoice.KeepBoth -> {
+                    syncRepository.resolveConflictKeepBoth(pending.conflict.id)
+                    cloudMessage = "Kept both versions"
+                }
+            }
+        }
+    }
+
+    fun signOut() {
+        launchCloudUiAction(
+            scope = scope,
+            setLoading = { cloudLoading = it },
+            setError = { cloudError = it },
+            setMessage = { cloudMessage = it },
+        ) {
+            if (remoteControlSettings.enabled) {
+                val disabled = remoteControlRepository.setEnabled(false)
+                check(disabled) {
+                    remoteControlRepository.runtimeStatus.value.error
+                        ?: "Remote control must be disabled before signing out"
+                }
+            }
+            authRepository.logout()
+            cloudSession = null
+            cloudMessage = "Signed out"
+        }
+    }
+
+    if (confirmRemoteEnable) {
+        ConfirmRemoteControlDialog(
+            deviceName = remoteControlSettings.deviceName,
+            onConfirm = {
+                confirmRemoteEnable = false
+                setRemoteControlEnabled(true)
+            },
+            onDismiss = { confirmRemoteEnable = false },
+        )
+    }
+
+    pendingConflictResolution?.let { pending ->
+        ConfirmConflictResolutionDialog(
+            pending = pending,
+            onConfirm = {
+                pendingConflictResolution = null
+                resolveConflict(pending)
+            },
+            onDismiss = { pendingConflictResolution = null },
+        )
+    }
+
+    if (confirmSignOut) {
+        ConfirmSignOutDialog(
+            remoteControlEnabled = remoteControlSettings.enabled,
+            onConfirm = {
+                confirmSignOut = false
+                signOut()
+            },
+            onDismiss = { confirmSignOut = false },
+        )
     }
 
     CloudSettingsCard(
@@ -278,7 +465,13 @@ private fun CloudSettingsSection() {
         loginForm = loginForm,
         sessionLoaded = cloudSessionLoaded,
         expanded = cloudExpanded,
-        onExpandedChange = { cloudExpanded = it },
+        onExpandedChange = { expanded ->
+            if (!expanded) {
+                apiBaseUrl = cloudSettings.apiBaseUrl
+                loginForm = CloudLoginForm()
+            }
+            cloudExpanded = expanded
+        },
         onApiBaseUrlChange = { apiBaseUrl = it },
         onLoginFormChange = { loginForm = it },
         onSaveApiBaseUrl = {
@@ -314,7 +507,7 @@ private fun CloudSettingsSection() {
                         )
                     }
                 cloudSession = session
-                loginForm = loginForm.copy(oneTimeCode = "")
+                loginForm = CloudLoginForm()
                 syncRepository.syncNow()
                 cloudMessage = "Signed in as ${session.username}"
             }
@@ -336,20 +529,7 @@ private fun CloudSettingsSection() {
             }
         },
         onLogout = {
-            launchCloudUiAction(
-                scope = scope,
-                setLoading = { cloudLoading = it },
-                setError = { cloudError = it },
-                setMessage = { cloudMessage = it },
-            ) {
-                val optOutFailure = runCatching { remoteControlRepository.setEnabled(false) }.exceptionOrNull()
-                authRepository.logout()
-                cloudSession = null
-                cloudMessage = "Signed out"
-                if (optOutFailure != null) {
-                    cloudError = "Remote control server opt-out failed: ${optOutFailure.toCloudErrorMessage()}"
-                }
-            }
+            if (remoteControlSettings.enabled) confirmSignOut = true else signOut()
         },
         onSyncNow = {
             launchCloudUiAction(
@@ -372,14 +552,7 @@ private fun CloudSettingsSection() {
         expanded = remoteExpanded,
         onExpandedChange = { remoteExpanded = it },
         onEnabledChange = { enabled ->
-            launchCloudUiAction(
-                scope = scope,
-                setLoading = { cloudLoading = it },
-                setError = { cloudError = it },
-                setMessage = { cloudMessage = it },
-            ) {
-                remoteControlRepository.setEnabled(enabled)
-            }
+            if (enabled) confirmRemoteEnable = true else setRemoteControlEnabled(false)
         },
     )
 
@@ -387,37 +560,16 @@ private fun CloudSettingsSection() {
         conflicts = placeConflicts,
         loading = cloudLoading,
         onUseCloud = { conflict ->
-            launchCloudUiAction(
-                scope = scope,
-                setLoading = { cloudLoading = it },
-                setError = { cloudError = it },
-                setMessage = { cloudMessage = it },
-            ) {
-                syncRepository.resolveConflictUseCloud(conflict.id)
-                cloudMessage = "Applied cloud version"
-            }
+            pendingConflictResolution =
+                PendingConflictResolution(conflict, ConflictResolutionChoice.KeepCloud)
         },
         onUseLocal = { conflict ->
-            launchCloudUiAction(
-                scope = scope,
-                setLoading = { cloudLoading = it },
-                setError = { cloudError = it },
-                setMessage = { cloudMessage = it },
-            ) {
-                syncRepository.resolveConflictUseLocal(conflict.id)
-                cloudMessage = "Uploaded local version"
-            }
+            pendingConflictResolution =
+                PendingConflictResolution(conflict, ConflictResolutionChoice.KeepDevice)
         },
         onKeepBoth = { conflict ->
-            launchCloudUiAction(
-                scope = scope,
-                setLoading = { cloudLoading = it },
-                setError = { cloudError = it },
-                setMessage = { cloudMessage = it },
-            ) {
-                syncRepository.resolveConflictKeepBoth(conflict.id)
-                cloudMessage = "Kept both versions"
-            }
+            pendingConflictResolution =
+                PendingConflictResolution(conflict, ConflictResolutionChoice.KeepBoth)
         },
     )
 }
@@ -437,6 +589,7 @@ private fun CloudSettingsCard(
     onLogout: () -> Unit,
     onSyncNow: () -> Unit,
 ) {
+    val serverValid = isValidCloudServerAddress(uiState.apiBaseUrl)
     OptionsDisclosureCard(
         title = OptionsSection.Cloud.title,
         subtitle = "Connect to Kestrel cloud and keep favorites synced.",
@@ -456,17 +609,39 @@ private fun CloudSettingsCard(
         OutlinedTextField(
             value = uiState.apiBaseUrl,
             onValueChange = onApiBaseUrlChange,
-            label = { Text("API base URL") },
+            label = { Text("Server address") },
             singleLine = true,
+            isError = uiState.apiBaseUrl.isNotBlank() && !serverValid,
+            supportingText = {
+                if (!serverValid && uiState.apiBaseUrl.isNotBlank()) {
+                    Text("Enter an http:// or https:// server address with a host.")
+                }
+            },
+            enabled = uiState.session == null && !uiState.loading,
             modifier = Modifier.fillMaxWidth(),
         )
         Text(
-            text = "Production default is https://kestrel.narumi.dev; /api/backend is added automatically.",
+            text =
+                if (uiState.session == null) {
+                    "Production default is https://kestrel.narumi.dev. Kestrel previews the effective server before saving."
+                } else {
+                    "Sign out before changing servers so account and remote-control state cannot be split."
+                },
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        if (serverValid) {
+            Text(
+                text = "Effective server: ${normalizeCloudApiBaseUrl(uiState.apiBaseUrl)}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         KestrelActionRow {
-            OutlinedButton(onClick = onSaveApiBaseUrl) { Text("Save API URL", maxLines = 1) }
+            OutlinedButton(
+                onClick = onSaveApiBaseUrl,
+                enabled = uiState.session == null && !uiState.loading && serverValid,
+            ) { Text("Use this server") }
         }
 
         if (uiState.session == null) {
@@ -540,7 +715,7 @@ private fun RemoteControlSettingsCard(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Text(
-            text = "Last status: ${status.lastCommandStatus?.name ?: status.message ?: "Idle"}",
+            text = "Last status: ${status.lastCommandStatus?.toUserLabel() ?: status.message ?: "Waiting for commands"}",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -585,21 +760,37 @@ private fun CloudSignedOutCardContent(
         visualTransformation = PasswordVisualTransformation(),
         modifier = Modifier.autofillText(ContentType.Password),
     )
-    OutlinedTextField(
-        value = loginForm.oneTimeCode,
-        onValueChange = { onLoginFormChange(loginForm.copy(oneTimeCode = it)) },
-        label = { Text(if (loginForm.useRecoveryCode) "Recovery code" else "TOTP code") },
-        singleLine = true,
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-        modifier = Modifier.autofillText(ContentType.SmsOtpCode),
-    )
-    StartupRadioRow(
-        label = "Use recovery code instead of TOTP",
-        selected = loginForm.useRecoveryCode,
-        onSelect = {
-            onLoginFormChange(loginForm.copy(useRecoveryCode = !loginForm.useRecoveryCode))
-        },
-    )
+    if (loginForm.username.isNotBlank() && loginForm.password.isNotBlank()) {
+        OutlinedTextField(
+            value = loginForm.oneTimeCode,
+            onValueChange = { onLoginFormChange(loginForm.copy(oneTimeCode = it)) },
+            label = { Text(if (loginForm.useRecoveryCode) "Recovery code" else "Authenticator code") },
+            singleLine = true,
+            keyboardOptions =
+                KeyboardOptions(
+                    keyboardType = if (loginForm.useRecoveryCode) KeyboardType.Password else KeyboardType.NumberPassword,
+                ),
+            modifier = Modifier.autofillText(ContentType.SmsOtpCode),
+        )
+        TextButton(
+            onClick = {
+                onLoginFormChange(
+                    loginForm.copy(
+                        oneTimeCode = "",
+                        useRecoveryCode = !loginForm.useRecoveryCode,
+                    ),
+                )
+            },
+        ) {
+            Text(if (loginForm.useRecoveryCode) "Use authenticator code" else "Use a recovery code")
+        }
+    } else {
+        Text(
+            text = "Enter your username and password to continue to verification.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
     KestrelActionRow {
         Button(
             onClick = onLogin,
@@ -609,7 +800,7 @@ private fun CloudSignedOutCardContent(
                     loginForm.password.isNotBlank() &&
                     loginForm.oneTimeCode.isNotBlank(),
         ) {
-            Text(if (loading) "Signing in…" else "Sign in", maxLines = 1)
+            Text(if (loading) "Signing in…" else "Sign in")
         }
     }
 }
@@ -646,13 +837,15 @@ private fun CloudSignedInCardContent(
     }
     KestrelActionRow {
         Button(onClick = onSyncNow, enabled = !loading) {
-            Text(if (loading) "Syncing…" else "Sync now", maxLines = 1)
+            Text(if (loading) "Syncing…" else "Sync now")
         }
-        OutlinedButton(onClick = onRefreshSession, enabled = !loading) {
-            Text("Refresh session", maxLines = 1)
+        if (syncState.lastError != null) {
+            OutlinedButton(onClick = onRefreshSession, enabled = !loading) {
+                Text("Reconnect")
+            }
         }
         OutlinedButton(onClick = onLogout, enabled = !loading) {
-            Text("Sign out", maxLines = 1)
+            Text("Sign out")
         }
     }
 }
@@ -697,21 +890,106 @@ private fun CloudConflictItem(
             style = MaterialTheme.typography.titleSmall,
         )
         Text(
-            text = "Local: ${conflict.localName} (${formatCoordinate(conflict.localLatitude)}, ${formatCoordinate(conflict.localLongitude)})",
+            text = "This device: ${conflict.localName} (${formatCoordinate(conflict.localLatitude)}, ${formatCoordinate(conflict.localLongitude)})",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        conflict.localDescription?.let {
+            Text("Device description: $it", style = MaterialTheme.typography.bodySmall)
+        }
         Text(
             text = "Cloud: ${conflict.cloudName} (${formatCoordinate(conflict.cloudLatitude)}, ${formatCoordinate(conflict.cloudLongitude)})",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        conflict.cloudDescription?.let {
+            Text("Cloud description: $it", style = MaterialTheme.typography.bodySmall)
+        }
         KestrelActionRow {
-            OutlinedButton(onClick = onUseCloud, enabled = !loading) { Text("Use Cloud", maxLines = 1) }
-            Button(onClick = onUseLocal, enabled = !loading) { Text("Use Local", maxLines = 1) }
-            OutlinedButton(onClick = onKeepBoth, enabled = !loading) { Text("Keep Both", maxLines = 1) }
+            OutlinedButton(onClick = onUseCloud, enabled = !loading) { Text("Keep cloud version") }
+            Button(onClick = onUseLocal, enabled = !loading) { Text("Keep this device") }
+            OutlinedButton(onClick = onKeepBoth, enabled = !loading) { Text("Keep both") }
         }
     }
+}
+
+@Composable
+private fun ConfirmConflictResolutionDialog(
+    pending: PendingConflictResolution,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val effect =
+        when (pending.choice) {
+            ConflictResolutionChoice.KeepDevice ->
+                "Replace the cloud copy with this device's name, coordinates, and description."
+            ConflictResolutionChoice.KeepCloud ->
+                "Replace this device's saved copy with the cloud name, coordinates, and description."
+            ConflictResolutionChoice.KeepBoth ->
+                "Keep two Favorites so neither version is overwritten."
+        }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Resolve ${pending.conflict.localName}?") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(effect)
+                Text(
+                    "This device: ${pending.conflict.localName} · " +
+                        "${formatCoordinate(pending.conflict.localLatitude)}, ${formatCoordinate(pending.conflict.localLongitude)}",
+                )
+                Text(
+                    "Cloud: ${pending.conflict.cloudName} · " +
+                        "${formatCoordinate(pending.conflict.cloudLatitude)}, ${formatCoordinate(pending.conflict.cloudLongitude)}",
+                )
+            }
+        },
+        confirmButton = { Button(onClick = onConfirm) { Text("Confirm resolution") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}
+
+@Composable
+private fun ConfirmRemoteControlDialog(
+    deviceName: String?,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Allow Web remote control?") },
+        text = {
+            Text(
+                "The Web dashboard will be able to replace or stop this device's mock location " +
+                    "while Kestrel is open or its mock service is running. Device: ${deviceName ?: "registered after confirmation"}.",
+            )
+        },
+        confirmButton = { Button(onClick = onConfirm) { Text("Allow remote control") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}
+
+@Composable
+private fun ConfirmSignOutDialog(
+    remoteControlEnabled: Boolean,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Sign out?") },
+        text = {
+            Text(
+                if (remoteControlEnabled) {
+                    "Kestrel will disable Web remote control before removing this account from the device."
+                } else {
+                    "Cloud sync will stop until you sign in again. Local Favorites remain on this device."
+                },
+            )
+        },
+        confirmButton = { Button(onClick = onConfirm) { Text("Sign out") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
 }
 
 @Composable
@@ -722,6 +1000,7 @@ private fun CloudStatusMessage(
     message?.let {
         Text(
             text = it,
+            modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.primary,
         )
@@ -729,260 +1008,29 @@ private fun CloudStatusMessage(
     error?.let {
         Text(
             text = it,
+            modifier = Modifier.semantics { liveRegion = LiveRegionMode.Assertive },
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.error,
         )
     }
 }
 
-@Composable
-private fun StartupPreferenceCard(
-    items: List<LibraryItemWithContent>,
-    startup: StartupPreference,
-    onUpdate: (StartupPreference) -> Unit,
-) {
-    var expandedKind by remember { mutableStateOf<LibraryItemKind?>(null) }
-    val places = remember(items) { items.filter { it.kind == LibraryItemKind.Place } }
-    val routes = remember(items) { items.filter { it.kind == LibraryItemKind.Route } }
-    val selectedItem = remember(items, startup.libraryItemId) { items.firstOrNull { it.item.id == startup.libraryItemId } }
-    val favoriteSupporting =
-        when {
-            startup.mode != StartupPreference.Mode.Favorite -> null
-            items.isEmpty() -> "No favorites yet. Long-press the map to save one."
-            selectedItem != null -> "Startup favorite: ${selectedItem.name}"
-            else -> "Pick a point or route below."
-        }
-
-    fun selectFavorite(item: LibraryItemWithContent) {
-        onUpdate(
-            StartupPreference(
-                mode = StartupPreference.Mode.Favorite,
-                libraryItemId = item.item.id,
-            ),
-        )
-    }
-
-    OptionsCard(
-        title = OptionsSection.Startup.title,
-        subtitle = startupSummary(startup.mode, selectedItem?.name),
-    ) {
-        StartupRadioRow(
-            label = "Last position",
-            selected = startup.mode == StartupPreference.Mode.Last,
-            onSelect = { onUpdate(StartupPreference(StartupPreference.Mode.Last)) },
-        )
-        HorizontalDivider()
-        StartupRadioRow(
-            label = "Current location",
-            selected = startup.mode == StartupPreference.Mode.Current,
-            onSelect = { onUpdate(StartupPreference(StartupPreference.Mode.Current)) },
-        )
-        HorizontalDivider()
-        StartupRadioRow(
-            label =
-                if (items.isEmpty()) {
-                    "A favorite (none yet — long-press the map)"
-                } else {
-                    "A favorite"
-                },
-            supporting = favoriteSupporting,
-            selected = startup.mode == StartupPreference.Mode.Favorite,
-            enabled = items.isNotEmpty(),
-            onSelect = {
-                val target = selectedItem ?: items.firstOrNull() ?: return@StartupRadioRow
-                selectFavorite(target)
-            },
-        )
-        if (startup.mode == StartupPreference.Mode.Favorite && items.isNotEmpty()) {
-            KestrelActionRow {
-                OutlinedButton(
-                    onClick = { expandedKind = expandedKind.toggle(LibraryItemKind.Place) },
-                    enabled = places.isNotEmpty() || expandedKind == LibraryItemKind.Place,
-                ) {
-                    Text(if (expandedKind == LibraryItemKind.Place) "Hide points" else "Points (${places.size})", maxLines = 1)
-                }
-                OutlinedButton(
-                    onClick = { expandedKind = expandedKind.toggle(LibraryItemKind.Route) },
-                    enabled = routes.isNotEmpty() || expandedKind == LibraryItemKind.Route,
-                ) {
-                    Text(if (expandedKind == LibraryItemKind.Route) "Hide routes" else "Routes (${routes.size})", maxLines = 1)
-                }
-            }
-            when (expandedKind) {
-                LibraryItemKind.Place -> FavoriteStartupList(places, startup, ::selectFavorite)
-                LibraryItemKind.Route -> FavoriteStartupList(routes, startup, ::selectFavorite)
-                null -> Unit
-            }
-        }
-    }
-}
-
-@Composable
-private fun FavoriteStartupList(
-    items: List<LibraryItemWithContent>,
-    startup: StartupPreference,
-    onSelect: (LibraryItemWithContent) -> Unit,
-) {
-    items.forEachIndexed { index, item ->
-        if (index > 0) HorizontalDivider()
-        StartupRadioRow(
-            label = item.name,
-            supporting = item.description(),
-            selected = startup.libraryItemId == item.item.id,
-            onSelect = { onSelect(item) },
-        )
-    }
-}
-
-private fun LibraryItemKind?.toggle(kind: LibraryItemKind): LibraryItemKind? = if (this == kind) null else kind
-
-@Composable
-private fun MockPlaybackSettingsCard(
-    settings: MockPlaybackSettings,
-    expanded: Boolean,
-    onExpandedChange: (Boolean) -> Unit,
-    onProgressWriteIntervalChange: (Int) -> Unit,
-) {
-    val seconds = settings.progressWriteIntervalSeconds
-    OptionsDisclosureCard(
-        title = OptionsSection.Playback.title,
-        subtitle = "Balance restore accuracy with write frequency.",
-        summary = playbackSummary(seconds),
-        expanded = expanded,
-        onExpandedChange = onExpandedChange,
-    ) {
-        Text(
-            text = "Route progress write interval: $seconds s",
-            style = MaterialTheme.typography.titleSmall,
-        )
-        Text(
-            text =
-                "Higher values reduce DataStore writes but widen rollback after Android " +
-                    "kills the service. Applies to the next route start or restore.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        KestrelActionRow {
-            OutlinedButton(
-                onClick = { onProgressWriteIntervalChange(seconds - 1) },
-                enabled = seconds > MockPlaybackSettings.MIN_PROGRESS_WRITE_INTERVAL_SECONDS,
-            ) { Text("− 1 s", maxLines = 1) }
-            Button(
-                onClick = {
-                    onProgressWriteIntervalChange(
-                        MockPlaybackSettings.DEFAULT_PROGRESS_WRITE_INTERVAL_SECONDS,
-                    )
-                },
-                enabled = seconds != MockPlaybackSettings.DEFAULT_PROGRESS_WRITE_INTERVAL_SECONDS,
-            ) { Text("Reset to 5 s", maxLines = 1) }
-            OutlinedButton(
-                onClick = { onProgressWriteIntervalChange(seconds + 1) },
-                enabled = seconds < MockPlaybackSettings.MAX_PROGRESS_WRITE_INTERVAL_SECONDS,
-            ) { Text("+ 1 s", maxLines = 1) }
-        }
-    }
-}
-
-@Composable
-private fun RandomRouteDefaultsCard(
-    pointCount: String,
-    spacingMeters: String,
-    preference: RandomRoutePreference,
-    expanded: Boolean,
-    onExpandedChange: (Boolean) -> Unit,
-    onPointCountChange: (String) -> Unit,
-    onSpacingMetersChange: (String) -> Unit,
-    onSave: () -> Unit,
-    onReset: () -> Unit,
-) {
-    val parsedPointCount = pointCount.toIntOrNull()
-    val parsedSpacing = spacingMeters.toDoubleOrNull()
-    val valid = isValidRandomRoute(parsedPointCount, parsedSpacing)
-    OptionsDisclosureCard(
-        title = OptionsSection.RandomRoute.title,
-        subtitle = "Set the fallback shape for generated routes.",
-        summary =
-            randomRouteSummary(
-                pointCount = preference.effectivePointCount,
-                spacingMeters = preference.effectiveSpacingMeters,
-                usesLastSettings = preference.usesLastSettings,
-            ),
-        expanded = expanded,
-        onExpandedChange = onExpandedChange,
-    ) {
-        Text(
-            text = "Used when no previous random route settings exist.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        if (preference.usesLastSettings) {
-            Text(
-                text = "Generate random route is currently using last used settings.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        OutlinedTextField(
-            value = pointCount,
-            onValueChange = onPointCountChange,
-            label = { Text("Point count (2–1000)") },
-            isError = pointCount.isNotBlank() && !isValidPointCount(parsedPointCount),
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        OutlinedTextField(
-            value = spacingMeters,
-            onValueChange = onSpacingMetersChange,
-            label = { Text("Spacing meters (1–10000)") },
-            isError = spacingMeters.isNotBlank() && !isValidSpacing(parsedSpacing),
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        Text(
-            text =
-                "Estimated distance: " +
-                    if (parsedPointCount != null && parsedSpacing != null) {
-                        formatDistance((parsedPointCount - 1).coerceAtLeast(0) * parsedSpacing)
-                    } else {
-                        "—"
-                    },
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        KestrelActionRow {
-            Button(
-                onClick = onSave,
-                enabled = valid,
-            ) { Text("Save", maxLines = 1) }
-            OutlinedButton(onClick = onReset) { Text("Reset to recommended", maxLines = 1) }
-        }
-    }
-}
-
-private fun isValidPointCount(value: Int?): Boolean =
-    value != null &&
-        value in RandomRoutePreference.MIN_POINT_COUNT..RandomRoutePreference.MAX_POINT_COUNT
-
-private fun isValidSpacing(value: Double?): Boolean =
-    value != null &&
-        value >= RandomRoutePreference.MIN_SPACING_METERS &&
-        value <= RandomRoutePreference.MAX_SPACING_METERS
-
-private fun isValidRandomRoute(
-    pointCount: Int?,
-    spacingMeters: Double?,
-): Boolean = isValidPointCount(pointCount) && isValidSpacing(spacingMeters)
-
-private fun formatMeters(value: Double): String = if (value % 1.0 == 0.0) value.toInt().toString() else value.toString()
-
-private fun formatDistance(meters: Double): String =
-    if (meters >= 1000.0) {
-        "%.1f km".format(meters / 1000.0)
-    } else {
-        "${formatMeters(meters)} m"
-    }
-
 private fun formatCoordinate(value: Double): String = "%.5f".format(value)
+
+private fun RemoteCommandStatus.toUserLabel(): String =
+    when (this) {
+        RemoteCommandStatus.QUEUED -> "Waiting on the device"
+        RemoteCommandStatus.DELIVERED -> "Received by this device"
+        RemoteCommandStatus.APPLIED -> "Last command applied"
+        RemoteCommandStatus.FAILED -> "Last command failed"
+        RemoteCommandStatus.EXPIRED -> "Last command expired"
+    }
+
+internal fun isValidCloudServerAddress(value: String): Boolean =
+    runCatching { URI(value.trim()) }
+        .getOrNull()
+        ?.let { it.scheme in setOf("http", "https") && !it.host.isNullOrBlank() }
+        ?: false
 
 private fun buildCloudSettingsUiState(
     apiBaseUrl: String,
@@ -1033,28 +1081,18 @@ private suspend fun runCloudAction(
         setError(error.message)
     } catch (error: IOException) {
         setError(error.toCloudErrorMessage())
+    } catch (error: CancellationException) {
+        throw error
     } catch (error: IllegalStateException) {
         setError(error.toCloudErrorMessage())
+    } catch (_: Exception) {
+        setError("Unexpected cloud error. Check your connection and try again.")
     } finally {
         setLoading(false)
     }
 }
 
 private fun Throwable.toCloudErrorMessage(): String = message ?: "Unexpected cloud error"
-
-@Suppress("UnusedPrivateFunction")
-@Preview(showBackground = true)
-@Composable
-private fun MockPlaybackSettingsCardPreview() {
-    MaterialTheme {
-        MockPlaybackSettingsCard(
-            settings = MockPlaybackSettings(progressWriteIntervalSeconds = 10),
-            expanded = true,
-            onExpandedChange = {},
-            onProgressWriteIntervalChange = {},
-        )
-    }
-}
 
 @Suppress("UnusedPrivateFunction")
 @Preview(showBackground = true)
@@ -1085,25 +1123,4 @@ private fun CloudConflictCardPreview() {
             onKeepBoth = {},
         )
     }
-}
-
-@Composable
-private fun StartupRadioRow(
-    label: String,
-    selected: Boolean,
-    onSelect: () -> Unit,
-    enabled: Boolean = true,
-    supporting: String? = null,
-) {
-    ListItem(
-        headlineContent = { Text(label) },
-        supportingContent = supporting?.let { { Text(it) } },
-        leadingContent = {
-            RadioButton(selected = selected, onClick = onSelect, enabled = enabled)
-        },
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .selectable(selected = selected, enabled = enabled, onClick = onSelect),
-    )
 }

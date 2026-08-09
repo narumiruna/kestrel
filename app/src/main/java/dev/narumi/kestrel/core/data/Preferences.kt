@@ -182,13 +182,22 @@ class KestrelPrefs(
     suspend fun setFavoritesSortMode(mode: FavoritesSortMode.Mode) {
         store.edit {
             it[Keys.FAVORITES_SORT_MODE] =
-                json.encodeToString(FavoritesSortMode.serializer(), FavoritesSortMode(mode))
+                json.encodePreservingUnknown(
+                    FavoritesSortMode.serializer(),
+                    FavoritesSortMode(mode),
+                    it[Keys.FAVORITES_SORT_MODE],
+                )
         }
     }
 
     suspend fun setStartupPreference(pref: StartupPreference) {
         store.edit {
-            it[Keys.STARTUP_PREF] = json.encodeToString(StartupPreference.serializer(), pref)
+            it[Keys.STARTUP_PREF] =
+                json.encodePreservingUnknown(
+                    StartupPreference.serializer(),
+                    pref,
+                    it[Keys.STARTUP_PREF],
+                )
         }
     }
 
@@ -199,12 +208,13 @@ class KestrelPrefs(
         store.edit { prefs ->
             val current = prefs.toRandomRoutePref(json)
             prefs[Keys.RANDOM_ROUTE_PREF] =
-                json.encodeToString(
+                json.encodePreservingUnknown(
                     RandomRoutePreference.serializer(),
                     current.copy(
                         defaultPointCount = pointCount,
                         defaultSpacingMeters = spacingMeters,
                     ),
+                    prefs[Keys.RANDOM_ROUTE_PREF],
                 )
         }
     }
@@ -216,30 +226,39 @@ class KestrelPrefs(
         store.edit { prefs ->
             val current = prefs.toRandomRoutePref(json)
             prefs[Keys.RANDOM_ROUTE_PREF] =
-                json.encodeToString(
+                json.encodePreservingUnknown(
                     RandomRoutePreference.serializer(),
                     current.copy(
                         lastPointCount = pointCount,
                         lastSpacingMeters = spacingMeters,
                     ),
+                    prefs[Keys.RANDOM_ROUTE_PREF],
                 )
         }
     }
 
     suspend fun resetRandomRoutePreference() {
-        store.edit { it.remove(Keys.RANDOM_ROUTE_PREF) }
+        store.edit {
+            it[Keys.RANDOM_ROUTE_PREF] =
+                json.encodePreservingUnknown(
+                    RandomRoutePreference.serializer(),
+                    RandomRoutePreference(),
+                    it[Keys.RANDOM_ROUTE_PREF],
+                )
+        }
     }
 
     suspend fun setProgressWriteIntervalSeconds(seconds: Int) {
         store.edit { prefs ->
             val current = prefs.toMockPlaybackSettings(json)
             prefs[Keys.MOCK_PLAYBACK_SETTINGS] =
-                json.encodeToString(
+                json.encodePreservingUnknown(
                     MockPlaybackSettings.serializer(),
                     current.copy(
                         progressWriteIntervalSeconds =
                             MockPlaybackSettings.clampProgressWriteIntervalSeconds(seconds),
                     ),
+                    prefs[Keys.MOCK_PLAYBACK_SETTINGS],
                 )
         }
     }
@@ -249,7 +268,12 @@ class KestrelPrefs(
             if (state == null) {
                 it.remove(Keys.MOCK_STATE)
             } else {
-                it[Keys.MOCK_STATE] = json.encodeToString(MockState.serializer(), state)
+                it[Keys.MOCK_STATE] =
+                    json.encodePreservingUnknown(
+                        MockState.serializer(),
+                        state,
+                        it[Keys.MOCK_STATE],
+                    )
             }
         }
     }
@@ -258,9 +282,10 @@ class KestrelPrefs(
         store.edit { prefs ->
             val current = prefs.toCloudSettings(json)
             prefs[Keys.CLOUD_SETTINGS] =
-                json.encodeToString(
+                json.encodePreservingUnknown(
                     CloudSettings.serializer(),
                     current.copy(apiBaseUrl = apiBaseUrl.trim()),
+                    prefs[Keys.CLOUD_SETTINGS],
                 )
         }
     }
@@ -268,7 +293,11 @@ class KestrelPrefs(
     suspend fun setRemoteControlSettings(settings: RemoteControlSettings) {
         store.edit {
             it[Keys.REMOTE_CONTROL_SETTINGS] =
-                json.encodeToString(RemoteControlSettings.serializer(), settings)
+                json.encodePreservingUnknown(
+                    RemoteControlSettings.serializer(),
+                    settings,
+                    it[Keys.REMOTE_CONTROL_SETTINGS],
+                )
         }
     }
 

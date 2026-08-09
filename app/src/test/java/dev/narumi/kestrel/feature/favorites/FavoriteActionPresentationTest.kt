@@ -6,6 +6,16 @@ import org.junit.Test
 
 class FavoriteActionPresentationTest {
     @Test
+    fun flatFiltersCoverAllKindsWithoutHidingTheDefaultList() {
+        assertEquals(true, FavoritesFilter.All.includes(LibraryItemKind.Place))
+        assertEquals(true, FavoritesFilter.All.includes(LibraryItemKind.Route))
+        assertEquals(true, FavoritesFilter.Points.includes(LibraryItemKind.Place))
+        assertEquals(false, FavoritesFilter.Points.includes(LibraryItemKind.Route))
+        assertEquals(false, FavoritesFilter.Routes.includes(LibraryItemKind.Place))
+        assertEquals(true, FavoritesFilter.Routes.includes(LibraryItemKind.Route))
+    }
+
+    @Test
     fun overflowHasItemSpecificAccessibleName() {
         assertEquals("More actions for Taipei 101", favoriteMoreActionsLabel("Taipei 101"))
     }
