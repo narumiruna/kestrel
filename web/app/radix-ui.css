@@ -327,7 +327,7 @@
 
 .ui-select-popup {
   border-radius: 12px;
-  min-width: var(--anchor-width);
+  min-width: var(--radix-select-trigger-width);
   overflow: hidden;
 }
 
@@ -341,13 +341,11 @@
   align-items: center;
   border-radius: 8px;
   cursor: default;
-  display: grid;
+  display: flex;
   font-size: 0.9rem;
-  gap: 8px;
-  grid-template-columns: 16px minmax(0, 1fr);
   min-height: 38px;
   outline: none;
-  padding: 7px 10px;
+  padding-block: 7px;
   user-select: none;
 }
 
