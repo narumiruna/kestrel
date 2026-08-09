@@ -42,7 +42,9 @@ class LocationService : Service() {
     private lateinit var mockProvider: MockProviderManager
     private lateinit var prefs: KestrelPrefs
     private lateinit var remoteControlPoller: RemoteControlPoller
-    private var providerStarted = false
+
+    @Volatile private var providerStarted = false
+    private val providerWriteLock = Any()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var routeJob: Job? = null
     private var singleKeepAliveJob: Job? = null
@@ -152,14 +154,16 @@ class LocationService : Service() {
         }
 
         // Prove that the provider accepts the replacement before cancelling the old route.
-        ensureMockStarted()
-        mockProvider.setLocation(point)
-        _currentMock.value = point
-        stopRoute()
-        stopSingleKeepAlive()
-        startSingleKeepAlive(point)
-        currentMode = MockState.Mode.Single
-        _runtimeState.value = RuntimeState.Single(point)
+        synchronized(providerWriteLock) {
+            ensureMockStarted()
+            mockProvider.setLocation(point)
+            _currentMock.value = point
+            stopRoute()
+            stopSingleKeepAlive()
+            startSingleKeepAlive(point)
+            currentMode = MockState.Mode.Single
+            _runtimeState.value = RuntimeState.Single(point)
+        }
         setRemoteControlServiceLease(true)
         refreshNotification()
         scope.launch {
@@ -197,19 +201,22 @@ class LocationService : Service() {
                 .getOrDefault(MovementEngine.Mode.Once)
         val engine = MovementEngine(waypoints, speedKmh / 3.6, mode)
 
-        // Validate the provider and first sample before replacing a running mock.
-        ensureMockStarted()
-        mockProvider.setLocation(waypoints.first())
-        _currentMock.value = waypoints.first()
-        activateRoute(engine, waypoints, speedKmh, mode)
-        currentMode = MockState.Mode.Route
-        _runtimeState.value =
-            RuntimeState.Route(
-                waypoints = waypoints,
-                speedKmh = speedKmh,
-                mode = mode,
-                paused = false,
-            )
+        // Validate the provider and first sample before replacing a running mock. Provider writes
+        // share a lock so a cancelled old route cannot publish a stale sample after this one.
+        synchronized(providerWriteLock) {
+            ensureMockStarted()
+            mockProvider.setLocation(waypoints.first())
+            _currentMock.value = waypoints.first()
+            activateRoute(engine, waypoints, speedKmh, mode)
+            currentMode = MockState.Mode.Route
+            _runtimeState.value =
+                RuntimeState.Route(
+                    waypoints = waypoints,
+                    speedKmh = speedKmh,
+                    mode = mode,
+                    paused = false,
+                )
+        }
         setRemoteControlServiceLease(true)
         refreshNotification()
         scope.launch { persistRouteState(progressMeters = 0.0, forward = true) }
@@ -372,7 +379,7 @@ class LocationService : Service() {
                     delay(LOCATION_SERVICE_TICK_MILLIS)
                     if (paused) continue
                     val sample = engine.advance(LOCATION_SERVICE_TICK_MILLIS / 1000.0)
-                    pushSample(sample)
+                    pushSample(sample, engine)
                     tickCounter++
                     if (tickCounter >= progressWriteIntervalTicks) {
                         tickCounter = 0
@@ -449,20 +456,30 @@ class LocationService : Service() {
     }
 
     private fun pushLocation(point: LatLng) {
-        runCatching { mockProvider.setLocation(point) }
-            .onSuccess { _currentMock.value = point }
-            .onFailure { Log.w(TAG, "setLocation failed", it) }
+        synchronized(providerWriteLock) {
+            val activePoint = (_runtimeState.value as? RuntimeState.Single)?.point
+            if (activePoint != point || !providerStarted) return
+            runCatching { mockProvider.setLocation(point) }
+                .onSuccess { _currentMock.value = point }
+                .onFailure { Log.w(TAG, "setLocation failed", it) }
+        }
     }
 
-    private fun pushSample(sample: MockSample) {
-        runCatching {
-            mockProvider.setLocation(
-                point = sample.point,
-                speed = sample.speedMps.toFloat(),
-                bearing = sample.bearingDeg.toFloat(),
-            )
-        }.onSuccess { _currentMock.value = sample.point }
-            .onFailure { Log.w(TAG, "setLocation failed", it) }
+    private fun pushSample(
+        sample: MockSample,
+        engine: MovementEngine,
+    ) {
+        synchronized(providerWriteLock) {
+            if (activeEngine !== engine || !providerStarted) return
+            runCatching {
+                mockProvider.setLocation(
+                    point = sample.point,
+                    speed = sample.speedMps.toFloat(),
+                    bearing = sample.bearingDeg.toFloat(),
+                )
+            }.onSuccess { _currentMock.value = sample.point }
+                .onFailure { Log.w(TAG, "setLocation failed", it) }
+        }
     }
 
     private fun tryEnsureForeground(): Boolean =
@@ -518,9 +535,11 @@ class LocationService : Service() {
     }
 
     private fun stopMock() {
-        if (!providerStarted) return
-        runCatching { mockProvider.stop() }
-        providerStarted = false
+        synchronized(providerWriteLock) {
+            if (!providerStarted) return
+            runCatching { mockProvider.stop() }
+            providerStarted = false
+        }
     }
 
     private fun stopForegroundCompat() {
