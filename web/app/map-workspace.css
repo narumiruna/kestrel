@@ -120,6 +120,385 @@
   box-shadow: 0 7px 20px rgb(34 24 15 / 12%);
 }
 
+/* Route builder redesign: path-first hierarchy with one draft and one completion action. */
+.index-card-route > .index-card-breadcrumb,
+.index-card-route > .index-card-header {
+  display: none;
+}
+
+.index-card-route > .index-card-body {
+  padding-top: 0;
+}
+
+.route-editor-redesign {
+  gap: 0;
+}
+
+.route-editor-redesign .route-editor-content {
+  gap: 0;
+  padding-inline: 2px;
+}
+
+.route-editor-redesign .route-identity-section,
+.route-editor-redesign .route-path-section,
+.route-editor-redesign .route-playback-section,
+.route-editor-redesign .route-more-details-disclosure {
+  border-bottom: 1px solid var(--cloud-border-soft, var(--border));
+  display: grid;
+  gap: 12px;
+  padding: 16px 2px;
+}
+
+.route-editor-redesign .route-identity-section {
+  padding-top: 2px;
+}
+
+.route-editor-title-row,
+.route-context-actions,
+.route-path-toolbar,
+.selected-waypoint-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.route-editor-title-row {
+  align-items: end;
+}
+
+.route-editor-title-row .route-title-field {
+  flex: 1 1 240px;
+}
+
+.route-editor-title-row .route-more-trigger {
+  flex: 0 0 auto;
+  min-height: 42px;
+}
+
+.route-status-line {
+  align-items: center;
+  color: var(--text-secondary);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 12px;
+  gap: 5px 0;
+}
+
+.route-status-line > * {
+  align-items: center;
+  display: inline-flex;
+}
+
+.route-status-line > * + *::before {
+  color: var(--text-muted);
+  content: "·";
+  margin-inline: 7px;
+}
+
+.route-status-line strong {
+  color: var(--text-primary);
+}
+
+.route-context-actions {
+  justify-content: flex-start;
+}
+
+.route-context-actions .device-action-button {
+  display: inline-flex;
+  gap: 5px;
+  min-height: 36px;
+  min-width: 0;
+  padding: 5px 10px;
+}
+
+.route-context-actions .device-action-button .muted::before {
+  content: "· ";
+}
+
+.route-editor-redesign h3,
+.route-editor-redesign p {
+  margin: 0;
+}
+
+.route-path-toolbar {
+  border: 0;
+  margin: 0;
+  min-width: 0;
+  padding: 0;
+}
+
+.route-path-toolbar button {
+  align-items: center;
+  display: inline-flex;
+  gap: 5px;
+  min-height: 38px;
+}
+
+.route-more-trigger svg,
+.route-path-toolbar button svg,
+.selected-waypoint-actions button svg {
+  height: 16px;
+  width: 16px;
+}
+
+.route-rail {
+  align-items: center;
+  background: var(--bg-subtle);
+  border: 1px solid var(--cloud-border-soft, var(--border));
+  border-radius: 12px;
+  display: grid;
+  gap: 7px;
+  grid-template-columns: 14px minmax(72px, 1fr) minmax(16px, 0.45fr) auto minmax(16px, 0.45fr) 14px minmax(
+      72px,
+      1fr
+    );
+  min-height: 64px;
+  padding: 10px 12px;
+}
+
+.route-rail-empty {
+  grid-template-columns: 14px minmax(0, 1fr);
+}
+
+.route-rail-empty > span:last-child,
+.route-rail-label {
+  display: grid;
+  min-width: 0;
+}
+
+.route-rail-label:last-child {
+  text-align: right;
+}
+
+.route-rail-label small,
+.route-rail-empty small {
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 750;
+  text-transform: uppercase;
+}
+
+.route-rail-label strong,
+.route-rail-empty strong {
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.route-rail-node {
+  background: var(--accent);
+  border: 3px solid var(--bg-surface);
+  border-radius: 999px;
+  box-shadow: 0 0 0 1px var(--accent);
+  height: 12px;
+  width: 12px;
+}
+
+.route-rail-node.is-end {
+  border-radius: 2px 8px 8px 2px;
+}
+
+.route-rail-line {
+  border-top: 2px solid var(--accent);
+  min-width: 0;
+}
+
+.route-rail-intermediate {
+  color: var(--text-secondary);
+  font-size: 10px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.selected-waypoint-empty,
+.selected-waypoint-card,
+.close-loop-callout,
+.route-partial-error,
+.remote-command-preview {
+  background: var(--bg-surface);
+  border: 1px solid var(--cloud-border-soft, var(--border));
+  border-radius: 12px;
+  display: grid;
+  gap: 8px;
+  padding: 11px 12px;
+}
+
+.selected-waypoint-empty {
+  gap: 2px;
+}
+
+.selected-waypoint-card > div:first-child {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  min-width: 0;
+}
+
+.selected-waypoint-card > div:first-child > span:last-child {
+  display: grid;
+  min-width: 0;
+}
+
+.selected-waypoint-card small {
+  color: var(--text-muted);
+}
+
+.selected-waypoint-actions {
+  justify-content: flex-end;
+}
+
+.selected-waypoint-actions button {
+  align-items: center;
+  display: inline-flex;
+  gap: 5px;
+  min-height: 36px;
+}
+
+.close-loop-callout,
+.route-partial-error {
+  align-items: center;
+  background: var(--accent-soft);
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.route-editor-redesign .route-editor-collapsible {
+  background: transparent;
+  box-shadow: none;
+}
+
+.route-editor-redesign .route-editor-collapsible > .ui-disclosure-trigger {
+  min-height: 48px;
+}
+
+.route-editor-redesign .route-editor-collapsible-content {
+  padding-top: 12px;
+}
+
+.route-editor-redesign .waypoint-list {
+  max-height: none;
+  overflow: visible;
+  scrollbar-gutter: auto;
+}
+
+.route-editor-redesign .waypoint-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.route-editor-redesign .waypoint-coordinates {
+  display: block;
+}
+
+.route-playback-section > div:first-child {
+  display: grid;
+  gap: 3px;
+}
+
+.route-mode-choice {
+  display: grid;
+  gap: 6px;
+}
+
+.route-mode-choice > span {
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.route-mode-choice > div {
+  background: var(--bg-subtle);
+  border: 1px solid var(--cloud-border-soft, var(--border));
+  border-radius: 10px;
+  display: grid;
+  gap: 3px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding: 3px;
+}
+
+.route-mode-choice button {
+  background: transparent;
+  border: 0;
+  color: var(--text-secondary);
+  min-height: 38px;
+}
+
+.route-mode-choice button.active {
+  background: var(--bg-surface);
+  box-shadow: 0 1px 3px rgb(34 24 15 / 10%);
+  color: var(--accent-hover);
+}
+
+.route-editor-redesign .route-more-details-disclosure {
+  border-left: 0;
+  border-radius: 0;
+  border-right: 0;
+  border-top: 0;
+}
+
+.route-editor-redesign .route-editor-footer {
+  align-items: center;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.route-save-status {
+  color: var(--text-secondary);
+  display: grid;
+  font-size: 12px;
+  gap: 2px;
+}
+
+.route-save-status strong {
+  color: var(--accent-hover);
+}
+
+.route-editor-redesign .route-editor-save-buttons {
+  justify-content: flex-end;
+}
+
+.remote-command-preview strong,
+.remote-command-preview span {
+  display: block;
+}
+
+.remote-replacement-warning {
+  color: var(--warning);
+  font-weight: 700;
+}
+
+.route-map-shell {
+  overflow: hidden;
+  position: relative;
+}
+
+.route-map-canvas {
+  inset: 0;
+  position: absolute;
+}
+
+.route-map-status {
+  align-content: center;
+  background: color-mix(in srgb, var(--workspace-panel) 92%, transparent);
+  border: 1px solid var(--cloud-border-soft, var(--border));
+  border-radius: 12px;
+  display: grid;
+  gap: 8px;
+  left: 50%;
+  max-width: min(320px, calc(100% - 32px));
+  padding: 14px;
+  position: absolute;
+  text-align: center;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 8;
+}
+
+.route-map-status button {
+  justify-self: center;
+}
+
 @media (min-width: 1024px) and (max-width: 1150px) {
   .cartographer-stage-map {
     --cloud-editor-width: 340px;
@@ -235,5 +614,87 @@
 
   .cartographer-stage-map .map-control-stack {
     margin: 0 8px 8px 0;
+  }
+}
+
+@media (max-width: 1023px) {
+  .route-editor-redesign .route-editor-content {
+    overflow: visible;
+  }
+
+  .route-editor-redesign .route-editor-footer {
+    position: sticky;
+  }
+
+  .route-context-actions button,
+  .route-editor-redesign .route-editor-save-buttons button,
+  .route-path-toolbar button,
+  .selected-waypoint-actions button {
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 639px) {
+  .route-editor-title-row,
+  .route-editor-redesign .route-editor-footer {
+    align-items: stretch;
+    grid-template-columns: 1fr;
+  }
+
+  .route-editor-title-row {
+    display: grid;
+  }
+
+  .route-editor-title-row .route-more-trigger {
+    justify-content: center;
+  }
+
+  .route-path-toolbar {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .route-editor-title-row button,
+  .route-context-actions button,
+  .route-editor-redesign .route-editor-save-buttons button,
+  .route-path-toolbar button,
+  .selected-waypoint-actions button {
+    justify-content: center;
+    min-height: 44px;
+  }
+
+  .route-rail {
+    grid-template-columns: 14px minmax(0, 1fr);
+  }
+
+  .route-rail-line,
+  .route-rail-intermediate {
+    display: none;
+  }
+
+  .route-rail-node.is-end {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .route-rail-label:last-child {
+    grid-column: 2;
+    grid-row: 2;
+    text-align: left;
+  }
+
+  .selected-waypoint-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .close-loop-callout,
+  .route-partial-error {
+    grid-template-columns: 1fr;
+  }
+
+  .route-editor-redesign .route-editor-save-buttons {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

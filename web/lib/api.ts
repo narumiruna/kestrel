@@ -265,6 +265,8 @@ export type RouteInput = {
   waypoints: Array<{
     latitude: number;
     longitude: number;
+    pauseSeconds?: number | null;
+    speedKmh?: number | null;
   }>;
 };
 

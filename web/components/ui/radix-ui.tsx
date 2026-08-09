@@ -15,7 +15,15 @@ import {
 } from '@radix-ui/themes';
 import { useRouter } from 'next/navigation';
 import { Collapsible, ToggleGroup as RadixToggleGroup } from 'radix-ui';
-import { type ComponentProps, type ReactElement, type ReactNode, useId, useState } from 'react';
+import {
+  type ComponentProps,
+  type ReactElement,
+  type ReactNode,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+} from 'react';
 
 export const Button = RadixButton;
 export const TextArea = RadixTextArea;
@@ -313,7 +321,17 @@ export function ConfirmDialog({
   trigger,
 }: ConfirmDialogProps) {
   const [internalIsConfirming, setInternalIsConfirming] = useState(false);
+  const cancelButtonRef = useRef<HTMLButtonElement | null>(null);
   const isConfirming = controlledIsConfirming ?? internalIsConfirming;
+
+  useEffect(() => {
+    if (open !== true) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => cancelButtonRef.current?.focus(), 250);
+    return () => window.clearTimeout(timeoutId);
+  }, [open]);
 
   async function confirm() {
     setInternalIsConfirming(true);
@@ -348,6 +366,7 @@ export function ConfirmDialog({
           <div className="ui-dialog-actions">
             <AlertDialog.Cancel>
               <RadixButton
+                ref={cancelButtonRef}
                 className="secondary"
                 disabled={isConfirming}
                 type="button"
