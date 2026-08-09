@@ -58,17 +58,15 @@ internal class RemoteControlRepository internal constructor(
 
     val runtimeStatus: StateFlow<RemoteControlRuntimeStatus> = _runtimeStatus.asStateFlow()
 
-    suspend fun setEnabled(enabled: Boolean) =
+    suspend fun setEnabled(enabled: Boolean): Boolean =
         stateMutex.withLock {
-            if (!enabled) {
-                disableRemoteControl()
-                return@withLock
-            }
+            if (!enabled) return@withLock disableRemoteControl()
 
             val session = requireSession()
             val registered = register(settingsWithClientId(loadSettings()).copy(enabled = true), session)
             _runtimeStatus.value =
                 RemoteControlRuntimeStatus(message = "Remote control enabled for ${registered.deviceName}")
+            true
         }
 
     suspend fun pollOnce(canExecuteCommands: () -> Boolean = { true }) {
@@ -143,7 +141,7 @@ internal class RemoteControlRepository internal constructor(
         retryPendingAcks(session)
     }
 
-    private suspend fun disableRemoteControl() {
+    private suspend fun disableRemoteControl(): Boolean {
         val settings = loadSettings()
         pendingAcks = settings.pendingAcks.toPendingRemoteAcks()
         val clientDeviceId = settings.clientDeviceId
@@ -151,7 +149,7 @@ internal class RemoteControlRepository internal constructor(
             setPendingAcks(emptyList())
             settingsStore.save(loadSettings().copy(enabled = false))
             _runtimeStatus.value = RemoteControlRuntimeStatus(message = "Remote control disabled")
-            return
+            return true
         }
         val session = authRepository.currentSession()
         if (session == null) {
@@ -160,11 +158,12 @@ internal class RemoteControlRepository internal constructor(
                     message = "Remote control is still enabled on the server",
                     error = "Sign in to cloud to disable remote control on the server",
                 )
-            return
+            return false
         }
         retryPendingAcks(session)
         register(settings.copy(enabled = false, clientDeviceId = clientDeviceId), session)
         _runtimeStatus.value = RemoteControlRuntimeStatus(message = "Remote control disabled")
+        return true
     }
 
     private suspend fun ensureRegistered(

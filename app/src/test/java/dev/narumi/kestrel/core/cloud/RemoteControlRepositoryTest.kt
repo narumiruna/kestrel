@@ -110,8 +110,9 @@ class RemoteControlRepositoryTest {
             val store = MemorySettingsStore(registeredSettings(enabled = true))
             val repository = repository(auth = FakeAuth(session = null), api = api, store = store)
 
-            repository.setEnabled(false)
+            val changed = repository.setEnabled(false)
 
+            assertFalse(changed)
             assertTrue(store.settings.enabled)
             assertEquals(0, api.registerRequests.size)
             assertEquals(

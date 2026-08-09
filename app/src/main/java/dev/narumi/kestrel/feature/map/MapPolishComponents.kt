@@ -1,11 +1,13 @@
 package dev.narumi.kestrel.feature.map
 
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -16,10 +18,14 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import dev.narumi.kestrel.core.location.MovementEngine
 import dev.narumi.kestrel.ui.components.KestrelActionRow
 import dev.narumi.kestrel.ui.components.KestrelCard
+import dev.narumi.kestrel.ui.components.onKeyboardActivate
 
 @Composable
 internal fun MapHintPill(modifier: Modifier = Modifier) {
@@ -33,7 +39,7 @@ internal fun MapHintPill(modifier: Modifier = Modifier) {
         elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
     ) {
         Text(
-            text = "Tap to add a waypoint · Hold for point actions",
+            text = "Tap to preview a waypoint · Hold for point actions",
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
             style = MaterialTheme.typography.labelMedium,
         )
@@ -41,8 +47,82 @@ internal fun MapHintPill(modifier: Modifier = Modifier) {
 }
 
 @Composable
+internal fun ReplacementPreviewCard(
+    currentSummary: String,
+    previewSummary: String,
+    applying: Boolean,
+    onReplace: () -> Unit,
+    onUndoLast: () -> Unit,
+    onCancelPreview: () -> Unit,
+) {
+    KestrelCard {
+        SectionLabel("Preview")
+        Text(
+            text = "Current: $currentSummary",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = "New: $previewSummary",
+            style = MaterialTheme.typography.titleSmall,
+        )
+        Text(
+            text = "The current mock continues until you confirm replacement.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        KestrelActionRow {
+            OutlinedButton(
+                onClick = onUndoLast,
+                enabled = !applying,
+                modifier = Modifier.heightIn(min = 48.dp),
+            ) {
+                Text("Undo last waypoint")
+            }
+            OutlinedButton(
+                onClick = onCancelPreview,
+                enabled = !applying,
+                modifier = Modifier.heightIn(min = 48.dp),
+            ) {
+                Text("Cancel preview")
+            }
+            androidx.compose.material3.Button(
+                onClick = onReplace,
+                enabled = !applying,
+                modifier =
+                    Modifier
+                        .heightIn(min = 48.dp)
+                        .onKeyboardActivate(onReplace)
+                        .focusable(),
+            ) {
+                Text(if (applying) "Replacing…" else "Replace current mock")
+            }
+        }
+    }
+}
+
+@Composable
+internal fun MapFeedbackCard(
+    message: String,
+    isError: Boolean,
+) {
+    val liveRegionMode = if (isError) LiveRegionMode.Assertive else LiveRegionMode.Polite
+    KestrelCard(
+        modifier = Modifier.semantics { liveRegion = liveRegionMode },
+    ) {
+        Text(
+            text = message,
+            modifier = Modifier.semantics { liveRegion = liveRegionMode },
+            style = MaterialTheme.typography.bodyMedium,
+            color = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+        )
+    }
+}
+
+@Composable
 internal fun DraftRouteActionsCard(
     waypointCount: Int,
+    onUndoLast: () -> Unit,
     onClear: () -> Unit,
     onSaveRoute: () -> Unit,
     onGenerate: () -> Unit,
@@ -60,12 +140,13 @@ internal fun DraftRouteActionsCard(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         KestrelActionRow {
-            OutlinedButton(onClick = onClear) { Text("Clear", maxLines = 1) }
+            OutlinedButton(onClick = onUndoLast) { Text("Undo last waypoint") }
+            OutlinedButton(onClick = onClear) { Text("Clear preview") }
             OutlinedButton(onClick = onSaveRoute, enabled = waypointCount >= 2) {
-                Text("Save route", maxLines = 1)
+                Text("Save route")
             }
             OutlinedButton(onClick = onGenerate) {
-                Text("Replace with random route", maxLines = 1)
+                Text("Replace with random route")
             }
         }
     }
@@ -96,7 +177,7 @@ internal fun RouteSettingsCard(
                 )
             }
             TextButton(onClick = { onExpandedChange(!expanded) }) {
-                Text(if (expanded) "Done" else "Change", maxLines = 1)
+                Text(if (expanded) "Hide" else "Change")
             }
         }
         if (expanded) {

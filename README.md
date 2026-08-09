@@ -14,7 +14,7 @@ Built with **Kotlin**, **Jetpack Compose**, **Material 3**, and **MapLibre**. Ke
 | 🚶 **Route playback** | Define waypoints, set speed (km/h), and let the engine walk the path automatically. Supports **Once / Loop / PingPong** playback modes. |
 | 🎲 **Random route generation** | Enter a waypoint count and step distance; Kestrel generates a smooth random walk from the current map centre. |
 | ⭐ **Favorites** | Save single points or full routes. Sort by **Recent / Alphabetical / Manual** order. |
-| 🔄 **Startup behaviour** | Resume the last mock state, stay at the current location, or apply a saved favourite on every launch. |
+| 🔄 **App opening behaviour** | Return to the last map view, center on the device, or use a saved Favorite with an explicit preview of its launch effect. |
 
 ---
 
@@ -28,13 +28,24 @@ Built with **Kotlin**, **Jetpack Compose**, **Material 3**, and **MapLibre**. Ke
 
 ---
 
+## ▶️ Android workflow
+
+Kestrel separates previewing from changing the system location:
+
+1. On **Map**, tap a location or choose **Choose target** to enter coordinates, paste a supported Maps URL, or select a Favorite.
+2. Review the point or route Preview.
+3. Choose **Mock this point** or **Play route**. If another mock is active, confirm the Current/New comparison before replacement.
+4. Use **Favorites** to reuse saved points and routes, and **Settings** to change app opening, route recovery, cloud sync, and Web remote control.
+
+Cancelling a preview, editor, confirmation, or settings draft has no side effects. See the complete [Kestrel Android guide](docs/android-app-guide.md) for route generation, exact startup behavior, errors, accessibility, cloud conflicts, and remote-control safeguards.
+
 ## ⚙️ How It Works
 
 Kestrel uses the Android platform APIs `LocationManager.addTestProvider()` and `setTestProviderLocation()` — the official mock location mechanism. No root or system modification is required.
 
 A **foreground service** (type `location`) keeps the mock alive while the UI is in the background. Movement is driven by a 1 Hz tick that advances `MovementEngine` along the route and pushes each sample through `MockProviderManager`.
 
-The web console can remote-control an Android device only after the Android app is signed in and the user enables **Options → Web remote control**. First-version remote control uses the cloud command queue plus Android polling: Kestrel must be open in the foreground or already running its mock-location foreground service to receive commands. Commands expire after a bounded window if they are not delivered, and neither the web console, Google services, nor the backend can wake an app process that Android has killed.
+The web console can remote-control an Android device only after the Android app is signed in and the user confirms **Settings → Web remote control**. First-version remote control uses the cloud command queue plus Android polling: Kestrel must be open in the foreground or already running its mock-location foreground service to receive commands. Commands expire after a bounded window if they are not delivered, and neither the web console, Google services, nor the backend can wake an app process that Android has killed.
 
 > ⚠️ **Note:** Apps protected by Play Integrity or SafetyNet can still detect mock locations — this is a system-level behaviour that Kestrel does not attempt to bypass.
 
@@ -52,7 +63,7 @@ app/src/main/java/dev/narumi/kestrel/
 └── feature/
     ├── map/         # Main screen with map and bottom sheet
     ├── favorites/   # Saved points and routes list
-    ├── options/     # Startup behaviour settings
+    ├── options/     # Settings workflows and cloud/remote-control state
     ├── routes/
     ├── tracks/
     └── settings/

@@ -1,6 +1,7 @@
 package dev.narumi.kestrel.feature.options
 
 import dev.narumi.kestrel.core.data.StartupPreference
+import dev.narumi.kestrel.core.library.LibraryItemKind
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -14,7 +15,18 @@ class OptionsPresentationTest {
     }
 
     @Test
-    fun sectionInventory_hasDistinctTitlesAndOnlyStartupExpandedByDefault() {
+    fun sectionInventory_hasDistinctTitlesAndStartsAsOneFlatSummaryList() {
+        assertEquals(
+            listOf(
+                "When app opens",
+                "Map links",
+                "Random routes",
+                "Route recovery",
+                "Cloud sync",
+                "Web remote control",
+            ),
+            OptionsSection.entries.map(OptionsSection::title),
+        )
         assertEquals(
             OptionsSection.entries.size,
             OptionsSection.entries
@@ -22,10 +34,21 @@ class OptionsPresentationTest {
                 .toSet()
                 .size,
         )
-        assertTrue(OptionsSection.Startup.defaultExpanded)
-        OptionsSection.entries.filterNot { it == OptionsSection.Startup }.forEach {
+        OptionsSection.entries.forEach {
             assertFalse(it.defaultExpanded)
         }
+    }
+
+    @Test
+    fun startupFavoriteEffectsExposeTheTypeSpecificCompatibilityBehavior() {
+        assertEquals(
+            "Starts mocking this saved point after launch.",
+            startupFavoriteEffect(LibraryItemKind.Place),
+        )
+        assertEquals(
+            "Opens this saved route as a preview; playback does not start.",
+            startupFavoriteEffect(LibraryItemKind.Route),
+        )
     }
 
     @Test
@@ -33,8 +56,17 @@ class OptionsPresentationTest {
         assertEquals("Last map position", startupSummary(StartupPreference.Mode.Last, null))
         assertEquals("Current device location", startupSummary(StartupPreference.Mode.Current, null))
         assertEquals("Favorite: Taipei 101", startupSummary(StartupPreference.Mode.Favorite, "Taipei 101"))
-        assertEquals("Every 5 s", playbackSummary(5))
+        assertEquals("Balanced · can rewind up to 5 s", playbackSummary(5))
         assertEquals("Last used: 50 points · 100 m spacing", randomRouteSummary(50, 100.0, true))
+    }
+
+    @Test
+    fun cloudServerValidationRejectsAmbiguousOrUnsupportedAddresses() {
+        assertTrue(isValidCloudServerAddress("https://kestrel.narumi.dev"))
+        assertTrue(isValidCloudServerAddress("http://10.0.2.2:3300"))
+        assertFalse(isValidCloudServerAddress("kestrel.narumi.dev"))
+        assertFalse(isValidCloudServerAddress("file:///tmp/server"))
+        assertFalse(isValidCloudServerAddress("https://"))
     }
 
     @Test

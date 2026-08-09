@@ -38,10 +38,10 @@ internal fun MapLinksOptionsCard(
         )
         KestrelActionRow {
             Button(onClick = { context.openMapLinkSettings() }) {
-                Text("Open Android link settings", maxLines = 1)
+                Text("Open Android link settings")
             }
             OutlinedButton(onClick = { context.testGeoMapLink() }) {
-                Text("Test geo link", maxLines = 1)
+                Text("Test geo link")
             }
         }
     }
