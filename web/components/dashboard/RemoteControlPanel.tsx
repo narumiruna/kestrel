@@ -6,7 +6,11 @@ import {
   isRemoteDeviceCommandReady,
   useRemoteDevices,
 } from '@/components/dashboard/useRemoteDevices';
-import { formatError } from '@/components/dashboard/utils';
+import {
+  formatError,
+  formatMode,
+  formatRouteDistanceFromWaypoints,
+} from '@/components/dashboard/utils';
 import { Button, DialogFrame, SelectField } from '@/components/ui/radix-ui';
 import type {
   CreateRemoteCommandRequest,
@@ -27,6 +31,13 @@ type RemoteControlPanelProps = {
 
 type RemoteControlControlsProps = RemoteControlPanelProps & {
   className?: string;
+  commandPreview?: {
+    distance: string;
+    mode: string;
+    source: string;
+    speed: string;
+    waypointCount: number;
+  };
   remote: ReturnType<typeof useRemoteDevices>;
 };
 
@@ -83,11 +94,13 @@ export function PlaceRemoteControlAction({ place }: { place: Place | null }) {
 }
 
 export function RouteRemoteControlAction({
+  isDirty,
   mode,
   route,
   speedKmh,
   waypoints,
 }: {
+  isDirty: boolean;
   mode: RouteMode;
   route: Route | null;
   speedKmh: number;
@@ -114,6 +127,13 @@ export function RouteRemoteControlAction({
       <RemoteControlControls
         buildPrimaryCommand={() => buildRouteRemoteCommand(route, waypoints, speedKmh, mode)}
         className="place-action-dialog-content remote-control-content"
+        commandPreview={{
+          distance: formatRouteDistanceFromWaypoints(waypoints),
+          mode: formatMode(mode),
+          source: isDirty ? 'Current unsaved draft' : 'Saved route',
+          speed: `${Number.isFinite(speedKmh) ? speedKmh : '—'} km/h`,
+          waypointCount: waypoints.length,
+        }}
         primaryActionLabel="Play on device"
         primaryDisabledReason={routeDisabledReason}
         remote={remote}
@@ -125,6 +145,7 @@ export function RouteRemoteControlAction({
 function RemoteControlControls({
   buildPrimaryCommand,
   className = 'route-editor-collapsible-content remote-control-content',
+  commandPreview,
   primaryActionLabel,
   primaryDisabledReason,
   remote,
@@ -236,6 +257,21 @@ function RemoteControlControls({
         onValueChange={setSelectedDeviceId}
       />
       <DeviceStatus device={selectedDevice} />
+      {commandPreview == null ? null : (
+        <section className="remote-command-preview" aria-label="Route command preview">
+          <strong>{commandPreview.source}</strong>
+          <span>
+            {commandPreview.waypointCount} waypoints · {commandPreview.distance} ·{' '}
+            {commandPreview.speed} · {commandPreview.mode}
+          </span>
+          {selectedDevice?.state == null || selectedDevice.state.playbackState === 'IDLE' ? null : (
+            <span className="remote-replacement-warning">
+              This replaces the device’s current {selectedDevice.state.playbackState.toLowerCase()}{' '}
+              mock.
+            </span>
+          )}
+        </section>
+      )}
       <div className="remote-control-actions">
         <Button
           disabled={primaryUnavailableReason != null || pendingAction != null}

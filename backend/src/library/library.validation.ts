@@ -37,6 +37,8 @@ export type RouteUpdateInput = Partial<RouteCreateInput>;
 export type RouteWaypointInput = {
   latitude: number;
   longitude: number;
+  pauseSeconds: number | null;
+  speedKmh: number | null;
 };
 
 export function parseCreatePlaceInput(input: unknown): PlaceCreateInput {
@@ -317,7 +319,49 @@ function parseWaypoint(value: unknown, index: number): RouteWaypointInput {
   return {
     latitude: parseLatitude(waypointRecord.latitude),
     longitude: parseLongitude(waypointRecord.longitude),
+    pauseSeconds: parseOptionalNonNegativeFiniteNumber(
+      waypointRecord.pauseSeconds,
+      `waypoints[${index}].pauseSeconds`,
+    ),
+    speedKmh: parseOptionalPositiveFiniteNumber(
+      waypointRecord.speedKmh,
+      `waypoints[${index}].speedKmh`,
+    ),
   };
+}
+
+function parseOptionalPositiveFiniteNumber(
+  value: unknown,
+  field: string,
+): number | null {
+  if (value == null) {
+    return null;
+  }
+
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
+    throw new BadRequestException(
+      `${field} must be null or a finite positive number`,
+    );
+  }
+
+  return value;
+}
+
+function parseOptionalNonNegativeFiniteNumber(
+  value: unknown,
+  field: string,
+): number | null {
+  if (value == null) {
+    return null;
+  }
+
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
+    throw new BadRequestException(
+      `${field} must be null or a finite non-negative number`,
+    );
+  }
+
+  return value;
 }
 
 function parseOptionalBoolean(value: unknown): boolean | undefined {

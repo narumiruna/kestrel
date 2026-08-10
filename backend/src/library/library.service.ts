@@ -35,7 +35,9 @@ type StoredRouteRevisionSnapshot = {
   waypoints: Array<{
     latitude: number;
     longitude: number;
+    pauseSeconds: number | null;
     sequence: number;
+    speedKmh: number | null;
   }>;
 };
 
@@ -394,6 +396,8 @@ export class LibraryService {
           currentPayload.waypoints.map((waypoint) => ({
             latitude: waypoint.latitude,
             longitude: waypoint.longitude,
+            pauseSeconds: waypoint.pauseSeconds,
+            speedKmh: waypoint.speedKmh,
           })),
       };
       const nextRevision = await tx.routeRevision.create({
@@ -633,9 +637,9 @@ function createRouteRevisionPayload(input: {
     waypoints: input.waypoints.map((waypoint, index) => ({
       latitude: waypoint.latitude,
       longitude: waypoint.longitude,
-      pauseSeconds: null,
+      pauseSeconds: waypoint.pauseSeconds,
       sequence: index,
-      speedKmh: null,
+      speedKmh: waypoint.speedKmh,
     })),
   };
 }
@@ -690,7 +694,9 @@ function parseStoredRouteWaypoint(
 ): {
   latitude: number;
   longitude: number;
+  pauseSeconds: number | null;
   sequence: number;
+  speedKmh: number | null;
 } {
   if (
     waypoint == null ||
@@ -705,15 +711,19 @@ function parseStoredRouteWaypoint(
   const waypointRecord = waypoint as Record<string, unknown>;
   const latitude = waypointRecord.latitude;
   const longitude = waypointRecord.longitude;
+  const pauseSeconds = waypointRecord.pauseSeconds;
   const sequence = waypointRecord.sequence;
+  const speedKmh = waypointRecord.speedKmh;
 
   if (
     typeof latitude !== 'number' ||
     !Number.isFinite(latitude) ||
     typeof longitude !== 'number' ||
     !Number.isFinite(longitude) ||
+    !isNullableFiniteNumber(pauseSeconds) ||
     typeof sequence !== 'number' ||
-    !Number.isInteger(sequence)
+    !Number.isInteger(sequence) ||
+    !isNullableFiniteNumber(speedKmh)
   ) {
     throw new InternalServerErrorException(
       `stored route waypoint ${index} is invalid`,
@@ -723,8 +733,14 @@ function parseStoredRouteWaypoint(
   return {
     latitude,
     longitude,
+    pauseSeconds,
     sequence,
+    speedKmh,
   };
+}
+
+function isNullableFiniteNumber(value: unknown): value is number | null {
+  return value == null || (typeof value === 'number' && Number.isFinite(value));
 }
 
 async function recordSyncEvent(

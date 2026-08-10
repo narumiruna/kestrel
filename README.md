@@ -129,7 +129,7 @@ cd web
 npm run dev
 ```
 
-Open `http://localhost:3301`. Set `KESTREL_API_BASE_URL` if the API is not running on `http://localhost:3300`.
+Open `http://localhost:3301`. Set `KESTREL_API_BASE_URL` if the API is not running on `http://localhost:3300`. See the [Kestrel Cloud route editing guide](docs/web-cloud-guide.md) for route drafts, path tools, playback, sharing, device commands, and recovery.
 
 ### 🐳 Docker Compose stack
 

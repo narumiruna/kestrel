@@ -354,7 +354,12 @@ describe('LibraryService', () => {
       mode: 'loop',
       name: 'River ride',
       waypoints: [
-        { latitude: 25.03, longitude: 121.56 },
+        {
+          latitude: 25.03,
+          longitude: 121.56,
+          pauseSeconds: 2,
+          speedKmh: 10,
+        },
         { latitude: 25.04, longitude: 121.57 },
       ],
     });
@@ -369,9 +374,9 @@ describe('LibraryService', () => {
             {
               latitude: 25.03,
               longitude: 121.56,
-              pauseSeconds: null,
+              pauseSeconds: 2,
               sequence: 0,
-              speedKmh: null,
+              speedKmh: 10,
             },
             {
               latitude: 25.04,
@@ -431,9 +436,9 @@ describe('LibraryService', () => {
             {
               latitude: 25.03,
               longitude: 121.56,
-              pauseSeconds: null,
+              pauseSeconds: 3,
               sequence: 0,
-              speedKmh: null,
+              speedKmh: 18,
             },
             {
               latitude: 25.04,
@@ -471,10 +476,6 @@ describe('LibraryService', () => {
     const result = await libraryService.updateRoute('user-1', 'route-1', {
       defaultSpeedKmh: 30,
       mode: 'PING_PONG',
-      waypoints: [
-        { latitude: 25.05, longitude: 121.58 },
-        { latitude: 25.06, longitude: 121.59 },
-      ],
     });
 
     expect(prismaService.routeRevision.create).toHaveBeenCalledWith({
@@ -485,15 +486,15 @@ describe('LibraryService', () => {
           mode: RouteMode.PING_PONG,
           waypoints: [
             {
-              latitude: 25.05,
-              longitude: 121.58,
-              pauseSeconds: null,
+              latitude: 25.03,
+              longitude: 121.56,
+              pauseSeconds: 3,
               sequence: 0,
-              speedKmh: null,
+              speedKmh: 18,
             },
             {
-              latitude: 25.06,
-              longitude: 121.59,
+              latitude: 25.04,
+              longitude: 121.57,
               pauseSeconds: null,
               sequence: 1,
               speedKmh: null,

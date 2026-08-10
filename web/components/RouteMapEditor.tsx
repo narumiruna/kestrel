@@ -1,8 +1,9 @@
 'use client';
 
 import maplibregl, { type GeoJSONSource, type Map as MapLibreMap, type Marker } from 'maplibre-gl';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { getStyleByName } from '@/components/mapStyle';
+import { Button } from '@/components/ui/radix-ui';
 import { useMapStyle } from '@/hooks/useMapStyle';
 import type { RouteWaypoint } from '@/lib/api';
 
@@ -42,6 +43,8 @@ export default function RouteMapEditor({
   waypoints,
 }: Props) {
   const { styleName } = useMapStyle();
+  const [mapAttempt, setMapAttempt] = useState(0);
+  const [mapStatus, setMapStatus] = useState<'error' | 'loading' | 'ready'>('loading');
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const markersRef = useRef<Marker[]>([]);
@@ -73,23 +76,40 @@ export default function RouteMapEditor({
   ]);
 
   useEffect(() => {
+    void mapAttempt;
     if (containerRef.current == null || mapRef.current != null) {
       return;
     }
 
+    setMapStatus('loading');
     const firstWaypoint = waypointsRef.current[0];
-    const map = new maplibregl.Map({
-      center:
-        firstWaypoint == null
-          ? [121.5654, 25.033]
-          : [firstWaypoint.longitude, firstWaypoint.latitude],
-      container: containerRef.current,
-      style: getStyleByName(currentStyleNameRef.current),
-      zoom: firstWaypoint == null ? 11 : 14,
-    });
+    let map: MapLibreMap;
+    try {
+      map = new maplibregl.Map({
+        center:
+          firstWaypoint == null
+            ? [121.5654, 25.033]
+            : [firstWaypoint.longitude, firstWaypoint.latitude],
+        container: containerRef.current,
+        style: getStyleByName(currentStyleNameRef.current),
+        zoom: firstWaypoint == null ? 11 : 14,
+      });
+    } catch {
+      setMapStatus('error');
+      onReadyRef.current?.(createEmptyRouteMapControls());
+      return;
+    }
 
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+    const styleReadyTimeout = window.setTimeout(() => {
+      if (!map.loaded() && !map.isStyleLoaded()) {
+        setMapStatus('error');
+        onReadyRef.current?.(createEmptyRouteMapControls());
+      }
+    }, 12_000);
     map.on('load', () => {
+      window.clearTimeout(styleReadyTimeout);
+      setMapStatus('ready');
       syncLineLayer(map, waypointsRef.current);
       syncMarkers({
         existingMarkers: markersRef.current,
@@ -129,11 +149,12 @@ export default function RouteMapEditor({
         marker.remove();
       });
       markersRef.current = [];
+      window.clearTimeout(styleReadyTimeout);
       onReadyRef.current?.(createEmptyRouteMapControls());
       map.remove();
       mapRef.current = null;
     };
-  }, []);
+  }, [mapAttempt]);
 
   useEffect(() => {
     // Dependencies trigger resync; deferred style.load uses refs to avoid stale route data.
@@ -265,7 +286,33 @@ export default function RouteMapEditor({
     };
   }, [styleName]);
 
-  return <div className={className} ref={containerRef} />;
+  return (
+    <div className={`${className} route-map-shell`}>
+      <div className="route-map-canvas" ref={containerRef} />
+      {mapStatus === 'ready' ? null : (
+        <div
+          className={`route-map-status route-map-status-${mapStatus}`}
+          role={mapStatus === 'error' ? 'alert' : 'status'}
+        >
+          {mapStatus === 'loading' ? (
+            <span>Loading map…</span>
+          ) : (
+            <>
+              <strong>Map unavailable</strong>
+              <span>Exact waypoint editing is still available in the Route editor.</span>
+              <Button
+                className="secondary"
+                type="button"
+                onClick={() => setMapAttempt((value) => value + 1)}
+              >
+                Retry map
+              </Button>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function syncMarkers({
@@ -359,6 +406,17 @@ function updateMarkerDisplay(
     element.classList.toggle('hovered', isHovered);
     element.classList.toggle('selected', isSelected);
     element.classList.toggle('route-marker-compact', useCompactMarkers && !isTerminal);
+    element.setAttribute(
+      'aria-label',
+      [
+        `Waypoint ${index + 1}`,
+        index === 0 ? 'start' : null,
+        index === waypointCount - 1 ? 'end' : null,
+        isSelected ? 'selected' : null,
+      ]
+        .filter(Boolean)
+        .join(', '),
+    );
   });
 }
 

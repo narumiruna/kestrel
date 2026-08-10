@@ -14,6 +14,14 @@ import { useKeyboardShortcuts } from '@/components/cartographer/useKeyboardShort
 import PlaceEditor from '@/components/dashboard/PlaceEditor';
 import { PlaceRemoteControlAction } from '@/components/dashboard/RemoteControlPanel';
 import RouteEditor from '@/components/dashboard/RouteEditor';
+import {
+  createRouteDraftState,
+  isRouteDraftDirty,
+  type RouteDraftState,
+  rebaseRouteDraftAfterSave,
+  replaceRoutePath,
+  resetRouteDraft,
+} from '@/components/dashboard/routeDraftState';
 import { useDashboardLibraryData } from '@/components/dashboard/useDashboardLibraryData';
 import {
   formatCoord,
@@ -50,18 +58,22 @@ export default function DashboardMapPage() {
     isLoading,
     lastLoadedAt,
     places,
+    placesError,
     refresh,
+    refreshPlaces,
     routes,
     selectedPlaceId,
     selectedRouteId,
     setSelectedPlaceId,
     setSelectedRouteId,
+    upsertRoute,
   } = useDashboardLibraryData();
   const router = useRouter();
   const searchRef = useRef<HTMLInputElement | null>(null);
   const pendingDraftRestoreFocusRef = useRef<HTMLElement | null>(null);
   const hasAppliedInitialRequestRef = useRef(false);
   const initialCreationKindRef = useRef<MapKind | null>(null);
+  const routeDraftRouteIdRef = useRef<string | null>(null);
   const [activeKind, setActiveKind] = useState<MapKind>('routes');
   const [query, setQuery] = useState('');
   const [viewportControls, setViewportControls] = useState<ViewportControls | null>(null);
@@ -69,14 +81,14 @@ export default function DashboardMapPage() {
   const [isInspectorCollapsed, setIsInspectorCollapsed] = useState(false);
   const [mobilePanel, setMobilePanel] = useState<MobileWorkspacePanel>('map');
   const [isHelpOpen, setIsHelpOpen] = useState(false);
-  const [draftWaypoints, setDraftWaypoints] = useState<RouteWaypoint[]>([]);
+  const [routeDraftState, setRouteDraftState] = useState<RouteDraftState>(() =>
+    createRouteDraftState(null),
+  );
   const [selectedWaypointIndex, setSelectedWaypointIndex] = useState<number | null>(null);
   const [hoveredWaypointIndex, setHoveredWaypointIndex] = useState<number | null>(null);
   const [focusTarget, setFocusTarget] = useState<RouteWaypoint | null>(null);
   const [fitRequest, setFitRequest] = useState(0);
-  const [isRouteDirty, setIsRouteDirty] = useState(false);
   const [isNewRoute, setIsNewRoute] = useState(false);
-  const [routeDraftNonce, setRouteDraftNonce] = useState(0);
   const [draftPlaceCoords, setDraftPlaceCoords] = useState<Coordinates | null>(null);
   const [isPlaceDirty, setIsPlaceDirty] = useState(false);
   const [isNewPlace, setIsNewPlace] = useState(false);
@@ -99,6 +111,8 @@ export default function DashboardMapPage() {
   const filteredPlaces = useMemo(() => filterPlaces(places, query), [places, query]);
   const filteredRoutes = useMemo(() => filterRoutes(routes, query), [query, routes]);
   const lastUpdatedLabel = useRelativeUpdatedLabel(lastLoadedAt);
+  const isRouteDirty = isRouteDraftDirty(routeDraftState);
+  const draftWaypoints = routeDraftState.draft.waypoints;
   const hasDirtyDraft = isRouteDirty || isPlaceDirty;
 
   useEffect(() => {
@@ -128,9 +142,9 @@ export default function DashboardMapPage() {
     } else if (isNew) {
       initialCreationKindRef.current = 'routes';
       setSelectedRouteId(null);
-      setDraftWaypoints([]);
+      routeDraftRouteIdRef.current = null;
+      setRouteDraftState(createRouteDraftState(null));
       setIsNewRoute(true);
-      setRouteDraftNonce((current) => current + 1);
       setMobilePanel('inspector');
     } else if (routes.some((route) => route.id === requestedId)) {
       setSelectedRouteId(requestedId);
@@ -142,12 +156,23 @@ export default function DashboardMapPage() {
       return;
     }
 
+    const routeId = selectedRoute?.id ?? null;
+    const isRouteSelectionChange = routeDraftRouteIdRef.current !== routeId;
+    routeDraftRouteIdRef.current = routeId;
+    setRouteDraftState((currentState) =>
+      isRouteSelectionChange || !isRouteDraftDirty(currentState)
+        ? createRouteDraftState(selectedRoute)
+        : currentState,
+    );
+
+    if (!isRouteSelectionChange) {
+      return;
+    }
+
     const nextWaypoints = getRouteWaypoints(selectedRoute);
-    setDraftWaypoints(nextWaypoints);
     setSelectedWaypointIndex(null);
     setHoveredWaypointIndex(null);
     setFocusTarget(null);
-    setIsRouteDirty(false);
 
     if (nextWaypoints.length > 0) {
       setFitRequest((currentRequest) => currentRequest + 1);
@@ -214,20 +239,25 @@ export default function DashboardMapPage() {
   }
 
   async function saveRoute(input: RouteInput) {
+    const submittedState = routeDraftState;
+    const routeId = selectedRoute?.id ?? selectedRouteId;
     const savedRoute =
-      selectedRoute == null || isNewRoute
+      routeId == null
         ? await auth.apiRequest<Route>('/routes', {
             body: JSON.stringify(input),
             method: 'POST',
           })
-        : await auth.apiRequest<Route>(`/routes/${selectedRoute.id}`, {
+        : await auth.apiRequest<Route>(`/routes/${routeId}`, {
             body: JSON.stringify(input),
             method: 'PATCH',
           });
 
-    setIsRouteDirty(false);
+    routeDraftRouteIdRef.current = savedRoute.id;
+    setRouteDraftState((currentState) =>
+      rebaseRouteDraftAfterSave(currentState, submittedState, savedRoute),
+    );
+    upsertRoute(savedRoute);
     setIsNewRoute(false);
-    setSelectedRouteId(savedRoute.id);
     router.replace(`/dashboard/map?kind=routes&selected=${encodeURIComponent(savedRoute.id)}`);
     await refresh();
   }
@@ -317,9 +347,9 @@ export default function DashboardMapPage() {
       resetDraftState();
       setActiveKind('routes');
       setSelectedRouteId(null);
-      setDraftWaypoints([]);
+      routeDraftRouteIdRef.current = null;
+      setRouteDraftState(createRouteDraftState(null));
       setIsNewRoute(true);
-      setRouteDraftNonce((current) => current + 1);
       setMobilePanel('inspector');
       router.replace('/dashboard/map?kind=routes&new=1');
     });
@@ -339,7 +369,7 @@ export default function DashboardMapPage() {
   }
 
   function resetDraftState() {
-    setIsRouteDirty(false);
+    setRouteDraftState(resetRouteDraft);
     setIsPlaceDirty(false);
     setIsNewRoute(false);
     setIsNewPlace(false);
@@ -348,8 +378,7 @@ export default function DashboardMapPage() {
   function refreshMapData() {
     requestDraftAction(() => {
       if (isRouteDirty) {
-        setDraftWaypoints(isNewRoute ? [] : getRouteWaypoints(selectedRoute));
-        setRouteDraftNonce((current) => current + 1);
+        setRouteDraftState(createRouteDraftState(isNewRoute ? null : selectedRoute));
       }
       if (isPlaceDirty) {
         setDraftPlaceCoords(
@@ -359,7 +388,6 @@ export default function DashboardMapPage() {
         );
         setPlaceDraftNonce((current) => current + 1);
       }
-      setIsRouteDirty(false);
       setIsPlaceDirty(false);
       void refresh();
     });
@@ -383,7 +411,7 @@ export default function DashboardMapPage() {
         hoveredWaypointIndex={hoveredWaypointIndex}
         selectedWaypointIndex={selectedWaypointIndex}
         waypoints={draftWaypoints}
-        onChange={setDraftWaypoints}
+        onChange={(waypoints) => setRouteDraftState((state) => replaceRoutePath(state, waypoints))}
         onHoverWaypoint={setHoveredWaypointIndex}
         onReady={setViewportControls}
         onSelectWaypoint={setSelectedWaypointIndex}
@@ -461,28 +489,35 @@ export default function DashboardMapPage() {
             <MapEmptySelection kind="route" />
           ) : (
             <RouteEditor
-              compactSummary
-              key={
-                isNewRoute
-                  ? `new-route-${routeDraftNonce}`
-                  : `${selectedRoute?.id ?? 'route'}-${routeDraftNonce}`
-              }
+              draftState={routeDraftState}
               hoveredWaypointIndex={hoveredWaypointIndex}
-              mapMode="background"
               places={places}
+              placesError={placesError}
               route={isNewRoute ? null : selectedRoute}
               selectedWaypointIndex={selectedWaypointIndex}
-              waypoints={draftWaypoints}
+              setDraftState={setRouteDraftState}
               onBeforeNavigateAway={() => {
                 navigateIfDraftSafe('/dashboard/library/places');
                 return false;
               }}
-              onDirtyChange={setIsRouteDirty}
+              onDelete={
+                selectedRoute == null || isNewRoute
+                  ? undefined
+                  : async () => {
+                      await auth.apiRequest(`/routes/${selectedRoute.id}`, { method: 'DELETE' });
+                      setSelectedRouteId(null);
+                      routeDraftRouteIdRef.current = null;
+                      setRouteDraftState(createRouteDraftState(null));
+                      setIsNewRoute(false);
+                      router.replace('/dashboard/map?kind=routes');
+                      await refresh();
+                    }
+              }
               onFocusTargetChange={setFocusTarget}
+              onRetryPlaces={() => void refreshPlaces()}
               onHoverWaypointIndexChange={setHoveredWaypointIndex}
               onSave={saveRoute}
               onSelectedWaypointIndexChange={setSelectedWaypointIndex}
-              onWaypointsChange={setDraftWaypoints}
             />
           )}
         </IndexCard>
@@ -537,6 +572,7 @@ export default function DashboardMapPage() {
       <ScaleBar />
       <KeyboardCheatsheet isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
       <ConfirmDialog
+        cancelLabel="Keep editing"
         confirmLabel="Discard changes"
         description="Your unsaved map edits will be lost. Save first if you want to keep them."
         open={pendingDraftAction != null}
