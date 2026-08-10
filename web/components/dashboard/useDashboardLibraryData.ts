@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import type { Place, Route } from '@/lib/api';
+import { upsertRouteById } from './routeDraftState';
 import { useDashboardAuth } from './useDashboardAuth';
 import { formatError } from './utils';
 
@@ -51,6 +52,12 @@ export function useDashboardLibraryData() {
     }
     setIsLoading(false);
   }, [auth]);
+
+  const upsertRoute = useCallback((route: Route) => {
+    setRoutes((currentRoutes) => upsertRouteById(currentRoutes, route));
+    setSelectedRouteId(route.id);
+    setLastLoadedAt(new Date());
+  }, []);
 
   const refreshPlaces = useCallback(async () => {
     setPlacesError(null);
@@ -106,5 +113,6 @@ export function useDashboardLibraryData() {
     selectedRouteId,
     setSelectedPlaceId,
     setSelectedRouteId,
+    upsertRoute,
   };
 }

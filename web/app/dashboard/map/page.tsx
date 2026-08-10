@@ -18,6 +18,7 @@ import {
   createRouteDraftState,
   isRouteDraftDirty,
   type RouteDraftState,
+  rebaseRouteDraftAfterSave,
   replaceRoutePath,
   resetRouteDraft,
 } from '@/components/dashboard/routeDraftState';
@@ -65,12 +66,14 @@ export default function DashboardMapPage() {
     selectedRouteId,
     setSelectedPlaceId,
     setSelectedRouteId,
+    upsertRoute,
   } = useDashboardLibraryData();
   const router = useRouter();
   const searchRef = useRef<HTMLInputElement | null>(null);
   const pendingDraftRestoreFocusRef = useRef<HTMLElement | null>(null);
   const hasAppliedInitialRequestRef = useRef(false);
   const initialCreationKindRef = useRef<MapKind | null>(null);
+  const routeDraftRouteIdRef = useRef<string | null>(null);
   const [activeKind, setActiveKind] = useState<MapKind>('routes');
   const [query, setQuery] = useState('');
   const [viewportControls, setViewportControls] = useState<ViewportControls | null>(null);
@@ -139,6 +142,7 @@ export default function DashboardMapPage() {
     } else if (isNew) {
       initialCreationKindRef.current = 'routes';
       setSelectedRouteId(null);
+      routeDraftRouteIdRef.current = null;
       setRouteDraftState(createRouteDraftState(null));
       setIsNewRoute(true);
       setMobilePanel('inspector');
@@ -152,8 +156,20 @@ export default function DashboardMapPage() {
       return;
     }
 
+    const routeId = selectedRoute?.id ?? null;
+    const isRouteSelectionChange = routeDraftRouteIdRef.current !== routeId;
+    routeDraftRouteIdRef.current = routeId;
+    setRouteDraftState((currentState) =>
+      isRouteSelectionChange || !isRouteDraftDirty(currentState)
+        ? createRouteDraftState(selectedRoute)
+        : currentState,
+    );
+
+    if (!isRouteSelectionChange) {
+      return;
+    }
+
     const nextWaypoints = getRouteWaypoints(selectedRoute);
-    setRouteDraftState(createRouteDraftState(selectedRoute));
     setSelectedWaypointIndex(null);
     setHoveredWaypointIndex(null);
     setFocusTarget(null);
@@ -162,12 +178,6 @@ export default function DashboardMapPage() {
       setFitRequest((currentRequest) => currentRequest + 1);
     }
   }, [isNewRoute, selectedRoute]);
-
-  useEffect(() => {
-    if (isNewRoute && selectedRouteId != null && selectedRoute != null) {
-      setIsNewRoute(false);
-    }
-  }, [isNewRoute, selectedRoute, selectedRouteId]);
 
   useEffect(() => {
     if (isNewPlace || initialCreationKindRef.current === 'places') {
@@ -229,6 +239,7 @@ export default function DashboardMapPage() {
   }
 
   async function saveRoute(input: RouteInput) {
+    const submittedState = routeDraftState;
     const routeId = selectedRoute?.id ?? selectedRouteId;
     const savedRoute =
       routeId == null
@@ -241,8 +252,12 @@ export default function DashboardMapPage() {
             method: 'PATCH',
           });
 
-    setRouteDraftState(createRouteDraftState(savedRoute));
-    setSelectedRouteId(savedRoute.id);
+    routeDraftRouteIdRef.current = savedRoute.id;
+    setRouteDraftState((currentState) =>
+      rebaseRouteDraftAfterSave(currentState, submittedState, savedRoute),
+    );
+    upsertRoute(savedRoute);
+    setIsNewRoute(false);
     router.replace(`/dashboard/map?kind=routes&selected=${encodeURIComponent(savedRoute.id)}`);
     await refresh();
   }
@@ -332,6 +347,7 @@ export default function DashboardMapPage() {
       resetDraftState();
       setActiveKind('routes');
       setSelectedRouteId(null);
+      routeDraftRouteIdRef.current = null;
       setRouteDraftState(createRouteDraftState(null));
       setIsNewRoute(true);
       setMobilePanel('inspector');
@@ -490,6 +506,7 @@ export default function DashboardMapPage() {
                   : async () => {
                       await auth.apiRequest(`/routes/${selectedRoute.id}`, { method: 'DELETE' });
                       setSelectedRouteId(null);
+                      routeDraftRouteIdRef.current = null;
                       setRouteDraftState(createRouteDraftState(null));
                       setIsNewRoute(false);
                       router.replace('/dashboard/map?kind=routes');

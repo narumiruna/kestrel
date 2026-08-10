@@ -237,6 +237,60 @@ export function resetRouteDraft(state: RouteDraftState): RouteDraftState {
   };
 }
 
+export function rebaseRouteDraftAfterSave(
+  currentState: RouteDraftState,
+  submittedState: RouteDraftState,
+  savedRoute: Route,
+): RouteDraftState {
+  const savedState = createRouteDraftState(savedRoute);
+  const pathChangedAfterSubmission = !routePathsEqual(
+    currentState.draft.waypoints,
+    submittedState.draft.waypoints,
+  );
+  const draft: RouteDraft = {
+    defaultSpeedKmh:
+      currentState.draft.defaultSpeedKmh === submittedState.draft.defaultSpeedKmh
+        ? savedState.draft.defaultSpeedKmh
+        : currentState.draft.defaultSpeedKmh,
+    description:
+      currentState.draft.description === submittedState.draft.description
+        ? savedState.draft.description
+        : currentState.draft.description,
+    isPublic:
+      currentState.draft.isPublic === submittedState.draft.isPublic
+        ? savedState.draft.isPublic
+        : currentState.draft.isPublic,
+    mode:
+      currentState.draft.mode === submittedState.draft.mode
+        ? savedState.draft.mode
+        : currentState.draft.mode,
+    name:
+      currentState.draft.name === submittedState.draft.name
+        ? savedState.draft.name
+        : currentState.draft.name,
+    waypoints: pathChangedAfterSubmission
+      ? cloneWaypoints(currentState.draft.waypoints)
+      : cloneWaypoints(savedState.draft.waypoints),
+  };
+
+  return {
+    baseline: cloneDraft(savedState.baseline),
+    draft,
+    futurePaths: [],
+    nextWaypointId: Math.max(currentState.nextWaypointId, savedState.nextWaypointId),
+    pastPaths: pathChangedAfterSubmission ? [cloneWaypoints(savedState.baseline.waypoints)] : [],
+  };
+}
+
+export function upsertRouteById(routes: Route[], route: Route): Route[] {
+  const existingIndex = routes.findIndex((candidate) => candidate.id === route.id);
+  if (existingIndex === -1) {
+    return [...routes, route];
+  }
+
+  return routes.map((candidate, index) => (index === existingIndex ? route : candidate));
+}
+
 export function getRouteValidation(draft: RouteDraft): RouteValidation {
   const name = draft.name.trim();
   if (name.length === 0) {

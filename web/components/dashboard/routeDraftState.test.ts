@@ -9,6 +9,7 @@ import {
   getRouteValidation,
   insertRouteWaypointAfter,
   moveRouteWaypoint,
+  rebaseRouteDraftAfterSave,
   redoRoutePath,
   removeRouteWaypoint,
   resetRouteDraft,
@@ -17,6 +18,7 @@ import {
   toRouteInput,
   undoRoutePath,
   updateRouteWaypoint,
+  upsertRouteById,
 } from './routeDraftState.ts';
 
 const route: Route = {
@@ -55,6 +57,22 @@ const route: Route = {
   name: 'Morning route',
   updatedAt: '2026-08-10T00:00:00.000Z',
 };
+
+function createSavedRoute(name: string): Route {
+  if (route.currentRevision == null) {
+    throw new Error('route fixture must include a revision');
+  }
+
+  return {
+    ...route,
+    currentRevision: {
+      ...route.currentRevision,
+      id: 'revision-4',
+      revisionNumber: 4,
+    },
+    name,
+  };
+}
 
 test('creates stable draft waypoints and strips client ids from save input', () => {
   const state = createRouteDraftState(route);
@@ -197,6 +215,58 @@ test('reset restores the baseline and clears path history', () => {
   assert.equal(state.draft.waypoints.length, 2);
   assert.deepEqual(state.pastPaths, []);
   assert.deepEqual(state.futurePaths, []);
+});
+
+test('rebases a saved route without losing edits made after submission', () => {
+  let submittedState = createRouteDraftState(route);
+  submittedState = setRouteDraftField(submittedState, 'name', 'Submitted route');
+
+  let currentState = setRouteDraftField(submittedState, 'name', 'Late route edit');
+  currentState = setRouteDraftField(currentState, 'defaultSpeedKmh', '21');
+  currentState = setRouteDraftField(currentState, 'description', 'Late details');
+  currentState = setRouteDraftField(currentState, 'isPublic', true);
+  currentState = setRouteDraftField(currentState, 'mode', 'PING_PONG');
+  currentState = addRouteWaypoint(currentState, { latitude: 25.05, longitude: 121.58 });
+
+  const savedRoute = createSavedRoute('Submitted route');
+  const rebasedState = rebaseRouteDraftAfterSave(currentState, submittedState, savedRoute);
+
+  assert.equal(rebasedState.baseline.name, 'Submitted route');
+  assert.equal(rebasedState.draft.name, 'Late route edit');
+  assert.equal(rebasedState.draft.defaultSpeedKmh, '21');
+  assert.equal(rebasedState.draft.description, 'Late details');
+  assert.equal(rebasedState.draft.isPublic, true);
+  assert.equal(rebasedState.draft.mode, 'PING_PONG');
+  assert.equal(rebasedState.draft.waypoints.length, 3);
+  assert.equal(rebasedState.pastPaths.length, 1);
+  assert.deepEqual(rebasedState.pastPaths[0], rebasedState.baseline.waypoints);
+  assert.deepEqual(toRouteInput(rebasedState.draft).waypoints.at(-1), {
+    latitude: 25.05,
+    longitude: 121.58,
+    pauseSeconds: null,
+    speedKmh: null,
+  });
+});
+
+test('accepts the saved response as a clean baseline when no later edits exist', () => {
+  let submittedState = createRouteDraftState(route);
+  submittedState = setRouteDraftField(submittedState, 'name', 'Submitted route');
+  const savedRoute = createSavedRoute('Submitted route');
+
+  const rebasedState = rebaseRouteDraftAfterSave(submittedState, submittedState, savedRoute);
+
+  assert.equal(rebasedState.draft.name, 'Submitted route');
+  assert.equal(rebasedState.draft.waypoints[0].draftId, 'revision-4:0');
+  assert.deepEqual(rebasedState.pastPaths, []);
+  assert.deepEqual(rebasedState.futurePaths, []);
+});
+
+test('upserts a successful route response before a list refresh', () => {
+  const createdRoute = { ...route, id: 'route-2', name: 'Created route' };
+  assert.deepEqual(upsertRouteById([route], createdRoute), [route, createdRoute]);
+
+  const updatedRoute = { ...route, name: 'Updated route' };
+  assert.deepEqual(upsertRouteById([route], updatedRoute), [updatedRoute]);
 });
 
 test('rejects invalid known waypoint metadata before serialization', () => {
