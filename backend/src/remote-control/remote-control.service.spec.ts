@@ -2,7 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   NotFoundException,
-} from '@nestjs/common';
+} from '../http/errors';
 import {
   DevicePlatform,
   PlaybackState,

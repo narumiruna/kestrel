@@ -1,6 +1,4 @@
 /* eslint-disable @typescript-eslint/require-await -- in-memory Prisma methods intentionally mirror async client APIs */
-import { type INestApplication } from '@nestjs/common';
-import { Test, type TestingModule } from '@nestjs/testing';
 import {
   DevicePlatform,
   PlaybackState,
@@ -9,9 +7,10 @@ import {
   type Prisma,
 } from '@prisma/client';
 import { argon2id, hash } from 'argon2';
+import { createAdaptorServer } from '@hono/node-server';
 import request from 'supertest';
-import type { App } from 'supertest/types';
-import { AppModule } from '../src/app.module';
+import { createApp } from '../src/app';
+import { type Container, createContainer } from '../src/container';
 import { AccessTokenService } from '../src/auth/access-token.service';
 import { PrismaService } from '../src/prisma/prisma.service';
 
@@ -319,7 +318,8 @@ class FakeAccountSecurityPrisma {
 }
 
 describe('account security flow (e2e)', () => {
-  let app: INestApplication<App>;
+  let container: Container;
+  let server: ReturnType<typeof createAdaptorServer>;
   let accessTokenService: AccessTokenService;
   let prisma: FakeAccountSecurityPrisma;
 
@@ -329,19 +329,17 @@ describe('account security flow (e2e)', () => {
     prisma = new FakeAccountSecurityPrisma(
       await hash('admin', { type: argon2id }),
     );
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    })
-      .overrideProvider(PrismaService)
-      .useValue(prisma)
-      .compile();
-    app = moduleFixture.createNestApplication();
-    await app.init();
-    accessTokenService = moduleFixture.get(AccessTokenService);
+    jest.useFakeTimers().setSystemTime(new Date('2026-07-10T12:00:00.000Z'));
+    container = createContainer({
+      prismaService: prisma as unknown as PrismaService,
+    });
+    server = createAdaptorServer(createApp(container));
+    accessTokenService = container.accessTokenService;
   });
 
   afterAll(async () => {
-    await app.close();
+    jest.useRealTimers();
+    server.close();
   });
 
   it('lists, reports, revokes, rejects old access, and re-registers with a new session', async () => {
@@ -349,7 +347,7 @@ describe('account security flow (e2e)', () => {
     const androidToken = issueToken(accessTokenService, 'session-android');
     const newAndroidToken = issueToken(accessTokenService, 'session-new');
 
-    const listResponse = await request(app.getHttpServer())
+    const listResponse = await request(server)
       .get('/auth/sessions')
       .set('Authorization', `Bearer ${webToken}`)
       .expect(200);
@@ -363,7 +361,7 @@ describe('account security flow (e2e)', () => {
       ]),
     );
 
-    const stateResponse = await request(app.getHttpServer())
+    const stateResponse = await request(server)
       .post('/devices/device-1/state')
       .set('Authorization', `Bearer ${androidToken}`)
       .send({ clientDeviceId: 'client-1', playbackState: 'ROUTE' })
@@ -373,7 +371,7 @@ describe('account security flow (e2e)', () => {
     };
     expect(stateBody.state.playbackState).toBe('ROUTE');
 
-    await request(app.getHttpServer())
+    await request(server)
       .post('/auth/sessions/session-android/revoke')
       .set('Authorization', `Bearer ${webToken}`)
       .send({ currentPassword: 'admin' })
@@ -382,13 +380,13 @@ describe('account security flow (e2e)', () => {
       status: RemoteCommandStatus.EXPIRED,
     });
 
-    await request(app.getHttpServer())
+    await request(server)
       .post('/devices/device-1/commands/poll')
       .set('Authorization', `Bearer ${androidToken}`)
       .send({ clientDeviceId: 'client-1' })
       .expect(401);
 
-    const registerResponse = await request(app.getHttpServer())
+    const registerResponse = await request(server)
       .post('/devices/register')
       .set('Authorization', `Bearer ${newAndroidToken}`)
       .send({
@@ -413,12 +411,12 @@ describe('account security flow (e2e)', () => {
       revokedAt: null,
     });
 
-    await request(app.getHttpServer())
+    await request(server)
       .post('/devices/device-1/revoke')
       .set('Authorization', `Bearer ${webToken}`)
       .send({ currentPassword: 'admin' })
       .expect(201);
-    await request(app.getHttpServer())
+    await request(server)
       .post('/devices/device-1/state')
       .set('Authorization', `Bearer ${newAndroidToken}`)
       .send({ clientDeviceId: 'client-1', playbackState: 'IDLE' })

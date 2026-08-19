@@ -1,20 +1,13 @@
-import { Logger } from '@nestjs/common';
-import { EventEmitter } from 'node:events';
-import type { Request, Response } from 'express';
-import { HttpRequestLoggingMiddleware } from './http-request-logging.middleware';
+import { Hono } from 'hono';
+import type { AuthVariables } from './auth/auth-request';
+import { createHttpRequestLogging } from './http-request-logging.middleware';
+import { Logger } from './logger';
 
-type TestResponse = EventEmitter & {
-  setHeader: jest.Mock<void, [string, string]>;
-  statusCode: number;
-};
-
-describe('HttpRequestLoggingMiddleware', () => {
-  let middleware: HttpRequestLoggingMiddleware;
+describe('http request logging middleware', () => {
   let loggedRecords: string[];
   let errorRecords: string[];
 
   beforeEach(() => {
-    middleware = new HttpRequestLoggingMiddleware();
     loggedRecords = [];
     errorRecords = [];
     jest.spyOn(Logger.prototype, 'log').mockImplementation((message) => {
@@ -29,30 +22,18 @@ describe('HttpRequestLoggingMiddleware', () => {
     jest.restoreAllMocks();
   });
 
-  it('returns a request id and logs allowlisted request metadata only', () => {
-    const request = {
-      auth: {
-        sessionId: 'session-1',
-        userId: 'user-1',
-      },
+  it('returns a request id and logs allowlisted request metadata only', async () => {
+    const app = createTestApp('/sync/changes', 201);
+
+    const response = await app.request('/sync/changes?cursor=secret-cursor', {
       headers: {
         authorization: 'Bearer secret-token',
         'x-request-id': 'request-from-client',
       },
       method: 'POST',
-      originalUrl: '/sync/changes?cursor=secret-cursor',
-    } as unknown as Request;
-    const response = createResponse(201);
-    const next = jest.fn();
+    });
 
-    middleware.use(request, response as unknown as Response, next);
-    response.emit('finish');
-
-    expect(next).toHaveBeenCalledTimes(1);
-    expect(response.setHeader).toHaveBeenCalledWith(
-      'x-request-id',
-      'request-from-client',
-    );
+    expect(response.headers.get('x-request-id')).toBe('request-from-client');
     expect(loggedRecords).toHaveLength(1);
     const serializedRecord = loggedRecords[0] ?? '';
     expect(JSON.parse(serializedRecord)).toMatchObject({
@@ -69,24 +50,14 @@ describe('HttpRequestLoggingMiddleware', () => {
     expect(errorRecords).toHaveLength(0);
   });
 
-  it('generates a safe request id and emits error-level records for 5xx', () => {
-    const request = {
-      headers: {
-        'x-request-id': 'invalid request id with spaces',
-      },
-      method: 'GET',
-      originalUrl: '/health',
-    } as unknown as Request;
-    const response = createResponse(503);
-    const responseHeaders = new Map<string, string>();
-    response.setHeader.mockImplementation((name, value) => {
-      responseHeaders.set(name, value);
+  it('generates a safe request id and emits error-level records for 5xx', async () => {
+    const app = createTestApp('/health', 503, false);
+
+    const response = await app.request('/health', {
+      headers: { 'x-request-id': 'invalid request id with spaces' },
     });
 
-    middleware.use(request, response as unknown as Response, jest.fn());
-    response.emit('finish');
-
-    const requestId = responseHeaders.get('x-request-id') ?? '';
+    const requestId = response.headers.get('x-request-id') ?? '';
     expect(requestId).toMatch(/^[0-9a-f-]{36}$/);
     expect(errorRecords).toHaveLength(1);
     expect(loggedRecords).toHaveLength(0);
@@ -100,9 +71,25 @@ describe('HttpRequestLoggingMiddleware', () => {
   });
 });
 
-function createResponse(statusCode: number): TestResponse {
-  return Object.assign(new EventEmitter(), {
-    setHeader: jest.fn<void, [string, string]>(),
-    statusCode,
+function createTestApp(
+  path: string,
+  statusCode: 201 | 503,
+  authenticated = true,
+): Hono<{ Variables: AuthVariables }> {
+  const app = new Hono<{ Variables: AuthVariables }>();
+
+  app.use('*', createHttpRequestLogging());
+  app.all(path, (context) => {
+    if (authenticated) {
+      context.set('auth', {
+        expiresAt: new Date('2026-05-09T18:00:00.000Z'),
+        sessionId: 'session-1',
+        userId: 'user-1',
+      });
+    }
+
+    return context.json({}, statusCode);
   });
+
+  return app;
 }

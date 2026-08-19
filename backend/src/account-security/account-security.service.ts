@@ -1,9 +1,5 @@
-import {
-  BadRequestException,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '../http/errors';
+import { Logger } from '../logger';
 import { DevicePlatform } from '@prisma/client';
 import {
   AuthAuditMetadata,
@@ -13,7 +9,6 @@ import { AuthService } from '../auth/auth.service';
 import { SessionRevocationService } from '../auth/session-revocation.service';
 import { PrismaService } from '../prisma/prisma.service';
 
-@Injectable()
 export class AccountSecurityService {
   private readonly logger = new Logger(AccountSecurityService.name);
 

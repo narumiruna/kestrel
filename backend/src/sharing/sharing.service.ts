@@ -1,10 +1,9 @@
-import { randomBytes } from 'node:crypto';
 import {
   BadRequestException,
-  Injectable,
   InternalServerErrorException,
   NotFoundException,
-} from '@nestjs/common';
+} from '../http/errors';
+import { randomBytes } from 'node:crypto';
 import {
   LibraryItemKind,
   RouteMode,
@@ -94,7 +93,6 @@ type PublicShareRecord = Prisma.ShareLinkGetPayload<{
   };
 }>;
 
-@Injectable()
 export class SharingService {
   constructor(private readonly prismaService: PrismaService) {}
 

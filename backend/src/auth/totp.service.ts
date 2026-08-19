@@ -1,5 +1,5 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { InternalServerErrorException } from '../http/errors';
+import { ConfigService } from '../config.service';
 import {
   createCipheriv,
   createDecipheriv,
@@ -20,7 +20,6 @@ const TOTP_ALGORITHM = 'SHA1';
 const ENCRYPTED_SECRET_VERSION = 'v1';
 const UINT32_MODULUS = 4294967296;
 
-@Injectable()
 export class TotpService {
   private cachedEncryptionKey?: Buffer;
 

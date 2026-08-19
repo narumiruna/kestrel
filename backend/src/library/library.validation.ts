@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException } from '../http/errors';
 import { RouteMode } from '@prisma/client';
 
 const MAX_DESCRIPTION_LENGTH = 1024;

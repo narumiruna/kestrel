@@ -1,5 +1,5 @@
-import { InternalServerErrorException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { InternalServerErrorException } from '../http/errors';
+import { ConfigService } from '../config.service';
 import { TotpService } from './totp.service';
 
 describe('TotpService', () => {

@@ -1,5 +1,6 @@
-import { type AuthenticatedRequest } from '../auth/auth-request';
-import { RemoteControlController } from './remote-control.controller';
+import { createStubSessionAuth, jsonRequest } from '../test-support/route-test';
+import type { RemoteControlService } from './remote-control.service';
+import { createRemoteControlRoutes } from './remote-control.routes';
 
 type MockRemoteControlService = {
   ackCommand: jest.Mock<unknown, [string, string, string, unknown]>;
@@ -10,19 +11,13 @@ type MockRemoteControlService = {
   reportDeviceState: jest.Mock<unknown, [string, string, unknown]>;
 };
 
-describe('RemoteControlController', () => {
-  let controller: RemoteControlController;
+describe('remote control routes', () => {
   let service: MockRemoteControlService;
-  const request = {
-    auth: {
-      sessionId: 'session-1',
-      userId: 'user-1',
-    },
-  } as AuthenticatedRequest;
+  let routes: ReturnType<typeof createRemoteControlRoutes>;
 
   beforeEach(() => {
     const createMock = <TReturn, TArgs extends unknown[]>() =>
-      jest.fn<TReturn, TArgs>();
+      jest.fn<TReturn, TArgs>().mockReturnValue({} as TReturn);
 
     service = {
       ackCommand: createMock<unknown, [string, string, string, unknown]>(),
@@ -32,14 +27,21 @@ describe('RemoteControlController', () => {
       registerDevice: createMock<unknown, [string, string, unknown]>(),
       reportDeviceState: createMock<unknown, [string, string, unknown]>(),
     };
-    controller = new RemoteControlController(service as never);
+    routes = createRemoteControlRoutes(
+      service as unknown as RemoteControlService,
+      createStubSessionAuth(),
+    );
   });
 
-  it('passes authenticated user id to device registration', () => {
+  it('passes authenticated user and session id to device registration', async () => {
     const body = { clientDeviceId: 'client-1' };
 
-    void controller.registerDevice(request, body);
+    const response = await routes.request(
+      '/devices/register',
+      jsonRequest(body),
+    );
 
+    expect(response.status).toBe(201);
     expect(service.registerDevice).toHaveBeenCalledWith(
       'user-1',
       'session-1',
@@ -47,16 +49,16 @@ describe('RemoteControlController', () => {
     );
   });
 
-  it('passes authenticated user id to device listing', () => {
-    void controller.listDevices(request);
+  it('passes authenticated user id to device listing', async () => {
+    await routes.request('/devices');
 
     expect(service.listDevices).toHaveBeenCalledWith('user-1');
   });
 
-  it('passes route params to command creation', () => {
+  it('passes route params to command creation', async () => {
     const body = { type: 'STOP' };
 
-    void controller.createCommand(request, 'device-1', body);
+    await routes.request('/devices/device-1/commands', jsonRequest(body));
 
     expect(service.createCommand).toHaveBeenCalledWith(
       'user-1',
@@ -65,10 +67,10 @@ describe('RemoteControlController', () => {
     );
   });
 
-  it('passes route params to device state reports', () => {
+  it('passes route params to device state reports', async () => {
     const body = { clientDeviceId: 'client-1', playbackState: 'ROUTE' };
 
-    void controller.reportDeviceState(request, 'device-1', body);
+    await routes.request('/devices/device-1/state', jsonRequest(body));
 
     expect(service.reportDeviceState).toHaveBeenCalledWith(
       'user-1',
@@ -77,12 +79,18 @@ describe('RemoteControlController', () => {
     );
   });
 
-  it('passes route params to polling and ack', () => {
+  it('passes route params to polling and ack', async () => {
     const pollBody = { clientDeviceId: 'client-1' };
     const ackBody = { clientDeviceId: 'client-1', status: 'APPLIED' };
 
-    void controller.pollCommands(request, 'device-1', pollBody);
-    void controller.ackCommand(request, 'device-1', 'command-1', ackBody);
+    await routes.request(
+      '/devices/device-1/commands/poll',
+      jsonRequest(pollBody),
+    );
+    await routes.request(
+      '/devices/device-1/commands/command-1/ack',
+      jsonRequest(ackBody),
+    );
 
     expect(service.pollCommands).toHaveBeenCalledWith(
       'user-1',

@@ -68,7 +68,7 @@ app/src/main/java/dev/narumi/kestrel/
     ├── tracks/
     └── settings/
 
-backend/             # NestJS + Prisma cloud platform backend
+backend/             # Hono + Prisma cloud platform backend
 web/                 # Next.js cloud console
 ```
 
@@ -109,7 +109,7 @@ just test
 
 ### ☁️ Cloud platform backend
 
-The NestJS + Prisma backend lives in `backend/`.
+The Hono + Prisma backend lives in `backend/`.
 
 ```bash
 just backend-install
@@ -121,7 +121,7 @@ npm run start:dev
 
 ### 🌐 Web console
 
-The Next.js cloud console lives in `web/` and proxies `/api/backend/*` to the NestJS API.
+The Next.js cloud console lives in `web/` and proxies `/api/backend/*` to the Hono API.
 
 ```bash
 just web-install
@@ -133,7 +133,7 @@ Open `http://localhost:3301`. Set `KESTREL_API_BASE_URL` if the API is not runni
 
 ### 🐳 Docker Compose stack
 
-To run PostgreSQL, the NestJS backend, and the Next.js web console together:
+To run PostgreSQL, the Hono backend, and the Next.js web console together:
 
 ```bash
 just cloud-up   # or: docker compose -f compose.dev.yaml --profile watch up --build

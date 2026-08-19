@@ -1,9 +1,5 @@
+import { BadRequestException, ConflictException } from '../http/errors';
 import { createHash } from 'node:crypto';
-import {
-  BadRequestException,
-  ConflictException,
-  Injectable,
-} from '@nestjs/common';
 import {
   LibraryItemKind,
   SyncEntityType,
@@ -67,7 +63,6 @@ type SyncEventRecord = {
   payload: Prisma.JsonValue | null;
 };
 
-@Injectable()
 export class SyncService {
   constructor(private readonly prismaService: PrismaService) {}
 

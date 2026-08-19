@@ -2,8 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   UnauthorizedException,
-} from '@nestjs/common';
-import { Test, TestingModule } from '@nestjs/testing';
+} from '../http/errors';
 import { Prisma } from '@prisma/client';
 import { argon2id, hash, verify } from 'argon2';
 import { createHash } from 'node:crypto';
@@ -212,7 +211,7 @@ describe('AuthService', () => {
     jest.useRealTimers();
   });
 
-  beforeEach(async () => {
+  beforeEach(() => {
     prismaService = {
       $transaction: jest.fn<
         Promise<unknown>,
@@ -352,37 +351,14 @@ describe('AuthService', () => {
       }),
     );
 
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        AuthService,
-        {
-          provide: AccessTokenService,
-          useValue: accessTokenService,
-        },
-        {
-          provide: AuthAuditService,
-          useValue: authAuditService,
-        },
-        {
-          provide: AuthRateLimitService,
-          useValue: authRateLimitService,
-        },
-        {
-          provide: PrismaService,
-          useValue: prismaService,
-        },
-        {
-          provide: SessionRevocationService,
-          useValue: sessionRevocationService,
-        },
-        {
-          provide: TotpService,
-          useValue: totpService,
-        },
-      ],
-    }).compile();
-
-    authService = module.get<AuthService>(AuthService);
+    authService = new AuthService(
+      accessTokenService as unknown as AccessTokenService,
+      authAuditService as unknown as AuthAuditService,
+      authRateLimitService as unknown as AuthRateLimitService,
+      prismaService as unknown as PrismaService,
+      sessionRevocationService as unknown as SessionRevocationService,
+      totpService as unknown as TotpService,
+    );
   });
 
   it('creates a user with an Argon2id password hash', async () => {

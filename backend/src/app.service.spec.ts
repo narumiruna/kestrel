@@ -1,5 +1,5 @@
-import { ServiceUnavailableException } from '@nestjs/common';
-import type { ConfigService } from '@nestjs/config';
+import { ServiceUnavailableException } from './http/errors';
+import { ConfigService } from './config.service';
 import { AppService } from './app.service';
 import type { PrismaService } from './prisma/prisma.service';
 

@@ -1,4 +1,4 @@
-import { NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { NotFoundException, UnauthorizedException } from '../http/errors';
 import { DevicePlatform } from '@prisma/client';
 import { AccountSecurityService } from './account-security.service';
 

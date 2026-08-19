@@ -1,5 +1,5 @@
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { HttpException, HttpStatus } from '../http/errors';
+import { ConfigService } from '../config.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 const DEFAULT_RATE_LIMIT_WINDOW_SECONDS = 15 * 60;
@@ -15,7 +15,6 @@ export const AUTH_RATE_LIMIT_TYPE = {
 export type AuthRateLimitType =
   (typeof AUTH_RATE_LIMIT_TYPE)[keyof typeof AUTH_RATE_LIMIT_TYPE];
 
-@Injectable()
 export class AuthRateLimitService {
   constructor(
     private readonly configService: ConfigService,

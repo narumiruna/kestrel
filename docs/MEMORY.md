@@ -51,4 +51,4 @@
 - Prefer a consistent sans-serif UI typeface for Kestrel Web; avoid decorative serif display fonts that make English/CJK hierarchy feel mismatched.
 - Prefer progressive disclosure in UI/UX: keep each screen focused on its primary task, preserve secondary/advanced functionality in clear contextual locations, and avoid redundant CTAs or extra mode-switch clicks.
 - When reviewing or closing plan docs, do not move unfinished items into backlog/other plans just to make the current plan archivable unless the user explicitly asks for that re-scoping.
-- Keep local Docker Compose optimized for live reload, but keep deploy Compose production-only: no source bind mounts, built images, `next start`, and Nest `start:prod` after Prisma migrations.
+- Keep local Docker Compose optimized for live reload, but keep deploy Compose production-only: no source bind mounts, built images, `next start`, and backend `start:prod` after Prisma migrations.

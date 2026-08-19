@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException } from '../http/errors';
 import {
   PlaybackState,
   RemoteCommandStatus,

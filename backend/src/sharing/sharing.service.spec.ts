@@ -1,7 +1,7 @@
 import {
   InternalServerErrorException,
   NotFoundException,
-} from '@nestjs/common';
+} from '../http/errors';
 import {
   LibraryItemKind,
   Prisma,

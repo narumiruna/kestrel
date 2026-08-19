@@ -1,9 +1,8 @@
 import {
-  Injectable,
   InternalServerErrorException,
   UnauthorizedException,
-} from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+} from '../http/errors';
+import { ConfigService } from '../config.service';
 import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 
 const ACCESS_TOKEN_VERSION = 'v1';
@@ -21,7 +20,6 @@ export type AccessTokenClaims = {
   userId: string;
 };
 
-@Injectable()
 export class AccessTokenService {
   constructor(private readonly configService: ConfigService) {}
 
