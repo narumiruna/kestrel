@@ -5,7 +5,7 @@ import type { AccessTokenClaims } from './access-token.service';
 import type { AuthAuditMetadata } from './auth-audit.service';
 
 export type AuthVariables = {
-  auth: AccessTokenClaims;
+  auth?: AccessTokenClaims;
 };
 
 export type AppContext = Context<{ Variables: AuthVariables }>;

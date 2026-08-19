@@ -1,9 +1,16 @@
 import { Hono } from 'hono';
 import { BadRequestException, GoneException } from './errors';
-import { handleError, handleNotFound, readJsonBody } from './handlers';
+import {
+  enforceBodyLimit,
+  handleError,
+  handleNotFound,
+  readJsonBody,
+} from './handlers';
 
 describe('http handlers', () => {
   const app = new Hono();
+
+  app.use('*', enforceBodyLimit);
 
   app.post('/body', async (context) =>
     context.json(await readJsonBody(context)),
@@ -54,6 +61,26 @@ describe('http handlers', () => {
       message: 'request entity too large',
       statusCode: 413,
     });
+  });
+
+  it('rejects an oversized chunked body before buffering it', async () => {
+    const chunk = new Uint8Array(64 * 1024);
+    const response = await app.request('/body', {
+      body: new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(chunk);
+          controller.enqueue(chunk);
+          controller.enqueue(chunk);
+          controller.close();
+        },
+      }),
+      // @ts-expect-error duplex is required for a streamed request body.
+      duplex: 'half',
+      headers: { 'transfer-encoding': 'chunked' },
+      method: 'POST',
+    });
+
+    expect(response.status).toBe(413);
   });
 
   it('serializes string exception responses with a status code', async () => {

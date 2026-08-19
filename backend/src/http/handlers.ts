@@ -1,4 +1,5 @@
 import type { Context, ErrorHandler, NotFoundHandler } from 'hono';
+import { bodyLimit } from 'hono/body-limit';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import { Logger } from '../logger';
 import {
@@ -49,14 +50,16 @@ export const handleNotFound: NotFoundHandler = (context) =>
     HttpStatus.NOT_FOUND,
   );
 
-export async function readJsonBody(context: Context): Promise<unknown> {
-  assertBodyWithinLimit(context.req.header('content-length'));
-
-  const raw = await context.req.text();
-
-  if (Buffer.byteLength(raw) > MAX_BODY_BYTES) {
+// Rejects oversized bodies while streaming, the way express.json() did.
+export const enforceBodyLimit = bodyLimit({
+  maxSize: MAX_BODY_BYTES,
+  onError: () => {
     throw new PayloadTooLargeException('request entity too large');
-  }
+  },
+});
+
+export async function readJsonBody(context: Context): Promise<unknown> {
+  const raw = await context.req.text();
 
   if (raw.trim() === '') {
     return {};
@@ -66,11 +69,5 @@ export async function readJsonBody(context: Context): Promise<unknown> {
     return JSON.parse(raw);
   } catch {
     throw new BadRequestException('request body must be valid JSON');
-  }
-}
-
-function assertBodyWithinLimit(contentLength: string | undefined): void {
-  if (contentLength != null && Number(contentLength) > MAX_BODY_BYTES) {
-    throw new PayloadTooLargeException('request entity too large');
   }
 }
