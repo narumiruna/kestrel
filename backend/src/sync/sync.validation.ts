@@ -1,4 +1,4 @@
-import { BadRequestException, GoneException } from '@nestjs/common';
+import { BadRequestException, GoneException } from '../http/errors';
 
 export function parseSinceCursorQuery(since: string | undefined): bigint {
   if (since == null) {

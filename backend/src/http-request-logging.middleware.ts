@@ -1,55 +1,50 @@
-import { Injectable, Logger, type NestMiddleware } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import type { NextFunction, Request, Response } from 'express';
-import type { AuthenticatedRequest } from './auth/auth-request';
+import type { MiddlewareHandler } from 'hono';
+import type { AuthVariables } from './auth/auth-request';
+import { Logger } from './logger';
 
 const REQUEST_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
 
-@Injectable()
-export class HttpRequestLoggingMiddleware implements NestMiddleware {
-  private readonly logger = new Logger('HttpRequest');
+export function createHttpRequestLogging(): MiddlewareHandler<{
+  Variables: AuthVariables;
+}> {
+  const logger = new Logger('HttpRequest');
 
-  use(
-    request: AuthenticatedRequest & Request,
-    response: Response,
-    next: NextFunction,
-  ): void {
+  return async (context, next) => {
     const startedAt = Date.now();
-    const requestId = getRequestId(request.headers['x-request-id']);
-    response.setHeader('x-request-id', requestId);
+    const requestId = getRequestId(context.req.header('x-request-id'));
+    context.header('x-request-id', requestId);
 
-    response.once('finish', () => {
-      const isError = response.statusCode >= 500;
-      const record = JSON.stringify({
-        durationMs: Date.now() - startedAt,
-        event: isError ? 'http_error' : 'http_request',
-        method: request.method,
-        path: request.originalUrl.split('?')[0] ?? request.originalUrl,
-        requestId,
-        ...(request.auth == null
-          ? {}
-          : {
-              sessionId: request.auth.sessionId,
-              userId: request.auth.userId,
-            }),
-        statusCode: response.statusCode,
-      });
+    await next();
 
-      if (isError) {
-        this.logger.error(record);
-      } else {
-        this.logger.log(record);
-      }
+    const statusCode = context.res.status;
+    const isError = statusCode >= 500;
+    const auth = context.get('auth');
+    const record = JSON.stringify({
+      durationMs: Date.now() - startedAt,
+      event: isError ? 'http_error' : 'http_request',
+      method: context.req.method,
+      path: context.req.path,
+      requestId,
+      ...(auth == null
+        ? {}
+        : {
+            sessionId: auth.sessionId,
+            userId: auth.userId,
+          }),
+      statusCode,
     });
 
-    next();
-  }
+    if (isError) {
+      logger.error(record);
+    } else {
+      logger.log(record);
+    }
+  };
 }
 
-function getRequestId(header: string | string[] | undefined): string {
-  const candidate = Array.isArray(header) ? header[0] : header;
-
-  return candidate != null && REQUEST_ID_PATTERN.test(candidate)
-    ? candidate
+function getRequestId(header: string | undefined): string {
+  return header != null && REQUEST_ID_PATTERN.test(header)
+    ? header
     : randomUUID();
 }

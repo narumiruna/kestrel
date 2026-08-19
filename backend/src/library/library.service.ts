@@ -1,8 +1,7 @@
 import {
-  Injectable,
   InternalServerErrorException,
   NotFoundException,
-} from '@nestjs/common';
+} from '../http/errors';
 import {
   LibraryItemKind,
   type Prisma,
@@ -41,7 +40,6 @@ type StoredRouteRevisionSnapshot = {
   }>;
 };
 
-@Injectable()
 export class LibraryService {
   constructor(private readonly prismaService: PrismaService) {}
 

@@ -4,7 +4,7 @@ Next.js web console for the Kestrel cloud backend.
 
 ## Local development
 
-Start the NestJS API first, then run:
+Start the Hono API first, then run:
 
 ```bash
 npm install

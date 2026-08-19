@@ -1,4 +1,3 @@
-import { Injectable } from '@nestjs/common';
 import { RemoteCommandStatus, type Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -9,7 +8,6 @@ type RevocationStore = Pick<
   'device' | 'remoteCommand' | 'session'
 >;
 
-@Injectable()
 export class SessionRevocationService {
   constructor(private readonly prismaService: PrismaService) {}
 

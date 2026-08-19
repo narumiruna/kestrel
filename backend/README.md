@@ -1,10 +1,10 @@
 # Kestrel Cloud Backend
 
-NestJS + Prisma backend workspace for the location/route sync platform described in `docs/plans/2026-05-10_product-roadmap-plan.md`.
+Hono + Prisma backend workspace for the location/route sync platform described in `docs/plans/2026-05-10_product-roadmap-plan.md`.
 
 ## Included foundation
 
-- NestJS API workspace under `backend/`
+- Hono API workspace under `backend/`
 - PostgreSQL local development setup with Docker Compose
 - Prisma schema and initial migration for the `users` table
 - Basic service metadata endpoint at `GET /`

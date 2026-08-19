@@ -1,9 +1,9 @@
-import { createHash } from 'node:crypto';
 import {
   BadRequestException,
   ConflictException,
   GoneException,
-} from '@nestjs/common';
+} from '../http/errors';
+import { createHash } from 'node:crypto';
 import {
   LibraryItemKind,
   RouteMode,

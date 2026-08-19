@@ -1,4 +1,3 @@
-import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 /**
@@ -20,7 +19,6 @@ type AuthAuditEntry = AuthAuditMetadata & {
   username?: string;
 };
 
-@Injectable()
 export class AuthAuditService {
   constructor(private readonly prismaService: PrismaService) {}
 

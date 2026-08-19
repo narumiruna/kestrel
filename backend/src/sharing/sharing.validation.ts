@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException } from '../http/errors';
 
 export type ShareLinkUpdateInput = {
   disabled: boolean;

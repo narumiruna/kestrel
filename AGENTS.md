@@ -7,7 +7,7 @@
 Kestrel 是不需 root 的 Android 模擬定位應用程式，並包含雲端同步與遠端控制平台：
 
 - `app/`：Kotlin、Jetpack Compose、Material 3、MapLibre Native。
-- `backend/`：NestJS、Prisma、PostgreSQL。
+- `backend/`：Hono、Prisma、PostgreSQL。
 - `web/`：Next.js、React、Radix Themes、MapLibre GL。
 - `docs/`：操作、安全性、API 與實作計畫。
 

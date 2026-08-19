@@ -2,11 +2,10 @@ import {
   BadRequestException,
   ConflictException,
   HttpException,
-  Injectable,
   InternalServerErrorException,
-  Logger,
   UnauthorizedException,
-} from '@nestjs/common';
+} from '../http/errors';
+import { Logger } from '../logger';
 import { Prisma } from '@prisma/client';
 import { argon2id, hash, verify } from 'argon2';
 import { createHash, randomBytes } from 'node:crypto';
@@ -43,7 +42,6 @@ type RefreshSessionRecord = Prisma.SessionGetPayload<{
   select: typeof refreshSessionSelect;
 }>;
 
-@Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
 

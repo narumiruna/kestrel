@@ -1,4 +1,4 @@
-import { InternalServerErrorException } from '@nestjs/common';
+import { InternalServerErrorException } from '../http/errors';
 import {
   type Prisma,
   RouteMode,

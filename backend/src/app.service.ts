@@ -1,5 +1,5 @@
-import { Injectable, ServiceUnavailableException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { ServiceUnavailableException } from './http/errors';
+import { ConfigService } from './config.service';
 import { PrismaService } from './prisma/prisma.service';
 
 type HealthResponse = {
@@ -13,7 +13,6 @@ type ServiceInfoResponse = {
   service: string;
 };
 
-@Injectable()
 export class AppService {
   constructor(
     private readonly configService: ConfigService,

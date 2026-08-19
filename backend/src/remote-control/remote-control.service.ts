@@ -1,8 +1,4 @@
-import {
-  ConflictException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { ConflictException, NotFoundException } from '../http/errors';
 import {
   DevicePlatform,
   RemoteCommandStatus,
@@ -35,7 +31,6 @@ type RemoteControlStore = Pick<
   'device' | 'deviceState' | 'remoteCommand'
 >;
 
-@Injectable()
 export class RemoteControlService {
   constructor(private readonly prismaService: PrismaService) {}
 

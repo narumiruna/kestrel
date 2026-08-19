@@ -1,11 +1,9 @@
-import { INestApplication } from '@nestjs/common';
-import { Test, TestingModule } from '@nestjs/testing';
 import { Prisma } from '@prisma/client';
 import { argon2id, hash } from 'argon2';
+import { createAdaptorServer } from '@hono/node-server';
 import request from 'supertest';
-import { App } from 'supertest/types';
-import { AppModule } from './../src/app.module';
-import { TotpService } from './../src/auth/totp.service';
+import { createApp } from '../src/app';
+import { type Container, createContainer } from '../src/container';
 import { PrismaService } from './../src/prisma/prisma.service';
 
 type AuthAuditLogRecord = {
@@ -223,7 +221,8 @@ type TransactionClient = Pick<
 >;
 
 describe('AppController (e2e)', () => {
-  let app: INestApplication<App>;
+  let container: Container;
+  let server: ReturnType<typeof createAdaptorServer>;
   let prismaService: MockPrismaService;
   let storedAuditLogs: AuthAuditLogRecord[];
   let storedRateLimits: Map<string, AuthRateLimitRecord>;
@@ -233,7 +232,7 @@ describe('AppController (e2e)', () => {
   let storedUsersById: Map<string, AuthUserRecord>;
   let storedUsers: Map<string, AuthUserRecord>;
 
-  beforeEach(async () => {
+  beforeEach(() => {
     process.env.AUTH_ACCESS_TOKEN_SECRET = 'kestrel-test-access-token-secret';
     process.env.AUTH_ACCESS_TOKEN_TTL_SECONDS = '900';
     process.env.AUTH_TOTP_ENCRYPTION_KEY =
@@ -678,19 +677,14 @@ describe('AppController (e2e)', () => {
       }),
     );
 
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    })
-      .overrideProvider(PrismaService)
-      .useValue(prismaService)
-      .compile();
-
-    app = moduleFixture.createNestApplication();
-    await app.init();
+    container = createContainer({
+      prismaService: prismaService as unknown as PrismaService,
+    });
+    server = createAdaptorServer(createApp(container));
   });
 
   it('/ (GET)', () => {
-    return request(app.getHttpServer()).get('/').expect(200).expect({
+    return request(server).get('/').expect(200).expect({
       environment: 'test',
       phase: 'bootstrap',
       service: 'kestrel-cloud-api',
@@ -698,7 +692,7 @@ describe('AppController (e2e)', () => {
   });
 
   it('/health (GET)', async () => {
-    await request(app.getHttpServer())
+    await request(server)
       .get('/health')
       .set('x-request-id', 'health-e2e-request')
       .expect('x-request-id', 'health-e2e-request')
@@ -714,7 +708,7 @@ describe('AppController (e2e)', () => {
   it('/auth/register (POST)', async () => {
     const createdAt = new Date('2026-05-09T00:00:00.000Z');
 
-    await request(app.getHttpServer())
+    await request(server)
       .post('/auth/register')
       .send({
         password: 'a-very-secure-password',
@@ -745,7 +739,7 @@ describe('AppController (e2e)', () => {
     });
     storedUsersById.set('user-1', storedUsers.get('alice') as AuthUserRecord);
 
-    const setupResponse = await request(app.getHttpServer())
+    const setupResponse = await request(server)
       .post('/auth/totp/setup')
       .send({
         password,
@@ -763,7 +757,7 @@ describe('AppController (e2e)', () => {
     expect(setupBody.qrCodeDataUrl).toMatch(/^data:image\/png;base64,/);
 
     const persistedUser = storedUsers.get('alice');
-    const totpService = app.get(TotpService);
+    const totpService = container.totpService;
     const verificationTime = new Date('2026-05-09T15:33:00.000Z');
     const totpCode = totpService.generateCode(
       totpService.decryptSecret(persistedUser?.totpSecretEncrypted ?? ''),
@@ -771,7 +765,7 @@ describe('AppController (e2e)', () => {
     );
     jest.useFakeTimers().setSystemTime(verificationTime);
 
-    const verifyResponse = await request(app.getHttpServer())
+    const verifyResponse = await request(server)
       .post('/auth/totp/verify')
       .send({
         code: totpCode,
@@ -788,7 +782,7 @@ describe('AppController (e2e)', () => {
     expect(verifyBody.user.totpEnabledAt).toBe('2026-05-09T15:33:00.000Z');
     expect(verifyBody.recoveryCodes).toHaveLength(10);
 
-    const loginResponse = await request(app.getHttpServer())
+    const loginResponse = await request(server)
       .post('/auth/login')
       .set('User-Agent', 'jest-e2e')
       .send({
@@ -811,7 +805,7 @@ describe('AppController (e2e)', () => {
 
     const originalRefreshToken = loginBody.refreshToken;
     const refreshRequestId = 'e2e-refresh-request';
-    const refreshResponse = await request(app.getHttpServer())
+    const refreshResponse = await request(server)
       .post('/auth/refresh')
       .send({
         refreshRequestId,
@@ -825,7 +819,7 @@ describe('AppController (e2e)', () => {
     expect(refreshBody.session.id).toBe('session-1');
     expect(refreshBody.session.lastUsedAt).toBe('2026-05-09T15:33:00.000Z');
 
-    const retryResponse = await request(app.getHttpServer())
+    const retryResponse = await request(server)
       .post('/auth/refresh')
       .send({
         refreshRequestId,
@@ -837,7 +831,7 @@ describe('AppController (e2e)', () => {
     expect(retryBody.refreshToken).toBe(refreshBody.refreshToken);
     expect(retryBody.session.id).toBe('session-1');
 
-    const revokeResponse = await request(app.getHttpServer())
+    const revokeResponse = await request(server)
       .post('/auth/session/revoke')
       .set('Authorization', `Bearer ${refreshBody.accessToken}`)
       .expect(201);
@@ -849,7 +843,7 @@ describe('AppController (e2e)', () => {
       },
     });
 
-    await request(app.getHttpServer())
+    await request(server)
       .post('/auth/refresh')
       .send({
         refreshRequestId: 'e2e-revoked-refresh-request',
@@ -891,7 +885,7 @@ describe('AppController (e2e)', () => {
     storedUsersById.set('user-1', storedUsers.get('alice') as AuthUserRecord);
 
     for (let attempt = 0; attempt < 5; attempt += 1) {
-      await request(app.getHttpServer())
+      await request(server)
         .post('/auth/login')
         .send({
           password: 'definitely-the-wrong-password',
@@ -901,7 +895,7 @@ describe('AppController (e2e)', () => {
         .expect(401);
     }
 
-    await request(app.getHttpServer())
+    await request(server)
       .post('/auth/login')
       .send({
         password: 'definitely-the-wrong-password',
@@ -920,9 +914,9 @@ describe('AppController (e2e)', () => {
     ).toHaveLength(6);
   });
 
-  afterEach(async () => {
+  afterEach(() => {
     jest.useRealTimers();
-    await app.close();
+    server.close();
     delete process.env.AUTH_ACCESS_TOKEN_SECRET;
     delete process.env.AUTH_ACCESS_TOKEN_TTL_SECONDS;
     delete process.env.AUTH_TOTP_ENCRYPTION_KEY;

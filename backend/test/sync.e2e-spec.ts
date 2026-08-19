@@ -1,10 +1,8 @@
-import { INestApplication } from '@nestjs/common';
-import { Test, TestingModule } from '@nestjs/testing';
 import { SyncEntityType, SyncOperation, type Prisma } from '@prisma/client';
+import { createAdaptorServer } from '@hono/node-server';
 import request from 'supertest';
-import { type App } from 'supertest/types';
-import { AccessTokenService } from './../src/auth/access-token.service';
-import { AppModule } from './../src/app.module';
+import { createApp } from '../src/app';
+import { type Container, createContainer } from '../src/container';
 import { PrismaService } from './../src/prisma/prisma.service';
 
 type MockLibraryItemRecord = ReturnType<typeof createLibraryItemRecord>;
@@ -46,7 +44,8 @@ type MockPrismaService = {
 
 describe('SyncController (e2e)', () => {
   let accessToken: string;
-  let app: INestApplication<App>;
+  let container: Container;
+  let server: ReturnType<typeof createAdaptorServer>;
   let libraryItems: MockLibraryItemRecord[];
   let places: MockPlaceRecord[];
   let prismaService: MockPrismaService;
@@ -54,7 +53,7 @@ describe('SyncController (e2e)', () => {
   let sessions: MockSessionRecord[];
   let syncEvents: MockSyncEventRecord[];
 
-  beforeEach(async () => {
+  beforeEach(() => {
     process.env.AUTH_ACCESS_TOKEN_SECRET = 'kestrel-test-access-token-secret';
     process.env.AUTH_ACCESS_TOKEN_TTL_SECONDS = '900';
     libraryItems = [
@@ -170,28 +169,23 @@ describe('SyncController (e2e)', () => {
       },
     };
 
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    })
-      .overrideProvider(PrismaService)
-      .useValue(prismaService)
-      .compile();
+    container = createContainer({
+      prismaService: prismaService as unknown as PrismaService,
+    });
+    server = createAdaptorServer(createApp(container));
 
-    app = moduleFixture.createNestApplication();
-    await app.init();
-
-    accessToken = app.get(AccessTokenService).issueToken({
+    accessToken = container.accessTokenService.issueToken({
       sessionId: 'session-1',
       userId: 'user-1',
     }).token;
   });
 
-  afterEach(async () => {
-    await app.close();
+  afterEach(() => {
+    server.close();
   });
 
   it('/sync/bootstrap (GET)', async () => {
-    await request(app.getHttpServer())
+    await request(server)
       .get('/sync/bootstrap')
       .set('Authorization', `Bearer ${accessToken}`)
       .expect(200)
@@ -224,7 +218,7 @@ describe('SyncController (e2e)', () => {
   });
 
   it('/sync/changes (GET)', async () => {
-    await request(app.getHttpServer())
+    await request(server)
       .get('/sync/changes')
       .query({
         since: '2',

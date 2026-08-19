@@ -1,12 +1,10 @@
-import { Logger } from '@nestjs/common';
-import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module';
+import { serve } from '@hono/node-server';
+import { createApp } from './app';
+import { createContainer } from './container';
+import { Logger } from './logger';
 
-async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
-  const port = process.env.PORT ?? 3300;
-  await app.listen(port);
+const port = Number(process.env.PORT ?? 3300);
 
+serve({ fetch: createApp(createContainer()).fetch, port }, () => {
   Logger.log(`kestrel-cloud-api listening on ${port}`, 'Bootstrap');
-}
-void bootstrap();
+});
