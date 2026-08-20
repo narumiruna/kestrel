@@ -5,7 +5,7 @@ import {
   InternalServerErrorException,
   UnauthorizedException,
 } from '../http/errors';
-import { Logger } from '../logger';
+import { createLogger } from '../logger';
 import { Prisma } from '@prisma/client';
 import { argon2id, hash, verify } from 'argon2';
 import { createHash, randomBytes } from 'node:crypto';
@@ -43,7 +43,7 @@ type RefreshSessionRecord = Prisma.SessionGetPayload<{
 }>;
 
 export class AuthService {
-  private readonly logger = new Logger(AuthService.name);
+  private readonly logger = createLogger(AuthService.name);
 
   constructor(
     private readonly accessTokenService: AccessTokenService,
@@ -442,8 +442,8 @@ export class AuthService {
       .deleteMany({ where: { expiresAt: { lte: now } } })
       .catch((error: unknown) => {
         this.logger.warn(
+          { err: error },
           'failed to prune expired refresh token history',
-          error instanceof Error ? error.stack : undefined,
         );
       });
 
@@ -871,8 +871,8 @@ export class AuthService {
       await this.authAuditService.log(entry);
     } catch (error) {
       this.logger.warn(
-        `failed to persist auth audit log for ${entry.event}`,
-        error instanceof Error ? error.stack : undefined,
+        { err: error, event: entry.event },
+        'failed to persist auth audit log',
       );
     }
   }

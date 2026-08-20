@@ -1,5 +1,5 @@
 import { BadRequestException, NotFoundException } from '../http/errors';
-import { Logger } from '../logger';
+import { createLogger } from '../logger';
 import { DevicePlatform } from '@prisma/client';
 import {
   AuthAuditMetadata,
@@ -10,7 +10,7 @@ import { SessionRevocationService } from '../auth/session-revocation.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 export class AccountSecurityService {
-  private readonly logger = new Logger(AccountSecurityService.name);
+  private readonly logger = createLogger(AccountSecurityService.name);
 
   constructor(
     private readonly authService: AuthService,
@@ -214,8 +214,8 @@ export class AccountSecurityService {
       await this.authAuditService.log(entry);
     } catch (error) {
       this.logger.warn(
-        `failed to persist auth audit log for ${entry.event}`,
-        error instanceof Error ? error.stack : undefined,
+        { err: error, event: entry.event },
+        'failed to persist auth audit log',
       );
     }
   }

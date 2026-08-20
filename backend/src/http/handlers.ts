@@ -1,7 +1,8 @@
 import type { Context, ErrorHandler, NotFoundHandler } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
-import { Logger } from '../logger';
+import type { AppContext, AuthVariables } from '../auth/auth-request';
+import { createLogger } from '../logger';
 import {
   BadRequestException,
   HttpException,
@@ -9,15 +10,30 @@ import {
   PayloadTooLargeException,
 } from './errors';
 
-const logger = new Logger('HttpException');
+const logger = createLogger('HttpException');
 
 // Matches the request body limit the previous express.json() default enforced.
 const MAX_BODY_BYTES = 100 * 1024;
 
-export const handleError: ErrorHandler = (error, context) => {
+export const handleError: ErrorHandler<{ Variables: AuthVariables }> = (
+  error,
+  context,
+) => {
   if (error instanceof HttpException) {
     const status = error.getStatus();
     const response = error.getResponse();
+
+    if (status >= HttpStatus.INTERNAL_SERVER_ERROR) {
+      logger.warn(
+        {
+          ...describeRequest(context),
+          exception: error.name,
+          reason: error.message,
+          statusCode: status,
+        },
+        'request failed with a server-side http exception',
+      );
+    }
 
     return context.json(
       typeof response === 'string'
@@ -28,7 +44,11 @@ export const handleError: ErrorHandler = (error, context) => {
   }
 
   logger.error(
-    error instanceof Error ? (error.stack ?? error.message) : String(error),
+    {
+      ...describeRequest(context),
+      err: error,
+    },
+    'unhandled request error',
   );
 
   return context.json(
@@ -57,6 +77,18 @@ export const enforceBodyLimit = bodyLimit({
     throw new PayloadTooLargeException('request entity too large');
   },
 });
+
+function describeRequest(context: AppContext): {
+  method: string;
+  path: string;
+  requestId: string | undefined;
+} {
+  return {
+    method: context.req.method,
+    path: context.req.path,
+    requestId: context.get('requestId'),
+  };
+}
 
 export async function readJsonBody(context: Context): Promise<unknown> {
   const raw = await context.req.text();

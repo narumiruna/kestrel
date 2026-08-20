@@ -5,6 +5,7 @@ import {
   RouteMode,
   type Prisma,
 } from '@prisma/client';
+import { createLogger } from './logger';
 
 const DEV_ADMIN_PASSWORD = 'admin';
 const DEV_ADMIN_USERNAME = 'admin';
@@ -292,11 +293,16 @@ function isDevSeedEnabled() {
 }
 
 if (require.main === module) {
+  const logger = createLogger('DevSeed');
   const prisma = new PrismaClient();
+
   seedDevData(prisma)
+    .then(() => {
+      logger.info('dev seed finished');
+    })
     .finally(async () => prisma.$disconnect())
     .catch((error: unknown) => {
-      console.error(error);
+      logger.error({ err: error }, 'dev seed failed');
       process.exitCode = 1;
     });
 }

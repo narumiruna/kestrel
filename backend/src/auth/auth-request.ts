@@ -6,6 +6,7 @@ import type { AuthAuditMetadata } from './auth-audit.service';
 
 export type AuthVariables = {
   auth?: AccessTokenClaims;
+  requestId?: string;
 };
 
 export type AppContext = Context<{ Variables: AuthVariables }>;
