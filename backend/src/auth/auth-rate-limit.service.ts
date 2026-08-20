@@ -1,5 +1,6 @@
 import { HttpException, HttpStatus } from '../http/errors';
 import { ConfigService } from '../config.service';
+import { createLogger } from '../logger';
 import { PrismaService } from '../prisma/prisma.service';
 
 const DEFAULT_RATE_LIMIT_WINDOW_SECONDS = 15 * 60;
@@ -16,6 +17,8 @@ export type AuthRateLimitType =
   (typeof AUTH_RATE_LIMIT_TYPE)[keyof typeof AUTH_RATE_LIMIT_TYPE];
 
 export class AuthRateLimitService {
+  private readonly logger = createLogger(AuthRateLimitService.name);
+
   constructor(
     private readonly configService: ConfigService,
     private readonly prismaService: PrismaService,
@@ -39,6 +42,16 @@ export class AuthRateLimitService {
       rateLimit?.blockedUntil != null &&
       rateLimit.blockedUntil.getTime() > now.getTime()
     ) {
+      // The subject is a username; it stays in the audit table, not in stdout.
+      this.logger.warn(
+        {
+          attempts: rateLimit.attempts,
+          event: 'auth_rate_limit_rejected',
+          type,
+        },
+        'rejected an auth attempt from a blocked subject',
+      );
+
       throw new HttpException(
         getRateLimitMessage(type),
         HttpStatus.TOO_MANY_REQUESTS,
@@ -89,14 +102,14 @@ export class AuthRateLimitService {
     }
 
     const attempts = rateLimit.attempts + 1;
+    const isBlocked = attempts >= this.getMaxAttempts();
 
     await this.prismaService.authRateLimit.update({
       data: {
         attempts,
-        blockedUntil:
-          attempts >= this.getMaxAttempts()
-            ? new Date(now.getTime() + this.getBlockWindowMs())
-            : null,
+        blockedUntil: isBlocked
+          ? new Date(now.getTime() + this.getBlockWindowMs())
+          : null,
       },
       where: {
         type_subject: {
@@ -105,6 +118,18 @@ export class AuthRateLimitService {
         },
       },
     });
+
+    if (isBlocked) {
+      this.logger.warn(
+        {
+          attempts,
+          blockSeconds: this.getBlockWindowMs() / 1000,
+          event: 'auth_rate_limit_blocked',
+          type,
+        },
+        'blocked a subject after repeated auth failures',
+      );
+    }
   }
 
   async reset(type: AuthRateLimitType, subject: string) {

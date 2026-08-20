@@ -1,18 +1,20 @@
 import { randomUUID } from 'node:crypto';
 import type { MiddlewareHandler } from 'hono';
 import type { AuthVariables } from './auth/auth-request';
-import { Logger } from './logger';
+import { type Logger, createLogger } from './logger';
 
 const REQUEST_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
 
-export function createHttpRequestLogging(): MiddlewareHandler<{
+export function createHttpRequestLogging(
+  logger: Logger = createLogger('HttpRequest'),
+): MiddlewareHandler<{
   Variables: AuthVariables;
 }> {
-  const logger = new Logger('HttpRequest');
-
   return async (context, next) => {
     const startedAt = Date.now();
     const requestId = getRequestId(context.req.header('x-request-id'));
+
+    context.set('requestId', requestId);
     context.header('x-request-id', requestId);
 
     await next();
@@ -20,7 +22,7 @@ export function createHttpRequestLogging(): MiddlewareHandler<{
     const statusCode = context.res.status;
     const isError = statusCode >= 500;
     const auth = context.get('auth');
-    const record = JSON.stringify({
+    const record = {
       durationMs: Date.now() - startedAt,
       event: isError ? 'http_error' : 'http_request',
       method: context.req.method,
@@ -33,12 +35,12 @@ export function createHttpRequestLogging(): MiddlewareHandler<{
             userId: auth.userId,
           }),
       statusCode,
-    });
+    };
 
     if (isError) {
-      logger.error(record);
+      logger.error(record, 'http request failed');
     } else {
-      logger.log(record);
+      logger.info(record, 'http request');
     }
   };
 }

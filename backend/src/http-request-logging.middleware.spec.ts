@@ -1,29 +1,31 @@
 import { Hono } from 'hono';
+import pino from 'pino';
 import type { AuthVariables } from './auth/auth-request';
 import { createHttpRequestLogging } from './http-request-logging.middleware';
-import { Logger } from './logger';
 
 describe('http request logging middleware', () => {
-  let loggedRecords: string[];
-  let errorRecords: string[];
+  let lines: string[];
+  let logger: pino.Logger;
 
   beforeEach(() => {
-    loggedRecords = [];
-    errorRecords = [];
-    jest.spyOn(Logger.prototype, 'log').mockImplementation((message) => {
-      loggedRecords.push(String(message));
-    });
-    jest.spyOn(Logger.prototype, 'error').mockImplementation((message) => {
-      errorRecords.push(String(message));
-    });
-  });
-
-  afterEach(() => {
-    jest.restoreAllMocks();
+    lines = [];
+    logger = pino(
+      {
+        base: undefined,
+        formatters: {
+          level: (label) => ({ level: label }),
+        },
+      },
+      {
+        write: (line: string) => {
+          lines.push(line);
+        },
+      },
+    );
   });
 
   it('returns a request id and logs allowlisted request metadata only', async () => {
-    const app = createTestApp('/sync/changes', 201);
+    const app = createTestApp(logger, '/sync/changes', 201);
 
     const response = await app.request('/sync/changes?cursor=secret-cursor', {
       headers: {
@@ -34,10 +36,11 @@ describe('http request logging middleware', () => {
     });
 
     expect(response.headers.get('x-request-id')).toBe('request-from-client');
-    expect(loggedRecords).toHaveLength(1);
-    const serializedRecord = loggedRecords[0] ?? '';
+    expect(lines).toHaveLength(1);
+    const serializedRecord = lines[0] ?? '';
     expect(JSON.parse(serializedRecord)).toMatchObject({
       event: 'http_request',
+      level: 'info',
       method: 'POST',
       path: '/sync/changes',
       requestId: 'request-from-client',
@@ -47,11 +50,10 @@ describe('http request logging middleware', () => {
     });
     expect(serializedRecord).not.toContain('secret-token');
     expect(serializedRecord).not.toContain('secret-cursor');
-    expect(errorRecords).toHaveLength(0);
   });
 
   it('generates a safe request id and emits error-level records for 5xx', async () => {
-    const app = createTestApp('/health', 503, false);
+    const app = createTestApp(logger, '/health', 503, false);
 
     const response = await app.request('/health', {
       headers: { 'x-request-id': 'invalid request id with spaces' },
@@ -59,26 +61,30 @@ describe('http request logging middleware', () => {
 
     const requestId = response.headers.get('x-request-id') ?? '';
     expect(requestId).toMatch(/^[0-9a-f-]{36}$/);
-    expect(errorRecords).toHaveLength(1);
-    expect(loggedRecords).toHaveLength(0);
-    expect(JSON.parse(errorRecords[0] ?? '')).toMatchObject({
+    expect(lines).toHaveLength(1);
+    const record: unknown = JSON.parse(lines[0] ?? '');
+    expect(record).toMatchObject({
       event: 'http_error',
+      level: 'error',
       method: 'GET',
       path: '/health',
       requestId,
       statusCode: 503,
     });
+    expect(record).not.toHaveProperty('userId');
+    expect(record).not.toHaveProperty('sessionId');
   });
 });
 
 function createTestApp(
+  logger: pino.Logger,
   path: string,
   statusCode: 201 | 503,
   authenticated = true,
 ): Hono<{ Variables: AuthVariables }> {
   const app = new Hono<{ Variables: AuthVariables }>();
 
-  app.use('*', createHttpRequestLogging());
+  app.use('*', createHttpRequestLogging(logger));
   app.all(path, (context) => {
     if (authenticated) {
       context.set('auth', {

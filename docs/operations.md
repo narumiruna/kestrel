@@ -23,7 +23,38 @@ curl -fsS -D /tmp/kestrel-health.headers https://kestrel.narumi.dev/api/backend/
 rg -i '^x-request-id:' /tmp/kestrel-health.headers
 ```
 
-The backend healthcheck queries PostgreSQL before returning `200`. Web startup waits for this check. Backend request logs are structured JSON under the `HttpRequest` context and contain only method, path without query parameters, status, duration, request ID, and authenticated user/session IDs. They must never include authorization headers, request bodies, query strings, credentials, refresh tokens, TOTP codes, or location payloads.
+The backend healthcheck queries PostgreSQL before returning `200`.
+Web startup waits for this check.
+
+## Logging
+
+The backend logs with [pino](https://getpino.io) and writes one NDJSON line per event to stdout, so `docker compose logs` and any log collector can parse it without a second pass.
+Every line carries `time` (ISO 8601), `level` (`debug`, `info`, `warn`, `error`, `fatal`), `service`, the emitting `context` (for example `HttpRequest`, `AuthService`, `Prisma`), and `msg`.
+
+The backend reads `LOG_LEVEL` and defaults to `info`; an unrecognized value falls back to `info`, and the test environment is silent.
+Both Compose files map `KESTREL_LOG_LEVEL` onto the container's `LOG_LEVEL`, defaulting to `info` in `compose.deploy.yaml` and `debug` in `compose.dev.yaml`.
+Set `LOG_LEVEL` directly when the backend runs outside Compose.
+
+Read the stream locally by piping it through the pretty printer:
+
+```bash
+docker compose -f compose.deploy.yaml logs -f backend | npx pino-pretty
+```
+
+`npm run start:pretty` runs the dev server through the pretty printer.
+The `start` and `start:dev` scripts stay unpiped so a crash keeps the Node process exit code, which the dev Compose stack relies on.
+
+### What may be logged
+
+Request logs under the `HttpRequest` context contain only method, path without query parameters, status, duration, request ID, and authenticated user/session IDs.
+They must never include authorization headers, request bodies, query strings, credentials, refresh tokens, TOTP codes, or location payloads.
+
+Auth events are mirrored from the audit table to stdout under the `AuthAuditService` context with event, outcome, auth method, failure reason, and user/session IDs.
+Username, IP address, and user agent stay in the database and must not reach the log stream.
+Rate-limit logs report the limit type and attempt count without the blocked subject.
+
+Unhandled errors are logged under `HttpException` with the request ID, so a failing response can be traced back to its request log line.
+The logger also censors `password`, `accessToken`, `refreshToken`, `totpCode`, `recoveryCode`, and `authorization` fields as a backstop; that redaction is a safety net, not a licence to pass those values to a log call.
 
 ## Local environment
 
