@@ -31,9 +31,9 @@ Web startup waits for this check.
 The backend logs with [pino](https://getpino.io) and writes one NDJSON line per event to stdout, so `docker compose logs` and any log collector can parse it without a second pass.
 Every line carries `time` (ISO 8601), `level` (`debug`, `info`, `warn`, `error`, `fatal`), `service`, the emitting `context` (for example `HttpRequest`, `AuthService`, `Prisma`), and `msg`.
 
-`LOG_LEVEL` sets the threshold and defaults to `info`; `compose.dev.yaml` uses `debug` and the test environment is silent.
-An unrecognized value falls back to `info`.
-Override it per deployment with `KESTREL_LOG_LEVEL`.
+The backend reads `LOG_LEVEL` and defaults to `info`; an unrecognized value falls back to `info`, and the test environment is silent.
+Both Compose files map `KESTREL_LOG_LEVEL` onto the container's `LOG_LEVEL`, defaulting to `info` in `compose.deploy.yaml` and `debug` in `compose.dev.yaml`.
+Set `LOG_LEVEL` directly when the backend runs outside Compose.
 
 Read the stream locally by piping it through the pretty printer:
 
@@ -41,7 +41,8 @@ Read the stream locally by piping it through the pretty printer:
 docker compose -f compose.deploy.yaml logs -f backend | npx pino-pretty
 ```
 
-`npm run start` and `npm run start:dev` already pipe through `pino-pretty`.
+`npm run start:pretty` runs the dev server through the pretty printer.
+The `start` and `start:dev` scripts stay unpiped so a crash keeps the Node process exit code, which the dev Compose stack relies on.
 
 ### What may be logged
 
