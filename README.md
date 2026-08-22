@@ -1,189 +1,155 @@
 # 🦅 Kestrel
 
-Kestrel is an Android mock GPS app that lets you pin the system location to any point on the globe, simulate walking along a route, or generate random walking paths — all without root access.
+Kestrel is an Android app that sets your device's location to anywhere in the world — no root required.
 
-Built with **Kotlin**, **Jetpack Compose**, **Material 3**, and **MapLibre**. Kestrel uses Android's official mock location APIs and is designed for development, testing, and personal location-simulation workflows.
+Pin a single point, walk a route at a speed you choose, or let Kestrel generate a random walking path.
+It uses Android's official mock-location APIs, so it works on a normal, unmodified phone.
 
----
-
-## ✨ Features
-
-| Feature | Description |
-|---|---|
-| 📍 **Single-point mock** | Tap the map or paste a `lat,lng` coordinate / Google Maps URL to lock the system location to that point. |
-| 🚶 **Route playback** | Define waypoints, set speed (km/h), and let the engine walk the path automatically. Supports **Once / Loop / PingPong** playback modes. |
-| 🎲 **Random route generation** | Enter a waypoint count and step distance; Kestrel generates a smooth random walk from the current map centre. |
-| ⭐ **Favorites** | Save single points or full routes. Sort by **Recent / Alphabetical / Manual** order. |
-| 🔄 **App opening behaviour** | Return to the last map view, center on the device, or use a saved Favorite with an explicit preview of its launch effect. |
+- 📍 **Mock a point** — tap the map, paste `lat,lng`, or paste a Google Maps link.
+- 🚶 **Play a route** — set waypoints and speed, then walk it Once, on Loop, or Ping-pong.
+- 🎲 **Generate a random walk** — pick a waypoint count and step distance.
+- ⭐ **Save favorites** — reuse points and routes, sorted by Recent, A–Z, or your own order.
+- ☁️ **Optional cloud** — edit routes in a web console and send them to your phone.
 
 ---
 
-## 📋 Requirements
+## 🚀 Get started
 
-- Android 10+ (API 29+)
-- **Developer Options → Select mock location app → Kestrel**
-- *(Recommended)* Settings → Location → Location Services → **Google Location Accuracy** → Off
+### 1. Install
 
-  Disabling Google Location Accuracy prevents Google Play Services from overriding the mocked position with Wi-Fi / cell-tower fusion.
+Download the latest `kestrel-<version>-release.apk` from [Releases](https://github.com/narumiruna/kestrel/releases/latest) and install it.
+
+Requires **Android 10 (API 29) or newer**.
+
+### 2. Let Android use Kestrel as the mock location app
+
+1. Open **Settings → About phone** and tap **Build number** seven times to unlock Developer Options.
+2. Open **Settings → System → Developer options → Select mock location app**.
+3. Choose **Kestrel**.
+
+Without this step Kestrel can preview locations, but it cannot change the system location.
+
+### 3. Turn off Google Location Accuracy (recommended)
+
+Go to **Settings → Location → Location services → Google Location Accuracy** and turn it **off**.
+
+Otherwise Google Play Services may override your mocked position using nearby Wi-Fi and cell towers.
+
+### 4. Mock your first location
+
+1. Open Kestrel and grant the location permissions it asks for on the **Map** tab.
+2. Tap anywhere on the map, or tap **Choose target** to enter coordinates or paste a Maps link.
+3. Check the teal preview marker — nothing has changed yet.
+4. Tap **Mock this point**.
+
+Your device now reports that location. A notification stays in the shade while the mock is running; use it to pause or stop.
 
 ---
 
-## ▶️ Android workflow
+## 🗺️ Using Kestrel
 
-Kestrel separates previewing from changing the system location:
+Kestrel always separates **previewing** from **changing your real location**.
+A preview never touches the system location, and cancelling anything is always safe.
 
-1. On **Map**, tap a location or choose **Choose target** to enter coordinates, paste a supported Maps URL, or select a Favorite.
-2. Review the point or route Preview.
-3. Choose **Mock this point** or **Play route**. If another mock is active, confirm the Current/New comparison before replacement.
-4. Use **Favorites** to reuse saved points and routes, and **Settings** to change app opening, route recovery, cloud sync, and Web remote control.
+- **Routes** — tap several map locations to build a path, or choose **Generate random route**. Review the waypoints, speed, and mode, then tap **Play route**. Pause, Resume, and Stop are available on the map and in the notification.
+- **Replacing an active mock** — starting a new mock shows a Current/New comparison first, so you always confirm before switching.
+- **Favorites** — save any point or route, filter by All / Points / Routes, and preview a favorite on the map without starting it.
+- **Settings** — choose what happens when the app opens, how often route progress is saved, and whether cloud sync and web remote control are enabled.
 
-Cancelling a preview, editor, confirmation, or settings draft has no side effects. See the complete [Kestrel Android guide](docs/android-app-guide.md) for route generation, exact startup behavior, errors, accessibility, cloud conflicts, and remote-control safeguards.
-
-## ⚙️ How It Works
-
-Kestrel uses the Android platform APIs `LocationManager.addTestProvider()` and `setTestProviderLocation()` — the official mock location mechanism. No root or system modification is required.
-
-A **foreground service** (type `location`) keeps the mock alive while the UI is in the background. Movement is driven by a 1 Hz tick that advances `MovementEngine` along the route and pushes each sample through `MockProviderManager`.
-
-The web console can remote-control an Android device only after the Android app is signed in and the user confirms **Settings → Web remote control**. First-version remote control uses the cloud command queue plus Android polling: Kestrel must be open in the foreground or already running its mock-location foreground service to receive commands. Commands expire after a bounded window if they are not delivered, and neither the web console, Google services, nor the backend can wake an app process that Android has killed.
-
-> ⚠️ **Note:** Apps protected by Play Integrity or SafetyNet can still detect mock locations — this is a system-level behaviour that Kestrel does not attempt to bypass.
+Full walkthrough: **[Kestrel Android guide](docs/android-app-guide.md)**.
 
 ---
 
-## 🗂️ Project Structure
+## ☁️ Kestrel Cloud (optional)
 
-```
-app/src/main/java/dev/narumi/kestrel/
-├── core/
-│   ├── data/        # DataStore Preferences, @Serializable schema
-│   ├── location/    # LatLng, Geo, MovementEngine, RouteGenerator,
-│   │                #   LocationService, MockProviderManager, CoordParser
-│   └── map/         # KestrelMap (MapLibre Compose wrapper), MapStyle
-└── feature/
-    ├── map/         # Main screen with map and bottom sheet
-    ├── favorites/   # Saved points and routes list
-    ├── options/     # Settings workflows and cloud/remote-control state
-    ├── routes/
-    ├── tracks/
-    └── settings/
+Kestrel can sync saved places and routes to a self-hosted cloud, and a web console can send a location or route to your phone.
 
-backend/             # Hono + Prisma cloud platform backend
-web/                 # Next.js cloud console
-```
+Remote control only works after you sign in on the phone and turn on **Settings → Web remote control**.
+Because commands are delivered by polling, Kestrel must be open or already running its mock-location service to receive them.
+Undelivered commands expire, and nothing can wake an app that Android has killed.
+
+Route editing, sharing, and device commands are covered in the **[Kestrel Cloud guide](docs/web-cloud-guide.md)**.
+
+---
+
+## ❓ Good to know
+
+**The location does not change.**
+Recheck **Developer options → Select mock location app**, and make sure Kestrel has location permission.
+
+**The location keeps snapping back.**
+Turn off Google Location Accuracy (step 3 above).
+
+**Some apps still detect the real location.**
+Apps protected by Play Integrity or SafetyNet can detect mock locations.
+This is system-level behaviour that Kestrel does not try to bypass.
+
+**How it works.**
+Kestrel calls `LocationManager.addTestProvider()` and `setTestProviderLocation()` — Android's official mock-location mechanism.
+A foreground service keeps the mock alive in the background, advancing along your route once per second.
 
 ---
 
 ## 🛠️ Development
 
-> **Prerequisites:** Android Studio, JDK 26 with `JAVA_HOME` configured, and the Android SDK available through `ANDROID_HOME`, `ANDROID_SDK_ROOT`, or the default macOS location.
-> All common tasks are driven by the [`justfile`](justfile) — install [just](https://github.com/casey/just) to use them. Run bare `just` or `just help` to see the grouped, non-destructive command list.
+Kestrel is three workspaces: `app/` (Kotlin, Jetpack Compose, Material 3, MapLibre), `backend/` (Hono, Prisma, PostgreSQL), and `web/` (Next.js, Radix Themes, MapLibre GL).
+
+**Prerequisites:** Android Studio, JDK 26 with `JAVA_HOME` set, the Android SDK on `ANDROID_HOME` or `ANDROID_SDK_ROOT`, and [just](https://github.com/casey/just).
+
+Run `just` to list every recipe.
 
 | Task | Command |
 |---|---|
-| Show available recipes | `just` or `just help` |
-| Build debug APK | `just android-build` (or `just build`) |
-| Build release APK | `just release` |
-| Build → install → launch on a selected device | `just br` |
-| Run Android unit tests | `just android-test` (or `just test`) |
-| Validate Android UI screenshots | `just android-ui` |
-| Update Android UI screenshots | `just android-ui-update` (requires confirmation) |
-| Install exact Backend / Web dependencies | `just backend-install`, `just web-install` |
-| Verify Backend / Web | `just backend-check`, `just web-verify` |
+| Build debug APK | `just build` |
+| Build → install → launch on a device | `just br` |
+| Run Android unit tests | `just test` |
+| Validate Compose screenshots | `just android-ui` |
+| Format Android + Web | `just format` |
+| Check formatting and lint | `just check`, `just lint` |
 | Verify every workspace | `just verify` |
-| Auto-format Android + Web | `just format` |
-| Check Android + Web formatting/lint | `just check`, `just lint` |
-| Regenerate Detekt baseline | `just lint-baseline` (requires confirmation) |
-| Install git hooks (prek) | `just hooks` |
-| Reset app data permanently | `just reset` (requires confirmation) |
+| Start / stop the local cloud stack | `just cloud-up`, `just cloud-down` |
 | Follow logcat | `just log` |
-| Start / stop the dev stack | `just cloud-up`, `just cloud-down` |
+| Install git hooks | `just hooks` |
 
-### 🧪 Unit tests
+`just cloud-up` starts PostgreSQL on `localhost:15432`, the backend API on `http://localhost:3300`, and the web console on `http://localhost:3301`, with `backend/` and `web/` bind-mounted for live reload.
+If those ports are taken, copy `.env.example` to `.env` and adjust the `KESTREL_*_PORT` variables.
 
-Pure-Kotlin tests (no Android context needed) live in `app/src/test/`. Tests that require an Android context go in `app/src/androidTest/`.
-
-```bash
-just test
-```
-
-### ☁️ Cloud platform backend
-
-The Hono + Prisma backend lives in `backend/`.
+To run a workspace directly instead:
 
 ```bash
-just backend-install
-cd backend
-npm run db:up
-npm run prisma:migrate:dev
-npm run start:dev
+just backend-install && cd backend && npm run db:up && npm run prisma:migrate:dev && npm run start:dev
+just web-install && cd web && npm run dev
 ```
 
-### 🌐 Web console
+Pure-Kotlin tests live in `app/src/test/`; tests needing an Android context go in `app/src/androidTest/`.
 
-The Next.js cloud console lives in `web/` and proxies `/api/backend/*` to the Hono API.
+### Project layout
 
-```bash
-just web-install
-cd web
-npm run dev
+```
+app/src/main/java/dev/narumi/kestrel/
+├── core/
+│   ├── data/        # DataStore Preferences, @Serializable schema
+│   ├── library/     # Room database and sync models
+│   ├── cloud/       # sign-in, sync, devices, remote control
+│   ├── location/    # LatLng, Geo, MovementEngine, RouteGenerator,
+│   │                #   LocationService, MockProviderManager, CoordParser
+│   └── map/         # KestrelMap (MapLibre Compose wrapper), MapStyle
+└── feature/         # map, favorites, options — the three main tabs
+
+backend/             # Hono + Prisma cloud backend
+web/                 # Next.js cloud console
+docs/                # guides, operations, security, API
 ```
 
-Open `http://localhost:3301`. Set `KESTREL_API_BASE_URL` if the API is not running on `http://localhost:3300`. See the [Kestrel Cloud route editing guide](docs/web-cloud-guide.md) for route drafts, path tools, playback, sharing, device commands, and recovery.
+### CI and releases
 
-### 🐳 Docker Compose stack
+`.github/workflows/ci.yml` runs `android`, `backend`, and `web` lanes, gated by `dorny/paths-filter` so a PR touching one workspace skips the others.
+Pushes to `main` always run all three.
 
-To run PostgreSQL, the Hono backend, and the Next.js web console together:
+Version bumps, tagging, and signed release builds are automated by the `bump-version`, `tag-release`, and `release` workflows.
+`just release` builds a signed APK locally and requires the four `KESTREL_RELEASE_*` variables documented in [docs/operations.md](docs/operations.md).
 
-```bash
-just cloud-up   # or: docker compose -f compose.dev.yaml --profile watch up --build
-```
-
-| Service | Address |
-|---|---|
-| PostgreSQL | `localhost:15432` |
-| Backend API | `http://localhost:3300` |
-| Web console | `http://localhost:3301` |
-
-The Compose file uses development defaults and bind-mounts `backend/` and `web/` for live reload.
-If those ports are already taken, copy `.env.example` to `.env` and adjust the `KESTREL_*_PORT` variables.
-Use `just cloud-down` to stop the stack.
-
----
-
-## 🤖 Continuous Integration
-
-`.github/workflows/ci.yml` runs three lanes on every PR and push to `main`:
-
-| Lane | What it runs | Triggers on |
-|---|---|---|
-| `android` | `spotlessCheck`, `detekt`, `:app:assembleDebug`, unit tests (non-blocking), uploads `app-debug.apk` artifact | changes under `app/`, top-level Gradle files, `detekt*`, `justfile`, or `.github/workflows/**` |
-| `backend` | `npm ci`, `prisma generate`, `lint`, `test`, `test:e2e`, `typecheck`, `build` | changes under `backend/` or `.github/workflows/**` |
-| `web` | `npm ci`, `lint`, `typecheck`, `build` | changes under `web/` or `.github/workflows/**` |
-
-A leading `changes` job uses `dorny/paths-filter` to gate each lane, so a PR touching only one workspace skips the others. Push events to `main` always run all three.
-
-## 🚀 Releases
-
-- `just release` requires the four `KESTREL_RELEASE_*` signing environment variables documented in `docs/operations.md`, runs `:app:assembleRelease`, and produces `app/build/outputs/apk/release/app-release.apk`. The build fails rather than producing an unsigned artifact when signing is not configured.
-- `.github/workflows/bump-version.yml` takes a `major` / `minor` / `patch` choice, calls `scripts/bump-version.py`, and bumps the shared Android/backend/web version plus Android `appVersionCode`, then opens a PR using repository secret `PAT_TOKEN` so the resulting PR can trigger downstream CI workflows.
-- `.github/workflows/tag-release.yml` watches version-file merges to `main`, resolves the shared Android/backend/web version, and pushes the matching `v*` tag with `PAT_TOKEN` if it does not already exist.
-- `.github/workflows/release.yml` decodes the protected release keystore, builds and verifies a signed APK, then publishes a GitHub Release when a matching `v*` tag is pushed (or when manually dispatched against an existing tag).
-
----
-
-## 🔐 Permissions
-
-```xml
-<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
-<uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
-<uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
-<uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION"/>
-<uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
-<uses-permission android:name="android.permission.INTERNET"/> <!-- map tile downloads -->
-```
-
-`ACCESS_MOCK_LOCATION` is declared in the manifest (required for the app to appear in the Developer Options mock-location picker) but has no runtime effect since Android 6.
+Contributor conventions live in [AGENTS.md](AGENTS.md).
 
 ---
 
