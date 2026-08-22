@@ -18,7 +18,7 @@ maplibre = "13.4.1"
 datastore = "1.2.1"
 spotless = "8.9.0"
 ktlint = "1.5.0"
-detekt = "2.0.0-alpha.5"
+detekt = "2.0.0-alpha.6"
 screenshot = "0.0.1-alpha16"
 
 [libraries]
