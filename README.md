@@ -94,9 +94,9 @@ A foreground service keeps the mock alive in the background, advancing along you
 
 Kestrel is three workspaces: `app/` (Kotlin, Jetpack Compose, Material 3, MapLibre), `backend/` (Hono, Prisma, PostgreSQL), and `web/` (Next.js, Radix Themes, MapLibre GL).
 
-**Prerequisites:** Android Studio, JDK 26 with `JAVA_HOME` set, the Android SDK on `ANDROID_HOME` or `ANDROID_SDK_ROOT`, and [just](https://github.com/casey/just).
-
-Run `just` to list every recipe.
+**Prerequisites:** Android Studio, JDK 26 with `JAVA_HOME` set, and the Android SDK on `ANDROID_HOME` or `ANDROID_SDK_ROOT`.
+Cloud development also requires Node.js 22 with npm and Docker with Compose.
+Install [just](https://github.com/casey/just), then run `just` to list every recipe.
 
 | Task | Command |
 |---|---|
@@ -105,7 +105,8 @@ Run `just` to list every recipe.
 | Run Android unit tests | `just test` |
 | Validate Compose screenshots | `just android-ui` |
 | Format Android + Web | `just format` |
-| Check formatting and lint | `just check`, `just lint` |
+| Check Android + Web formatting/lint | `just check`, `just lint` |
+| Run complete Backend checks | `just backend-check` |
 | Verify every workspace | `just verify` |
 | Start / stop the local cloud stack | `just cloud-up`, `just cloud-down` |
 | Follow logcat | `just log` |
