@@ -46,6 +46,41 @@ class MovementEngineTest {
     }
 
     @Test
+    fun exactWaypointUsesTheIncomingSegment() {
+        val c = LatLng(0.001, 0.001)
+        val engine =
+            MovementEngine(
+                waypoints = listOf(a, b, c),
+                speedMps = segmentMeters,
+                mode = MovementEngine.Mode.Once,
+            )
+
+        val sample = engine.advance(deltaSeconds = 1.0)
+
+        assertEquals(b.lat, sample.point.lat, 1e-9)
+        assertEquals(b.lng, sample.point.lng, 1e-9)
+        assertEquals(bearingDegrees(a, b), sample.bearingDeg, 1e-9)
+    }
+
+    @Test
+    fun findsPositionNearEndOfLongRoute() {
+        val waypoints = List(1001) { index -> LatLng(0.0, index * 0.001) }
+        val engine =
+            MovementEngine(
+                waypoints = waypoints,
+                speedMps = segmentMeters,
+                mode = MovementEngine.Mode.Once,
+                initialProgressMeters = segmentMeters * 998.5,
+            )
+
+        val sample = engine.advance(deltaSeconds = 0.25)
+
+        assertEquals(segmentMeters * 998.75, engine.progressMeters(), 1e-4)
+        assertEquals(0.99875, sample.point.lng, 1e-8)
+        assertTrue(sample.speedMps > 0.0)
+    }
+
+    @Test
     fun pingPongModeReflectsAfterPassingEnd() {
         val engine =
             MovementEngine(

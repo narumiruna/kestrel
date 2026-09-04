@@ -361,7 +361,9 @@ fun MapScreen(
 
     val setupStep = mapSetupStep(permissionState.allPermissionsGranted, mockAllowed)
     val ready = setupStep == MapSetupStep.Ready
-    val mockNow by LocationService.currentMock.collectAsStateWithLifecycle()
+    // Defer the per-tick value read to the map and sheet lambdas so route playback does not
+    // recompose this entire screen every second.
+    val currentMockState = LocationService.currentMock.collectAsStateWithLifecycle()
     val runtimeState by LocationService.runtimeState.collectAsStateWithLifecycle()
     val latestOperationResult by
         LocationService.operationResults.collectAsStateWithLifecycle(initialValue = null)
@@ -616,7 +618,7 @@ fun MapScreen(
             runState = runState,
             waypointCount = renderedWaypoints.size,
             draftWaypointCount = waypoints.size,
-            mockNow = mockNow,
+            mockNow = currentMockState.value,
             ready = ready,
             speedKmh = renderedSpeedKmh,
             routeMode = renderedRouteMode,
@@ -650,7 +652,7 @@ fun MapScreen(
     val mapCanvas: @Composable (Modifier) -> Unit = { canvasModifier ->
         MapCanvas(
             modifier = canvasModifier,
-            mockLocation = mockNow,
+            mockLocation = currentMockState.value,
             currentRoute = activeRoute,
             previewRoute = previewRoute,
             previewPoint = previewPoint,

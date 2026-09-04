@@ -15,6 +15,7 @@ class MockProviderManager(
         requireNotNull(context.getSystemService<LocationManager>()) {
             "LocationManager unavailable"
         }
+    private val mockLocations = MOCK_PROVIDERS.map(::Location)
     private var enabled = false
 
     fun start() {
@@ -51,23 +52,26 @@ class MockProviderManager(
         accuracy: Float = 1f,
     ) {
         if (!enabled) return
-        for (provider in MOCK_PROVIDERS) {
-            val location =
-                Location(provider).apply {
-                    latitude = point.lat
-                    longitude = point.lng
-                    this.accuracy = accuracy
-                    this.speed = speed
-                    this.bearing = bearing
-                    time = System.currentTimeMillis()
-                    elapsedRealtimeNanos = SystemClock.elapsedRealtimeNanos()
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        speedAccuracyMetersPerSecond = 0.1f
-                        bearingAccuracyDegrees = 0.1f
-                        verticalAccuracyMeters = 1f
-                    }
+        val wallClockMillis = System.currentTimeMillis()
+        val elapsedRealtimeNanos = SystemClock.elapsedRealtimeNanos()
+        for (location in mockLocations) {
+            location.apply {
+                latitude = point.lat
+                longitude = point.lng
+                this.accuracy = accuracy
+                this.speed = speed
+                this.bearing = bearing
+                time = wallClockMillis
+                this.elapsedRealtimeNanos = elapsedRealtimeNanos
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    speedAccuracyMetersPerSecond = 0.1f
+                    bearingAccuracyDegrees = 0.1f
+                    verticalAccuracyMeters = 1f
                 }
-            runCatching { locationManager.setTestProviderLocation(provider, location) }
+            }
+            runCatching {
+                locationManager.setTestProviderLocation(requireNotNull(location.provider), location)
+            }
         }
     }
 
