@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.kotlin.compose) apply false
     alias(libs.plugins.spotless)
     alias(libs.plugins.detekt)
+    alias(libs.plugins.version.catalog.update)
 }
 
 detekt {
@@ -33,6 +34,13 @@ tasks.withType<dev.detekt.gradle.Detekt>().configureEach {
 
 tasks.withType<dev.detekt.gradle.DetektCreateBaselineTask>().configureEach {
     jvmTarget = "26"
+}
+
+versionCatalogUpdate {
+    sortByKey.set(false)
+    keep {
+        keepUnusedVersions.set(true)
+    }
 }
 
 spotless {
