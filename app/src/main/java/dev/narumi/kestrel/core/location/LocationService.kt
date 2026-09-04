@@ -53,10 +53,11 @@ class LocationService : Service() {
     @Volatile private var paused = false
     private var currentMode: MockState.Mode = MockState.Mode.Idle
 
-    // Snapshot of the in-flight route so periodic + transition writes can rebuild the matching
-    // `RouteState` (with current progress + forward) without re-reading waypoints from DataStore.
+    // Snapshot the serialized coordinates once per route instead of allocating new arrays on every
+    // periodic progress write.
     private var activeEngine: MovementEngine? = null
-    private var activeRouteWaypoints: List<LatLng> = emptyList()
+    private var activeRouteLatitudes: DoubleArray? = null
+    private var activeRouteLongitudes: DoubleArray? = null
     private var activeRouteSpeedKmh: Double = 0.0
     private var activeRouteMode: MovementEngine.Mode = MovementEngine.Mode.Once
 
@@ -363,7 +364,8 @@ class LocationService : Service() {
         stopSingleKeepAlive()
         paused = false
         activeEngine = engine
-        activeRouteWaypoints = waypoints
+        activeRouteLatitudes = DoubleArray(waypoints.size) { waypoints[it].lat }
+        activeRouteLongitudes = DoubleArray(waypoints.size) { waypoints[it].lng }
         activeRouteSpeedKmh = speedKmh
         activeRouteMode = mode
         routeJob =
@@ -391,7 +393,8 @@ class LocationService : Service() {
                 if (mode == MovementEngine.Mode.Once && engine.isFinished()) {
                     val last = waypoints.last()
                     activeEngine = null
-                    activeRouteWaypoints = emptyList()
+                    activeRouteLatitudes = null
+                    activeRouteLongitudes = null
                     currentMode = MockState.Mode.Single
                     startSingleKeepAlive(last)
                     _runtimeState.value = RuntimeState.Single(last)
@@ -412,17 +415,16 @@ class LocationService : Service() {
         routeJob = null
         paused = false
         activeEngine = null
-        activeRouteWaypoints = emptyList()
+        activeRouteLatitudes = null
+        activeRouteLongitudes = null
     }
 
     private suspend fun persistRouteState(
         progressMeters: Double,
         forward: Boolean,
     ) {
-        val waypoints = activeRouteWaypoints
-        if (waypoints.isEmpty()) return
-        val lats = DoubleArray(waypoints.size) { waypoints[it].lat }
-        val lngs = DoubleArray(waypoints.size) { waypoints[it].lng }
+        val lats = activeRouteLatitudes ?: return
+        val lngs = activeRouteLongitudes ?: return
         prefs.setMockState(
             MockState(
                 mode = MockState.Mode.Route,

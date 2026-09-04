@@ -29,7 +29,15 @@ class MovementEngine(
                 if (len > 0.0) add(Segment(a, b, len, bearingDegrees(a, b)))
             }
         }
-    private val totalDistance: Double = segments.sumOf { it.length }
+    private val segmentEnds: DoubleArray =
+        DoubleArray(segments.size).also { ends ->
+            var distance = 0.0
+            segments.forEachIndexed { index, segment ->
+                distance += segment.length
+                ends[index] = distance
+            }
+        }
+    private val totalDistance: Double = segmentEnds.lastOrNull() ?: 0.0
 
     // Seeded from persisted state so that a service restart resumes near where the previous run
     // stopped, instead of from the first waypoint. Clamped into [0, totalDistance] to keep corrupt
@@ -77,20 +85,29 @@ class MovementEngine(
         if (segments.isEmpty()) {
             return MockSample(point = LatLng(0.0, 0.0), speedMps = 0.0, bearingDeg = 0.0)
         }
-        var remaining = meters
-        for (segment in segments) {
-            if (remaining <= segment.length) {
-                val t = if (segment.length == 0.0) 0.0 else remaining / segment.length
-                return MockSample(
-                    point = lerpLatLng(segment.from, segment.to, t),
-                    speedMps = if (isFinished()) 0.0 else speedMps,
-                    bearingDeg = segment.bearing,
-                )
+        val segmentIndex = segmentIndexAt(meters)
+        val segment = segments[segmentIndex]
+        val segmentStart = if (segmentIndex == 0) 0.0 else segmentEnds[segmentIndex - 1]
+        val offset = (meters - segmentStart).coerceIn(0.0, segment.length)
+        return MockSample(
+            point = lerpLatLng(segment.from, segment.to, offset / segment.length),
+            speedMps = if (isFinished()) 0.0 else speedMps,
+            bearingDeg = segment.bearing,
+        )
+    }
+
+    private fun segmentIndexAt(meters: Double): Int {
+        var low = 0
+        var high = segmentEnds.lastIndex
+        while (low < high) {
+            val middle = (low + high) ushr 1
+            if (segmentEnds[middle] < meters) {
+                low = middle + 1
+            } else {
+                high = middle
             }
-            remaining -= segment.length
         }
-        val last = segments.last()
-        return MockSample(point = last.to, speedMps = 0.0, bearingDeg = last.bearing)
+        return low
     }
 
     private data class Segment(

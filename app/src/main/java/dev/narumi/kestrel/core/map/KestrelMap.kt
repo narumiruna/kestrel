@@ -86,13 +86,16 @@ fun KestrelMap(
     val currentMapClick by rememberUpdatedState(onMapClick)
     val currentMapLongClick by rememberUpdatedState(onMapLongClick)
     val currentCameraIdle by rememberUpdatedState(onCameraIdle)
+    val colorScheme = MaterialTheme.colorScheme
     val colors =
-        MapColors(
-            primary = MaterialTheme.colorScheme.primary.toArgb(),
-            preview = MaterialTheme.colorScheme.tertiary.toArgb(),
-            mock = MaterialTheme.colorScheme.error.toArgb(),
-            onPrimary = MaterialTheme.colorScheme.onPrimary.toArgb(),
-        )
+        remember(colorScheme) {
+            MapColors(
+                primary = colorScheme.primary.toArgb(),
+                preview = colorScheme.tertiary.toArgb(),
+                mock = colorScheme.error.toArgb(),
+                onPrimary = colorScheme.onPrimary.toArgb(),
+            )
+        }
     val mapView =
         remember {
             MapLibre.getInstance(context, null, WellKnownTileServer.MapLibre)

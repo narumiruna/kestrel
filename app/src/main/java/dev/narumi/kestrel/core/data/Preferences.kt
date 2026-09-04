@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.Serializable
@@ -158,18 +159,46 @@ class KestrelPrefs(
     private val json = Json { ignoreUnknownKeys = true }
     private val store = context.applicationContext.prefStore
 
-    val lastCamera: Flow<CameraSnapshot?> = store.data.map { it.toCamera() }
+    val lastCamera: Flow<CameraSnapshot?> =
+        store.data
+            .map { it.toCamera() }
+            .distinctUntilChanged()
 
-    val favoritesSortMode: Flow<FavoritesSortMode> = store.data.map { it.toFavoritesSortMode(json) }
-    val mockState: Flow<MockState?> = store.data.map { it.toMockState(json) }
-    val startupPreference: Flow<StartupPreference> = store.data.map { it.toStartupPref(json) }
+    val favoritesSortMode: Flow<FavoritesSortMode> =
+        store.data
+            .map { it[Keys.FAVORITES_SORT_MODE] }
+            .distinctUntilChanged()
+            .map { decodeFavoritesSortMode(it, json) }
+    val mockState: Flow<MockState?> =
+        store.data
+            .map { it[Keys.MOCK_STATE] }
+            .distinctUntilChanged()
+            .map { decodeMockState(it, json) }
+    val startupPreference: Flow<StartupPreference> =
+        store.data
+            .map { it[Keys.STARTUP_PREF] }
+            .distinctUntilChanged()
+            .map { decodeStartupPreference(it, json) }
     val randomRoutePreference: Flow<RandomRoutePreference> =
-        store.data.map { it.toRandomRoutePref(json) }
+        store.data
+            .map { it[Keys.RANDOM_ROUTE_PREF] }
+            .distinctUntilChanged()
+            .map { decodeRandomRoutePreference(it, json) }
     val mockPlaybackSettings: Flow<MockPlaybackSettings> =
-        store.data.map { it.toMockPlaybackSettings(json) }
-    val cloudSettings: Flow<CloudSettings> = store.data.map { it.toCloudSettings(json) }
+        store.data
+            .map { it[Keys.MOCK_PLAYBACK_SETTINGS] }
+            .distinctUntilChanged()
+            .map { decodeMockPlaybackSettings(it, json) }
+    val cloudSettings: Flow<CloudSettings> =
+        store.data
+            .map { it[Keys.CLOUD_SETTINGS] }
+            .distinctUntilChanged()
+            .map { decodeCloudSettings(it, json) }
     val remoteControlSettings: Flow<RemoteControlSettings> =
-        store.data.map { it.toRemoteControlSettings(json) }
+        store.data
+            .map { it[Keys.REMOTE_CONTROL_SETTINGS] }
+            .distinctUntilChanged()
+            .map { decodeRemoteControlSettings(it, json) }
 
     suspend fun setLastCamera(snap: CameraSnapshot) {
         store.edit {
@@ -312,52 +341,67 @@ class KestrelPrefs(
         return CameraSnapshot(lat, lng, zoom)
     }
 
-    private fun Preferences.toFavoritesSortMode(json: Json): FavoritesSortMode {
-        val raw = this[Keys.FAVORITES_SORT_MODE] ?: return FavoritesSortMode()
-        return runCatching {
-            json.decodeFromString(FavoritesSortMode.serializer(), raw)
-        }.getOrDefault(FavoritesSortMode())
+    private fun Preferences.toRandomRoutePref(json: Json): RandomRoutePreference = decodeRandomRoutePreference(this[Keys.RANDOM_ROUTE_PREF], json)
+
+    private fun Preferences.toMockPlaybackSettings(json: Json): MockPlaybackSettings = decodeMockPlaybackSettings(this[Keys.MOCK_PLAYBACK_SETTINGS], json)
+
+    private fun Preferences.toCloudSettings(json: Json): CloudSettings = decodeCloudSettings(this[Keys.CLOUD_SETTINGS], json)
+}
+
+private fun decodeFavoritesSortMode(
+    raw: String?,
+    json: Json,
+): FavoritesSortMode =
+    raw?.let {
+        runCatching { json.decodeFromString(FavoritesSortMode.serializer(), it) }.getOrNull()
+    } ?: FavoritesSortMode()
+
+private fun decodeMockState(
+    raw: String?,
+    json: Json,
+): MockState? =
+    raw?.let {
+        runCatching { json.decodeFromString(MockState.serializer(), it) }.getOrNull()
     }
 
-    private fun Preferences.toMockState(json: Json): MockState? {
-        val raw = this[Keys.MOCK_STATE] ?: return null
-        return runCatching {
-            json.decodeFromString(MockState.serializer(), raw)
+private fun decodeStartupPreference(
+    raw: String?,
+    json: Json,
+): StartupPreference =
+    raw?.let {
+        runCatching { json.decodeFromString(StartupPreference.serializer(), it) }.getOrNull()
+    } ?: StartupPreference()
+
+private fun decodeRandomRoutePreference(
+    raw: String?,
+    json: Json,
+): RandomRoutePreference =
+    raw?.let {
+        runCatching { json.decodeFromString(RandomRoutePreference.serializer(), it) }.getOrNull()
+    } ?: RandomRoutePreference()
+
+private fun decodeMockPlaybackSettings(
+    raw: String?,
+    json: Json,
+): MockPlaybackSettings =
+    raw?.let {
+        runCatching {
+            json.decodeFromString(MockPlaybackSettings.serializer(), it).normalized()
         }.getOrNull()
-    }
+    } ?: MockPlaybackSettings()
 
-    private fun Preferences.toStartupPref(json: Json): StartupPreference {
-        val raw = this[Keys.STARTUP_PREF] ?: return StartupPreference()
-        return runCatching {
-            json.decodeFromString(StartupPreference.serializer(), raw)
-        }.getOrDefault(StartupPreference())
-    }
+private fun decodeCloudSettings(
+    raw: String?,
+    json: Json,
+): CloudSettings =
+    raw?.let {
+        runCatching { json.decodeFromString(CloudSettings.serializer(), it) }.getOrNull()
+    } ?: CloudSettings()
 
-    private fun Preferences.toRandomRoutePref(json: Json): RandomRoutePreference {
-        val raw = this[Keys.RANDOM_ROUTE_PREF] ?: return RandomRoutePreference()
-        return runCatching {
-            json.decodeFromString(RandomRoutePreference.serializer(), raw)
-        }.getOrDefault(RandomRoutePreference())
-    }
-
-    private fun Preferences.toMockPlaybackSettings(json: Json): MockPlaybackSettings {
-        val raw = this[Keys.MOCK_PLAYBACK_SETTINGS] ?: return MockPlaybackSettings()
-        return runCatching {
-            json.decodeFromString(MockPlaybackSettings.serializer(), raw).normalized()
-        }.getOrDefault(MockPlaybackSettings())
-    }
-
-    private fun Preferences.toCloudSettings(json: Json): CloudSettings {
-        val raw = this[Keys.CLOUD_SETTINGS] ?: return CloudSettings()
-        return runCatching {
-            json.decodeFromString(CloudSettings.serializer(), raw)
-        }.getOrDefault(CloudSettings())
-    }
-}
-
-private fun Preferences.toRemoteControlSettings(json: Json): RemoteControlSettings {
-    val raw = this[Keys.REMOTE_CONTROL_SETTINGS] ?: return RemoteControlSettings()
-    return runCatching {
-        json.decodeFromString(RemoteControlSettings.serializer(), raw)
-    }.getOrDefault(RemoteControlSettings())
-}
+private fun decodeRemoteControlSettings(
+    raw: String?,
+    json: Json,
+): RemoteControlSettings =
+    raw?.let {
+        runCatching { json.decodeFromString(RemoteControlSettings.serializer(), it) }.getOrNull()
+    } ?: RemoteControlSettings()
