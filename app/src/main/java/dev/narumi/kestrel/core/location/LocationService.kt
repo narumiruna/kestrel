@@ -38,6 +38,43 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import java.util.UUID
 
+internal class ActiveRouteSnapshot private constructor(
+    val engine: MovementEngine,
+    private val latitudes: DoubleArray,
+    private val longitudes: DoubleArray,
+    private val speedKmh: Double,
+    private val mode: MovementEngine.Mode,
+) {
+    fun toRouteState(
+        progressMeters: Double,
+        forward: Boolean,
+    ): RouteState =
+        RouteState(
+            lats = latitudes,
+            lngs = longitudes,
+            speedKmh = speedKmh,
+            mode = mode.name,
+            progressMeters = progressMeters,
+            forward = forward,
+        )
+
+    companion object {
+        fun create(
+            engine: MovementEngine,
+            waypoints: List<LatLng>,
+            speedKmh: Double,
+            mode: MovementEngine.Mode,
+        ): ActiveRouteSnapshot =
+            ActiveRouteSnapshot(
+                engine = engine,
+                latitudes = DoubleArray(waypoints.size) { waypoints[it].lat },
+                longitudes = DoubleArray(waypoints.size) { waypoints[it].lng },
+                speedKmh = speedKmh,
+                mode = mode,
+            )
+    }
+}
+
 class LocationService : Service() {
     private lateinit var mockProvider: MockProviderManager
     private lateinit var prefs: KestrelPrefs
@@ -53,13 +90,9 @@ class LocationService : Service() {
     @Volatile private var paused = false
     private var currentMode: MockState.Mode = MockState.Mode.Idle
 
-    // Snapshot the serialized coordinates once per route instead of allocating new arrays on every
-    // periodic progress write.
-    private var activeEngine: MovementEngine? = null
-    private var activeRouteLatitudes: DoubleArray? = null
-    private var activeRouteLongitudes: DoubleArray? = null
-    private var activeRouteSpeedKmh: Double = 0.0
-    private var activeRouteMode: MovementEngine.Mode = MovementEngine.Mode.Once
+    // Publish the active engine and serialized route fields together so progress writers cannot
+    // combine state from two routes during replacement.
+    @Volatile private var activeRoute: ActiveRouteSnapshot? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -220,7 +253,7 @@ class LocationService : Service() {
         }
         setRemoteControlServiceLease(true)
         refreshNotification()
-        scope.launch { persistRouteState(progressMeters = 0.0, forward = true) }
+        scope.launch { persistRouteState(engine) }
         completeOperation(intent, succeeded = true, message = "Route playback started.")
         return START_STICKY
     }
@@ -231,8 +264,8 @@ class LocationService : Service() {
         updateRouteRuntimePaused(paused = true)
         refreshNotification()
         scope.launch {
-            val engine = activeEngine ?: return@launch
-            persistRouteState(engine.progressMeters(), engine.isForward())
+            val engine = activeRoute?.engine ?: return@launch
+            persistRouteState(engine)
         }
         completeOperation(intent, succeeded = true, message = "Route paused.")
         return START_STICKY
@@ -244,8 +277,8 @@ class LocationService : Service() {
         updateRouteRuntimePaused(paused = false)
         refreshNotification()
         scope.launch {
-            val engine = activeEngine ?: return@launch
-            persistRouteState(engine.progressMeters(), engine.isForward())
+            val engine = activeRoute?.engine ?: return@launch
+            persistRouteState(engine)
         }
         completeOperation(intent, succeeded = true, message = "Route resumed.")
         return START_STICKY
@@ -256,10 +289,10 @@ class LocationService : Service() {
     override fun onDestroy() {
         // Best-effort progress flush before the scope is cancelled. onDestroy is not guaranteed to
         // run under sudden kills; the periodic tick writer is what makes overnight kills survivable.
-        val engine = activeEngine
+        val engine = activeRoute?.engine
         if (engine != null && currentMode == MockState.Mode.Route) {
             runCatching {
-                runBlocking { persistRouteState(engine.progressMeters(), engine.isForward()) }
+                runBlocking { persistRouteState(engine) }
             }
         }
         stopRoute()
@@ -363,11 +396,7 @@ class LocationService : Service() {
         stopRoute()
         stopSingleKeepAlive()
         paused = false
-        activeEngine = engine
-        activeRouteLatitudes = DoubleArray(waypoints.size) { waypoints[it].lat }
-        activeRouteLongitudes = DoubleArray(waypoints.size) { waypoints[it].lng }
-        activeRouteSpeedKmh = speedKmh
-        activeRouteMode = mode
+        activeRoute = ActiveRouteSnapshot.create(engine, waypoints, speedKmh, mode)
         routeJob =
             scope.launch {
                 // Read once per route job so Settings changes apply to the next route start or
@@ -387,14 +416,16 @@ class LocationService : Service() {
                         tickCounter = 0
                         // Snapshot progress + direction in the same write so they can't disagree
                         // across a process restart.
-                        persistRouteState(engine.progressMeters(), engine.isForward())
+                        persistRouteState(engine)
                     }
                 }
-                if (mode == MovementEngine.Mode.Once && engine.isFinished()) {
+                if (
+                    mode == MovementEngine.Mode.Once &&
+                    engine.isFinished() &&
+                    activeRoute?.engine === engine
+                ) {
                     val last = waypoints.last()
-                    activeEngine = null
-                    activeRouteLatitudes = null
-                    activeRouteLongitudes = null
+                    activeRoute = null
                     currentMode = MockState.Mode.Single
                     startSingleKeepAlive(last)
                     _runtimeState.value = RuntimeState.Single(last)
@@ -414,29 +445,15 @@ class LocationService : Service() {
         routeJob?.cancel()
         routeJob = null
         paused = false
-        activeEngine = null
-        activeRouteLatitudes = null
-        activeRouteLongitudes = null
+        activeRoute = null
     }
 
-    private suspend fun persistRouteState(
-        progressMeters: Double,
-        forward: Boolean,
-    ) {
-        val lats = activeRouteLatitudes ?: return
-        val lngs = activeRouteLongitudes ?: return
+    private suspend fun persistRouteState(engine: MovementEngine) {
+        val route = activeRoute?.takeIf { it.engine === engine } ?: return
         prefs.setMockState(
             MockState(
                 mode = MockState.Mode.Route,
-                route =
-                    RouteState(
-                        lats = lats,
-                        lngs = lngs,
-                        speedKmh = activeRouteSpeedKmh,
-                        mode = activeRouteMode.name,
-                        progressMeters = progressMeters,
-                        forward = forward,
-                    ),
+                route = route.toRouteState(engine.progressMeters(), engine.isForward()),
             ),
         )
     }
@@ -472,7 +489,7 @@ class LocationService : Service() {
         engine: MovementEngine,
     ) {
         synchronized(providerWriteLock) {
-            if (activeEngine !== engine || !providerStarted) return
+            if (activeRoute?.engine !== engine || !providerStarted) return
             runCatching {
                 mockProvider.setLocation(
                     point = sample.point,
