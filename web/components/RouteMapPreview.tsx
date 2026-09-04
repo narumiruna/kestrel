@@ -1,6 +1,8 @@
 'use client';
 
-import maplibregl, { type GeoJSONSource, type Map as MapLibreMap, type Marker } from 'maplibre-gl';
+import type { Feature, LineString } from 'geojson';
+import type { GeoJSONSource, Map as MapLibreMap, Marker } from 'maplibre-gl';
+import * as maplibregl from 'maplibre-gl';
 import { useEffect, useRef } from 'react';
 import { getStyleByName } from '@/components/mapStyle';
 import { useMapStyle } from '@/hooks/useMapStyle';
@@ -236,7 +238,7 @@ function updateLine(map: MapLibreMap, waypoints: RouteWaypoint[]) {
   source?.setData(toLineFeature(waypoints));
 }
 
-function toLineFeature(waypoints: RouteWaypoint[]): GeoJSON.Feature<GeoJSON.LineString> {
+function toLineFeature(waypoints: RouteWaypoint[]): Feature<LineString> {
   return {
     geometry: {
       coordinates: waypoints.map((waypoint) => [waypoint.longitude, waypoint.latitude]),

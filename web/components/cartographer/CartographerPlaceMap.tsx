@@ -1,6 +1,7 @@
 'use client';
 
-import maplibregl, { type Map as MapLibreMap, type Marker } from 'maplibre-gl';
+import type { Map as MapLibreMap, Marker } from 'maplibre-gl';
+import * as maplibregl from 'maplibre-gl';
 import { type MutableRefObject, useEffect, useRef } from 'react';
 import { DEFAULT_MAP_CENTER, getStyleByName } from '@/components/mapStyle';
 import { useMapStyle } from '@/hooks/useMapStyle';
@@ -217,28 +218,27 @@ function syncPlaceMarkers({
     return;
   }
 
-  if (draftMarkerRef.current == null) {
-    draftMarkerRef.current = new maplibregl.Marker({
+  let draftMarker = draftMarkerRef.current;
+  if (draftMarker == null) {
+    const createdMarker = new maplibregl.Marker({
       draggable: true,
       element: createPlaceMarkerElement({ active: true, label: 'Draft coordinates' }),
     })
       .setLngLat([draftCoords.longitude, draftCoords.latitude])
       .addTo(map);
-    draftMarkerRef.current.on('dragend', () => {
-      const lngLat = draftMarkerRef.current?.getLngLat();
-
-      if (lngLat == null) {
-        return;
-      }
+    createdMarker.on('dragend', () => {
+      const lngLat = createdMarker.getLngLat();
 
       onChangeDraftCoords?.({
         latitude: roundCoord(lngLat.lat),
         longitude: roundCoord(lngLat.lng),
       });
     });
+    draftMarkerRef.current = createdMarker;
+    draftMarker = createdMarker;
   }
 
-  draftMarkerRef.current.setLngLat([draftCoords.longitude, draftCoords.latitude]);
+  draftMarker.setLngLat([draftCoords.longitude, draftCoords.latitude]);
 }
 
 function createPlaceMarkerElement({ active, label }: { active: boolean; label: string }) {

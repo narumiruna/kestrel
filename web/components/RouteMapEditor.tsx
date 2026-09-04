@@ -1,6 +1,8 @@
 'use client';
 
-import maplibregl, { type GeoJSONSource, type Map as MapLibreMap, type Marker } from 'maplibre-gl';
+import type { Feature, LineString } from 'geojson';
+import type { GeoJSONSource, Map as MapLibreMap, Marker } from 'maplibre-gl';
+import * as maplibregl from 'maplibre-gl';
 import { useEffect, useRef, useState } from 'react';
 import { getStyleByName } from '@/components/mapStyle';
 import { Button } from '@/components/ui/radix-ui';
@@ -540,7 +542,7 @@ function canSyncRouteLayer(map: MapLibreMap): boolean {
   return map.isStyleLoaded() || map.getSource(LINE_SOURCE_ID) != null;
 }
 
-function toLineFeature(waypoints: RouteWaypoint[]): GeoJSON.Feature<GeoJSON.LineString> {
+function toLineFeature(waypoints: RouteWaypoint[]): Feature<LineString> {
   return {
     geometry: {
       coordinates: waypoints.map((waypoint) => [waypoint.longitude, waypoint.latitude]),
