@@ -118,6 +118,16 @@ android-verify:
 lint-baseline:
     {{ gradle }} detektBaseline
 
+# update JavaScript packages within their declared ranges and update Android libraries
+[group('Setup')]
+update:
+    npx --yes npm-check-updates@19.1.1 --packageFile backend/package.json --target semver --peer --upgrade
+    npm install --prefix backend
+    npx --yes npm-check-updates@19.1.1 --packageFile web/package.json --target semver --peer --upgrade
+    npm install --prefix web
+    cd web && ./node_modules/.bin/biome migrate --write
+    {{ gradle }} versionCatalogUpdate
+
 # install exact Web dependencies from the lockfile
 [group('Setup')]
 [working-directory('web')]
