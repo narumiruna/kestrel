@@ -442,7 +442,7 @@ export default function DashboardMapPage() {
         activeSection="map"
         isRefreshing={isLoading}
         statusError={error}
-        statusLabel={lastUpdatedLabel == null ? 'Workspace ready' : `Updated ${lastUpdatedLabel}`}
+        statusLabel={lastUpdatedLabel == null ? null : `Updated ${lastUpdatedLabel}`}
         username={auth.session.user.username}
         onBeforeWorkspaceChange={(href) => {
           navigateIfDraftSafe(href);

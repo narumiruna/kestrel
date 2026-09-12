@@ -29,12 +29,15 @@
   width: 100%;
 }
 
-.workspace-topbar {
+.kc-topbar.workspace-topbar {
   backdrop-filter: blur(16px);
   background: var(--workspace-chrome);
   border: 1px solid var(--workspace-border);
+  border-radius: 18px;
   box-shadow: 0 8px 24px rgb(34 24 15 / 6%);
+  margin: 0;
   min-height: 58px;
+  padding: 9px 14px;
 }
 
 .cartographer-stage-map .workspace-topbar {
@@ -211,13 +214,17 @@
 }
 
 @media (max-width: 900px) {
-  .workspace-sync-status {
+  .workspace-sync-status:not(.is-error) {
     display: none;
+  }
+
+  .workspace-sync-status.is-error {
+    max-width: min(180px, 25vw);
   }
 }
 
 @media (max-width: 700px) {
-  .workspace-topbar {
+  .kc-topbar.workspace-topbar {
     flex-wrap: nowrap;
     gap: 8px;
     height: 58px;

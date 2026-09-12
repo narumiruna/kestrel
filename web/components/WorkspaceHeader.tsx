@@ -68,7 +68,11 @@ export function WorkspaceHeader({
             open={isAccountOpen}
             title="Account controls"
             trigger={
-              <Button className="secondary kc-user-button" type="button">
+              <Button
+                aria-label={`Open account menu for ${username}`}
+                className="secondary kc-user-button"
+                type="button"
+              >
                 <span aria-hidden className="kc-avatar">
                   {username.slice(0, 1).toUpperCase()}
                 </span>
