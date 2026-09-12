@@ -44,7 +44,7 @@ export function WorkspaceHeader({
         {statusLabel == null && statusError == null ? null : (
           <span
             className={`workspace-sync-status${statusError == null ? '' : ' is-error'}`}
-            role={statusError == null ? 'status' : 'alert'}
+            role={statusError == null ? undefined : 'alert'}
             title={statusError ?? statusLabel ?? undefined}
           >
             <span aria-hidden className="workspace-sync-dot" />
