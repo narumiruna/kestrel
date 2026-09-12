@@ -1,6 +1,9 @@
 package dev.narumi.kestrel.feature.favorites
 
+import dev.narumi.kestrel.core.data.FavoritesSortMode
 import dev.narumi.kestrel.core.library.LibraryItemKind
+import dev.narumi.kestrel.core.library.LibraryItemWithContent
+import dev.narumi.kestrel.core.library.sortedFor
 
 internal enum class FavoritesFilter { All, Points, Routes }
 
@@ -10,6 +13,18 @@ internal fun FavoritesFilter.includes(kind: LibraryItemKind): Boolean =
         FavoritesFilter.Points -> kind == LibraryItemKind.Place
         FavoritesFilter.Routes -> kind == LibraryItemKind.Route
     }
+
+internal fun visibleFavorites(
+    items: List<LibraryItemWithContent>,
+    query: String,
+    filter: FavoritesFilter,
+    sortMode: FavoritesSortMode.Mode,
+): List<LibraryItemWithContent> {
+    val search = query.trim()
+    return items
+        .filter { filter.includes(it.kind) && it.name.contains(search, ignoreCase = true) }
+        .sortedFor(sortMode)
+}
 
 internal enum class FavoriteRowAction {
     Apply,

@@ -11,19 +11,27 @@ Kestrel uses Android's official mock-location APIs. Before starting a mock, enab
 
 A preview does not change the system location. If another mock is active, it continues until you review the Current/New comparison and confirm **Replace current mock**. Cancelling the preview or confirmation leaves the active mock unchanged.
 
+With no mock running, expand the Map panel and choose **Save point** to keep a point preview in Favorites without starting it. You can also hold any map location and choose **Save favorite**.
+
 ## Preview and play a route
 
 - Tap multiple map locations to build a route, or choose **Generate random route**.
 - Random-route presets provide a starting point; custom point count and spacing remain available. **Preview route** draws the route but does not start playback.
 - Review the path, waypoint count, speed, and Once/Loop/Ping-pong mode, then choose **Play route**.
-- Use **Undo last waypoint**, **Clear preview**, or **Cancel preview** without affecting active playback.
+- **Save route** keeps a route preview in Favorites without starting it when no mock is running.
+- **Undo last waypoint** stays directly available. For an idle draft, open **More preview actions** (the three-dot menu) for **Clear preview** or **Replace with random route**. For a replacement preview, use **Cancel preview**. These actions do not affect active playback.
 - While a route is active, Pause, Resume, and Stop remain available on Map, in the Android notification, and in the compact playback status shown above Favorites and Settings.
 
 If Kestrel cannot apply a point or route, it keeps the previous valid mock when Android permits and shows a corrective message. Recheck app permissions and **Developer Options → Select mock location app** before retrying.
 
 ## Favorites
 
-**Favorites** shows saved points and routes in one list. Use the visible filters **All / Points / Routes** and sort choices **Manual / Recent / A–Z**.
+**Favorites** shows saved points and routes in one scrolling list.
+
+- **Search Favorites** finds point and route names without matching case; combine it with **All / Points / Routes** filters.
+- The result count shows how many saved items match. **Clear search** removes only the text; **Clear search and filters** restores the full list when nothing matches.
+- **Sort: …** shows the current order. Open it to choose **Manual / Recent / Alphabetical**.
+- The header and controls scroll with the list so items remain reachable on short screens and with large text.
 
 - **Preview on map** opens the item without starting or replacing a mock.
 - Point and route edits are saved only after **Save** succeeds. **Cancel** makes no stored change.

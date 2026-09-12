@@ -43,16 +43,20 @@ class FavoritesLayoutInteractionTest {
     @get:Rule val composeRule = createComposeRule()
 
     @Test
-    fun menusShowCurrentSelectionsAndDisableSortingWhileSaving() {
+    fun toolbarShowsSelectionsAndDisablesSortingWhileSaving() {
         composeRule.setContent {
             var filter by remember { mutableStateOf(FavoritesFilter.All) }
             var sort by remember { mutableStateOf(FavoritesSortMode.Mode.Manual) }
             var busy by remember { mutableStateOf(false) }
             MaterialTheme {
                 FavoritesToolbar(
+                    query = "",
                     selectedFilter = filter,
                     sortMode = sort,
-                    operationBusy = busy,
+                    resultCount = 1,
+                    totalCount = 1,
+                    busy = busy,
+                    onQueryChange = {},
                     onFilterChange = { filter = it },
                     onSortModeChange = {
                         sort = it
@@ -62,14 +66,11 @@ class FavoritesLayoutInteractionTest {
             }
         }
 
-        composeRule.onNodeWithText("Show: All").assertHeightIsAtLeast(48.dp).performClick()
         composeRule.onNodeWithText("All").assertIsSelected()
-        composeRule.onNodeWithText("Points").performClick()
-        composeRule.onNodeWithText("Show: Points").assertIsDisplayed()
-        composeRule.onNodeWithText("Sort by: Manual").assertHeightIsAtLeast(48.dp).performClick()
-        composeRule.onNodeWithText("Manual").assertIsSelected()
+        composeRule.onNodeWithText("Points").performClick().assertIsSelected()
+        composeRule.onNodeWithText("Sort: Manual").assertHeightIsAtLeast(48.dp).performClick()
         composeRule.onNodeWithText("Alphabetical").performClick()
-        composeRule.onNodeWithText("Sort by: Alphabetical").assertIsNotEnabled()
+        composeRule.onNodeWithText("Sort: Alphabetical").assertIsNotEnabled()
     }
 
     @Test
@@ -152,13 +153,16 @@ class FavoritesLayoutInteractionTest {
                         items = items,
                         visibleItems = items,
                         loading = false,
+                        query = "",
                         selectedFilter = FavoritesFilter.All,
                         sortMode = FavoritesSortMode.Mode.Manual,
                         operationMessage = null,
                         operationError = null,
                         operationBusy = false,
+                        onQueryChange = {},
                         onFilterChange = {},
                         onSortModeChange = {},
+                        onClearFilters = {},
                         onChooseOnMap = {},
                         onApply = {},
                         onRename = {},
@@ -175,8 +179,8 @@ class FavoritesLayoutInteractionTest {
         composeRule.onNodeWithText("Favorite 19").assertIsDisplayed()
         composeRule.onNodeWithContentDescription("Pause").assertIsDisplayed()
         composeRule.onNodeWithContentDescription("Stop").assertIsDisplayed()
-        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Show: All", substring = true))
-        composeRule.onNodeWithText("Show: All").assertIsDisplayed()
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Search Favorites"))
+        composeRule.onNodeWithText("Search Favorites").assertIsDisplayed()
     }
 }
 

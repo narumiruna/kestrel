@@ -2,6 +2,7 @@ package dev.narumi.kestrel.feature.map
 
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -9,13 +10,23 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -120,33 +131,64 @@ internal fun MapFeedbackCard(
 }
 
 @Composable
-internal fun DraftRouteActionsCard(
+internal fun DraftPreviewActionsCard(
     waypointCount: Int,
+    enabled: Boolean,
     onUndoLast: () -> Unit,
     onClear: () -> Unit,
-    onSaveRoute: () -> Unit,
+    onSavePreview: () -> Unit,
     onGenerate: () -> Unit,
 ) {
+    var menuExpanded by remember { mutableStateOf(false) }
     KestrelCard {
-        SectionLabel("Draft route")
-        Text(
-            text =
-                if (waypointCount == 1) {
-                    "Add one more waypoint before saving as a route."
-                } else {
-                    "$waypointCount waypoints ready to save or replace."
-                },
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        KestrelActionRow {
-            OutlinedButton(onClick = onUndoLast) { Text("Undo last waypoint") }
-            OutlinedButton(onClick = onClear) { Text("Clear preview") }
-            OutlinedButton(onClick = onSaveRoute, enabled = waypointCount >= 2) {
-                Text("Save route")
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                SectionLabel("Save for later")
+                Text(
+                    text =
+                        if (waypointCount == 1) {
+                            "Save this point, or tap the map to extend it into a route."
+                        } else {
+                            "$waypointCount waypoints · Save this route to Favorites."
+                        },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
-            OutlinedButton(onClick = onGenerate) {
-                Text("Replace with random route")
+            Box {
+                IconButton(onClick = { menuExpanded = true }, enabled = enabled) {
+                    Icon(Icons.Filled.MoreVert, contentDescription = "More preview actions")
+                }
+                DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+                    DropdownMenuItem(
+                        text = { Text("Clear preview") },
+                        enabled = enabled,
+                        onClick = {
+                            menuExpanded = false
+                            onClear()
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Replace with random route") },
+                        enabled = enabled,
+                        onClick = {
+                            menuExpanded = false
+                            onGenerate()
+                        },
+                    )
+                }
+            }
+        }
+        KestrelActionRow {
+            OutlinedButton(
+                onClick = onSavePreview,
+                enabled = enabled && waypointCount > 0,
+                modifier = Modifier.heightIn(min = 48.dp),
+            ) {
+                Text(if (waypointCount == 1) "Save point" else "Save route")
+            }
+            TextButton(onClick = onUndoLast, enabled = enabled, modifier = Modifier.heightIn(min = 48.dp)) {
+                Text("Undo last waypoint")
             }
         }
     }

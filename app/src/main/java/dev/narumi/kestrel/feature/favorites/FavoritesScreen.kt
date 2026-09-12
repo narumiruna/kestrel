@@ -3,21 +3,13 @@ package dev.narumi.kestrel.feature.favorites
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.outlined.StarBorder
+import androidx.compose.material.icons.filled.Place
+import androidx.compose.material.icons.filled.Route
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -31,13 +23,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.semantics.LiveRegionMode
-import androidx.compose.ui.semantics.liveRegion
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.narumi.kestrel.core.data.FavoritesSortMode
@@ -47,15 +37,12 @@ import dev.narumi.kestrel.core.library.LibraryItemKind
 import dev.narumi.kestrel.core.library.LibraryItemWithContent
 import dev.narumi.kestrel.core.library.LibraryRepository
 import dev.narumi.kestrel.core.library.description
-import dev.narumi.kestrel.core.library.globalIndexIn
 import dev.narumi.kestrel.core.library.label
-import dev.narumi.kestrel.core.library.sortedFor
 import dev.narumi.kestrel.core.location.LatLng
 import dev.narumi.kestrel.core.location.MovementEngine
 import dev.narumi.kestrel.core.location.parseCoordInput
 import dev.narumi.kestrel.ui.components.KestrelActionRow
 import dev.narumi.kestrel.ui.components.KestrelCard
-import dev.narumi.kestrel.ui.components.KestrelEmptyState
 import dev.narumi.kestrel.ui.components.PersistedActionResult
 import dev.narumi.kestrel.ui.components.runPersistedAction
 import kotlinx.coroutines.launch
@@ -77,7 +64,8 @@ fun FavoritesScreen(
     val items = loadedItems.orEmpty()
     val sortMode by libraryRepository.sortMode.collectAsStateWithLifecycle(FavoritesSortMode())
     val startup by prefs.startupPreference.collectAsStateWithLifecycle(StartupPreference())
-    var selectedFilter by remember { mutableStateOf(FavoritesFilter.All) }
+    var selectedFilter by rememberSaveable { mutableStateOf(FavoritesFilter.All) }
+    var query by rememberSaveable { mutableStateOf("") }
     var editingName by remember { mutableStateOf<LibraryItemWithContent?>(null) }
     var editingPoint by remember { mutableStateOf<LibraryItemWithContent?>(null) }
     var editingRoute by remember { mutableStateOf<LibraryItemWithContent?>(null) }
@@ -91,9 +79,9 @@ fun FavoritesScreen(
     var operationError by remember { mutableStateOf<String?>(null) }
 
     val visibleItems =
-        items
-            .filter { selectedFilter.includes(it.kind) }
-            .sortedFor(sortMode.mode)
+        remember(items, query, selectedFilter, sortMode.mode) {
+            visibleFavorites(items, query, selectedFilter, sortMode.mode)
+        }
 
     fun runFavoriteAction(
         successMessage: String,
@@ -224,12 +212,18 @@ fun FavoritesScreen(
         items = items,
         visibleItems = visibleItems,
         loading = loadedItems == null,
+        query = query,
         selectedFilter = selectedFilter,
         sortMode = sortMode.mode,
         operationMessage = operationMessage,
         operationError = operationError,
         operationBusy = operationBusy,
+        onQueryChange = { query = it },
         onFilterChange = { selectedFilter = it },
+        onClearFilters = {
+            query = ""
+            selectedFilter = FavoritesFilter.All
+        },
         onSortModeChange = { mode ->
             runFavoriteAction("Sorted Favorites by ${mode.label()}.") {
                 libraryRepository.setSortMode(mode)
@@ -328,145 +322,6 @@ private fun FavoriteEditDialogs(
     }
 }
 
-@Suppress("LongParameterList")
-@Composable
-internal fun FavoritesContent(
-    modifier: Modifier,
-    items: List<LibraryItemWithContent>,
-    visibleItems: List<LibraryItemWithContent>,
-    loading: Boolean,
-    selectedFilter: FavoritesFilter,
-    sortMode: FavoritesSortMode.Mode,
-    operationMessage: String?,
-    operationError: String?,
-    operationBusy: Boolean,
-    onFilterChange: (FavoritesFilter) -> Unit,
-    onSortModeChange: (FavoritesSortMode.Mode) -> Unit,
-    onChooseOnMap: () -> Unit,
-    onApply: (LibraryItemWithContent) -> Unit,
-    onRename: (LibraryItemWithContent) -> Unit,
-    onEdit: (LibraryItemWithContent) -> Unit,
-    onMove: (LibraryItemWithContent, Int) -> Unit,
-    onDelete: (LibraryItemWithContent) -> Unit,
-) {
-    LazyColumn(
-        modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        item(key = "header") {
-            Text("Favorites", style = MaterialTheme.typography.titleLarge)
-        }
-        if (!loading && items.isNotEmpty()) {
-            item(key = "controls") {
-                FavoritesToolbar(
-                    selectedFilter = selectedFilter,
-                    sortMode = sortMode,
-                    operationBusy = operationBusy,
-                    onFilterChange = onFilterChange,
-                    onSortModeChange = onSortModeChange,
-                )
-            }
-        }
-        (operationError ?: operationMessage)?.let { message ->
-            item(key = "feedback") {
-                Text(
-                    text = message,
-                    modifier =
-                        Modifier.semantics {
-                            liveRegion =
-                                if (operationError != null) LiveRegionMode.Assertive else LiveRegionMode.Polite
-                        },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = if (operationError != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
-                )
-            }
-        }
-        if (loading) {
-            item(key = "loading") {
-                Column(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    CircularProgressIndicator()
-                    Text("Loading Favorites…")
-                }
-            }
-        } else if (visibleItems.isEmpty()) {
-            item(key = "empty") {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    EmptyFavorites(
-                        title = if (items.isEmpty()) "No favorites yet" else "No ${selectedFilter.label().lowercase()} favorites",
-                        message =
-                            if (items.isEmpty()) {
-                                "Choose a point or route on the map, then save its preview."
-                            } else {
-                                "Choose another filter or create a preview on the map."
-                            },
-                    )
-                    Button(onClick = onChooseOnMap) { Text("Choose on map") }
-                }
-            }
-        } else {
-            favoriteItems(
-                items = items,
-                visibleItems = visibleItems,
-                sortMode = sortMode,
-                operationBusy = operationBusy,
-                onApply = onApply,
-                onRename = onRename,
-                onEdit = onEdit,
-                onMove = onMove,
-                onDelete = onDelete,
-            )
-        }
-    }
-}
-
-@Suppress("LongParameterList")
-private fun LazyListScope.favoriteItems(
-    items: List<LibraryItemWithContent>,
-    visibleItems: List<LibraryItemWithContent>,
-    sortMode: FavoritesSortMode.Mode,
-    operationBusy: Boolean,
-    onApply: (LibraryItemWithContent) -> Unit,
-    onRename: (LibraryItemWithContent) -> Unit,
-    onEdit: (LibraryItemWithContent) -> Unit,
-    onMove: (LibraryItemWithContent, Int) -> Unit,
-    onDelete: (LibraryItemWithContent) -> Unit,
-) {
-    itemsIndexed(visibleItems, key = { _, item -> "favorite:${item.item.id}" }) { index, item ->
-        val previousIndex = visibleItems.getOrNull(index - 1)?.globalIndexIn(items)
-        val nextIndex = visibleItems.getOrNull(index + 1)?.globalIndexIn(items)
-        FavoriteRow(
-            item = item,
-            enabled = !operationBusy,
-            canReorder = sortMode == FavoritesSortMode.Mode.Manual,
-            canMoveUp = previousIndex != null,
-            canMoveDown = nextIndex != null,
-            onApply = { onApply(item) },
-            onRename = { onRename(item) },
-            onEdit = { onEdit(item) },
-            onMoveUp = { previousIndex?.let { onMove(item, it) } },
-            onMoveDown = { nextIndex?.let { onMove(item, it) } },
-            onDelete = { onDelete(item) },
-        )
-    }
-}
-
-@Composable
-private fun EmptyFavorites(
-    title: String,
-    message: String,
-) {
-    KestrelEmptyState(
-        icon = Icons.Outlined.StarBorder,
-        title = title,
-        message = message,
-    )
-}
-
 @Composable
 internal fun FavoriteRow(
     item: LibraryItemWithContent,
@@ -489,7 +344,7 @@ internal fun FavoriteRow(
             verticalAlignment = Alignment.Top,
         ) {
             Icon(
-                imageVector = Icons.Filled.Star,
+                imageVector = if (item.kind == LibraryItemKind.Place) Icons.Filled.Place else Icons.Filled.Route,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
             )
