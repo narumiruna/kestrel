@@ -3,20 +3,19 @@ package dev.narumi.kestrel.feature.favorites
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -57,7 +56,6 @@ import dev.narumi.kestrel.core.location.parseCoordInput
 import dev.narumi.kestrel.ui.components.KestrelActionRow
 import dev.narumi.kestrel.ui.components.KestrelCard
 import dev.narumi.kestrel.ui.components.KestrelEmptyState
-import dev.narumi.kestrel.ui.components.KestrelScreenHeader
 import dev.narumi.kestrel.ui.components.PersistedActionResult
 import dev.narumi.kestrel.ui.components.runPersistedAction
 import kotlinx.coroutines.launch
@@ -332,7 +330,7 @@ private fun FavoriteEditDialogs(
 
 @Suppress("LongParameterList")
 @Composable
-private fun FavoritesContent(
+internal fun FavoritesContent(
     modifier: Modifier,
     items: List<LibraryItemWithContent>,
     visibleItems: List<LibraryItemWithContent>,
@@ -351,58 +349,71 @@ private fun FavoritesContent(
     onMove: (LibraryItemWithContent, Int) -> Unit,
     onDelete: (LibraryItemWithContent) -> Unit,
 ) {
-    Column(
-        modifier =
-            modifier
-                .fillMaxSize()
-                .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+    LazyColumn(
+        modifier = modifier.fillMaxSize(),
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        KestrelScreenHeader(
-            title = "Favorites",
-            subtitle = "Saved points and routes ready to preview on the map.",
-        )
-        (operationError ?: operationMessage)?.let {
-            KestrelCard(
-                modifier =
-                    Modifier.semantics {
-                        liveRegion =
-                            if (operationError != null) LiveRegionMode.Assertive else LiveRegionMode.Polite
-                    },
-            ) {
+        item(key = "header") {
+            Text("Favorites", style = MaterialTheme.typography.titleLarge)
+        }
+        if (!loading && items.isNotEmpty()) {
+            item(key = "controls") {
+                FavoritesToolbar(
+                    selectedFilter = selectedFilter,
+                    sortMode = sortMode,
+                    operationBusy = operationBusy,
+                    onFilterChange = onFilterChange,
+                    onSortModeChange = onSortModeChange,
+                )
+            }
+        }
+        (operationError ?: operationMessage)?.let { message ->
+            item(key = "feedback") {
                 Text(
-                    text = it,
+                    text = message,
+                    modifier =
+                        Modifier.semantics {
+                            liveRegion =
+                                if (operationError != null) LiveRegionMode.Assertive else LiveRegionMode.Polite
+                        },
+                    style = MaterialTheme.typography.bodySmall,
                     color = if (operationError != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
                 )
             }
         }
         if (loading) {
-            Column(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                CircularProgressIndicator()
-                Text("Loading Favorites…")
+            item(key = "loading") {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    CircularProgressIndicator()
+                    Text("Loading Favorites…")
+                }
             }
-        } else if (items.isEmpty()) {
-            EmptyFavorites(
-                title = "No favorites yet",
-                message = "Choose a point or route on the map, then save its preview.",
-            )
-            Button(onClick = onChooseOnMap, modifier = Modifier.align(Alignment.CenterHorizontally)) {
-                Text("Choose on map")
+        } else if (visibleItems.isEmpty()) {
+            item(key = "empty") {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    EmptyFavorites(
+                        title = if (items.isEmpty()) "No favorites yet" else "No ${selectedFilter.label().lowercase()} favorites",
+                        message =
+                            if (items.isEmpty()) {
+                                "Choose a point or route on the map, then save its preview."
+                            } else {
+                                "Choose another filter or create a preview on the map."
+                            },
+                    )
+                    Button(onClick = onChooseOnMap) { Text("Choose on map") }
+                }
             }
         } else {
-            FavoritesListContent(
+            favoriteItems(
                 items = items,
                 visibleItems = visibleItems,
-                selectedFilter = selectedFilter,
                 sortMode = sortMode,
                 operationBusy = operationBusy,
-                onFilterChange = onFilterChange,
-                onSortModeChange = onSortModeChange,
-                onChooseOnMap = onChooseOnMap,
                 onApply = onApply,
                 onRename = onRename,
                 onEdit = onEdit,
@@ -413,71 +424,34 @@ private fun FavoritesContent(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Suppress("LongParameterList")
-@Composable
-private fun FavoritesListContent(
+private fun LazyListScope.favoriteItems(
     items: List<LibraryItemWithContent>,
     visibleItems: List<LibraryItemWithContent>,
-    selectedFilter: FavoritesFilter,
     sortMode: FavoritesSortMode.Mode,
     operationBusy: Boolean,
-    onFilterChange: (FavoritesFilter) -> Unit,
-    onSortModeChange: (FavoritesSortMode.Mode) -> Unit,
-    onChooseOnMap: () -> Unit,
     onApply: (LibraryItemWithContent) -> Unit,
     onRename: (LibraryItemWithContent) -> Unit,
     onEdit: (LibraryItemWithContent) -> Unit,
     onMove: (LibraryItemWithContent, Int) -> Unit,
     onDelete: (LibraryItemWithContent) -> Unit,
 ) {
-    KestrelCard {
-        Text("Show", style = MaterialTheme.typography.labelLarge)
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FavoritesFilter.entries.forEach { filter ->
-                AssistChip(
-                    onClick = { onFilterChange(filter) },
-                    label = { Text(if (filter == selectedFilter) "✓ ${filter.label()}" else filter.label()) },
-                )
-            }
-        }
-        Text("Sort by", style = MaterialTheme.typography.labelLarge)
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FavoritesSortMode.Mode.entries.forEach { mode ->
-                AssistChip(
-                    onClick = { onSortModeChange(mode) },
-                    enabled = !operationBusy,
-                    label = { Text(if (mode == sortMode) "✓ ${mode.label()}" else mode.label()) },
-                )
-            }
-        }
-    }
-    if (visibleItems.isEmpty()) {
-        EmptyFavorites(
-            title = "No ${selectedFilter.label().lowercase()} favorites",
-            message = "Choose another filter or create a preview on the map.",
+    itemsIndexed(visibleItems, key = { _, item -> "favorite:${item.item.id}" }) { index, item ->
+        val previousIndex = visibleItems.getOrNull(index - 1)?.globalIndexIn(items)
+        val nextIndex = visibleItems.getOrNull(index + 1)?.globalIndexIn(items)
+        FavoriteRow(
+            item = item,
+            enabled = !operationBusy,
+            canReorder = sortMode == FavoritesSortMode.Mode.Manual,
+            canMoveUp = previousIndex != null,
+            canMoveDown = nextIndex != null,
+            onApply = { onApply(item) },
+            onRename = { onRename(item) },
+            onEdit = { onEdit(item) },
+            onMoveUp = { previousIndex?.let { onMove(item, it) } },
+            onMoveDown = { nextIndex?.let { onMove(item, it) } },
+            onDelete = { onDelete(item) },
         )
-        Button(onClick = onChooseOnMap) { Text("Choose on map") }
-    } else {
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            itemsIndexed(visibleItems, key = { _, item -> item.item.id }) { index, item ->
-                val previousIndex = visibleItems.getOrNull(index - 1)?.globalIndexIn(items)
-                val nextIndex = visibleItems.getOrNull(index + 1)?.globalIndexIn(items)
-                FavoriteRow(
-                    item = item,
-                    enabled = !operationBusy,
-                    canReorder = sortMode == FavoritesSortMode.Mode.Manual,
-                    canMoveUp = previousIndex != null,
-                    canMoveDown = nextIndex != null,
-                    onApply = { onApply(item) },
-                    onRename = { onRename(item) },
-                    onEdit = { onEdit(item) },
-                    onMoveUp = { previousIndex?.let { onMove(item, it) } },
-                    onMoveDown = { nextIndex?.let { onMove(item, it) } },
-                    onDelete = { onDelete(item) },
-                )
-            }
-        }
     }
 }
 
