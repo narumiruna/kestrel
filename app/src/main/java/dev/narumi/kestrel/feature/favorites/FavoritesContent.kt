@@ -69,7 +69,8 @@ internal fun FavoritesContent(
                 item(key = "header") {
                     KestrelScreenHeader(
                         title = "Favorites",
-                        subtitle = "Saved points and routes, ready to use again.",
+                        subtitle = "Your places. Your next route.",
+                        icon = Icons.Outlined.StarBorder,
                     )
                 }
                 if (!loading && items.isNotEmpty()) {

@@ -35,6 +35,20 @@ class MapPresentationRulesTest {
     }
 
     @Test
+    fun liveRouteSettings_areVisibleForPlayingAndPausedRoutes() {
+        assertTrue(shouldShowLiveRouteSettings(RunState.RoutePlaying))
+        assertTrue(shouldShowLiveRouteSettings(RunState.RoutePaused))
+        assertFalse(shouldShowLiveRouteSettings(RunState.Idle))
+        assertFalse(shouldShowLiveRouteSettings(RunState.Single))
+    }
+
+    @Test
+    fun speedChoices_includeTheActualRuntimeSpeedWithoutDuplicatingPresets() {
+        assertEquals(listOf(5.0, 10.0, 15.0, 20.0), routeSpeedChoices(10.0))
+        assertEquals(listOf(5.0, 10.0, 12.0, 15.0, 20.0), routeSpeedChoices(12.0))
+    }
+
+    @Test
     fun routeSettings_areVisibleOnlyForEditableMultiPointDraft() {
         assertFalse(shouldShowRouteSettings(RunState.Idle, waypointCount = 0))
         assertFalse(shouldShowRouteSettings(RunState.Idle, waypointCount = 1))

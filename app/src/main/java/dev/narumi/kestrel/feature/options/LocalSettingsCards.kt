@@ -2,6 +2,10 @@ package dev.narumi.kestrel.feature.options
 
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Explore
+import androidx.compose.material.icons.outlined.Restore
+import androidx.compose.material.icons.outlined.Route
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ListItem
@@ -39,6 +43,7 @@ internal fun StartupPreferenceCard(
 
     OptionsDisclosureCard(
         title = OptionsSection.Startup.title,
+        icon = Icons.Outlined.Explore,
         subtitle = "Choose the map view or Favorite used after launch.",
         summary =
             if (itemsLoading && startup.mode == StartupPreference.Mode.Favorite) {
@@ -166,6 +171,7 @@ internal fun MockPlaybackSettingsCard(
     var draftSeconds by rememberSaveable { mutableStateOf(seconds) }
     OptionsDisclosureCard(
         title = OptionsSection.Playback.title,
+        icon = Icons.Outlined.Restore,
         subtitle = "Choose how much route progress may rewind after Android stops the service.",
         summary = playbackSummary(seconds),
         expanded = expanded,
@@ -245,6 +251,7 @@ internal fun RandomRouteDefaultsCard(
     var resetToRecommended by rememberSaveable { mutableStateOf(false) }
     OptionsDisclosureCard(
         title = OptionsSection.RandomRoute.title,
+        icon = Icons.Outlined.Route,
         subtitle = "Choose the fallback shape used by the route generator.",
         summary = randomRouteSummary(preference.effectivePointCount, preference.effectiveSpacingMeters, preference.usesLastSettings),
         expanded = expanded,

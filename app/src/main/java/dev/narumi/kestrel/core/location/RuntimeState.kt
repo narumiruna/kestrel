@@ -4,7 +4,7 @@ package dev.narumi.kestrel.core.location
  * Snapshot of what [LocationService] is currently doing, surfaced to the UI as a [kotlinx.coroutines.flow.StateFlow].
  *
  * Emitted only on real state transitions (start / stop / pause / resume / single / route-finish /
- * restoreState), never from the per-tick movement loop, so UI consumers do not recompose every
+ * restoreState / settings update), never from the per-tick movement loop, so UI consumers do not recompose every
  * second.
  */
 sealed interface RuntimeState {
@@ -19,5 +19,7 @@ sealed interface RuntimeState {
         val speedKmh: Double,
         val mode: MovementEngine.Mode,
         val paused: Boolean,
+        // New on start/restore, stable across pause and settings changes; never persisted.
+        val playbackId: String? = null,
     ) : RuntimeState
 }

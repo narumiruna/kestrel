@@ -1,17 +1,17 @@
 package dev.narumi.kestrel.feature.map
 
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MyLocation
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.SmallFloatingActionButton
-import androidx.compose.material3.Text
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -68,34 +68,41 @@ internal fun MapCanvas(
                 onRefreshMockCheck = onRefreshMockCheck,
             )
         } else {
+            MapTargetSearchBar(
+                onClick = onChooseTarget,
+                // Leave the native MapLibre compass reachable at the top right.
+                modifier = Modifier.align(Alignment.TopStart).padding(start = 16.dp, top = 16.dp, end = 72.dp),
+            )
             MapHintPill(
                 modifier =
                     Modifier
-                        .align(Alignment.TopStart)
-                        .padding(horizontal = 12.dp, vertical = 12.dp),
+                        .align(Alignment.BottomStart)
+                        // Keep the native logo and attribution visible below the overlay.
+                        .padding(start = 16.dp, end = 84.dp, bottom = 40.dp),
             )
         }
-        Column(
-            modifier =
-                Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(end = 16.dp, bottom = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            horizontalAlignment = Alignment.End,
-        ) {
-            ExtendedFloatingActionButton(
+        if (setupStep != MapSetupStep.Ready) {
+            MapTargetSearchBar(
                 onClick = onChooseTarget,
-                icon = { Icon(Icons.Filled.Search, contentDescription = null) },
-                text = { Text("Choose target") },
+                modifier = Modifier.align(Alignment.BottomStart).padding(start = 16.dp, end = 84.dp, bottom = 40.dp),
             )
-            SmallFloatingActionButton(
+        }
+        Surface(
+            modifier = Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = 40.dp),
+            shape = MaterialTheme.shapes.medium,
+            color = MaterialTheme.colorScheme.surface,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            shadowElevation = 2.dp,
+        ) {
+            FilledIconButton(
                 onClick = onCenterOnMe,
-                containerColor =
-                    if (myLocation == null) {
-                        androidx.compose.material3.MaterialTheme.colorScheme.surfaceVariant
-                    } else {
-                        androidx.compose.material3.MaterialTheme.colorScheme.primaryContainer
-                    },
+                modifier = Modifier.size(48.dp),
+                colors =
+                    IconButtonDefaults.filledIconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        contentColor =
+                            if (myLocation == null) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary,
+                    ),
             ) {
                 Icon(
                     Icons.Filled.MyLocation,

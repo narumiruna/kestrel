@@ -1,8 +1,10 @@
 package dev.narumi.kestrel.ui
 
+import android.content.res.Configuration
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -24,12 +26,13 @@ import dev.narumi.kestrel.ui.theme.KestrelTheme
 
 @PreviewTest
 @Preview(name = "Favorites playing", widthDp = 360, heightDp = 560, showBackground = true)
+@Preview(name = "Favorites playing dark", widthDp = 360, heightDp = 560, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Preview(name = "Favorites playing narrow large text", widthDp = 320, heightDp = 480, fontScale = 1.5f)
 @Preview(name = "Favorites playing short landscape", widthDp = 600, heightDp = 240)
 @Composable
 fun FavoritesPlayingScreenshot() {
     KestrelTheme {
-        Surface {
+        Surface(color = MaterialTheme.colorScheme.background) {
             Column(Modifier.fillMaxSize()) {
                 PlaybackStatusBar(
                     runtime =

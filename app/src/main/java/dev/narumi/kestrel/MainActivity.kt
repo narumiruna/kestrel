@@ -13,6 +13,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.outlined.Map
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -156,9 +159,12 @@ fun KestrelApp(
             AppDestinations.entries.forEach { destination ->
                 item(
                     icon = {
-                        Icon(destination.icon, contentDescription = destination.label)
+                        Icon(
+                            imageVector = if (destination == currentDestination) destination.icon else destination.unselectedIcon,
+                            contentDescription = null,
+                        )
                     },
-                    label = { Text(destination.label) },
+                    label = { Text(destination.label, style = MaterialTheme.typography.labelMedium) },
                     selected = destination == currentDestination,
                     onClick = { currentDestination = destination },
                 )
@@ -276,8 +282,9 @@ private fun AppDestinationContent(
 enum class AppDestinations(
     val label: String,
     val icon: ImageVector,
+    val unselectedIcon: ImageVector,
 ) {
-    HOME("Map", Icons.Filled.Map),
-    FAVORITES("Favorites", Icons.Filled.Star),
-    SETTINGS("Settings", Icons.Filled.Settings),
+    HOME("Map", Icons.Filled.Map, Icons.Outlined.Map),
+    FAVORITES("Favorites", Icons.Filled.Star, Icons.Outlined.StarBorder),
+    SETTINGS("Settings", Icons.Filled.Settings, Icons.Outlined.Settings),
 }

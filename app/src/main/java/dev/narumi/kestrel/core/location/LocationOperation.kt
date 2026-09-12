@@ -3,6 +3,7 @@ package dev.narumi.kestrel.core.location
 enum class LocationOperationAction {
     SetPoint,
     StartRoute,
+    UpdateRouteSettings,
     Pause,
     Resume,
     Stop,

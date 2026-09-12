@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.StarBorder
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -38,7 +40,7 @@ import dev.narumi.kestrel.ui.theme.KestrelTheme
 @Preview(name = "Setup narrow large text", widthDp = 320, fontScale = 1.4f, showBackground = true)
 @Composable
 fun SetupPromptScreenshot() {
-    KestrelTheme {
+    ScreenshotTheme {
         SetupPromptCard(
             setupStep = MapSetupStep.Permissions,
             title = "Permission needed",
@@ -52,7 +54,7 @@ fun SetupPromptScreenshot() {
 @Preview(name = "Map idle", widthDp = 360, heightDp = 640, showBackground = true)
 @Composable
 fun MapSheetScreenshot() {
-    KestrelTheme {
+    ScreenshotTheme {
         MapSheet(
             runState = RunState.Idle,
             waypointCount = 2,
@@ -91,7 +93,7 @@ fun MapSheetScreenshot() {
 )
 @Composable
 fun MapPlayingScreenshot() {
-    KestrelTheme {
+    ScreenshotTheme {
         MapSheet(
             runState = RunState.RoutePlaying,
             waypointCount = 7,
@@ -124,7 +126,7 @@ fun MapPlayingScreenshot() {
 @Preview(name = "Replacement preview narrow", widthDp = 320, fontScale = 1.3f, showBackground = true)
 @Composable
 fun ReplacementPreviewScreenshot() {
-    KestrelTheme {
+    ScreenshotTheme {
         ReplacementPreviewCard(
             currentSummary = "Route · 7 waypoints · 12 km/h · Loop",
             previewSummary = "Point preview",
@@ -140,7 +142,7 @@ fun ReplacementPreviewScreenshot() {
 @Preview(name = "Map panel expanded", widthDp = 840, heightDp = 480, showBackground = true)
 @Composable
 fun MapPanelExpandedScreenshot() {
-    KestrelTheme {
+    ScreenshotTheme {
         Box(modifier = Modifier.fillMaxSize()) {
             Column(modifier = Modifier.width(420.dp).align(Alignment.TopEnd)) {
                 MapSheet(
@@ -177,7 +179,7 @@ fun MapPanelExpandedScreenshot() {
 @Preview(name = "Map panel short landscape", widthDp = 600, heightDp = 320, showBackground = true)
 @Composable
 fun MapPanelLandscapeScreenshot() {
-    KestrelTheme {
+    ScreenshotTheme {
         Box(modifier = Modifier.fillMaxSize()) {
             Column(modifier = Modifier.width(320.dp).align(Alignment.TopEnd)) {
                 MapSheet(
@@ -214,7 +216,7 @@ fun MapPanelLandscapeScreenshot() {
 @Preview(name = "Playback bar medium", widthDp = 600, showBackground = true)
 @Composable
 fun PlaybackBarScreenshot() {
-    KestrelTheme {
+    ScreenshotTheme {
         PlaybackStatusBar(
             runtime =
                 dev.narumi.kestrel.core.location.RuntimeState.Route(
@@ -243,7 +245,7 @@ fun PlaybackBarScreenshot() {
 @Preview(name = "Favorites empty narrow", widthDp = 320, fontScale = 1.3f, showBackground = true)
 @Composable
 fun FavoritesEmptyScreenshot() {
-    KestrelTheme {
+    ScreenshotTheme {
         KestrelEmptyState(
             icon = Icons.Outlined.StarBorder,
             title = "No favorites yet",
@@ -256,7 +258,7 @@ fun FavoritesEmptyScreenshot() {
 @Preview(name = "Favorite row", widthDp = 320, fontScale = 1.2f, showBackground = true)
 @Composable
 fun FavoriteRowScreenshot() {
-    KestrelTheme {
+    ScreenshotTheme {
         FavoriteRow(
             item = previewPlace,
             canReorder = true,
@@ -276,7 +278,7 @@ fun FavoriteRowScreenshot() {
 @Preview(name = "Favorite row 2x text", widthDp = 360, fontScale = 2.0f, showBackground = true)
 @Composable
 fun FavoriteRowLargeTextScreenshot() {
-    KestrelTheme {
+    ScreenshotTheme {
         FavoriteRow(
             item = previewPlace,
             canReorder = false,
@@ -296,7 +298,7 @@ fun FavoriteRowLargeTextScreenshot() {
 @Preview(name = "Options collapsed", widthDp = 320, fontScale = 1.3f, showBackground = true)
 @Composable
 fun OptionsCollapsedScreenshot() {
-    KestrelTheme {
+    ScreenshotTheme {
         OptionsDisclosureCard(
             title = "Cloud sync",
             subtitle = "Connect to Kestrel cloud and keep favorites synced.",
@@ -316,7 +318,7 @@ fun OptionsCollapsedScreenshot() {
 )
 @Composable
 fun OptionsExpandedScreenshot() {
-    KestrelTheme {
+    ScreenshotTheme {
         OptionsDisclosureCard(
             title = "Route recovery",
             subtitle = "Choose how much progress may rewind after Android stops the service.",
@@ -338,7 +340,7 @@ fun OptionsExpandedScreenshot() {
 @Preview(name = "Favorites large text", widthDp = 360, heightDp = 800, fontScale = 2f, showBackground = true)
 @Composable
 fun FavoritesSearchScreenshot() {
-    KestrelTheme {
+    ScreenshotTheme {
         FavoritesContent(
             items = listOf(previewPlace),
             visibleItems = listOf(previewPlace),
@@ -367,7 +369,7 @@ fun FavoritesSearchScreenshot() {
 @Preview(name = "Save point preview narrow", widthDp = 320, fontScale = 1.3f, showBackground = true)
 @Composable
 fun SavePointPreviewScreenshot() {
-    KestrelTheme {
+    ScreenshotTheme {
         DraftPreviewActionsCard(
             waypointCount = 1,
             enabled = true,
@@ -376,6 +378,13 @@ fun SavePointPreviewScreenshot() {
             onSavePreview = {},
             onGenerate = {},
         )
+    }
+}
+
+@Composable
+private fun ScreenshotTheme(content: @Composable () -> Unit) {
+    KestrelTheme {
+        Surface(color = MaterialTheme.colorScheme.background, content = content)
     }
 }
 
