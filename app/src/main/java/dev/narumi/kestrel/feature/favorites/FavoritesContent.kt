@@ -60,77 +60,79 @@ internal fun FavoritesContent(
 ) {
     val indicesById = remember(items) { items.mapIndexed { index, item -> item.item.id to index }.toMap() }
     Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
-        LazyColumn(
-            modifier = Modifier.widthIn(max = 840.dp).fillMaxSize(),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            item(key = "header") {
-                KestrelScreenHeader(
-                    title = "Favorites",
-                    subtitle = "Saved points and routes, ready to use again.",
-                )
-            }
-            if (!loading && items.isNotEmpty()) {
-                item(key = "controls") {
-                    FavoritesToolbar(
-                        query = query,
-                        selectedFilter = selectedFilter,
-                        sortMode = sortMode,
-                        resultCount = visibleItems.size,
-                        totalCount = items.size,
-                        busy = operationBusy,
-                        onQueryChange = onQueryChange,
-                        onFilterChange = onFilterChange,
-                        onSortModeChange = onSortModeChange,
+        Column(modifier = Modifier.widthIn(max = 840.dp).fillMaxSize()) {
+            LazyColumn(
+                modifier = Modifier.weight(1f).fillMaxWidth(),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                item(key = "header") {
+                    KestrelScreenHeader(
+                        title = "Favorites",
+                        subtitle = "Saved points and routes, ready to use again.",
                     )
                 }
-            }
-            when {
-                loading -> item(key = "loading") { FavoritesLoading() }
-                items.isEmpty() ->
-                    item(key = "empty") {
-                        FavoritesEmptyResults(emptyLibrary = true, onAction = onChooseOnMap)
-                    }
-                visibleItems.isEmpty() ->
-                    item(key = "no-matches") {
-                        FavoritesEmptyResults(emptyLibrary = false, onAction = onClearFilters)
-                    }
-                else ->
-                    itemsIndexed(visibleItems, key = { _, item -> "favorite:${item.item.id}" }) { index, item ->
-                        val previousIndex =
-                            visibleItems
-                                .getOrNull(index - 1)
-                                ?.item
-                                ?.id
-                                ?.let(indicesById::get)
-                        val nextIndex =
-                            visibleItems
-                                .getOrNull(index + 1)
-                                ?.item
-                                ?.id
-                                ?.let(indicesById::get)
-                        FavoriteRow(
-                            item = item,
-                            enabled = !operationBusy,
-                            canReorder = sortMode == FavoritesSortMode.Mode.Manual,
-                            canMoveUp = previousIndex != null,
-                            canMoveDown = nextIndex != null,
-                            onApply = { onApply(item) },
-                            onRename = { onRename(item) },
-                            onEdit = { onEdit(item) },
-                            onMoveUp = { previousIndex?.let { onMove(item, it) } },
-                            onMoveDown = { nextIndex?.let { onMove(item, it) } },
-                            onDelete = { onDelete(item) },
+                if (!loading && items.isNotEmpty()) {
+                    item(key = "controls") {
+                        FavoritesToolbar(
+                            query = query,
+                            selectedFilter = selectedFilter,
+                            sortMode = sortMode,
+                            resultCount = visibleItems.size,
+                            totalCount = items.size,
+                            busy = operationBusy,
+                            onQueryChange = onQueryChange,
+                            onFilterChange = onFilterChange,
+                            onSortModeChange = onSortModeChange,
                         )
                     }
+                }
+                when {
+                    loading -> item(key = "loading") { FavoritesLoading() }
+                    items.isEmpty() ->
+                        item(key = "empty") {
+                            FavoritesEmptyResults(emptyLibrary = true, onAction = onChooseOnMap)
+                        }
+                    visibleItems.isEmpty() ->
+                        item(key = "no-matches") {
+                            FavoritesEmptyResults(emptyLibrary = false, onAction = onClearFilters)
+                        }
+                    else ->
+                        itemsIndexed(visibleItems, key = { _, item -> "favorite:${item.item.id}" }) { index, item ->
+                            val previousIndex =
+                                visibleItems
+                                    .getOrNull(index - 1)
+                                    ?.item
+                                    ?.id
+                                    ?.let(indicesById::get)
+                            val nextIndex =
+                                visibleItems
+                                    .getOrNull(index + 1)
+                                    ?.item
+                                    ?.id
+                                    ?.let(indicesById::get)
+                            FavoriteRow(
+                                item = item,
+                                enabled = !operationBusy,
+                                canReorder = sortMode == FavoritesSortMode.Mode.Manual,
+                                canMoveUp = previousIndex != null,
+                                canMoveDown = nextIndex != null,
+                                onApply = { onApply(item) },
+                                onRename = { onRename(item) },
+                                onEdit = { onEdit(item) },
+                                onMoveUp = { previousIndex?.let { onMove(item, it) } },
+                                onMoveDown = { nextIndex?.let { onMove(item, it) } },
+                                onDelete = { onDelete(item) },
+                            )
+                        }
+                }
             }
+            FavoritesFeedback(
+                message = operationError ?: operationMessage,
+                isError = operationError != null,
+                modifier = Modifier.fillMaxWidth(),
+            )
         }
-        FavoritesFeedback(
-            message = operationError ?: operationMessage,
-            isError = operationError != null,
-            modifier = Modifier.align(Alignment.BottomCenter).widthIn(max = 840.dp).padding(16.dp),
-        )
     }
 }
 
@@ -155,7 +157,7 @@ private fun FavoritesFeedback(
         Snackbar(
             snackbarData = data,
             modifier =
-                Modifier.semantics {
+                Modifier.padding(16.dp).semantics {
                     liveRegion = if (isError) LiveRegionMode.Assertive else LiveRegionMode.Polite
                 },
         )

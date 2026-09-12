@@ -33,6 +33,7 @@ import dev.narumi.kestrel.feature.favorites.FavoritesToolbar
 import dev.narumi.kestrel.feature.favorites.visibleFavorites
 import dev.narumi.kestrel.feature.map.DraftPreviewActionsCard
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 
@@ -112,7 +113,7 @@ class FavoritesPreviewInteractionTest {
     }
 
     @Test
-    fun errorFeedbackRemainsVisibleWhenTheListIsScrolled() {
+    fun errorFeedbackRemainsVisibleWithoutCoveringTheScrolledAction() {
         composeRule.setContent {
             MaterialTheme {
                 Box(Modifier.width(320.dp).height(300.dp)) {
@@ -121,7 +122,13 @@ class FavoritesPreviewInteractionTest {
             }
         }
         composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Preview on map"))
-        composeRule.onNodeWithText("Could not save. Try again.").assertIsDisplayed()
+        val action = composeRule.onNodeWithText("Preview on map").assertIsDisplayed()
+        val feedback = composeRule.onNodeWithText("Could not save. Try again.").assertIsDisplayed()
+
+        assertTrue(
+            "The Snackbar must not overlap the final favorite action",
+            action.fetchSemanticsNode().boundsInRoot.bottom <= feedback.fetchSemanticsNode().boundsInRoot.top,
+        )
     }
 
     @Test
