@@ -19,7 +19,7 @@ sealed interface RuntimeState {
         val speedKmh: Double,
         val mode: MovementEngine.Mode,
         val paused: Boolean,
-        // New on start/restore, stable across pause and settings changes; never persisted.
-        val playbackId: String? = null,
+        // Assigned by LocationService on start/restore, stable until route replacement, and never persisted.
+        val playbackId: String,
     ) : RuntimeState
 }

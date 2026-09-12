@@ -230,6 +230,7 @@ fun PlaybackBarScreenshot() {
                     speedKmh = 12.0,
                     mode = MovementEngine.Mode.Loop,
                     paused = false,
+                    playbackId = "playing-route",
                 ),
             busy = false,
             error = null,

@@ -221,13 +221,16 @@ class LocationService : Service() {
     private fun updateRouteSettingsAction(intent: Intent): Int {
         val expectedPlaybackId = intent.getStringExtra(EXTRA_PLAYBACK_ID)
         require(!expectedPlaybackId.isNullOrBlank()) { "The route has changed. Adjust the current route instead." }
-        val speedKmh = intent.takeIf { it.hasExtra(EXTRA_SPEED_KMH) }?.getDoubleExtra(EXTRA_SPEED_KMH, Double.NaN)
-        val mode = intent.getStringExtra(EXTRA_MODE)?.let { MovementEngine.Mode.valueOf(it) }
+        val update =
+            parseRouteSettingsUpdate(
+                speedKmh = intent.takeIf { it.hasExtra(EXTRA_SPEED_KMH) }?.getDoubleExtra(EXTRA_SPEED_KMH, Double.NaN),
+                modeName = intent.getStringExtra(EXTRA_MODE),
+            )
         synchronized(providerWriteLock) {
             val runtime = _runtimeState.value as? RuntimeState.Route
             requireNotNull(runtime) { "No active route is available to adjust." }
             val route = requireNotNull(activeRoute) { "No active route is available to adjust." }
-            val updated = route.withSettings(expectedPlaybackId, speedKmh, mode)
+            val updated = route.withSettings(expectedPlaybackId, update.speedKmh, update.mode)
             activeRoute = updated
             _runtimeState.value = updated.toRuntimeState(paused = runtime.paused)
         }

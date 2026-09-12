@@ -54,7 +54,7 @@ class MapWorkflowPresentationTest {
         assertEquals(
             true,
             runtimeMatchesDraft(
-                RuntimeState.Route(route, 12.0, MovementEngine.Mode.Loop, paused = true),
+                RuntimeState.Route(route, 12.0, MovementEngine.Mode.Loop, paused = true, playbackId = "test-playback"),
                 route,
                 12.0,
                 MovementEngine.Mode.Loop,
@@ -70,6 +70,7 @@ class MapWorkflowPresentationTest {
                 speedKmh = 12.0,
                 mode = MovementEngine.Mode.Loop,
                 paused = false,
+                playbackId = "test-playback",
             )
 
         assertEquals("Route · 2 waypoints · 12 km/h · Loop", currentMockSummary(route))

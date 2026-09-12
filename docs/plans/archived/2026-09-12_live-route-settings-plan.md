@@ -30,7 +30,7 @@ Allow changing speed and Once / Loop / Ping-pong during route playback or pause,
 - [x] Pause state is retained in service state and runtime publication; stale/invalid requests are rejected before engine mutation.
 - [x] Active callbacks dispatch partial service updates; preview callbacks only edit draft variables. All settings choices disable while pending; timeout handling no longer clears drafts for non-replacement operations.
 - [x] `MockStateWriterTest` verifies current-state snapshots after queued writes, route stop/replacement, and write failure. Service snapshot/tick/update/completion paths share the provider lock; initialized-state guarding prevents a failed startup from clearing recovery data.
-- [x] All 170 JVM tests pass (32 suites; no failures or skips), including zero-length routes and cancelled persistence snapshots. `just android-check`, `just android-lint`, and `just android-build` pass with Java 26.
+- [x] All 172 JVM tests pass (32 suites; no failures or skips), including malformed update extras, zero-length routes, and cancelled persistence snapshots. `just android-check`, `just android-lint`, and `just android-build` pass with Java 26.
 - [x] `git diff --check` passes; no image binaries are included in Git changes. Previous visual-polish changes remain intact.
 
 ## Validation Evidence

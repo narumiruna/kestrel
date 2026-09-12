@@ -140,7 +140,7 @@ class LiveRouteSettingsTest {
         listOf(false, true).forEach { paused ->
             val initial = route(MovementEngine.Mode.Once)
             val runtime = initial.toRuntimeState(paused)
-            val updated = initial.withSettings(requireNotNull(runtime.playbackId), speedKmh = 36.0, mode = MovementEngine.Mode.Loop)
+            val updated = initial.withSettings(runtime.playbackId, speedKmh = 36.0, mode = MovementEngine.Mode.Loop)
             assertEquals(
                 runtime.copy(speedKmh = 36.0, mode = MovementEngine.Mode.Loop),
                 updated.toRuntimeState(paused = runtime.paused),

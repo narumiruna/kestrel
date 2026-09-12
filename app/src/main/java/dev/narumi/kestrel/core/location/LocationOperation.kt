@@ -16,6 +16,27 @@ data class LocationOperationResult(
     val message: String,
 )
 
+internal data class RouteSettingsUpdate(
+    val speedKmh: Double?,
+    val mode: MovementEngine.Mode?,
+)
+
+internal fun parseRouteSettingsUpdate(
+    speedKmh: Double?,
+    modeName: String?,
+): RouteSettingsUpdate {
+    require(speedKmh != null || modeName != null) { "Choose a speed or playback mode to change." }
+    require(speedKmh == null || speedKmh.isFinite() && speedKmh > 0.0) {
+        "Route speed must be a finite number greater than zero km/h."
+    }
+    val mode =
+        modeName?.let { name ->
+            MovementEngine.Mode.entries.firstOrNull { it.name == name }
+                ?: throw IllegalArgumentException("Choose a valid playback mode.")
+        }
+    return RouteSettingsUpdate(speedKmh, mode)
+}
+
 internal fun validateRouteRequest(
     waypoints: List<LatLng>,
     speedKmh: Double,

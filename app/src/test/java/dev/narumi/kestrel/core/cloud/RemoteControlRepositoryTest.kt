@@ -239,11 +239,11 @@ class RemoteControlRepositoryTest {
         assertEquals(RemotePlaybackState.SINGLE, RuntimeState.Single(point).toRemotePlaybackState())
         assertEquals(
             RemotePlaybackState.ROUTE,
-            RuntimeState.Route(route, 12.0, MovementEngine.Mode.Loop, paused = false).toRemotePlaybackState(),
+            RuntimeState.Route(route, 12.0, MovementEngine.Mode.Loop, paused = false, playbackId = "playing-route").toRemotePlaybackState(),
         )
         assertEquals(
             RemotePlaybackState.PAUSED,
-            RuntimeState.Route(route, 12.0, MovementEngine.Mode.Loop, paused = true).toRemotePlaybackState(),
+            RuntimeState.Route(route, 12.0, MovementEngine.Mode.Loop, paused = true, playbackId = "paused-route").toRemotePlaybackState(),
         )
     }
 
