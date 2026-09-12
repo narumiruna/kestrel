@@ -1,7 +1,17 @@
 'use client';
 
+import {
+  ArrowRightIcon,
+  ChevronDownIcon,
+  Cross2Icon,
+  MagnifyingGlassIcon,
+  PlusIcon,
+  SewingPinIcon,
+  Share1Icon,
+} from '@radix-ui/react-icons';
+import { IconButton, TextField } from '@radix-ui/themes';
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import DashboardShell from '@/components/dashboard/DashboardShell';
 import { LibraryItemActions } from '@/components/dashboard/LibraryItemActions';
 import { useDashboardLibraryData } from '@/components/dashboard/useDashboardLibraryData';
@@ -27,10 +37,20 @@ export default function LibraryCatalog({
 }: {
   initialFilter?: LibraryFilter;
 }) {
-  const { auth, error, isLoading, lastLoadedAt, places, refresh, routes } =
-    useDashboardLibraryData();
+  const {
+    auth,
+    error,
+    isLoading,
+    lastLoadedAt,
+    places,
+    placesError,
+    refresh,
+    routes,
+    routesError,
+  } = useDashboardLibraryData();
   const [filter, setFilter] = useState<LibraryFilter>(initialFilter);
   const [query, setQuery] = useState('');
+  const searchRef = useRef<HTMLInputElement | null>(null);
   const normalizedQuery = query.trim().toLowerCase();
   const filteredPlaces = useMemo(
     () =>
@@ -53,18 +73,34 @@ export default function LibraryCatalog({
     [normalizedQuery, routes],
   );
 
+  function clearSearch() {
+    setQuery('');
+    searchRef.current?.focus();
+  }
+
   if (!auth.isHydrated || !auth.isAuthenticated || auth.session == null) {
     return (
       <main className="library-page-shell">
-        <p className="muted">Loading library…</p>
+        <p className="muted" role="status">
+          Loading library…
+        </p>
       </main>
     );
   }
 
   const showPlaces = filter !== 'routes';
   const showRoutes = filter !== 'places';
+  const totalItems = places.length + routes.length;
+  const didLibraryLoadFail = placesError != null && routesError != null;
   const totalVisible =
     (showPlaces ? filteredPlaces.length : 0) + (showRoutes ? filteredRoutes.length : 0);
+  const activeError = (showPlaces && placesError != null) || (showRoutes && routesError != null);
+  const resultLabel = filter === 'all' ? 'item' : filter === 'places' ? 'place' : 'route';
+  const resultSummary = isLoading
+    ? totalItems === 0
+      ? 'Loading library…'
+      : 'Updating library…'
+    : `${totalVisible} ${error == null ? '' : 'available '}${resultLabel}${totalVisible === 1 ? '' : 's'}${normalizedQuery.length > 0 ? ' found' : ''}`;
 
   return (
     <DashboardShell
@@ -78,17 +114,15 @@ export default function LibraryCatalog({
       <section className="library-catalog" aria-labelledby="library-heading">
         <header className="library-catalog-header">
           <div>
-            <p className="library-eyebrow">Cloud library</p>
-            <h1 id="library-heading">Places and routes</h1>
-            <p>
-              Find and organize saved items here. Open an item on Map when you want to change it.
-            </p>
+            <p className="library-eyebrow">Places & routes</p>
+            <h1 id="library-heading">Your library</h1>
+            <p>Your saved starting points and paths. Select an item to edit it on the map.</p>
           </div>
           <MenuSurface
             className="library-new-menu-content"
             trigger={
               <Button className="library-new-menu-trigger" type="button">
-                New item <span aria-hidden>⌄</span>
+                <PlusIcon aria-hidden /> New item <ChevronDownIcon aria-hidden />
               </Button>
             }
           >
@@ -96,18 +130,45 @@ export default function LibraryCatalog({
               className="ui-menu-link-item"
               render={<Link href="/dashboard/map?kind=places&new=1" />}
             >
-              New place
+              <SewingPinIcon aria-hidden /> New place
             </Menu.LinkItem>
             <Menu.LinkItem
               className="ui-menu-link-item"
               render={<Link href="/dashboard/map?kind=routes&new=1" />}
             >
-              New route
+              <Share1Icon aria-hidden /> New route
             </Menu.LinkItem>
           </MenuSurface>
         </header>
 
         <div className="library-toolbar">
+          <label htmlFor="library-search" className="library-search">
+            <span className="sr-only">Search library</span>
+            <TextInput
+              id="library-search"
+              ref={searchRef}
+              placeholder="Search names, notes, tags, or modes…"
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+            >
+              <TextField.Slot>
+                <MagnifyingGlassIcon aria-hidden />
+              </TextField.Slot>
+              {query.length === 0 ? null : (
+                <TextField.Slot side="right">
+                  <IconButton
+                    aria-label="Clear search"
+                    type="button"
+                    variant="ghost"
+                    onClick={clearSearch}
+                  >
+                    <Cross2Icon aria-hidden />
+                  </IconButton>
+                </TextField.Slot>
+              )}
+            </TextInput>
+          </label>
           <ToggleGroup
             aria-label="Library item type"
             className="library-filter-tabs"
@@ -120,56 +181,53 @@ export default function LibraryCatalog({
             }}
           >
             <Toggle value="all">
-              All <span>{places.length + routes.length}</span>
+              All <span>{isLoading || error != null ? '—' : totalItems}</span>
             </Toggle>
             <Toggle value="places">
-              Places <span>{places.length}</span>
+              Places <span>{isLoading || placesError != null ? '—' : places.length}</span>
             </Toggle>
             <Toggle value="routes">
-              Routes <span>{routes.length}</span>
+              Routes <span>{isLoading || routesError != null ? '—' : routes.length}</span>
             </Toggle>
           </ToggleGroup>
-          <label
-            htmlFor="radix-field-components-dashboard-librarycatalog-tsx-1"
-            className="library-search"
-          >
-            <span className="library-search-label">Search library</span>
-            <TextInput
-              id="radix-field-components-dashboard-librarycatalog-tsx-1"
-              placeholder="Search names, notes, tags, or modes…"
-              type="search"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-            />
-          </label>
         </div>
 
+        <p className="library-results-summary" role="status" aria-atomic="true">
+          {resultSummary}
+        </p>
         {error == null ? null : (
-          <div className="error" role="alert">
-            {error}
+          <div className="library-load-error" role="alert">
+            <div>
+              <strong>
+                {didLibraryLoadFail
+                  ? 'Couldn’t load your library'
+                  : 'Some items couldn’t be updated'}
+              </strong>
+              <p>
+                {error}
+                {totalItems === 0 ? '' : ' Available items are still shown.'}
+              </p>
+            </div>
+            <Button
+              className="secondary"
+              disabled={isLoading}
+              type="button"
+              onClick={() => void refresh()}
+            >
+              Try again
+            </Button>
           </div>
         )}
-        {isLoading && places.length === 0 && routes.length === 0 ? <LibrarySkeleton /> : null}
-        {!isLoading && totalVisible === 0 ? (
-          <div className="library-empty-state">
-            <h2 className="library-empty-title">
-              {normalizedQuery.length === 0 ? 'Your library is empty' : 'No matching items'}
-            </h2>
-            <p className="muted library-empty-copy">
-              {normalizedQuery.length === 0
-                ? 'Create a place or route to start planning on the map.'
-                : 'Try a different search or item type.'}
-            </p>
-            {normalizedQuery.length === 0 ? (
-              <div className="library-empty-actions">
-                <Link href="/dashboard/map?kind=places&new=1">Create place</Link>
-                <Link href="/dashboard/map?kind=routes&new=1">Create route</Link>
-              </div>
-            ) : null}
-          </div>
+        {isLoading && totalItems === 0 ? <LibrarySkeleton /> : null}
+        {!isLoading && !activeError && totalVisible === 0 ? (
+          <LibraryEmptyState
+            filter={filter}
+            isSearching={normalizedQuery.length > 0}
+            onClearSearch={clearSearch}
+          />
         ) : null}
 
-        <div className="library-sections">
+        <div className="library-sections" aria-busy={isLoading}>
           {showPlaces && filteredPlaces.length > 0 ? (
             <LibrarySection count={filteredPlaces.length} title="Places">
               {filteredPlaces.map((place) => (
@@ -187,6 +245,66 @@ export default function LibraryCatalog({
         </div>
       </section>
     </DashboardShell>
+  );
+}
+
+function LibraryEmptyState({
+  filter,
+  isSearching,
+  onClearSearch,
+}: {
+  filter: LibraryFilter;
+  isSearching: boolean;
+  onClearSearch: () => void;
+}) {
+  return (
+    <div className="library-empty-state">
+      <div className="library-empty-icon" aria-hidden>
+        {isSearching ? (
+          <MagnifyingGlassIcon />
+        ) : filter === 'routes' ? (
+          <Share1Icon />
+        ) : (
+          <SewingPinIcon />
+        )}
+      </div>
+      <h2 className="library-empty-title">
+        {isSearching
+          ? `No matching ${filter === 'all' ? 'items' : filter}`
+          : filter === 'all'
+            ? 'No saved items yet'
+            : `No ${filter} yet`}
+      </h2>
+      <p className="muted library-empty-copy">
+        {isSearching
+          ? 'Try another name, note, tag, or mode, or clear your search to see saved items.'
+          : filter === 'places'
+            ? 'Save a location on the map to find it here whenever you need it.'
+            : filter === 'routes'
+              ? 'Connect points on the map and save a route to find it here.'
+              : 'Save a place for a single location, or build a route with multiple stops.'}
+      </p>
+      <div className="library-empty-actions">
+        {isSearching ? (
+          <Button className="secondary" type="button" onClick={onClearSearch}>
+            Clear search
+          </Button>
+        ) : (
+          <>
+            {filter === 'routes' ? null : (
+              <Button asChild>
+                <Link href="/dashboard/map?kind=places&new=1">Create place</Link>
+              </Button>
+            )}
+            {filter === 'places' ? null : (
+              <Button asChild variant={filter === 'routes' ? 'solid' : 'soft'}>
+                <Link href="/dashboard/map?kind=routes&new=1">Create route</Link>
+              </Button>
+            )}
+          </>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -216,10 +334,17 @@ function PlaceLibraryRow({ place, onDeleted }: { place: Place; onDeleted: () => 
   return (
     <article className="library-item-row">
       <div className="library-item-type" aria-hidden="true">
-        P
+        <SewingPinIcon />
       </div>
-      <div className="library-item-main">
-        <h3>{place.name}</h3>
+      <Link
+        className="library-item-main"
+        href={`/dashboard/map?kind=places&selected=${encodeURIComponent(place.id)}`}
+        aria-label={`Open ${place.name} on map`}
+      >
+        <div className="library-item-title-row">
+          <h3>{place.name}</h3>
+          <ArrowRightIcon className="library-item-arrow" aria-hidden />
+        </div>
         <p className="library-item-meta">
           {formatCoord(place.latitude)}, {formatCoord(place.longitude)}
         </p>
@@ -233,7 +358,7 @@ function PlaceLibraryRow({ place, onDeleted }: { place: Place; onDeleted: () => 
             ))}
           </div>
         )}
-      </div>
+      </Link>
       <LibraryItemActions
         itemId={place.id}
         itemKind="places"
@@ -249,13 +374,18 @@ function RouteLibraryRow({ route, onDeleted }: { route: Route; onDeleted: () => 
 
   return (
     <article className="library-item-row">
-      <div className="library-item-type" aria-hidden="true">
-        R
+      <div className="library-item-type library-item-type-route" aria-hidden="true">
+        <Share1Icon />
       </div>
-      <div className="library-item-main">
+      <Link
+        className="library-item-main"
+        href={`/dashboard/map?kind=routes&selected=${encodeURIComponent(route.id)}`}
+        aria-label={`Open ${route.name} on map`}
+      >
         <div className="library-item-title-row">
           <h3>{route.name}</h3>
-          {route.isPublic ? <span className="chip">public</span> : null}
+          {route.isPublic ? <span className="chip">Public</span> : null}
+          <ArrowRightIcon className="library-item-arrow" aria-hidden />
         </div>
         <p className="library-item-meta">
           {formatRouteDistanceFromWaypoints(route.currentRevision?.waypoints ?? [])} ·{' '}
@@ -263,7 +393,7 @@ function RouteLibraryRow({ route, onDeleted }: { route: Route; onDeleted: () => 
           {formatMode(route.mode)}
         </p>
         {route.description == null ? null : <p>{route.description}</p>}
-      </div>
+      </Link>
       <LibraryItemActions
         itemId={route.id}
         itemKind="routes"

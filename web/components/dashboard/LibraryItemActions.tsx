@@ -1,7 +1,8 @@
 'use client';
 
-import Link from 'next/link';
-import { useEffect, useRef, useState } from 'react';
+import { DotsHorizontalIcon, Share2Icon, TrashIcon } from '@radix-ui/react-icons';
+import { IconButton } from '@radix-ui/themes';
+import { useEffect, useId, useRef, useState } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import { formatError, toAbsolutePublicUrl } from '@/components/dashboard/utils';
 import {
@@ -118,22 +119,19 @@ export function LibraryItemActions({ itemId, itemKind, itemName, onDeleted }: Pr
     }
   }
 
-  const mapHref = `/dashboard/map?kind=${itemKind}&selected=${encodeURIComponent(itemId)}`;
   const itemLabel = itemKind === 'places' ? 'place' : 'route';
 
   return (
     <div className="library-item-actions">
-      <Link className="library-open-map" href={mapHref}>
-        Open on map
-      </Link>
       <DialogFrame
         className="place-action-dialog-card"
+        description={`Manage public read-only access to this ${itemLabel}.`}
         eyebrow={`Share ${itemLabel}`}
         open={isShareOpen}
         title={itemName}
         trigger={
-          <Button className="secondary" type="button">
-            Share
+          <Button aria-label={`Share ${itemName}`} className="secondary" type="button">
+            <Share2Icon aria-hidden /> Share
           </Button>
         }
         onOpenChange={setIsShareOpen}
@@ -153,17 +151,23 @@ export function LibraryItemActions({ itemId, itemKind, itemName, onDeleted }: Pr
       <MenuSurface
         className="library-more-menu-content"
         trigger={
-          <Button ref={moreButtonRef} className="secondary library-more-menu-trigger" type="button">
-            More <span aria-hidden>⌄</span>
-          </Button>
+          <IconButton
+            ref={moreButtonRef}
+            aria-label={`More actions for ${itemName}`}
+            className="secondary library-more-menu-trigger"
+            type="button"
+            variant="ghost"
+          >
+            <DotsHorizontalIcon aria-hidden />
+          </IconButton>
         }
       >
         <Menu.Item
           className="ui-menu-item danger"
           disabled={isMutating}
-          onClick={() => setIsDeleteOpen(true)}
+          onSelect={() => setIsDeleteOpen(true)}
         >
-          Delete {itemLabel}…
+          <TrashIcon aria-hidden /> Delete {itemLabel}…
         </Menu.Item>
       </MenuSurface>
       <ConfirmDialog
@@ -206,6 +210,8 @@ function ShareDialogContent({
   onSetShareDisabled: (disabled: boolean) => void;
   shareLink: ShareLink | null;
 }) {
+  const shareUrlId = useId();
+
   return (
     <>
       {isLoadingShare ? <p className="muted">Loading share settings…</p> : null}
@@ -232,13 +238,9 @@ function ShareDialogContent({
       ) : null}
       {shareLink == null ? null : (
         <div className="stack">
-          <label htmlFor="radix-field-components-dashboard-libraryitemactions-tsx-1">
+          <label htmlFor={shareUrlId}>
             Public URL
-            <TextInput
-              id="radix-field-components-dashboard-libraryitemactions-tsx-1"
-              readOnly
-              value={toAbsolutePublicUrl(shareLink.publicUrl)}
-            />
+            <TextInput id={shareUrlId} readOnly value={toAbsolutePublicUrl(shareLink.publicUrl)} />
           </label>
           <p className="muted no-margin">
             Status: {shareLink.disabledAt == null ? 'Active' : 'Disabled'}

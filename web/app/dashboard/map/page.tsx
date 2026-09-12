@@ -1,7 +1,8 @@
 'use client';
 
+import { Cross2Icon, MagnifyingGlassIcon } from '@radix-ui/react-icons';
+import { IconButton, TextField } from '@radix-ui/themes';
 import dynamic from 'next/dynamic';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { type RefObject, useEffect, useMemo, useRef, useState } from 'react';
 import { IndexCard } from '@/components/cartographer/IndexCard';
@@ -62,6 +63,7 @@ export default function DashboardMapPage() {
     refresh,
     refreshPlaces,
     routes,
+    routesError,
     selectedPlaceId,
     selectedRouteId,
     setSelectedPlaceId,
@@ -464,6 +466,8 @@ export default function DashboardMapPage() {
         filteredPlaces={filteredPlaces}
         filteredRoutes={filteredRoutes}
         isLoading={isLoading}
+        itemCount={activeKind === 'places' ? places.length : routes.length}
+        loadError={activeKind === 'places' ? placesError : routesError}
         query={query}
         searchRef={searchRef}
         selectedPlaceId={isNewPlace ? null : selectedPlaceId}
@@ -598,6 +602,8 @@ function MapLibraryPanel({
   filteredPlaces,
   filteredRoutes,
   isLoading,
+  itemCount,
+  loadError,
   onNew,
   onQueryChange,
   onSelectKind,
@@ -612,6 +618,8 @@ function MapLibraryPanel({
   filteredPlaces: Place[];
   filteredRoutes: Route[];
   isLoading: boolean;
+  itemCount: number;
+  loadError: string | null;
   onNew: () => void;
   onQueryChange: (query: string) => void;
   onSelectKind: (kind: MapKind) => void;
@@ -623,6 +631,12 @@ function MapLibraryPanel({
   selectedRouteId: string | null;
 }) {
   const activeItems = activeKind === 'places' ? filteredPlaces : filteredRoutes;
+  const isSearching = query.trim().length > 0;
+
+  function clearSearch() {
+    onQueryChange('');
+    searchRef.current?.focus();
+  }
 
   return (
     <aside className="field-notebook map-library-panel" aria-label="Map item picker">
@@ -651,16 +665,38 @@ function MapLibraryPanel({
             id="radix-field-app-dashboard-map-page-tsx-1"
             ref={searchRef}
             placeholder={`Search ${activeKind}…`}
+            type="search"
             value={query}
             onChange={(event) => onQueryChange(event.target.value)}
-          />
+          >
+            <TextField.Slot>
+              <MagnifyingGlassIcon aria-hidden />
+            </TextField.Slot>
+            {query.length === 0 ? null : (
+              <TextField.Slot side="right">
+                <IconButton
+                  aria-label="Clear map search"
+                  type="button"
+                  variant="ghost"
+                  onClick={clearSearch}
+                >
+                  <Cross2Icon aria-hidden />
+                </IconButton>
+              </TextField.Slot>
+            )}
+          </TextInput>
         </label>
-        <Button className="secondary map-picker-new" type="button" onClick={onNew}>
+        <Button
+          aria-label={`New ${activeKind === 'places' ? 'place' : 'route'}`}
+          className="secondary map-picker-new"
+          type="button"
+          onClick={onNew}
+        >
           New
         </Button>
       </div>
-      <div className="notebook-list">
-        {isLoading ? <NotebookSkeleton /> : null}
+      <div className="notebook-list" aria-busy={isLoading}>
+        {isLoading && itemCount === 0 ? <NotebookSkeleton /> : null}
         {activeKind === 'places'
           ? filteredPlaces.map((place) => (
               <Button
@@ -703,8 +739,18 @@ function MapLibraryPanel({
             ))}
         {activeItems.length === 0 && !isLoading ? (
           <div className="notebook-empty">
-            <p className="muted no-margin">No {activeKind} match this search.</p>
-            <Link href={`/dashboard/library/${activeKind}`}>Browse Library</Link>
+            <p className="muted no-margin" role="status">
+              {loadError != null
+                ? `Couldn’t load ${activeKind}. Use Refresh above to try again.`
+                : isSearching
+                  ? `No ${activeKind} match this search.`
+                  : `No ${activeKind} yet. Choose New to create your first ${activeKind === 'places' ? 'place' : 'route'}.`}
+            </p>
+            {isSearching ? (
+              <Button className="secondary" type="button" onClick={clearSearch}>
+                Clear search
+              </Button>
+            ) : null}
           </div>
         ) : null}
       </div>
