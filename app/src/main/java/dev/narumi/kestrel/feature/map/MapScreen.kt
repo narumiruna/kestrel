@@ -643,7 +643,11 @@ fun MapScreen(
             onStop = { beginOperation(LocationService.stop(context), clearDraftOnSuccess = false) },
             onUndoLast = { waypoints = waypoints.dropLast(1) },
             onClear = { waypoints = emptyList() },
-            onSaveRoute = { pendingFavorite = PendingFavorite.Route(waypoints, speedKmh, routeMode) },
+            onSavePreview = {
+                pendingFavorite =
+                    waypoints.singleOrNull()?.let { PendingFavorite.Point(it) }
+                        ?: PendingFavorite.Route(waypoints, speedKmh, routeMode)
+            },
             onGenerate = { showGenerateDialog = true },
             onReplace = { showReplaceConfirmation = true },
             onCancelPreview = { waypoints = emptyList() },
@@ -904,7 +908,7 @@ internal fun MapSheet(
     onStop: () -> Unit,
     onUndoLast: () -> Unit,
     onClear: () -> Unit,
-    onSaveRoute: () -> Unit,
+    onSavePreview: () -> Unit,
     onGenerate: () -> Unit,
     onReplace: () -> Unit,
     onCancelPreview: () -> Unit,
@@ -940,11 +944,12 @@ internal fun MapSheet(
         }
         feedbackMessage?.let { MapFeedbackCard(message = it, isError = feedbackIsError) }
         if (!runtimeActive && draftWaypointCount > 0) {
-            DraftRouteActionsCard(
+            DraftPreviewActionsCard(
                 waypointCount = draftWaypointCount,
+                enabled = !operationPending,
                 onUndoLast = onUndoLast,
                 onClear = onClear,
-                onSaveRoute = onSaveRoute,
+                onSavePreview = onSavePreview,
                 onGenerate = onGenerate,
             )
         }
@@ -991,13 +996,15 @@ private fun StatusRow(
             RunState.Idle ->
                 Triple(
                     MaterialTheme.colorScheme.outline,
-                    if (waypointCount == 0) "Idle" else "$waypointCount waypoints",
-                    if (waypointCount == 0) {
-                        "Tap the map to drop a point or generate a route."
-                    } else if (waypointCount == 1) {
-                        "Ready to mock."
-                    } else {
-                        "Ready to play."
+                    when (waypointCount) {
+                        0 -> "Choose a location"
+                        1 -> "Point preview"
+                        else -> "$waypointCount-waypoint route"
+                    },
+                    when (waypointCount) {
+                        0 -> "Tap the map or choose a saved target."
+                        1 -> "Start here, or add another waypoint for a route."
+                        else -> "Preview only · Start when you’re ready."
                     },
                 )
             RunState.Single ->

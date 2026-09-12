@@ -14,12 +14,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.android.tools.screenshot.PreviewTest
+import dev.narumi.kestrel.core.data.FavoritesSortMode
 import dev.narumi.kestrel.core.library.LibraryItem
 import dev.narumi.kestrel.core.library.LibraryItemKind
 import dev.narumi.kestrel.core.library.LibraryItemWithContent
 import dev.narumi.kestrel.core.library.Place
 import dev.narumi.kestrel.core.location.MovementEngine
 import dev.narumi.kestrel.feature.favorites.FavoriteRow
+import dev.narumi.kestrel.feature.favorites.FavoritesContent
+import dev.narumi.kestrel.feature.favorites.FavoritesFilter
+import dev.narumi.kestrel.feature.map.DraftPreviewActionsCard
 import dev.narumi.kestrel.feature.map.MapSetupStep
 import dev.narumi.kestrel.feature.map.MapSheet
 import dev.narumi.kestrel.feature.map.ReplacementPreviewCard
@@ -69,7 +73,7 @@ fun MapSheetScreenshot() {
             onStop = {},
             onUndoLast = {},
             onClear = {},
-            onSaveRoute = {},
+            onSavePreview = {},
             onGenerate = {},
             onReplace = {},
             onCancelPreview = {},
@@ -108,7 +112,7 @@ fun MapPlayingScreenshot() {
             onStop = {},
             onUndoLast = {},
             onClear = {},
-            onSaveRoute = {},
+            onSavePreview = {},
             onGenerate = {},
             onReplace = {},
             onCancelPreview = {},
@@ -159,7 +163,7 @@ fun MapPanelExpandedScreenshot() {
                     onStop = {},
                     onUndoLast = {},
                     onClear = {},
-                    onSaveRoute = {},
+                    onSavePreview = {},
                     onGenerate = {},
                     onReplace = {},
                     onCancelPreview = {},
@@ -196,7 +200,7 @@ fun MapPanelLandscapeScreenshot() {
                     onStop = {},
                     onUndoLast = {},
                     onClear = {},
-                    onSaveRoute = {},
+                    onSavePreview = {},
                     onGenerate = {},
                     onReplace = {},
                     onCancelPreview = {},
@@ -325,6 +329,53 @@ fun OptionsExpandedScreenshot() {
                 androidx.compose.material3.Text("Changes apply to the next route start or restore.")
             }
         }
+    }
+}
+
+@PreviewTest
+@Preview(name = "Favorites searchable narrow", widthDp = 320, heightDp = 640, showBackground = true)
+@Preview(name = "Favorites short landscape", widthDp = 600, heightDp = 320, showBackground = true)
+@Preview(name = "Favorites large text", widthDp = 360, heightDp = 800, fontScale = 2f, showBackground = true)
+@Composable
+fun FavoritesSearchScreenshot() {
+    KestrelTheme {
+        FavoritesContent(
+            items = listOf(previewPlace),
+            visibleItems = listOf(previewPlace),
+            loading = false,
+            query = "",
+            selectedFilter = FavoritesFilter.All,
+            sortMode = FavoritesSortMode.Mode.Alphabetical,
+            operationMessage = null,
+            operationError = null,
+            operationBusy = false,
+            onQueryChange = {},
+            onFilterChange = {},
+            onSortModeChange = {},
+            onClearFilters = {},
+            onChooseOnMap = {},
+            onApply = {},
+            onRename = {},
+            onEdit = {},
+            onMove = { _, _ -> },
+            onDelete = {},
+        )
+    }
+}
+
+@PreviewTest
+@Preview(name = "Save point preview narrow", widthDp = 320, fontScale = 1.3f, showBackground = true)
+@Composable
+fun SavePointPreviewScreenshot() {
+    KestrelTheme {
+        DraftPreviewActionsCard(
+            waypointCount = 1,
+            enabled = true,
+            onUndoLast = {},
+            onClear = {},
+            onSavePreview = {},
+            onGenerate = {},
+        )
     }
 }
 
