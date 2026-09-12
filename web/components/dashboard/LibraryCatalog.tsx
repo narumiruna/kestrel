@@ -91,6 +91,7 @@ export default function LibraryCatalog({
   const showPlaces = filter !== 'routes';
   const showRoutes = filter !== 'places';
   const totalItems = places.length + routes.length;
+  const didLibraryLoadFail = placesError != null && routesError != null;
   const totalVisible =
     (showPlaces ? filteredPlaces.length : 0) + (showRoutes ? filteredRoutes.length : 0);
   const activeError = (showPlaces && placesError != null) || (showRoutes && routesError != null);
@@ -198,7 +199,9 @@ export default function LibraryCatalog({
           <div className="library-load-error" role="alert">
             <div>
               <strong>
-                {totalItems === 0 ? 'Couldn’t load your library' : 'Some items couldn’t be updated'}
+                {didLibraryLoadFail
+                  ? 'Couldn’t load your library'
+                  : 'Some items couldn’t be updated'}
               </strong>
               <p>
                 {error}

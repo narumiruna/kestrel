@@ -274,8 +274,11 @@
   padding: 6px 8px;
 }
 
-.library-item-row:has(.library-item-main:hover),
 .library-item-row:focus-within {
+  background: var(--sand-2);
+}
+
+.library-item-row:has(.library-item-main:hover) {
   background: var(--sand-2);
 }
 
