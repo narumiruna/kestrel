@@ -5,6 +5,8 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -21,6 +23,7 @@ internal fun MapLinksOptionsCard(
     val context = LocalContext.current
     OptionsDisclosureCard(
         title = OptionsSection.MapLinks.title,
+        icon = Icons.Outlined.Link,
         subtitle = "Let Android open map coordinates with Kestrel.",
         summary = "geo: and coordinate Google Maps links",
         expanded = expanded,

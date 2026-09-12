@@ -8,8 +8,8 @@ data class MockSample(
 
 class MovementEngine(
     waypoints: List<LatLng>,
-    private val speedMps: Double,
-    private val mode: Mode = Mode.Once,
+    private var speedMps: Double,
+    private var mode: Mode = Mode.Once,
     initialProgressMeters: Double = 0.0,
     initialForward: Boolean = true,
 ) {
@@ -17,9 +17,10 @@ class MovementEngine(
 
     init {
         require(waypoints.size >= 2) { "MovementEngine requires at least 2 waypoints" }
-        require(speedMps > 0) { "speed must be positive" }
+        require(speedMps.isFinite() && speedMps > 0) { "speed must be finite and positive" }
     }
 
+    private val startPoint = waypoints.first()
     private val segments: List<Segment> =
         buildList {
             for (i in 0 until waypoints.lastIndex) {
@@ -48,6 +49,17 @@ class MovementEngine(
     // never stored direction) resume in the natural reading direction.
     private var forward: Boolean = initialForward
 
+    // Called under the same service lock as advance and progress snapshots.
+    fun updateSettings(
+        speedMps: Double,
+        mode: Mode,
+    ) {
+        require(speedMps.isFinite() && speedMps > 0) { "speed must be finite and positive" }
+        this.speedMps = speedMps
+        if (this.mode != mode) forward = true
+        this.mode = mode
+    }
+
     fun advance(deltaSeconds: Double): MockSample {
         if (totalDistance == 0.0) return sampleAt(0.0)
         val delta = speedMps * deltaSeconds
@@ -61,15 +73,12 @@ class MovementEngine(
                 progress = next
             }
             Mode.PingPong -> {
-                var next = if (forward) progress + delta else progress - delta
-                if (next > totalDistance) {
-                    next = 2 * totalDistance - next
-                    forward = false
-                } else if (next < 0) {
-                    next = -next
-                    forward = true
-                }
-                progress = next
+                // A faster speed on a short route can cross several endpoints in one tick.
+                val period = 2 * totalDistance
+                val phase = if (forward) progress else period - progress
+                val next = (phase + delta % period) % period
+                forward = next < totalDistance
+                progress = if (forward) next else period - next
             }
         }
         return sampleAt(progress)
@@ -83,7 +92,7 @@ class MovementEngine(
 
     private fun sampleAt(meters: Double): MockSample {
         if (segments.isEmpty()) {
-            return MockSample(point = LatLng(0.0, 0.0), speedMps = 0.0, bearingDeg = 0.0)
+            return MockSample(point = startPoint, speedMps = 0.0, bearingDeg = 0.0)
         }
         val segmentIndex = segmentIndexAt(meters)
         val segment = segments[segmentIndex]
@@ -92,7 +101,8 @@ class MovementEngine(
         return MockSample(
             point = lerpLatLng(segment.from, segment.to, offset / segment.length),
             speedMps = if (isFinished()) 0.0 else speedMps,
-            bearingDeg = segment.bearing,
+            bearingDeg =
+                if (mode == Mode.PingPong && !forward) (segment.bearing + 180.0) % 360.0 else segment.bearing,
         )
     }
 

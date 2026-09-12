@@ -20,6 +20,7 @@ import dev.narumi.kestrel.core.data.KestrelPrefs
 import dev.narumi.kestrel.core.data.MockState
 import dev.narumi.kestrel.core.data.RouteState
 import dev.narumi.kestrel.core.data.SinglePointState
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -38,46 +39,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import java.util.UUID
 
-internal class ActiveRouteSnapshot private constructor(
-    val engine: MovementEngine,
-    private val latitudes: DoubleArray,
-    private val longitudes: DoubleArray,
-    private val speedKmh: Double,
-    private val mode: MovementEngine.Mode,
-) {
-    fun toRouteState(
-        progressMeters: Double,
-        forward: Boolean,
-    ): RouteState =
-        RouteState(
-            lats = latitudes,
-            lngs = longitudes,
-            speedKmh = speedKmh,
-            mode = mode.name,
-            progressMeters = progressMeters,
-            forward = forward,
-        )
-
-    companion object {
-        fun create(
-            engine: MovementEngine,
-            waypoints: List<LatLng>,
-            speedKmh: Double,
-            mode: MovementEngine.Mode,
-        ): ActiveRouteSnapshot =
-            ActiveRouteSnapshot(
-                engine = engine,
-                latitudes = DoubleArray(waypoints.size) { waypoints[it].lat },
-                longitudes = DoubleArray(waypoints.size) { waypoints[it].lng },
-                speedKmh = speedKmh,
-                mode = mode,
-            )
-    }
-}
-
 class LocationService : Service() {
     private lateinit var mockProvider: MockProviderManager
     private lateinit var prefs: KestrelPrefs
+    private lateinit var stateWriter: MockStateWriter
     private lateinit var remoteControlPoller: RemoteControlPoller
 
     @Volatile private var providerStarted = false
@@ -89,6 +54,7 @@ class LocationService : Service() {
 
     @Volatile private var paused = false
     private var currentMode: MockState.Mode = MockState.Mode.Idle
+    private var stateInitialized = false
 
     // Publish the active engine and serialized route fields together so progress writers cannot
     // combine state from two routes during replacement.
@@ -98,6 +64,7 @@ class LocationService : Service() {
         super.onCreate()
         mockProvider = MockProviderManager(applicationContext)
         prefs = KestrelPrefs(applicationContext)
+        stateWriter = MockStateWriter(snapshot = ::currentStateSnapshot, write = prefs::setMockState)
         remoteControlPoller = RemoteControlPoller.getInstance(applicationContext)
         ensureChannel()
     }
@@ -117,6 +84,7 @@ class LocationService : Service() {
                 ACTION_STOP -> stopAction(intent, startId)
                 ACTION_SET_LOCATION -> setLocationAction(intent)
                 ACTION_START_ROUTE -> startRouteAction(intent)
+                ACTION_UPDATE_ROUTE_SETTINGS -> updateRouteSettingsAction(intent)
                 ACTION_PAUSE -> pauseAction(intent)
                 ACTION_RESUME -> resumeAction(intent)
                 else -> foregroundOnlyAction()
@@ -154,14 +122,17 @@ class LocationService : Service() {
         intent: Intent,
         startId: Int,
     ): Int {
-        stopRoute()
-        stopSingleKeepAlive()
-        stopMock()
-        currentMode = MockState.Mode.Idle
-        _currentMock.value = null
-        _runtimeState.value = RuntimeState.Idle
+        synchronized(providerWriteLock) {
+            stopRoute()
+            stopSingleKeepAlive()
+            stopMock()
+            currentMode = MockState.Mode.Idle
+            _currentMock.value = null
+            _runtimeState.value = RuntimeState.Idle
+            stateInitialized = true
+        }
         setRemoteControlServiceLease(false)
-        scope.launch { prefs.setMockState(null) }
+        scope.launch { stateWriter.persist() }
         stopForegroundCompat()
         completeOperation(intent, succeeded = true, message = "Mock location stopped.")
         // A new SET_LOCATION / START_ROUTE may already be queued by a UI "replace mock"
@@ -197,17 +168,11 @@ class LocationService : Service() {
             startSingleKeepAlive(point)
             currentMode = MockState.Mode.Single
             _runtimeState.value = RuntimeState.Single(point)
+            stateInitialized = true
         }
         setRemoteControlServiceLease(true)
         refreshNotification()
-        scope.launch {
-            prefs.setMockState(
-                MockState(
-                    mode = MockState.Mode.Single,
-                    single = SinglePointState(lat, lng),
-                ),
-            )
-        }
+        scope.launch { stateWriter.persist() }
         completeOperation(intent, succeeded = true, message = "Point mock started.")
         return START_STICKY
     }
@@ -243,43 +208,69 @@ class LocationService : Service() {
             _currentMock.value = waypoints.first()
             activateRoute(engine, waypoints, speedKmh, mode)
             currentMode = MockState.Mode.Route
-            _runtimeState.value =
-                RuntimeState.Route(
-                    waypoints = waypoints,
-                    speedKmh = speedKmh,
-                    mode = mode,
-                    paused = false,
-                )
+            _runtimeState.value = checkNotNull(activeRoute).toRuntimeState(paused = false)
+            stateInitialized = true
         }
         setRemoteControlServiceLease(true)
         refreshNotification()
-        scope.launch { persistRouteState(engine) }
+        scope.launch { stateWriter.persist() }
         completeOperation(intent, succeeded = true, message = "Route playback started.")
         return START_STICKY
     }
 
-    private fun pauseAction(intent: Intent): Int {
-        check(_runtimeState.value is RuntimeState.Route) { "No route is playing." }
-        paused = true
-        updateRouteRuntimePaused(paused = true)
-        refreshNotification()
-        scope.launch {
-            val engine = activeRoute?.engine ?: return@launch
-            persistRouteState(engine)
+    private fun updateRouteSettingsAction(intent: Intent): Int {
+        val expectedPlaybackId = intent.getStringExtra(EXTRA_PLAYBACK_ID)
+        require(!expectedPlaybackId.isNullOrBlank()) { "The route has changed. Adjust the current route instead." }
+        val update =
+            parseRouteSettingsUpdate(
+                speedKmh = intent.takeIf { it.hasExtra(EXTRA_SPEED_KMH) }?.getDoubleExtra(EXTRA_SPEED_KMH, Double.NaN),
+                modeName = intent.getStringExtra(EXTRA_MODE),
+            )
+        synchronized(providerWriteLock) {
+            val runtime = _runtimeState.value as? RuntimeState.Route
+            requireNotNull(runtime) { "No active route is available to adjust." }
+            val route = requireNotNull(activeRoute) { "No active route is available to adjust." }
+            val updated = route.withSettings(expectedPlaybackId, update.speedKmh, update.mode)
+            activeRoute = updated
+            _runtimeState.value = updated.toRuntimeState(paused = runtime.paused)
         }
+        scope.launch {
+            try {
+                stateWriter.persist()
+                completeOperation(intent, succeeded = true, message = "Playback settings updated. Route progress kept.")
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                completeOperation(
+                    intent,
+                    succeeded = false,
+                    message = "Playback settings changed, but could not be saved for recovery. Try the setting again.",
+                )
+            }
+        }
+        return START_STICKY
+    }
+
+    private fun pauseAction(intent: Intent): Int {
+        synchronized(providerWriteLock) {
+            check(_runtimeState.value is RuntimeState.Route) { "No route is playing." }
+            paused = true
+            updateRouteRuntimePaused(paused = true)
+        }
+        refreshNotification()
+        scope.launch { stateWriter.persist() }
         completeOperation(intent, succeeded = true, message = "Route paused.")
         return START_STICKY
     }
 
     private fun resumeAction(intent: Intent): Int {
-        check(_runtimeState.value is RuntimeState.Route) { "No paused route is available." }
-        paused = false
-        updateRouteRuntimePaused(paused = false)
-        refreshNotification()
-        scope.launch {
-            val engine = activeRoute?.engine ?: return@launch
-            persistRouteState(engine)
+        synchronized(providerWriteLock) {
+            check(_runtimeState.value is RuntimeState.Route) { "No paused route is available." }
+            paused = false
+            updateRouteRuntimePaused(paused = false)
         }
+        refreshNotification()
+        scope.launch { stateWriter.persist() }
         completeOperation(intent, succeeded = true, message = "Route resumed.")
         return START_STICKY
     }
@@ -289,15 +280,15 @@ class LocationService : Service() {
     override fun onDestroy() {
         // Best-effort progress flush before the scope is cancelled. onDestroy is not guaranteed to
         // run under sudden kills; the periodic tick writer is what makes overnight kills survivable.
-        val engine = activeRoute?.engine
-        if (engine != null && currentMode == MockState.Mode.Route) {
-            runCatching {
-                runBlocking { persistRouteState(engine) }
-            }
+        // Failed startup/restore must not replace a saved route with an uninitialized Idle state.
+        if (stateInitialized) {
+            runCatching { runBlocking { stateWriter.persist() } }
         }
-        stopRoute()
-        stopSingleKeepAlive()
-        stopMock()
+        synchronized(providerWriteLock) {
+            stopRoute()
+            stopSingleKeepAlive()
+            stopMock()
+        }
         setRemoteControlServiceLease(false)
         scope.cancel()
         super.onDestroy()
@@ -314,47 +305,37 @@ class LocationService : Service() {
                     if (!point.lat.isFinite() || !point.lng.isFinite() || point.lat !in -90.0..90.0 || point.lng !in -180.0..180.0) {
                         return@let false
                     }
-                    ensureMockStarted()
-                    startSingleKeepAlive(point)
-                    currentMode = MockState.Mode.Single
-                    _runtimeState.value = RuntimeState.Single(point)
+                    synchronized(providerWriteLock) {
+                        ensureMockStarted()
+                        startSingleKeepAlive(point)
+                        currentMode = MockState.Mode.Single
+                        _runtimeState.value = RuntimeState.Single(point)
+                        stateInitialized = true
+                    }
                     setRemoteControlServiceLease(true)
                     refreshNotification()
                     true
                 } ?: false
-            MockState.Mode.Route ->
-                state.route?.let { r ->
-                    if (r.lats.size < 2 || r.lats.size != r.lngs.size) return@let false
-                    val wps = r.lats.indices.map { LatLng(r.lats[it], r.lngs[it]) }
-                    if (validateRouteRequest(wps, r.speedKmh) != null) return@let false
-                    val mode =
-                        runCatching { MovementEngine.Mode.valueOf(r.mode) }
-                            .getOrDefault(MovementEngine.Mode.Once)
-                    // Seed the engine with the last persisted progress so Loop / PingPong don't
-                    // visibly jump back to the first waypoint after the system restarts us.
-                    startRoute(
-                        waypoints = wps,
-                        speedKmh = r.speedKmh,
-                        mode = mode,
-                        initialProgressMeters = r.progressMeters,
-                        initialForward = r.forward,
-                    )
-                    currentMode = MockState.Mode.Route
-                    // `paused` cannot survive process death (it lives only in service memory),
-                    // so a restored route always comes back unpaused. Documented limitation.
-                    _runtimeState.value =
-                        RuntimeState.Route(
-                            waypoints = wps,
-                            speedKmh = r.speedKmh,
-                            mode = mode,
-                            paused = false,
-                        )
-                    setRemoteControlServiceLease(true)
-                    refreshNotification()
-                    true
-                } ?: false
+            MockState.Mode.Route -> state.route?.let(::restoreRoute) ?: false
             MockState.Mode.Idle -> false
         }
+    }
+
+    private fun restoreRoute(route: RouteState): Boolean {
+        if (route.lats.size < 2 || route.lats.size != route.lngs.size) return false
+        val waypoints = route.lats.indices.map { LatLng(route.lats[it], route.lngs[it]) }
+        if (validateRouteRequest(waypoints, route.speedKmh) != null) return false
+        val mode = runCatching { MovementEngine.Mode.valueOf(route.mode) }.getOrDefault(MovementEngine.Mode.Once)
+        synchronized(providerWriteLock) {
+            startRoute(waypoints, route.speedKmh, mode, route.progressMeters, route.forward)
+            currentMode = MockState.Mode.Route
+            // Paused remains runtime-only; a restored route resumes with a fresh playback ID.
+            _runtimeState.value = checkNotNull(activeRoute).toRuntimeState(paused = false)
+            stateInitialized = true
+        }
+        setRemoteControlServiceLease(true)
+        refreshNotification()
+        return true
     }
 
     private fun setRemoteControlServiceLease(active: Boolean) {
@@ -406,37 +387,25 @@ class LocationService : Service() {
                         prefs.mockPlaybackSettings.first().progressWriteIntervalSeconds,
                     )
                 var tickCounter = 0
-                while (isActive && !engine.isFinished()) {
+                while (isActive) {
                     delay(LOCATION_SERVICE_TICK_MILLIS)
+                    val finished =
+                        synchronized(providerWriteLock) {
+                            if (activeRoute?.engine !== engine) return@launch
+                            if (paused) return@synchronized false
+                            pushSample(engine.advance(LOCATION_SERVICE_TICK_MILLIS / 1000.0), engine)
+                            engine.isFinished().also { if (it) finishRoute(waypoints.last()) }
+                        }
+                    if (finished) {
+                        stateWriter.persist()
+                        return@launch
+                    }
                     if (paused) continue
-                    val sample = engine.advance(LOCATION_SERVICE_TICK_MILLIS / 1000.0)
-                    pushSample(sample, engine)
                     tickCounter++
                     if (tickCounter >= progressWriteIntervalTicks) {
                         tickCounter = 0
-                        // Snapshot progress + direction in the same write so they can't disagree
-                        // across a process restart.
-                        persistRouteState(engine)
+                        stateWriter.persist()
                     }
-                }
-                if (
-                    mode == MovementEngine.Mode.Once &&
-                    engine.isFinished() &&
-                    activeRoute?.engine === engine
-                ) {
-                    val last = waypoints.last()
-                    activeRoute = null
-                    currentMode = MockState.Mode.Single
-                    startSingleKeepAlive(last)
-                    _runtimeState.value = RuntimeState.Single(last)
-                    setRemoteControlServiceLease(true)
-                    refreshNotification()
-                    prefs.setMockState(
-                        MockState(
-                            mode = MockState.Mode.Single,
-                            single = SinglePointState(last.lat, last.lng),
-                        ),
-                    )
                 }
             }
     }
@@ -448,15 +417,34 @@ class LocationService : Service() {
         activeRoute = null
     }
 
-    private suspend fun persistRouteState(engine: MovementEngine) {
-        val route = activeRoute?.takeIf { it.engine === engine } ?: return
-        prefs.setMockState(
-            MockState(
-                mode = MockState.Mode.Route,
-                route = route.toRouteState(engine.progressMeters(), engine.isForward()),
-            ),
-        )
+    // Called under providerWriteLock so a live settings update cannot race route completion.
+    private fun finishRoute(last: LatLng) {
+        activeRoute = null
+        currentMode = MockState.Mode.Single
+        _runtimeState.value = RuntimeState.Single(last)
+        startSingleKeepAlive(last)
+        setRemoteControlServiceLease(true)
+        refreshNotification()
     }
+
+    private fun currentStateSnapshot(): MockState? =
+        synchronized(providerWriteLock) {
+            when (val runtime = _runtimeState.value) {
+                RuntimeState.Idle -> null
+                is RuntimeState.Single ->
+                    MockState(
+                        mode = MockState.Mode.Single,
+                        single = SinglePointState(runtime.point.lat, runtime.point.lng),
+                    )
+                is RuntimeState.Route ->
+                    MockState(
+                        mode = MockState.Mode.Route,
+                        route =
+                            activeRoute?.toRouteState()
+                                ?: throw CancellationException("Route snapshot is no longer available."),
+                    )
+            }
+        }
 
     private fun startSingleKeepAlive(point: LatLng) {
         stopSingleKeepAlive()
@@ -653,6 +641,7 @@ class LocationService : Service() {
         const val ACTION_STOP = "dev.narumi.kestrel.action.STOP"
         const val ACTION_SET_LOCATION = "dev.narumi.kestrel.action.SET_LOCATION"
         const val ACTION_START_ROUTE = "dev.narumi.kestrel.action.START_ROUTE"
+        const val ACTION_UPDATE_ROUTE_SETTINGS = "dev.narumi.kestrel.action.UPDATE_ROUTE_SETTINGS"
         const val ACTION_PAUSE = "dev.narumi.kestrel.action.PAUSE"
         const val ACTION_RESUME = "dev.narumi.kestrel.action.RESUME"
         const val EXTRA_LAT = "lat"
@@ -662,6 +651,7 @@ class LocationService : Service() {
         const val EXTRA_SPEED_KMH = "speed_kmh"
         const val EXTRA_MODE = "route_mode"
         const val EXTRA_REQUEST_ID = "request_id"
+        const val EXTRA_PLAYBACK_ID = "playback_id"
         private const val CHANNEL_ID = "kestrel_location"
         private const val NOTIFICATION_ID = 1001
         private const val TAG = "LocationService"
@@ -738,6 +728,18 @@ class LocationService : Service() {
             }
         }
 
+        fun updateRouteSettings(
+            context: Context,
+            playbackId: String,
+            speedKmh: Double? = null,
+            mode: MovementEngine.Mode? = null,
+        ): String =
+            dispatchOperation(context, ACTION_UPDATE_ROUTE_SETTINGS, foreground = false) {
+                putExtra(EXTRA_PLAYBACK_ID, playbackId)
+                speedKmh?.let { putExtra(EXTRA_SPEED_KMH, it) }
+                mode?.let { putExtra(EXTRA_MODE, it.name) }
+            }
+
         fun pause(context: Context): String = dispatchOperation(context, ACTION_PAUSE, foreground = false)
 
         fun resume(context: Context): String = dispatchOperation(context, ACTION_RESUME, foreground = false)
@@ -806,6 +808,7 @@ private fun String?.toLocationOperationAction(): LocationOperationAction? =
     when (this) {
         LocationService.ACTION_SET_LOCATION -> LocationOperationAction.SetPoint
         LocationService.ACTION_START_ROUTE -> LocationOperationAction.StartRoute
+        LocationService.ACTION_UPDATE_ROUTE_SETTINGS -> LocationOperationAction.UpdateRouteSettings
         LocationService.ACTION_PAUSE -> LocationOperationAction.Pause
         LocationService.ACTION_RESUME -> LocationOperationAction.Resume
         LocationService.ACTION_STOP -> LocationOperationAction.Stop

@@ -27,6 +27,7 @@ class PlaybackStatusBarTest {
                         speedKmh = 10.0,
                         mode = MovementEngine.Mode.PingPong,
                         paused = true,
+                        playbackId = "test-playback",
                     ),
                 ),
             )

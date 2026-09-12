@@ -1,15 +1,17 @@
 package dev.narumi.kestrel.feature.options
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.CloudQueue
+import androidx.compose.material.icons.outlined.Devices
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
@@ -28,19 +30,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.autofill.ContentDataType
 import androidx.compose.ui.autofill.ContentType
 import androidx.compose.ui.autofill.contentType
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDataType
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
@@ -115,59 +113,6 @@ private fun OptionsCard(
     }
 }
 
-@Composable
-internal fun OptionsDisclosureCard(
-    title: String,
-    subtitle: String,
-    summary: String,
-    expanded: Boolean,
-    onExpandedChange: (Boolean) -> Unit,
-    content: @Composable () -> Unit,
-) {
-    val changeFocusRequester = remember { FocusRequester() }
-    var wasExpanded by remember { mutableStateOf(expanded) }
-    LaunchedEffect(expanded) {
-        if (wasExpanded && !expanded) changeFocusRequester.requestFocus()
-        wasExpanded = expanded
-    }
-    BackHandler(enabled = expanded) { onExpandedChange(false) }
-    KestrelCard(
-        modifier =
-            Modifier.semantics {
-                stateDescription = optionsDisclosureStateDescription(expanded)
-            },
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            KestrelSectionHeader(
-                title = title,
-                subtitle = subtitle,
-                modifier = Modifier.weight(1f),
-            )
-            TextButton(
-                onClick = { onExpandedChange(!expanded) },
-                modifier =
-                    Modifier
-                        .focusRequester(changeFocusRequester)
-                        .semantics {
-                            stateDescription = optionsDisclosureStateDescription(expanded)
-                        },
-            ) {
-                Text(if (expanded) "Cancel" else "Change")
-            }
-        }
-        Text(
-            text = summary,
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-        if (expanded) content()
-    }
-}
-
 @Suppress("LongMethod")
 @Composable
 fun OptionsScreen(modifier: Modifier = Modifier) {
@@ -238,7 +183,8 @@ fun OptionsScreen(modifier: Modifier = Modifier) {
     ) {
         KestrelScreenHeader(
             title = "Settings",
-            subtitle = "Choose how Kestrel opens, recovers routes, syncs, and accepts Web control.",
+            subtitle = "Make Kestrel work your way.",
+            icon = Icons.Outlined.Settings,
         )
 
         (settingsError ?: settingsMessage)?.let {
@@ -256,6 +202,7 @@ fun OptionsScreen(modifier: Modifier = Modifier) {
             }
         }
 
+        KestrelSectionHeader(title = "On this device", modifier = Modifier.padding(top = 8.dp))
         StartupPreferenceCard(
             items = items,
             itemsLoading = loadedItems == null,
@@ -313,6 +260,7 @@ fun OptionsScreen(modifier: Modifier = Modifier) {
             },
         )
 
+        KestrelSectionHeader(title = "Connected services", modifier = Modifier.padding(top = 12.dp))
         CloudSettingsSection()
     }
 }
@@ -592,6 +540,7 @@ private fun CloudSettingsCard(
     val serverValid = isValidCloudServerAddress(uiState.apiBaseUrl)
     OptionsDisclosureCard(
         title = OptionsSection.Cloud.title,
+        icon = Icons.Outlined.CloudQueue,
         subtitle = "Connect to Kestrel cloud and keep favorites synced.",
         summary =
             if (uiState.loading) {
@@ -681,6 +630,7 @@ private fun RemoteControlSettingsCard(
 ) {
     OptionsDisclosureCard(
         title = OptionsSection.RemoteControl.title,
+        icon = Icons.Outlined.Devices,
         subtitle = "Let the web dashboard send mock commands to this Android device.",
         summary =
             if (loading) {

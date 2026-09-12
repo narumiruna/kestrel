@@ -5,10 +5,8 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.provider.Settings
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -25,7 +23,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Star
@@ -60,7 +57,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
@@ -92,7 +88,6 @@ import dev.narumi.kestrel.core.location.RuntimeState
 import dev.narumi.kestrel.core.location.parseCoordInput
 import dev.narumi.kestrel.core.location.rememberCurrentLocation
 import dev.narumi.kestrel.ui.components.KestrelActionRow
-import dev.narumi.kestrel.ui.components.KestrelCard
 import dev.narumi.kestrel.ui.components.PersistedActionResult
 import dev.narumi.kestrel.ui.components.runPersistedAction
 import kotlinx.coroutines.delay
@@ -123,6 +118,8 @@ internal fun shouldShowRouteSettings(
 ): Boolean =
     waypointCount >= 2 &&
         (runState == RunState.Idle || runState == RunState.Single || hasReplacementPreview)
+
+internal fun shouldShowLiveRouteSettings(runState: RunState): Boolean = runState == RunState.RoutePlaying || runState == RunState.RoutePaused
 
 /**
  * Computed snapshot the map UI should render this frame. Lives separately from the user's drafts
@@ -198,8 +195,6 @@ private sealed interface PendingFavorite {
         val mode: MovementEngine.Mode,
     ) : PendingFavorite
 }
-
-internal val SPEED_PRESETS = listOf(5.0, 10.0, 15.0, 20.0)
 
 private fun isValidPointCount(value: Int?): Boolean =
     value != null &&
@@ -373,7 +368,9 @@ fun MapScreen(
     val renderedWaypoints = render.waypoints
     val renderedSpeedKmh = render.speedKmh
     val renderedRouteMode = render.routeMode
-    val activeRoute = (runtimeState as? RuntimeState.Route)?.waypoints.orEmpty()
+    // Settings callbacks target this rendered route, not a replacement received before the next frame.
+    val activeRuntimeRoute = runtimeState as? RuntimeState.Route
+    val activeRoute = activeRuntimeRoute?.waypoints.orEmpty()
     val showPreview = workflowPhase == MapWorkflowPhase.Draft || workflowPhase == MapWorkflowPhase.ReplacementPreview
     val previewRoute = waypoints.takeIf { showPreview && it.size >= 2 }.orEmpty()
     val previewPoint = waypoints.singleOrNull().takeIf { showPreview }
@@ -397,13 +394,16 @@ fun MapScreen(
         val requestId = pendingLocationOperation?.requestId ?: return@LaunchedEffect
         delay(OPERATION_TIMEOUT_MILLIS)
         if (pendingLocationOperation?.requestId == requestId) {
-            if (runtimeMatchesDraft(runtimeState, waypoints, speedKmh, routeMode)) {
+            if (
+                pendingLocationOperation?.clearDraftOnSuccess == true &&
+                runtimeMatchesDraft(runtimeState, waypoints, speedKmh, routeMode)
+            ) {
                 operationMessage = "Mock changed, but its confirmation was delayed."
                 operationError = null
                 waypoints = emptyList()
             } else {
                 operationMessage = null
-                operationError = "Kestrel did not confirm the mock change. The preview is still available; try again."
+                operationError = "Kestrel did not confirm the change. Check the current playback state and try again."
             }
             pendingLocationOperation = null
         }
@@ -416,6 +416,18 @@ fun MapScreen(
         operationMessage = null
         operationError = null
         pendingLocationOperation = PendingLocationOperation(requestId, clearDraftOnSuccess)
+    }
+
+    fun updateActiveRouteSettings(
+        speedKmh: Double? = null,
+        mode: MovementEngine.Mode? = null,
+    ) {
+        if (pendingLocationOperation != null) return
+        val playbackId = activeRuntimeRoute?.playbackId ?: return
+        beginOperation(
+            LocationService.updateRouteSettings(context, playbackId, speedKmh, mode),
+            clearDraftOnSuccess = false,
+        )
     }
 
     val sheetState =
@@ -630,6 +642,8 @@ fun MapScreen(
             feedbackIsError = operationError != null,
             onSpeedChange = { speedKmh = it },
             onModeChange = { routeMode = it },
+            onPlayingSpeedChange = { updateActiveRouteSettings(speedKmh = it) },
+            onPlayingModeChange = { updateActiveRouteSettings(mode = it) },
             onPrimary = {
                 when (runState) {
                     RunState.Idle -> if (waypoints.isEmpty()) showGenerateDialog = true else startDraftOperation()
@@ -706,8 +720,9 @@ fun MapScreen(
             BottomSheetScaffold(
                 modifier = Modifier.fillMaxSize(),
                 scaffoldState = scaffoldState,
-                sheetPeekHeight = 168.dp,
-                sheetContainerColor = MaterialTheme.colorScheme.surface,
+                sheetPeekHeight = 200.dp,
+                sheetContainerColor = MaterialTheme.colorScheme.background,
+                sheetShadowElevation = 8.dp,
                 containerColor = MaterialTheme.colorScheme.background,
                 sheetContent = mapSheetContent,
             ) { innerPadding ->
@@ -912,6 +927,8 @@ internal fun MapSheet(
     onGenerate: () -> Unit,
     onReplace: () -> Unit,
     onCancelPreview: () -> Unit,
+    onPlayingSpeedChange: (Double) -> Unit = {},
+    onPlayingModeChange: (MovementEngine.Mode) -> Unit = {},
 ) {
     val runtimeActive = runState != RunState.Idle
     val statusWaypointCount = if (runtimeActive) waypointCount else draftWaypointCount
@@ -925,21 +942,25 @@ internal fun MapSheet(
                 .padding(bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        KestrelCard {
-            StatusRow(
-                runState = runState,
-                waypointCount = statusWaypointCount,
-                mockNow = mockNow,
+        MapPlaybackControls(
+            runState = runState,
+            waypointCount = statusWaypointCount,
+            draftWaypointCount = draftWaypointCount,
+            mockNow = mockNow,
+            speedKmh = speedKmh,
+            routeMode = routeMode,
+            ready = ready,
+            operationPending = operationPending,
+            onPrimary = onPrimary,
+            onStop = onStop,
+        )
+        if (shouldShowLiveRouteSettings(runState)) {
+            LiveRouteSettingsCard(
                 speedKmh = speedKmh,
                 routeMode = routeMode,
-            )
-            PrimaryActionRow(
-                runState = runState,
-                waypointCount = draftWaypointCount,
-                ready = ready,
-                operationPending = operationPending,
-                onPrimary = onPrimary,
-                onStop = onStop,
+                enabled = !operationPending,
+                onSpeedChange = onPlayingSpeedChange,
+                onModeChange = onPlayingModeChange,
             )
         }
         feedbackMessage?.let { MapFeedbackCard(message = it, isError = feedbackIsError) }
@@ -977,129 +998,11 @@ internal fun MapSheet(
                 onExpandedChange = { routeSettingsExpanded = it },
                 onSpeedChange = onSpeedChange,
                 onModeChange = onModeChange,
+                enabled = !operationPending,
+                title = if (runtimeActive) "Preview route settings" else "Route settings",
             )
         }
         Spacer(Modifier.size(4.dp))
-    }
-}
-
-@Composable
-private fun StatusRow(
-    runState: RunState,
-    waypointCount: Int,
-    mockNow: LatLng?,
-    speedKmh: Double,
-    routeMode: MovementEngine.Mode,
-) {
-    val (dotColor, title, subtitle) =
-        when (runState) {
-            RunState.Idle ->
-                Triple(
-                    MaterialTheme.colorScheme.outline,
-                    when (waypointCount) {
-                        0 -> "Choose a location"
-                        1 -> "Point preview"
-                        else -> "$waypointCount-waypoint route"
-                    },
-                    when (waypointCount) {
-                        0 -> "Tap the map or choose a saved target."
-                        1 -> "Start here, or add another waypoint for a route."
-                        else -> "Preview only · Start when you’re ready."
-                    },
-                )
-            RunState.Single ->
-                Triple(
-                    MaterialTheme.colorScheme.error,
-                    "Mocking single point",
-                    mockNow?.let { "%.5f, %.5f".format(it.lat, it.lng) } ?: "—",
-                )
-            RunState.RoutePlaying ->
-                Triple(
-                    MaterialTheme.colorScheme.error,
-                    "Route playing",
-                    formatRouteStatusDetails(waypointCount, speedKmh, routeMode),
-                )
-            RunState.RoutePaused ->
-                Triple(
-                    MaterialTheme.colorScheme.tertiary,
-                    "Route paused",
-                    formatRouteStatusDetails(waypointCount, speedKmh, routeMode),
-                )
-        }
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Box(
-            modifier =
-                Modifier
-                    .size(12.dp)
-                    .clip(CircleShape)
-                    .background(dotColor),
-        )
-        Column(modifier = Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.titleMedium)
-            Text(
-                subtitle,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
-}
-
-@Composable
-private fun PrimaryActionRow(
-    runState: RunState,
-    waypointCount: Int,
-    ready: Boolean,
-    operationPending: Boolean,
-    onPrimary: () -> Unit,
-    onStop: () -> Unit,
-) {
-    when (runState) {
-        RunState.Idle -> {
-            val label =
-                when {
-                    waypointCount == 0 -> "Generate random route"
-                    waypointCount == 1 -> "Mock this point"
-                    else -> "Play route"
-                }
-            val enabled = !operationPending && ready
-            Button(
-                onClick = onPrimary,
-                enabled = enabled,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(
-                    when {
-                        operationPending -> "Applying…"
-                        !ready -> "Finish setup above"
-                        else -> label
-                    },
-                )
-            }
-        }
-        RunState.Single ->
-            Button(
-                onClick = onStop,
-                enabled = !operationPending,
-                modifier = Modifier.fillMaxWidth(),
-            ) { Text(if (operationPending) "Stopping…" else "Stop mock") }
-        RunState.RoutePlaying ->
-            KestrelActionRow {
-                Button(onClick = onPrimary, enabled = !operationPending) {
-                    Text(if (operationPending) "Applying…" else "Pause")
-                }
-                OutlinedButton(onClick = onStop, enabled = !operationPending) { Text("Stop") }
-            }
-        RunState.RoutePaused ->
-            KestrelActionRow {
-                Button(onClick = onPrimary, enabled = !operationPending) {
-                    Text(if (operationPending) "Applying…" else "Resume")
-                }
-                OutlinedButton(onClick = onStop, enabled = !operationPending) { Text("Stop") }
-            }
     }
 }
 

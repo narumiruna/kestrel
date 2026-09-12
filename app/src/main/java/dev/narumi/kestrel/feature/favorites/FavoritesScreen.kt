@@ -12,6 +12,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -43,6 +44,7 @@ import dev.narumi.kestrel.core.location.MovementEngine
 import dev.narumi.kestrel.core.location.parseCoordInput
 import dev.narumi.kestrel.ui.components.KestrelActionRow
 import dev.narumi.kestrel.ui.components.KestrelCard
+import dev.narumi.kestrel.ui.components.KestrelIconBadge
 import dev.narumi.kestrel.ui.components.PersistedActionResult
 import dev.narumi.kestrel.ui.components.runPersistedAction
 import kotlinx.coroutines.launch
@@ -343,15 +345,18 @@ internal fun FavoriteRow(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.Top,
         ) {
-            Icon(
-                imageVector = if (item.kind == LibraryItemKind.Place) Icons.Filled.Place else Icons.Filled.Route,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
+            val isRoute = item.kind == LibraryItemKind.Route
+            KestrelIconBadge(
+                icon = if (isRoute) Icons.Filled.Route else Icons.Filled.Place,
+                containerColor =
+                    if (isRoute) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.primaryContainer,
+                contentColor =
+                    if (isRoute) MaterialTheme.colorScheme.onTertiaryContainer else MaterialTheme.colorScheme.onPrimaryContainer,
             )
-            Column(modifier = Modifier.weight(1f)) {
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
                     text = item.name,
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MaterialTheme.typography.titleSmall,
                 )
                 Text(
                     text = item.description(),
@@ -375,7 +380,7 @@ internal fun FavoriteRow(
             }
         }
         KestrelActionRow {
-            Button(onClick = onApply, enabled = enabled) { Text("Preview on map") }
+            FilledTonalButton(onClick = onApply, enabled = enabled) { Text("Preview on map") }
             TextButton(onClick = onEdit, enabled = enabled) {
                 Text(favoriteEditLabel(item.kind))
             }

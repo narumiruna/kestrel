@@ -19,6 +19,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -29,6 +30,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.input.ImeAction
@@ -53,9 +55,15 @@ internal fun FavoritesToolbar(
         OutlinedTextField(
             value = query,
             onValueChange = onQueryChange,
-            modifier = Modifier.fillMaxWidth(),
-            label = { Text("Search Favorites") },
-            placeholder = { Text("Point or route name") },
+            modifier = Modifier.fillMaxWidth().semantics { contentDescription = "Search Favorites" },
+            placeholder = { Text("Search Favorites") },
+            shape = MaterialTheme.shapes.large,
+            colors =
+                OutlinedTextFieldDefaults.colors(
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                    focusedContainerColor = MaterialTheme.colorScheme.surface,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                ),
             leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
             trailingIcon = {
                 if (query.isNotEmpty()) {
@@ -74,6 +82,10 @@ internal fun FavoritesToolbar(
                     selected = filter == selectedFilter,
                     onClick = { onFilterChange(filter) },
                     label = { Text(filter.label()) },
+                    leadingIcon = {
+                        if (filter == selectedFilter) Icon(Icons.Filled.Check, contentDescription = null)
+                    },
+                    shape = MaterialTheme.shapes.medium,
                 )
             }
         }

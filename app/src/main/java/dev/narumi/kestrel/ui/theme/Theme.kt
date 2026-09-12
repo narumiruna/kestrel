@@ -11,7 +11,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
-private val LightColorScheme =
+internal val LightColorScheme =
     lightColorScheme(
         primary = KestrelBlue40,
         onPrimary = Color.White,
@@ -32,6 +32,15 @@ private val LightColorScheme =
         background = MistBackground,
         onBackground = Color(0xFF17202A),
         surface = MistSurface,
+        surfaceDim = Color(0xFFD8E0EA),
+        surfaceBright = MistSurface,
+        surfaceContainerLowest = Color.White,
+        surfaceContainerLow = Color(0xFFF0F5FB),
+        surfaceContainer = Color(0xFFEAF0F7),
+        surfaceContainerHigh = Color(0xFFE3EBF4),
+        surfaceContainerHighest = Color(0xFFDCE5F0),
+        surfaceTint = KestrelBlue40,
+        inversePrimary = KestrelBlue80,
         onSurface = Color(0xFF17202A),
         surfaceVariant = MistSurfaceVariant,
         onSurfaceVariant = Color(0xFF44505D),
@@ -41,7 +50,7 @@ private val LightColorScheme =
         inverseOnSurface = Color(0xFFEFF3F8),
     )
 
-private val DarkColorScheme =
+internal val DarkColorScheme =
     darkColorScheme(
         primary = KestrelBlue80,
         onPrimary = KestrelBlue20,
@@ -62,6 +71,15 @@ private val DarkColorScheme =
         background = NightBackground,
         onBackground = Color(0xFFE3EAF1),
         surface = NightSurface,
+        surfaceDim = NightBackground,
+        surfaceBright = Color(0xFF343E49),
+        surfaceContainerLowest = Color(0xFF0A1016),
+        surfaceContainerLow = Color(0xFF19222C),
+        surfaceContainer = Color(0xFF1E2833),
+        surfaceContainerHigh = Color(0xFF28333F),
+        surfaceContainerHighest = Color(0xFF333F4C),
+        surfaceTint = KestrelBlue80,
+        inversePrimary = KestrelBlue40,
         onSurface = Color(0xFFE3EAF1),
         surfaceVariant = NightSurfaceVariant,
         onSurfaceVariant = Color(0xFFC4CED9),
@@ -92,6 +110,7 @@ fun KestrelTheme(
     MaterialTheme(
         colorScheme = colorScheme,
         typography = Typography,
+        shapes = KestrelShapes,
         content = content,
     )
 }

@@ -1,25 +1,25 @@
 package dev.narumi.kestrel.feature.map
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -39,18 +39,45 @@ import dev.narumi.kestrel.ui.components.KestrelCard
 import dev.narumi.kestrel.ui.components.onKeyboardActivate
 
 @Composable
+internal fun MapTargetSearchBar(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        shadowElevation = 3.dp,
+    ) {
+        Row(
+            modifier = Modifier.heightIn(min = 56.dp).padding(horizontal = 20.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Search,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(24.dp),
+            )
+            Text("Choose target", style = MaterialTheme.typography.titleSmall)
+        }
+    }
+}
+
+@Composable
 internal fun MapHintPill(modifier: Modifier = Modifier) {
-    Card(
+    Surface(
         modifier = modifier,
-        colors =
-            CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
-                contentColor = MaterialTheme.colorScheme.onSurface,
-            ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
+        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        shadowElevation = 1.dp,
     ) {
         Text(
-            text = "Tap to preview a waypoint · Hold for point actions",
+            text = "Tap to preview · Hold for actions",
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
             style = MaterialTheme.typography.labelMedium,
         )
@@ -194,7 +221,6 @@ internal fun DraftPreviewActionsCard(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun RouteSettingsCard(
     speedKmh: Double,
@@ -203,6 +229,8 @@ internal fun RouteSettingsCard(
     onExpandedChange: (Boolean) -> Unit,
     onSpeedChange: (Double) -> Unit,
     onModeChange: (MovementEngine.Mode) -> Unit,
+    enabled: Boolean = true,
+    title: String = "Route settings",
 ) {
     KestrelCard {
         Row(
@@ -211,7 +239,7 @@ internal fun RouteSettingsCard(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                SectionLabel("Route settings")
+                SectionLabel(title)
                 Text(
                     text = "${speedKmh.toDisplaySpeed()} · ${routeMode.label()}",
                     style = MaterialTheme.typography.bodySmall,
@@ -228,36 +256,7 @@ internal fun RouteSettingsCard(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            SectionLabel("Speed")
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                SPEED_PRESETS.forEach { preset ->
-                    ChipChoice(
-                        label = preset.toDisplaySpeed(),
-                        selected = preset == speedKmh,
-                        enabled = true,
-                        onClick = { onSpeedChange(preset) },
-                    )
-                }
-            }
-            SectionLabel("Mode")
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                MovementEngine.Mode.entries.forEach { entry ->
-                    ChipChoice(
-                        label = entry.label(),
-                        selected = entry == routeMode,
-                        enabled = true,
-                        onClick = { onModeChange(entry) },
-                    )
-                }
-            }
+            RouteSettingsChoices(speedKmh, routeMode, enabled, onSpeedChange, onModeChange)
         }
     }
 }
-
-private fun Double.toDisplaySpeed(): String = if (this % 1.0 == 0.0) "${toInt()} km/h" else "$this km/h"

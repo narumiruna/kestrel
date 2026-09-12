@@ -10,6 +10,14 @@ private val KestrelFontFamily = FontFamily.Default
 
 val Typography =
     Typography(
+        headlineMedium =
+            TextStyle(
+                fontFamily = KestrelFontFamily,
+                fontWeight = FontWeight.Bold,
+                fontSize = 28.sp,
+                lineHeight = 36.sp,
+                letterSpacing = (-0.5f).sp,
+            ),
         titleLarge =
             TextStyle(
                 fontFamily = KestrelFontFamily,
