@@ -11,7 +11,6 @@ type Props = {
   lastUpdatedAt?: Date | null;
   onLogout: () => void;
   onRefresh: () => void;
-  statusError?: string | null;
   username: string;
 };
 
@@ -22,7 +21,6 @@ export default function DashboardShell({
   lastUpdatedAt = null,
   onLogout,
   onRefresh,
-  statusError = null,
   username,
 }: Props) {
   const lastUpdatedLabel = useRelativeUpdatedLabel(lastUpdatedAt);
@@ -32,7 +30,6 @@ export default function DashboardShell({
       <WorkspaceHeader
         activeSection={activeSection}
         isRefreshing={isRefreshing}
-        statusError={statusError}
         statusLabel={lastUpdatedLabel == null ? null : `Updated ${lastUpdatedLabel}`}
         username={username}
         onLogout={onLogout}

@@ -107,7 +107,6 @@ export default function LibraryCatalog({
       activeSection="library"
       isRefreshing={isLoading}
       lastUpdatedAt={lastLoadedAt}
-      statusError={error}
       username={auth.session.user.username}
       onLogout={auth.logout}
       onRefresh={() => void refresh()}
