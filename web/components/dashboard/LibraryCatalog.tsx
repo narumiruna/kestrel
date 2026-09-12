@@ -205,7 +205,7 @@ export default function LibraryCatalog({
               </strong>
               <p>
                 {error}
-                {totalItems === 0 ? '' : ' Previously loaded items are still shown.'}
+                {totalItems === 0 ? '' : ' Available items are still shown.'}
               </p>
             </div>
             <Button
