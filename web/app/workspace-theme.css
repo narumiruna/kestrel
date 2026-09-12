@@ -1,9 +1,9 @@
-/* Shared cloud-workspace color and surface treatment for Map and Library. */
+/* Shared workspace chrome for Map and Library. */
 
 :root {
   --cloud-topbar-height: 68px;
   --workspace-canvas: var(--paper-parchment);
-  --workspace-chrome: color-mix(in srgb, var(--paper-card) 88%, transparent);
+  --workspace-chrome: color-mix(in srgb, var(--paper-card) 90%, transparent);
   --workspace-panel: var(--cloud-surface-card);
   --workspace-control: var(--paper-card-warm);
   --workspace-border: var(--cloud-border-soft);
@@ -24,16 +24,26 @@
   box-shadow: var(--workspace-shadow);
 }
 
-.kc-shell .kc-topbar,
-.cartographer-stage-map .status-strip {
-  backdrop-filter: blur(14px);
-  background: var(--workspace-chrome);
-  border-bottom: 1px solid var(--workspace-border);
-}
-
 .kc-shell {
   max-width: none;
   width: 100%;
+}
+
+.workspace-topbar {
+  backdrop-filter: blur(16px);
+  background: var(--workspace-chrome);
+  border: 1px solid var(--workspace-border);
+  box-shadow: 0 8px 24px rgb(34 24 15 / 6%);
+  min-height: 58px;
+}
+
+.cartographer-stage-map .workspace-topbar {
+  left: 20px;
+  position: absolute;
+  right: 20px;
+  top: 12px;
+  width: auto;
+  z-index: 35;
 }
 
 .workspace-header-start {
@@ -50,18 +60,22 @@
 }
 
 .workspace-header-start .kc-logo {
-  height: 44px;
-  width: 44px;
+  height: 40px;
+  width: 40px;
 }
 
 .workspace-header-start .kc-logo svg {
-  height: 36px;
-  width: 36px;
+  height: 32px;
+  width: 32px;
+}
+
+.workspace-header-start .kc-brand-title {
+  font-size: 15px;
 }
 
 .workspace-header-start .kc-signed-in {
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: 11px;
   line-height: 1.2;
 }
 
@@ -94,24 +108,123 @@
   color: var(--accent-hover);
 }
 
-@media (max-width: 700px) {
-  .kc-shell .kc-topbar {
-    flex-wrap: wrap;
-    gap: 8px;
-    height: auto;
-    min-height: 68px;
-  }
+.workspace-header-actions {
+  flex: 1 1 auto;
+  justify-content: flex-end;
+  min-width: 0;
+}
 
-  .kc-topbar .workspace-header-start {
-    width: 100%;
-  }
+.workspace-sync-status {
+  align-items: center;
+  color: var(--text-secondary);
+  display: inline-flex;
+  font-size: 12px;
+  gap: 7px;
+  max-width: min(260px, 24vw);
+  min-width: 0;
+}
 
-  .kc-topbar-actions {
-    margin-left: auto;
+.workspace-sync-status > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-sync-dot {
+  background: var(--success);
+  border-radius: 999px;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--success) 12%, transparent);
+  flex: 0 0 auto;
+  height: 6px;
+  width: 6px;
+}
+
+.workspace-sync-status.is-error {
+  color: var(--danger);
+  font-weight: 700;
+}
+
+.workspace-sync-status.is-error .workspace-sync-dot {
+  background: var(--danger);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 12%, transparent);
+}
+
+.workspace-topbar .kc-icon-button.secondary {
+  align-items: center;
+  display: inline-flex;
+  height: 34px;
+  justify-content: center;
+  min-height: 34px;
+  padding: 0;
+  width: 34px;
+}
+
+.workspace-topbar .kc-icon-button.secondary:hover:not(:disabled),
+.workspace-topbar .kc-user-button.secondary:hover:not(:disabled) {
+  background: var(--bg-subtle);
+  border-color: var(--workspace-border);
+  box-shadow: none;
+  color: var(--text-primary);
+  transform: none;
+}
+
+.workspace-topbar .workspace-refresh-button svg {
+  height: 15px;
+  width: 15px;
+}
+
+.workspace-refresh-button[aria-busy="true"] svg {
+  animation: workspace-refresh-spin 700ms linear infinite;
+}
+
+.workspace-topbar .kc-user-button.secondary {
+  gap: 8px;
+  min-height: 34px;
+  padding: 3px 9px 3px 3px;
+}
+
+.workspace-topbar .kc-user-button.secondary .kc-avatar {
+  height: 26px;
+  width: 26px;
+}
+
+.workspace-topbar .kc-user-button.secondary .workspace-username {
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  max-width: 130px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-account-chevron {
+  color: var(--text-muted);
+  height: 14px;
+  width: 14px;
+}
+
+@keyframes workspace-refresh-spin {
+  to {
+    transform: rotate(360deg);
   }
 }
 
-@media (max-width: 639px) {
+@media (max-width: 900px) {
+  .workspace-sync-status {
+    display: none;
+  }
+}
+
+@media (max-width: 700px) {
+  .workspace-topbar {
+    flex-wrap: nowrap;
+    gap: 8px;
+    height: 58px;
+    min-height: 58px;
+    padding-inline: 10px;
+  }
+
   .workspace-header-start {
     gap: 8px;
   }
@@ -129,16 +242,46 @@
   .workspace-header-start .kc-signed-in {
     display: none;
   }
+}
+
+@media (max-width: 639px) {
+  .cartographer-stage-map .workspace-topbar {
+    left: 8px;
+    right: 8px;
+    top: 6px;
+  }
+
+  .workspace-header-start .kc-brand > div {
+    display: none;
+  }
 
   .workspace-header-start .workspace-tabs a {
     padding-inline: 9px;
   }
 
-  .cartographer-stage-map .status-strip {
-    grid-template-columns: minmax(0, 1fr) auto;
+  .workspace-header-actions {
+    gap: 6px;
   }
 
-  .cartographer-stage-map .status-strip .workspace-header-start {
-    grid-column: 1 / -1;
+  .workspace-topbar .kc-user-button.secondary {
+    padding-right: 3px;
+  }
+
+  .workspace-topbar .kc-user-button.secondary .workspace-username,
+  .workspace-topbar .kc-user-button.secondary .workspace-account-chevron {
+    display: none;
+  }
+}
+
+@media (max-width: 380px) {
+  .workspace-header-start .workspace-tabs a {
+    font-size: 12px;
+    padding-inline: 7px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workspace-refresh-button[aria-busy="true"] svg {
+    animation: none;
   }
 }

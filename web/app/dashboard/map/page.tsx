@@ -9,8 +9,6 @@ import { IndexCard } from '@/components/cartographer/IndexCard';
 import { KeyboardCheatsheet } from '@/components/cartographer/KeyboardCheatsheet';
 import { ScaleBar } from '@/components/cartographer/ScaleBar';
 import { type MobileWorkspacePanel, Stage } from '@/components/cartographer/Stage';
-import { StatusStrip } from '@/components/cartographer/StatusStrip';
-import { UserMark } from '@/components/cartographer/UserMark';
 import { useKeyboardShortcuts } from '@/components/cartographer/useKeyboardShortcuts';
 import PlaceEditor from '@/components/dashboard/PlaceEditor';
 import { PlaceRemoteControlAction } from '@/components/dashboard/RemoteControlPanel';
@@ -31,6 +29,7 @@ import {
 } from '@/components/dashboard/utils';
 import { DEFAULT_MAP_CENTER } from '@/components/mapStyle';
 import { Button, ConfirmDialog, TextInput, Toggle, ToggleGroup } from '@/components/ui/radix-ui';
+import { WorkspaceHeader } from '@/components/WorkspaceHeader';
 import type { Place, PlaceInput, Route, RouteInput, RouteWaypoint } from '@/lib/api';
 
 const CartographerPlaceMap = dynamic(
@@ -231,13 +230,6 @@ export default function DashboardMapPage() {
         <p className="muted">Loading session…</p>
       </main>
     );
-  }
-
-  async function changePassword(input: { currentPassword: string; newPassword: string }) {
-    await auth.apiRequest('/auth/password/change', {
-      body: JSON.stringify(input),
-      method: 'POST',
-    });
   }
 
   async function saveRoute(input: RouteInput) {
@@ -446,20 +438,18 @@ export default function DashboardMapPage() {
       }}
       onToggleRightPanel={() => setIsInspectorCollapsed((current) => !current)}
     >
-      <StatusStrip
-        error={error}
+      <WorkspaceHeader
+        activeSection="map"
         isRefreshing={isLoading}
-        lastUpdatedLabel={lastUpdatedLabel}
+        statusError={error}
+        statusLabel={lastUpdatedLabel == null ? 'Workspace ready' : `Updated ${lastUpdatedLabel}`}
+        username={auth.session.user.username}
         onBeforeWorkspaceChange={(href) => {
           navigateIfDraftSafe(href);
           return false;
         }}
-        onRefresh={refreshMapData}
-      />
-      <UserMark
-        username={auth.session.user.username}
-        onChangePassword={changePassword}
         onLogout={auth.logout}
+        onRefresh={refreshMapData}
       />
       <MapLibraryPanel
         activeKind={activeKind}
