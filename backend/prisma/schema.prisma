@@ -43,30 +43,34 @@ model FederatedIdentity {
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, issuerHash, subject])
+  @@unique([userId, provider, issuerHash])
   @@index([userId])
   @@map("federated_identities")
 }
 
 model OidcLoginAttempt {
-  id                            String    @id @default(uuid()) @db.Uuid
-  provider                      String    @db.VarChar(32)
-  clientType                    String    @map("client_type") @db.VarChar(16)
-  stateHash                     String    @unique @map("state_hash") @db.VarChar(64)
-  clientNonceHash               String    @map("client_nonce_hash") @db.VarChar(64)
-  pkceVerifierEncrypted         String    @map("pkce_verifier_encrypted")
-  expiresAt                     DateTime  @map("expires_at")
-  exchangeTicketHash            String?   @unique @map("exchange_ticket_hash") @db.VarChar(64)
-  exchangeSessionId             String?   @map("exchange_session_id") @db.Uuid
-  issuer                        String?
-  issuerHash                    String?   @map("issuer_hash") @db.VarChar(64)
-  subject                       String?   @db.VarChar(255)
-  preferredUsername             String?   @map("preferred_username") @db.VarChar(64)
-  callbackStartedAt             DateTime? @map("callback_started_at")
-  callbackCompletedAt           DateTime? @map("callback_completed_at")
-  consumedAt                    DateTime? @map("consumed_at")
-  createdAt                     DateTime  @default(now()) @map("created_at")
+  id                    String    @id @default(uuid()) @db.Uuid
+  provider              String    @db.VarChar(32)
+  clientType            String    @map("client_type") @db.VarChar(16)
+  flowType              String    @default("login") @map("flow_type") @db.VarChar(16)
+  stateHash             String    @unique @map("state_hash") @db.VarChar(64)
+  clientNonceHash       String    @map("client_nonce_hash") @db.VarChar(64)
+  pkceVerifierEncrypted String    @map("pkce_verifier_encrypted")
+  expiresAt             DateTime  @map("expires_at")
+  exchangeTicketHash    String?   @unique @map("exchange_ticket_hash") @db.VarChar(64)
+  exchangeSessionId     String?   @map("exchange_session_id") @db.Uuid
+  linkSessionId         String?   @map("link_session_id") @db.Uuid
+  issuer                String?
+  issuerHash            String?   @map("issuer_hash") @db.VarChar(64)
+  subject               String?   @db.VarChar(255)
+  preferredUsername     String?   @map("preferred_username") @db.VarChar(64)
+  callbackStartedAt     DateTime? @map("callback_started_at")
+  callbackCompletedAt   DateTime? @map("callback_completed_at")
+  consumedAt            DateTime? @map("consumed_at")
+  createdAt             DateTime  @default(now()) @map("created_at")
 
   @@index([expiresAt])
+  @@index([linkSessionId])
   @@map("oidc_login_attempts")
 }
 

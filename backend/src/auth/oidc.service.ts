@@ -25,6 +25,7 @@ import {
   HttpStatus,
   InternalServerErrorException,
   ServiceUnavailableException,
+  UnauthorizedException,
 } from '../http/errors';
 import { createLogger } from '../logger';
 import { PrismaService } from '../prisma/prisma.service';
@@ -54,8 +55,10 @@ const DEFAULT_DISPLAY_NAME = 'OpenID Connect';
 const OIDC_ANDROID_CALLBACK_PATH = '/login/oidc/android';
 const OIDC_REDIRECT_PATH = '/api/backend/auth/oidc/callback';
 const OIDC_WEB_CALLBACK_PATH = '/login/oidc';
+const OIDC_WEB_LINK_CALLBACK_PATH = '/dashboard/account/oidc';
 
 export type OidcClientType = 'android' | 'web';
+type OidcFlowType = 'link' | 'login';
 
 type OidcConfiguration = {
   androidCallbackUri: string;
@@ -66,6 +69,7 @@ type OidcConfiguration = {
   issuer: string;
   redirectUri: string;
   webCallbackUri: string;
+  webLinkCallbackUri: string;
 };
 
 type OidcDiscovery = {
@@ -83,12 +87,24 @@ type AuthorizationState = {
   clientType: OidcClientType;
   codeVerifier: string;
   expiresAt: number;
+  flowType: OidcFlowType;
+  linkSessionId: string | null;
 };
 
 type VerifiedIdentity = {
   issuer: string;
   preferredUsername: string | null;
   subject: string;
+};
+
+type OidcLinkStatus = {
+  displayName: string;
+  enabled: boolean;
+  linked: boolean;
+};
+
+type OidcLinkResponse = {
+  linked: true;
 };
 
 type OidcExchangeResponse = {
@@ -110,6 +126,8 @@ type RecoverableExchangeAttempt = {
   consumedAt: Date | null;
   exchangeSessionId: string | null;
   expiresAt: Date;
+  flowType: string;
+  linkSessionId: string | null;
   provider: string;
 };
 
@@ -142,8 +160,67 @@ export class OidcService {
   }
 
   async start(input: unknown): Promise<{ authorizationUrl: string }> {
-    const configuration = this.requireConfiguration();
     const { clientNonce, clientType } = parseStartRequest(input);
+    return this.startAuthorization({
+      clientNonce,
+      clientType,
+      flowType: 'login',
+      linkSessionId: null,
+    });
+  }
+
+  async getLinkStatus(userId: string): Promise<OidcLinkStatus> {
+    const configuration = this.getConfiguration(false);
+    if (configuration == null) {
+      return {
+        displayName: DEFAULT_DISPLAY_NAME,
+        enabled: false,
+        linked: false,
+      };
+    }
+    const identity = await this.prismaService.federatedIdentity.findUnique({
+      where: {
+        userId_provider_issuerHash: {
+          issuerHash: hashValue(configuration.issuer),
+          provider: PROVIDER,
+          userId,
+        },
+      },
+    });
+    if (identity != null && identity.issuer !== configuration.issuer) {
+      throw new InternalServerErrorException('stored OIDC identity is invalid');
+    }
+    return {
+      displayName: configuration.displayName,
+      enabled: true,
+      linked: identity != null,
+    };
+  }
+
+  async startLink(
+    userId: string,
+    sessionId: string,
+    input: unknown,
+  ): Promise<{ authorizationUrl: string }> {
+    const status = await this.getLinkStatus(userId);
+    if (status.linked) {
+      throw new ConflictException('OIDC is already linked to this account');
+    }
+    return this.startAuthorization({
+      clientNonce: parseLinkStartRequest(input).clientNonce,
+      clientType: 'web',
+      flowType: 'link',
+      linkSessionId: sessionId,
+    });
+  }
+
+  private async startAuthorization(input: {
+    clientNonce: string;
+    clientType: OidcClientType;
+    flowType: OidcFlowType;
+    linkSessionId: string | null;
+  }): Promise<{ authorizationUrl: string }> {
+    const configuration = this.requireConfiguration();
     let discovery: OidcDiscovery;
     try {
       discovery = await this.getDiscovery(configuration);
@@ -158,10 +235,12 @@ export class OidcService {
     const codeVerifier = createRandomSecret();
     const state = createAuthorizationState(
       {
-        clientNonceHash: hashValue(clientNonce),
-        clientType,
+        clientNonceHash: hashValue(input.clientNonce),
+        clientType: input.clientType,
         codeVerifier,
         expiresAt: Date.now() + AUTHORIZATION_LIFETIME_MS,
+        flowType: input.flowType,
+        linkSessionId: input.linkSessionId,
       },
       configuration.encryptionKey,
     );
@@ -202,6 +281,7 @@ export class OidcService {
       }
       return buildClientRedirect(
         authorizationState.clientType,
+        authorizationState.flowType,
         configuration,
         input.error === 'access_denied'
           ? 'access_denied'
@@ -250,6 +330,7 @@ export class OidcService {
 
       return buildClientRedirect(
         authorizationState.clientType,
+        authorizationState.flowType,
         configuration,
         undefined,
         exchangeTicket,
@@ -274,6 +355,7 @@ export class OidcService {
       );
       return buildClientRedirect(
         authorizationState.clientType,
+        authorizationState.flowType,
         configuration,
         'authentication_failed',
         undefined,
@@ -412,6 +494,7 @@ export class OidcService {
             callbackStartedAt,
             clientNonceHash: authorizationState.clientNonceHash,
             clientType: authorizationState.clientType,
+            flowType: authorizationState.flowType,
             expiresAt: new Date(
               Math.max(
                 authorizationState.expiresAt,
@@ -419,6 +502,7 @@ export class OidcService {
               ),
             ),
             id: attemptId,
+            linkSessionId: authorizationState.linkSessionId,
             pkceVerifierEncrypted: '',
             provider: PROVIDER,
             stateHash,
@@ -447,6 +531,8 @@ export class OidcService {
       attempt.callbackCompletedAt == null ||
       attempt.expiresAt <= now ||
       attempt.clientType !== authorizationState.clientType ||
+      attempt.flowType !== authorizationState.flowType ||
+      attempt.linkSessionId !== authorizationState.linkSessionId ||
       attempt.clientNonceHash !== authorizationState.clientNonceHash ||
       attempt.exchangeTicketHash !== hashValue(exchangeTicket)
     ) {
@@ -454,6 +540,7 @@ export class OidcService {
     }
     return buildClientRedirect(
       authorizationState.clientType,
+      authorizationState.flowType,
       configuration,
       undefined,
       exchangeTicket,
@@ -575,6 +662,252 @@ export class OidcService {
     });
   }
 
+  async exchangeLink(
+    userId: string,
+    sessionId: string,
+    input: unknown,
+    metadata: AuthAuditMetadata = {},
+  ): Promise<OidcLinkResponse> {
+    const configuration = this.requireConfiguration();
+    const { clientNonce, exchangeTicket } = parseExchangeRequest(input);
+    const now = new Date();
+    const attempt = await this.prismaService.oidcLoginAttempt.findUnique({
+      where: { exchangeTicketHash: hashValue(exchangeTicket) },
+    });
+
+    if (
+      attempt == null ||
+      attempt.provider !== PROVIDER ||
+      attempt.flowType !== 'link' ||
+      attempt.linkSessionId !== sessionId ||
+      !secureHashMatches(attempt.clientNonceHash, clientNonce)
+    ) {
+      throw new GoneException('OIDC link ticket is invalid or expired');
+    }
+    if (attempt.consumedAt != null) {
+      const recovered = await this.recoverCompletedLink(
+        userId,
+        sessionId,
+        exchangeTicket,
+        clientNonce,
+        configuration,
+        now,
+      );
+      if (recovered != null) {
+        await this.auditSuccessfulLink(userId, sessionId, metadata);
+        return recovered;
+      }
+      throw new GoneException('OIDC link ticket is invalid or expired');
+    }
+    if (
+      attempt.callbackCompletedAt == null ||
+      attempt.expiresAt <= now ||
+      attempt.issuer !== configuration.issuer ||
+      attempt.issuerHash !== hashValue(configuration.issuer) ||
+      attempt.subject == null
+    ) {
+      throw new GoneException('OIDC link ticket is invalid or expired');
+    }
+
+    try {
+      const result = await this.prismaService.$transaction(
+        async (transaction) => {
+          const activeSession = await transaction.session.updateMany({
+            data: { lastUsedAt: now },
+            where: {
+              expiresAt: { gt: now },
+              id: sessionId,
+              revokedAt: null,
+              userId,
+            },
+          });
+          if (activeSession.count !== 1) {
+            throw new UnauthorizedException('session is no longer active');
+          }
+
+          const consumed = await transaction.oidcLoginAttempt.updateMany({
+            data: {
+              consumedAt: now,
+              expiresAt: new Date(now.getTime() + EXCHANGE_RETRY_LIFETIME_MS),
+            },
+            where: {
+              consumedAt: null,
+              expiresAt: { gt: now },
+              flowType: 'link',
+              id: attempt.id,
+              linkSessionId: sessionId,
+            },
+          });
+          if (consumed.count !== 1) {
+            throw new GoneException('OIDC link ticket is invalid or expired');
+          }
+
+          const identity = await transaction.federatedIdentity.findUnique({
+            where: {
+              provider_issuerHash_subject: {
+                issuerHash: attempt.issuerHash!,
+                provider: PROVIDER,
+                subject: attempt.subject!,
+              },
+            },
+          });
+          if (identity != null && identity.issuer !== attempt.issuer) {
+            throw new InternalServerErrorException(
+              'stored OIDC identity is invalid',
+            );
+          }
+          if (identity != null && identity.userId !== userId) {
+            throw new ConflictException(
+              'OIDC identity cannot be linked to this account',
+            );
+          }
+
+          const accountIdentity =
+            await transaction.federatedIdentity.findUnique({
+              where: {
+                userId_provider_issuerHash: {
+                  issuerHash: attempt.issuerHash!,
+                  provider: PROVIDER,
+                  userId,
+                },
+              },
+            });
+          if (
+            accountIdentity != null &&
+            (accountIdentity.issuer !== attempt.issuer ||
+              accountIdentity.subject !== attempt.subject)
+          ) {
+            throw new ConflictException(
+              'A different OIDC identity is already linked to this account',
+            );
+          }
+
+          if (identity == null && accountIdentity == null) {
+            await transaction.federatedIdentity.create({
+              data: {
+                issuer: attempt.issuer!,
+                issuerHash: attempt.issuerHash!,
+                provider: PROVIDER,
+                subject: attempt.subject!,
+                userId,
+              },
+            });
+          }
+
+          return { linked: true as const };
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      );
+      await this.auditSuccessfulLink(userId, sessionId, metadata);
+      return result;
+    } catch (error) {
+      const recovered = await this.recoverCompletedLink(
+        userId,
+        sessionId,
+        exchangeTicket,
+        clientNonce,
+        configuration,
+        now,
+      );
+      if (recovered != null) {
+        await this.auditSuccessfulLink(userId, sessionId, metadata);
+        return recovered;
+      }
+      const isUniqueConflict =
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002';
+      await this.safeAuditLog({
+        ...metadata,
+        authMethod: PROVIDER,
+        event: 'oidc_link',
+        failureReason:
+          error instanceof ConflictException || isUniqueConflict
+            ? 'identity_collision'
+            : error instanceof UnauthorizedException
+              ? 'session_invalid'
+              : 'exchange_failed',
+        outcome: 'failure',
+        sessionId,
+        userId,
+      });
+      if (isUniqueConflict) {
+        throw new ConflictException(
+          'OIDC identity cannot be linked to this account',
+        );
+      }
+      throw error;
+    }
+  }
+
+  private async recoverCompletedLink(
+    userId: string,
+    sessionId: string,
+    exchangeTicket: string,
+    clientNonce: string,
+    configuration: OidcConfiguration,
+    now: Date,
+  ): Promise<OidcLinkResponse | null> {
+    const attempt = await this.prismaService.oidcLoginAttempt.findUnique({
+      where: { exchangeTicketHash: hashValue(exchangeTicket) },
+    });
+    if (
+      attempt == null ||
+      attempt.provider !== PROVIDER ||
+      attempt.flowType !== 'link' ||
+      attempt.linkSessionId !== sessionId ||
+      attempt.consumedAt == null ||
+      attempt.expiresAt <= now ||
+      attempt.issuer !== configuration.issuer ||
+      attempt.issuerHash !== hashValue(configuration.issuer) ||
+      attempt.subject == null ||
+      !secureHashMatches(attempt.clientNonceHash, clientNonce)
+    ) {
+      return null;
+    }
+    const [session, identity] = await Promise.all([
+      this.prismaService.session.findUnique({
+        select: { expiresAt: true, revokedAt: true, userId: true },
+        where: { id: sessionId },
+      }),
+      this.prismaService.federatedIdentity.findUnique({
+        where: {
+          provider_issuerHash_subject: {
+            issuerHash: attempt.issuerHash,
+            provider: PROVIDER,
+            subject: attempt.subject,
+          },
+        },
+      }),
+    ]);
+    if (
+      session == null ||
+      session.userId !== userId ||
+      session.revokedAt != null ||
+      session.expiresAt <= now ||
+      identity == null ||
+      identity.userId !== userId ||
+      identity.issuer !== attempt.issuer
+    ) {
+      return null;
+    }
+    return { linked: true };
+  }
+
+  private async auditSuccessfulLink(
+    userId: string,
+    sessionId: string,
+    metadata: AuthAuditMetadata,
+  ): Promise<void> {
+    await this.safeAuditLog({
+      ...metadata,
+      authMethod: PROVIDER,
+      event: 'oidc_link',
+      outcome: 'success',
+      sessionId,
+      userId,
+    });
+  }
+
   async exchange(
     input: unknown,
     metadata: AuthAuditMetadata = {},
@@ -590,6 +923,8 @@ export class OidcService {
     if (
       attempt == null ||
       attempt.provider !== PROVIDER ||
+      attempt.flowType !== 'login' ||
+      attempt.linkSessionId != null ||
       !secureHashMatches(attempt.clientNonceHash, clientNonce)
     ) {
       throw new GoneException('OIDC exchange ticket is invalid or expired');
@@ -797,6 +1132,8 @@ export class OidcService {
     if (
       attempt == null ||
       attempt.provider !== PROVIDER ||
+      attempt.flowType !== 'login' ||
+      attempt.linkSessionId != null ||
       attempt.consumedAt == null ||
       attempt.exchangeSessionId == null ||
       attempt.expiresAt <= now ||
@@ -1195,6 +1532,7 @@ export class OidcService {
       issuer: values.issuer!,
       redirectUri: `${publicUrl}${OIDC_REDIRECT_PATH}`,
       webCallbackUri: `${publicUrl}${OIDC_WEB_CALLBACK_PATH}`,
+      webLinkCallbackUri: `${publicUrl}${OIDC_WEB_LINK_CALLBACK_PATH}`,
     };
   }
 
@@ -1224,6 +1562,11 @@ function parseStartRequest(input: unknown): {
     clientNonce: validateClientNonce(record.clientNonce),
     clientType: record.clientType,
   };
+}
+
+function parseLinkStartRequest(input: unknown): { clientNonce: string } {
+  const record = parseRecord(input);
+  return { clientNonce: validateClientNonce(record.clientNonce) };
 }
 
 function parseExchangeRequest(input: unknown): {
@@ -1302,9 +1645,15 @@ function parseAuthorizationState(
     const parsed = JSON.parse(
       decryptValue(value, key),
     ) as Partial<AuthorizationState>;
+    const flowType = parsed.flowType ?? 'login';
+    const linkSessionId = parsed.linkSessionId ?? null;
     if (
       !/^[a-f0-9]{64}$/.test(parsed.clientNonceHash ?? '') ||
       (parsed.clientType !== 'android' && parsed.clientType !== 'web') ||
+      (flowType !== 'login' && flowType !== 'link') ||
+      (flowType === 'login' && linkSessionId !== null) ||
+      (flowType === 'link' &&
+        (parsed.clientType !== 'web' || !isUuid(linkSessionId))) ||
       typeof parsed.codeVerifier !== 'string' ||
       !/^[A-Za-z0-9_-]{43}$/.test(parsed.codeVerifier) ||
       typeof parsed.expiresAt !== 'number' ||
@@ -1312,7 +1661,7 @@ function parseAuthorizationState(
     ) {
       throw new Error('invalid authorization state');
     }
-    return parsed as AuthorizationState;
+    return { ...parsed, flowType, linkSessionId } as AuthorizationState;
   } catch {
     throw new BadRequestException('OIDC sign-in state is invalid');
   }
@@ -1508,15 +1857,19 @@ function validateDisplayName(value: string): string {
 
 function buildClientRedirect(
   clientType: string,
+  flowType: OidcFlowType,
   configuration: OidcConfiguration,
   error?: string,
   exchangeTicket?: string,
   clientNonceHash?: string,
 ): string {
-  const isAndroid = clientType === 'android';
-  const url = new URL(
-    isAndroid ? configuration.androidCallbackUri : configuration.webCallbackUri,
-  );
+  const callbackUri =
+    flowType === 'link'
+      ? configuration.webLinkCallbackUri
+      : clientType === 'android'
+        ? configuration.androidCallbackUri
+        : configuration.webCallbackUri;
+  const url = new URL(callbackUri);
   const fragment = new URLSearchParams();
   if (error != null) {
     fragment.set('error', error);
@@ -1529,6 +1882,15 @@ function buildClientRedirect(
   }
   url.hash = fragment.toString();
   return url.toString();
+}
+
+function isUuid(value: unknown): value is string {
+  return (
+    typeof value === 'string' &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      value,
+    )
+  );
 }
 
 function createRandomSecret(): string {

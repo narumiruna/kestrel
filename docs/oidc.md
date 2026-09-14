@@ -45,7 +45,8 @@ openssl rand -base64 32
 `KESTREL_PUBLIC_URL` must contain only the public origin, without a path, query, or fragment. Kestrel derives the fixed callback URLs from it:
 
 - Backend provider redirect: `${KESTREL_PUBLIC_URL}/api/backend/auth/oidc/callback`
-- Web callback: `${KESTREL_PUBLIC_URL}/login/oidc`
+- Web sign-in callback: `${KESTREL_PUBLIC_URL}/login/oidc`
+- Web account-link callback: `${KESTREL_PUBLIC_URL}/dashboard/account/oidc`
 - Android callback: `${KESTREL_PUBLIC_URL}/login/oidc/android`
 
 Production requires HTTPS. Outside `NODE_ENV=production`, HTTP provider and public URLs are accepted for local integration testing; the public URL may use HTTP only on `localhost`, `127.0.0.1`, or `[::1]` so browser Web Crypto remains available.
@@ -75,6 +76,8 @@ The derived `${KESTREL_PUBLIC_URL}/login/oidc/android` callback must be an HTTPS
 Kestrel identifies an OIDC account only by the verified `(issuer, sub)` pair. On first login it creates a new Kestrel account using `preferred_username`. The claim is required and validated only for first-time provisioning; an already-linked identity can still sign in if the provider later omits it. Kestrel never links by mutable username or email.
 
 The username must be 3–64 characters and contain only letters, numbers, dots, underscores, or hyphens. If it already belongs to another Kestrel account, login fails instead of merging accounts.
+
+An existing password-backed account can link the configured provider from **Web → Account → Sign-in methods**. Starting the link requires the current Kestrel password, and completion requires the same still-active browser session that initiated it. Kestrel then attaches the provider's verified `(issuer, sub)` identity to the current account without changing the username or creating a new session. Linking fails if that identity belongs to another Kestrel account or if this account already has a different identity for the configured issuer. Android account linking and unlinking are not currently available.
 
 Provider tokens stay in the backend and are not persisted. Web and Android receive the same Kestrel access and rotating refresh tokens as local login. OIDC-only accounts can sign out and revoke their current session, but password-protected step-up operations remain unavailable because provider reauthentication is not implemented.
 

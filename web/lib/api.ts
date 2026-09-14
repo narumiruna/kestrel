@@ -28,6 +28,12 @@ export type AuthMethods = {
 
 export type OidcClientType = 'android' | 'web';
 
+export type OidcLinkStatus = {
+  displayName: string;
+  enabled: boolean;
+  linked: boolean;
+};
+
 export type ChangePasswordInput = {
   currentPassword: string;
   newPassword: string;

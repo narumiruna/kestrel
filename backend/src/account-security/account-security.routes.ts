@@ -15,6 +15,41 @@ export function createAccountSecurityRoutes(
 ): Hono<{ Variables: AuthVariables }> {
   const routes = new Hono<{ Variables: AuthVariables }>();
 
+  routes.get('/auth/oidc/link', sessionAuth, async (context) => {
+    context.header('Cache-Control', 'no-store');
+    return context.json(
+      await accountSecurityService.getOidcLinkStatus(
+        getAuthenticatedUserId(context),
+      ),
+    );
+  });
+
+  routes.post('/auth/oidc/link/start', sessionAuth, async (context) => {
+    context.header('Cache-Control', 'no-store');
+    return context.json(
+      await accountSecurityService.startOidcLink(
+        getAuthenticatedUserId(context),
+        getAuthenticatedSessionId(context),
+        await readJsonBody(context),
+        getRequestMetadata(context),
+      ),
+      201,
+    );
+  });
+
+  routes.post('/auth/oidc/link/exchange', sessionAuth, async (context) => {
+    context.header('Cache-Control', 'no-store');
+    return context.json(
+      await accountSecurityService.exchangeOidcLink(
+        getAuthenticatedUserId(context),
+        getAuthenticatedSessionId(context),
+        await readJsonBody(context),
+        getRequestMetadata(context),
+      ),
+      201,
+    );
+  });
+
   routes.get('/auth/sessions', sessionAuth, async (context) =>
     context.json(
       await accountSecurityService.listSessions(

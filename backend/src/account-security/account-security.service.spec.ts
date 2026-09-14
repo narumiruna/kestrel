@@ -6,6 +6,11 @@ describe('AccountSecurityService', () => {
   const now = new Date('2026-07-10T12:00:00.000Z');
   let authService: { confirmCurrentPassword: jest.Mock };
   let auditService: { log: jest.Mock };
+  let oidcService: {
+    exchangeLink: jest.Mock;
+    getLinkStatus: jest.Mock;
+    startLink: jest.Mock;
+  };
   let prisma: {
     device: { findFirst: jest.Mock };
     session: { findFirst: jest.Mock; findMany: jest.Mock };
@@ -22,6 +27,17 @@ describe('AccountSecurityService', () => {
       confirmCurrentPassword: jest.fn().mockResolvedValue(undefined),
     };
     auditService = { log: jest.fn().mockResolvedValue(undefined) };
+    oidcService = {
+      exchangeLink: jest.fn().mockResolvedValue({ linked: true }),
+      getLinkStatus: jest.fn().mockResolvedValue({
+        displayName: 'Pocket ID',
+        enabled: true,
+        linked: false,
+      }),
+      startLink: jest.fn().mockResolvedValue({
+        authorizationUrl: 'https://oidc.example.test/authorize',
+      }),
+    };
     prisma = {
       device: { findFirst: jest.fn() },
       session: { findFirst: jest.fn(), findMany: jest.fn() },
@@ -35,10 +51,83 @@ describe('AccountSecurityService', () => {
       auditService as never,
       prisma as never,
       revocationService as never,
+      oidcService as never,
     );
   });
 
   afterEach(() => jest.useRealTimers());
+
+  it('requires password step-up before starting an OIDC account link', async () => {
+    const result = await service.startOidcLink(
+      'user-1',
+      'session-current',
+      {
+        clientNonce: 'link-attempt:1234567890abcdef',
+        currentPassword: 'admin',
+      },
+      { userAgent: 'jest' },
+    );
+
+    expect(authService.confirmCurrentPassword).toHaveBeenCalledWith(
+      'user-1',
+      'admin',
+    );
+    expect(oidcService.startLink).toHaveBeenCalledWith(
+      'user-1',
+      'session-current',
+      { clientNonce: 'link-attempt:1234567890abcdef' },
+    );
+    expect(result).toEqual({
+      authorizationUrl: 'https://oidc.example.test/authorize',
+    });
+  });
+
+  it('does not start an OIDC link when password step-up fails', async () => {
+    authService.confirmCurrentPassword.mockRejectedValue(
+      new UnauthorizedException('invalid current password'),
+    );
+
+    await expect(
+      service.startOidcLink('user-1', 'session-current', {
+        clientNonce: 'link-attempt:1234567890abcdef',
+        currentPassword: 'wrong',
+      }),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+
+    expect(oidcService.startLink).not.toHaveBeenCalled();
+    expect(auditService.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        authMethod: 'password',
+        event: 'oidc_link',
+        failureReason: 'step_up_failed',
+        outcome: 'failure',
+      }),
+    );
+  });
+
+  it('delegates link status and exchange with current identity', async () => {
+    await expect(service.getOidcLinkStatus('user-1')).resolves.toEqual({
+      displayName: 'Pocket ID',
+      enabled: true,
+      linked: false,
+    });
+    await expect(
+      service.exchangeOidcLink(
+        'user-1',
+        'session-current',
+        { exchangeTicket: 'ticket' },
+        { userAgent: 'jest' },
+      ),
+    ).resolves.toEqual({ linked: true });
+
+    expect(oidcService.getLinkStatus).toHaveBeenCalledWith('user-1');
+    expect(oidcService.exchangeLink).toHaveBeenCalledWith(
+      'user-1',
+      'session-current',
+      { exchangeTicket: 'ticket' },
+      { userAgent: 'jest' },
+    );
+  });
 
   it('lists only active owner sessions and marks the current session', async () => {
     prisma.session.findMany.mockResolvedValue([

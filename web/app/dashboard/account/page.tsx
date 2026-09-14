@@ -3,6 +3,11 @@
 import Link from 'next/link';
 import { type FormEvent, useCallback, useEffect, useState } from 'react';
 import { UserMark } from '@/components/cartographer/UserMark';
+import {
+  clearOidcLinkState,
+  createOidcLinkNonce,
+  saveOidcLinkAttempt,
+} from '@/components/dashboard/oidcLinkState';
 import { useDashboardAuth } from '@/components/dashboard/useDashboardAuth';
 import { formatError } from '@/components/dashboard/utils';
 import { Button, ConfirmDialog, DialogFrame, TextInput } from '@/components/ui/radix-ui';
@@ -10,6 +15,7 @@ import type {
   AuthSessionSummary,
   AuthSessionsResponse,
   ChangePasswordInput,
+  OidcLinkStatus,
   RemoteDevice,
   RemoteDevicesResponse,
 } from '@/lib/api';
@@ -23,6 +29,7 @@ export default function AccountSecurityPage() {
   const auth = useDashboardAuth();
   const [sessions, setSessions] = useState<AuthSessionSummary[]>([]);
   const [devices, setDevices] = useState<RemoteDevice[]>([]);
+  const [oidcLinkStatus, setOidcLinkStatus] = useState<OidcLinkStatus | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -31,6 +38,8 @@ export default function AccountSecurityPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showAllSessions, setShowAllSessions] = useState(false);
   const [isSignOutOpen, setIsSignOutOpen] = useState(false);
+  const [isOidcLinkOpen, setIsOidcLinkOpen] = useState(false);
+  const [oidcCurrentPassword, setOidcCurrentPassword] = useState('');
 
   const loadSecurityData = useCallback(async () => {
     if (!auth.isAuthenticated) {
@@ -40,10 +49,23 @@ export default function AccountSecurityPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const sessionResponse = await auth.apiRequest<AuthSessionsResponse>('/auth/sessions');
-      const deviceResponse = await auth.apiRequest<RemoteDevicesResponse>('/devices');
+      const linkStatusRequest = auth
+        .apiRequest<OidcLinkStatus>('/auth/oidc/link')
+        .catch(() => null);
+      const [sessionResponse, deviceResponse, linkStatus] = await Promise.all([
+        auth.apiRequest<AuthSessionsResponse>('/auth/sessions'),
+        auth.apiRequest<RemoteDevicesResponse>('/devices'),
+        linkStatusRequest,
+      ]);
       setSessions(sessionResponse.sessions);
       setDevices(deviceResponse.devices);
+      setOidcLinkStatus(
+        linkStatus ?? {
+          displayName: 'OpenID Connect',
+          enabled: false,
+          linked: false,
+        },
+      );
     } catch (nextError) {
       setError(formatError(nextError));
     } finally {
@@ -57,6 +79,18 @@ export default function AccountSecurityPage() {
     }
   }, [auth.isAuthenticated, auth.isHydrated, loadSecurityData]);
 
+  useEffect(() => {
+    if (!auth.isHydrated) {
+      return;
+    }
+    const url = new URL(window.location.href);
+    if (url.searchParams.get('oidc') === 'linked') {
+      setNotice('OIDC sign-in is now linked to this account.');
+      url.searchParams.delete('oidc');
+      window.history.replaceState(null, '', `${url.pathname}${url.search}`);
+    }
+  }, [auth.isHydrated]);
+
   async function changePassword(input: ChangePasswordInput) {
     await auth.apiRequest('/auth/password/change', {
       body: JSON.stringify(input),
@@ -66,6 +100,29 @@ export default function AccountSecurityPage() {
 
   async function revokeCurrentSession() {
     await auth.logout();
+  }
+
+  async function submitOidcLink(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setIsSubmitting(true);
+    setError(null);
+    setNotice(null);
+    const clientNonce = createOidcLinkNonce();
+    try {
+      saveOidcLinkAttempt(clientNonce);
+      const { authorizationUrl } = await auth.apiRequest<{ authorizationUrl: string }>(
+        '/auth/oidc/link/start',
+        {
+          body: JSON.stringify({ clientNonce, currentPassword: oidcCurrentPassword }),
+          method: 'POST',
+        },
+      );
+      window.location.assign(authorizationUrl);
+    } catch (nextError) {
+      clearOidcLinkState();
+      setError(formatError(nextError));
+      setIsSubmitting(false);
+    }
   }
 
   async function submitSensitiveAction(event: FormEvent<HTMLFormElement>) {
@@ -126,9 +183,9 @@ export default function AccountSecurityPage() {
             ← Back to dashboard
           </Link>
           <p className="eyebrow">Account</p>
-          <h1>Sessions &amp; devices</h1>
+          <h1>Account security</h1>
           <p className="muted no-margin">
-            Review where Kestrel is signed in and revoke access you no longer recognize.
+            Manage sign-in methods, active sessions, and remote-control devices.
           </p>
         </div>
         <UserMark
@@ -150,6 +207,48 @@ export default function AccountSecurityPage() {
       )}
 
       <div className="account-security-grid">
+        <section
+          className="panel account-security-panel account-security-sign-in"
+          aria-labelledby="sign-in-heading"
+        >
+          <div className="account-security-section-header">
+            <div>
+              <p className="eyebrow">Authentication</p>
+              <h2 id="sign-in-heading">Sign-in methods</h2>
+            </div>
+            {oidcLinkStatus?.linked ? (
+              <span className="chip remote-chip-online">linked</span>
+            ) : null}
+          </div>
+          {isLoading || oidcLinkStatus == null ? (
+            <p className="muted">Loading sign-in methods…</p>
+          ) : !oidcLinkStatus.enabled ? (
+            <p className="muted">OIDC account linking is unavailable on this server.</p>
+          ) : oidcLinkStatus.linked ? (
+            <p className="muted">
+              {oidcLinkStatus.displayName} is linked. You can use it to sign in to this Kestrel
+              account.
+            </p>
+          ) : (
+            <>
+              <p className="muted">
+                Link {oidcLinkStatus.displayName} to this existing Kestrel account. You will confirm
+                your current password before continuing to the provider.
+              </p>
+              <div className="account-security-actions">
+                <Button
+                  className="secondary"
+                  disabled={isSubmitting}
+                  type="button"
+                  onClick={() => setIsOidcLinkOpen(true)}
+                >
+                  Link {oidcLinkStatus.displayName}
+                </Button>
+              </div>
+            </>
+          )}
+        </section>
+
         <section className="panel account-security-panel" aria-labelledby="sessions-heading">
           <div className="account-security-section-header">
             <div>
@@ -240,6 +339,51 @@ export default function AccountSecurityPage() {
           </div>
         </section>
       </div>
+
+      <DialogFrame
+        description={`Enter your current Kestrel password, then authenticate with ${oidcLinkStatus?.displayName ?? 'the OIDC provider'}.`}
+        eyebrow="Add sign-in method"
+        open={isOidcLinkOpen}
+        title={`Link ${oidcLinkStatus?.displayName ?? 'OIDC'}`}
+        onOpenChange={(open) => {
+          if (!isSubmitting) {
+            setIsOidcLinkOpen(open);
+            if (!open) {
+              setOidcCurrentPassword('');
+            }
+          }
+        }}
+      >
+        <form className="account-security-confirm-form" onSubmit={submitOidcLink}>
+          <label htmlFor="radix-field-app-dashboard-account-page-tsx-oidc-password">
+            Current Kestrel password
+            <TextInput
+              id="radix-field-app-dashboard-account-page-tsx-oidc-password"
+              autoComplete="current-password"
+              required
+              type="password"
+              value={oidcCurrentPassword}
+              onChange={(event) => setOidcCurrentPassword(event.target.value)}
+            />
+          </label>
+          <div className="account-security-actions">
+            <Button
+              className="secondary"
+              disabled={isSubmitting}
+              type="button"
+              onClick={() => {
+                setIsOidcLinkOpen(false);
+                setOidcCurrentPassword('');
+              }}
+            >
+              Cancel
+            </Button>
+            <Button disabled={isSubmitting} type="submit">
+              {isSubmitting ? 'Continuing…' : 'Continue to provider'}
+            </Button>
+          </div>
+        </form>
+      </DialogFrame>
 
       <ConfirmDialog
         confirmLabel="Sign out"

@@ -6,6 +6,7 @@ import {
   AuthAuditService,
 } from '../auth/auth-audit.service';
 import { AuthService } from '../auth/auth.service';
+import { OidcService } from '../auth/oidc.service';
 import { SessionRevocationService } from '../auth/session-revocation.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -17,6 +18,7 @@ export class AccountSecurityService {
     private readonly authAuditService: AuthAuditService,
     private readonly prismaService: PrismaService,
     private readonly sessionRevocationService: SessionRevocationService,
+    private readonly oidcService: OidcService,
   ) {}
 
   async listSessions(userId: string, currentSessionId: string) {
@@ -45,6 +47,43 @@ export class AccountSecurityService {
         isCurrent: session.id === currentSessionId,
       })),
     };
+  }
+
+  getOidcLinkStatus(userId: string) {
+    return this.oidcService.getLinkStatus(userId);
+  }
+
+  async startOidcLink(
+    userId: string,
+    currentSessionId: string,
+    body: unknown,
+    metadata: AuthAuditMetadata = {},
+  ) {
+    const input = parseOidcLinkStart(body);
+    await this.confirmStepUp(
+      userId,
+      currentSessionId,
+      input.currentPassword,
+      'oidc_link',
+      metadata,
+    );
+    return this.oidcService.startLink(userId, currentSessionId, {
+      clientNonce: input.clientNonce,
+    });
+  }
+
+  exchangeOidcLink(
+    userId: string,
+    currentSessionId: string,
+    body: unknown,
+    metadata: AuthAuditMetadata = {},
+  ) {
+    return this.oidcService.exchangeLink(
+      userId,
+      currentSessionId,
+      body,
+      metadata,
+    );
   }
 
   async revokeSession(
@@ -219,6 +258,28 @@ export class AccountSecurityService {
       );
     }
   }
+}
+
+function parseOidcLinkStart(input: unknown): {
+  clientNonce: string;
+  currentPassword: string;
+} {
+  if (input == null || typeof input !== 'object' || Array.isArray(input)) {
+    throw new BadRequestException('OIDC link request is invalid');
+  }
+  const record = input as Record<string, unknown>;
+  if (
+    typeof record.clientNonce !== 'string' ||
+    record.clientNonce.length < 16 ||
+    record.clientNonce.length > 128 ||
+    !/^[A-Za-z0-9:._-]+$/.test(record.clientNonce)
+  ) {
+    throw new BadRequestException('clientNonce is invalid');
+  }
+  return {
+    clientNonce: record.clientNonce,
+    currentPassword: parseCurrentPassword(input),
+  };
 }
 
 function parseCurrentPassword(input: unknown): string {

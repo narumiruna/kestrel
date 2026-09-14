@@ -7,6 +7,7 @@ import {
   ConflictException,
   GoneException,
   ServiceUnavailableException,
+  UnauthorizedException,
 } from '../http/errors';
 import { PrismaService } from '../prisma/prisma.service';
 import { AccessTokenService } from './access-token.service';
@@ -17,6 +18,7 @@ import { TotpService } from './totp.service';
 const ISSUER = 'https://oidc.example.test';
 const CLIENT_ID = 'client-id';
 const CLIENT_NONCE = 'browser-attempt:1234567890abcdef';
+const LINK_SESSION_ID = '11111111-1111-4111-8111-111111111111';
 const ENCRYPTION_KEY = Buffer.alloc(32, 7).toString('base64');
 const PUBLIC_URL = 'https://kestrel.example.test';
 const ANDROID_CALLBACK = `${PUBLIC_URL}/login/oidc/android`;
@@ -935,6 +937,239 @@ describe('OidcService', () => {
     },
   );
 
+  it('reports whether the configured OIDC identity is linked to the account', async () => {
+    const prisma = createPrismaMock();
+    prisma.federatedIdentity.findUnique.mockResolvedValue({
+      issuer: ISSUER,
+      userId: 'user-1',
+    });
+    const service = createService(prisma);
+
+    await expect(service.getLinkStatus('user-1')).resolves.toEqual({
+      displayName: 'Example Identity',
+      enabled: true,
+      linked: true,
+    });
+    await expect(
+      service.startLink('user-1', LINK_SESSION_ID, {
+        clientNonce: CLIENT_NONCE,
+      }),
+    ).rejects.toThrow('OIDC is already linked to this account');
+  });
+
+  it('binds an OIDC link callback to the initiating Web session', async () => {
+    const prisma = createPrismaMock();
+    mockDiscovery();
+    const service = createService(prisma);
+    const { authorizationUrl } = await service.startLink(
+      'user-1',
+      LINK_SESSION_ID,
+      { clientNonce: CLIENT_NONCE },
+    );
+    const state = new URL(authorizationUrl).searchParams.get('state')!;
+    await mockTokenAndJwks(state);
+
+    const redirect = new URL(
+      await service.callback({ code: 'authorization-code', state }),
+    );
+
+    expect(redirect.origin + redirect.pathname).toBe(
+      `${PUBLIC_URL}/dashboard/account/oidc`,
+    );
+    expect(new URLSearchParams(redirect.hash.slice(1)).get('attempt')).toBe(
+      sha256(CLIENT_NONCE),
+    );
+    expect(
+      prisma.transaction.oidcLoginAttempt.create.mock.calls[0][0].data,
+    ).toEqual(
+      expect.objectContaining({
+        clientType: 'web',
+        flowType: 'link',
+        linkSessionId: LINK_SESSION_ID,
+      }),
+    );
+  });
+
+  it('links a verified OIDC identity to the existing account without creating a session', async () => {
+    const prisma = createPrismaMock();
+    prisma.oidcLoginAttempt.findUnique.mockResolvedValue(
+      completedLinkAttempt(),
+    );
+    prisma.transaction.session.updateMany.mockResolvedValue({ count: 1 });
+    prisma.transaction.oidcLoginAttempt.updateMany.mockResolvedValue({
+      count: 1,
+    });
+    prisma.transaction.federatedIdentity.findUnique.mockResolvedValue(null);
+
+    const result = await createService(prisma).exchangeLink(
+      'user-1',
+      LINK_SESSION_ID,
+      {
+        clientNonce: CLIENT_NONCE,
+        exchangeTicket: 'exchange-ticket-value-1234567890123456',
+      },
+      { userAgent: 'test-agent' },
+    );
+
+    expect(result).toEqual({ linked: true });
+    expect(prisma.transaction.session.updateMany).toHaveBeenCalledWith({
+      data: { lastUsedAt: expect.any(Date) },
+      where: {
+        expiresAt: { gt: expect.any(Date) },
+        id: LINK_SESSION_ID,
+        revokedAt: null,
+        userId: 'user-1',
+      },
+    });
+    expect(prisma.transaction.federatedIdentity.create).toHaveBeenCalledWith({
+      data: {
+        issuer: ISSUER,
+        issuerHash: sha256(ISSUER),
+        provider: 'oidc',
+        subject: 'oidc-subject',
+        userId: 'user-1',
+      },
+    });
+    expect(prisma.transaction.session.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects OIDC links owned by another account or bound to another session', async () => {
+    const prisma = createPrismaMock();
+    prisma.oidcLoginAttempt.findUnique.mockResolvedValue(
+      completedLinkAttempt(),
+    );
+    prisma.transaction.session.updateMany.mockResolvedValue({ count: 1 });
+    prisma.transaction.oidcLoginAttempt.updateMany.mockResolvedValue({
+      count: 1,
+    });
+    prisma.transaction.federatedIdentity.findUnique.mockResolvedValue({
+      issuer: ISSUER,
+      subject: 'oidc-subject',
+      userId: 'another-user',
+    });
+    const service = createService(prisma);
+    const request = {
+      clientNonce: CLIENT_NONCE,
+      exchangeTicket: 'exchange-ticket-value-1234567890123456',
+    };
+
+    await expect(
+      service.exchangeLink('user-1', LINK_SESSION_ID, request),
+    ).rejects.toBeInstanceOf(ConflictException);
+    await expect(
+      service.exchangeLink(
+        'user-1',
+        '22222222-2222-4222-8222-222222222222',
+        request,
+      ),
+    ).rejects.toThrow('OIDC link ticket is invalid or expired');
+    expect(prisma.transaction.federatedIdentity.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects a different OIDC identity when the account is already linked', async () => {
+    const prisma = createPrismaMock();
+    prisma.oidcLoginAttempt.findUnique.mockResolvedValue(
+      completedLinkAttempt(),
+    );
+    prisma.transaction.session.updateMany.mockResolvedValue({ count: 1 });
+    prisma.transaction.oidcLoginAttempt.updateMany.mockResolvedValue({
+      count: 1,
+    });
+    prisma.transaction.federatedIdentity.findUnique
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        issuer: ISSUER,
+        subject: 'another-subject',
+        userId: 'user-1',
+      });
+
+    await expect(
+      createService(prisma).exchangeLink('user-1', LINK_SESSION_ID, {
+        clientNonce: CLIENT_NONCE,
+        exchangeTicket: 'exchange-ticket-value-1234567890123456',
+      }),
+    ).rejects.toBeInstanceOf(ConflictException);
+    expect(prisma.transaction.federatedIdentity.create).not.toHaveBeenCalled();
+  });
+
+  it('keeps sign-in and account-link exchange tickets isolated', async () => {
+    const prisma = createPrismaMock();
+    const service = createService(prisma);
+    const request = {
+      clientNonce: CLIENT_NONCE,
+      exchangeTicket: 'exchange-ticket-value-1234567890123456',
+    };
+
+    prisma.oidcLoginAttempt.findUnique.mockResolvedValue(
+      completedLinkAttempt(),
+    );
+    await expect(service.exchange(request)).rejects.toBeInstanceOf(
+      GoneException,
+    );
+
+    prisma.oidcLoginAttempt.findUnique.mockResolvedValue(completedAttempt());
+    await expect(
+      service.exchangeLink('user-1', LINK_SESSION_ID, request),
+    ).rejects.toBeInstanceOf(GoneException);
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('rejects an OIDC link when the initiating session was revoked', async () => {
+    const prisma = createPrismaMock();
+    prisma.oidcLoginAttempt.findUnique.mockResolvedValue(
+      completedLinkAttempt(),
+    );
+    prisma.transaction.session.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(
+      createService(prisma).exchangeLink('user-1', LINK_SESSION_ID, {
+        clientNonce: CLIENT_NONCE,
+        exchangeTicket: 'exchange-ticket-value-1234567890123456',
+      }),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+    expect(prisma.transaction.federatedIdentity.create).not.toHaveBeenCalled();
+  });
+
+  it('recovers a completed OIDC link when the first response is lost', async () => {
+    const prisma = createPrismaMock();
+    const attempt = completedLinkAttempt();
+    const activeSession = {
+      expiresAt: new Date(Date.now() + 60_000),
+      revokedAt: null,
+      userId: 'user-1',
+    };
+    prisma.oidcLoginAttempt.findUnique.mockResolvedValue(attempt);
+    prisma.transaction.session.updateMany.mockResolvedValue({ count: 1 });
+    prisma.transaction.oidcLoginAttempt.updateMany.mockResolvedValue({
+      count: 1,
+    });
+    prisma.transaction.federatedIdentity.findUnique.mockResolvedValue(null);
+    const service = createService(prisma);
+    const request = {
+      clientNonce: CLIENT_NONCE,
+      exchangeTicket: 'exchange-ticket-value-1234567890123456',
+    };
+
+    await service.exchangeLink('user-1', LINK_SESSION_ID, request);
+    const completion =
+      prisma.transaction.oidcLoginAttempt.updateMany.mock.calls[0][0].data;
+    prisma.oidcLoginAttempt.findUnique.mockResolvedValue({
+      ...attempt,
+      ...completion,
+    });
+    prisma.session.findUnique.mockResolvedValue(activeSession);
+    prisma.federatedIdentity.findUnique.mockResolvedValue({
+      issuer: ISSUER,
+      subject: 'oidc-subject',
+      userId: 'user-1',
+    });
+
+    await expect(
+      service.exchangeLink('user-1', LINK_SESSION_ID, request),
+    ).resolves.toEqual({ linked: true });
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+  });
+
   it('auto-provisions by immutable identity and atomically creates a Kestrel session', async () => {
     const prisma = createPrismaMock();
     const now = new Date();
@@ -943,12 +1178,14 @@ describe('OidcService', () => {
       clientNonceHash: sha256(CLIENT_NONCE),
       clientType: 'web',
       consumedAt: null,
+      flowType: 'login',
       createdAt: now,
       exchangeTicketHash: sha256('exchange-ticket-value-1234567890123456'),
       expiresAt: new Date(now.getTime() + 60_000),
       id: 'attempt-1',
       issuer: ISSUER,
       issuerHash: sha256(ISSUER),
+      linkSessionId: null,
       pkceVerifierEncrypted: '',
       preferredUsername: 'oidc-user',
       provider: 'oidc',
@@ -1257,6 +1494,7 @@ function createPrismaMock() {
     },
     session: {
       create: jest.fn(),
+      updateMany: jest.fn(),
     },
     user: {
       create: jest.fn(),
@@ -1385,6 +1623,7 @@ function completedAttempt() {
     clientNonceHash: sha256(CLIENT_NONCE),
     clientType: 'web',
     consumedAt: null,
+    flowType: 'login',
     createdAt: now,
     exchangeSessionId: null,
     exchangeTicketHash: sha256('exchange-ticket-value-1234567890123456'),
@@ -1392,11 +1631,20 @@ function completedAttempt() {
     id: 'attempt-1',
     issuer: ISSUER,
     issuerHash: sha256(ISSUER),
+    linkSessionId: null,
     pkceVerifierEncrypted: '',
     preferredUsername: 'oidc-user',
     provider: 'oidc',
     stateHash: sha256('state'),
     subject: 'oidc-subject',
+  };
+}
+
+function completedLinkAttempt() {
+  return {
+    ...completedAttempt(),
+    flowType: 'link',
+    linkSessionId: LINK_SESSION_ID,
   };
 }
 

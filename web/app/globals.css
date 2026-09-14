@@ -6739,6 +6739,10 @@ button.route-marker.route-marker-compact:not(.selected):focus-visible::after {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.account-security-sign-in {
+  grid-column: 1 / -1;
+}
+
 .account-security-panel,
 .account-security-confirm {
   padding: clamp(18px, 3vw, 28px);
