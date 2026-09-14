@@ -87,9 +87,7 @@ export function buildSeedRoutePayload(route: (typeof SAMPLE_ROUTES)[number]) {
   };
 }
 
-export async function seedDevData(
-  prisma = new PrismaClient({ adapter: createPrismaAdapter() }),
-) {
+export async function seedDevData(prisma: PrismaClient) {
   if (!isDevSeedEnabled()) {
     return;
   }
@@ -295,15 +293,26 @@ function isDevSeedEnabled() {
   );
 }
 
+async function runDevSeed() {
+  if (!isDevSeedEnabled()) {
+    return;
+  }
+
+  const prisma = new PrismaClient({ adapter: createPrismaAdapter() });
+  try {
+    await seedDevData(prisma);
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
 if (require.main === module) {
   const logger = createLogger('DevSeed');
-  const prisma = new PrismaClient({ adapter: createPrismaAdapter() });
 
-  seedDevData(prisma)
+  runDevSeed()
     .then(() => {
       logger.info('dev seed finished');
     })
-    .finally(async () => prisma.$disconnect())
     .catch((error: unknown) => {
       logger.error({ err: error }, 'dev seed failed');
       process.exitCode = 1;
