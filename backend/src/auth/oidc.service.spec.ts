@@ -267,6 +267,11 @@ describe('OidcService', () => {
       }),
       where: expect.objectContaining({ id: expect.any(String) }),
     });
+    const claim = prisma.transaction.oidcLoginAttempt.create.mock.calls[0][0]
+      .data as { callbackStartedAt: Date; expiresAt: Date };
+    expect(claim.expiresAt.getTime() - claim.callbackStartedAt.getTime()).toBe(
+      2 * 60 * 1000,
+    );
     const completion = prisma.oidcLoginAttempt.updateMany.mock.calls[0][0]
       .data as { callbackCompletedAt: Date; expiresAt: Date };
     expect(
@@ -359,6 +364,64 @@ describe('OidcService', () => {
       service.callback({ code: 'replayed-code', state }),
     ).rejects.toThrow(GoneException);
     expect(jest.mocked(global.fetch)).toHaveBeenCalledTimes(1);
+  });
+
+  it('releases a callback claim after transient discovery failure', async () => {
+    const prisma = createPrismaMock();
+    mockDiscovery();
+    const startService = createService(prisma);
+    const { authorizationUrl } = await startService.start({
+      clientNonce: CLIENT_NONCE,
+      clientType: 'web',
+    });
+    const state = new URL(authorizationUrl).searchParams.get('state')!;
+    const callbackService = createService(prisma);
+    jest
+      .mocked(global.fetch)
+      .mockRejectedValueOnce(new TypeError('provider unavailable'));
+
+    await expect(
+      callbackService.callback({ code: 'authorization-code', state }),
+    ).rejects.toThrow('OIDC callback is temporarily unavailable');
+    expect(prisma.oidcLoginAttempt.deleteMany).toHaveBeenCalledWith({
+      where: expect.objectContaining({ id: expect.any(String) }),
+    });
+
+    mockDiscovery();
+    await mockTokenAndJwks(state);
+    const redirect = new URL(
+      await callbackService.callback({ code: 'authorization-code', state }),
+    );
+    expect(
+      new URLSearchParams(redirect.hash.slice(1)).get('ticket'),
+    ).toHaveLength(43);
+  });
+
+  it('retries transient callback completion storage failure', async () => {
+    const prisma = createPrismaMock();
+    mockDiscovery();
+    const service = createService(prisma);
+    const { authorizationUrl } = await service.start({
+      clientNonce: CLIENT_NONCE,
+      clientType: 'web',
+    });
+    const state = new URL(authorizationUrl).searchParams.get('state')!;
+    await mockTokenAndJwks(state);
+    prisma.oidcLoginAttempt.updateMany.mockRejectedValueOnce(
+      new Prisma.PrismaClientKnownRequestError('database unavailable', {
+        clientVersion: '6.19.3',
+        code: 'P1001',
+      }),
+    );
+
+    const redirect = new URL(
+      await service.callback({ code: 'authorization-code', state }),
+    );
+    expect(
+      new URLSearchParams(redirect.hash.slice(1)).get('ticket'),
+    ).toHaveLength(43);
+    expect(prisma.oidcLoginAttempt.updateMany).toHaveBeenCalledTimes(2);
+    expect(prisma.oidcLoginAttempt.deleteMany).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -640,7 +703,9 @@ describe('OidcService', () => {
         lastUsedAt: now,
       }),
     );
-    const service = createService(prisma);
+    const auditLog = jest.fn().mockResolvedValue(undefined);
+    const authAuditService = { log: auditLog } as unknown as AuthAuditService;
+    const service = createService(prisma, undefined, authAuditService);
     const request = {
       clientNonce: CLIENT_NONCE,
       exchangeTicket: 'exchange-ticket-value-1234567890123456',
@@ -679,6 +744,15 @@ describe('OidcService', () => {
     expect(stored.exchangeSessionId).toBe(first.session.id);
     expect(stored).not.toHaveProperty('exchangeRefreshTokenEncrypted');
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(auditLog).toHaveBeenCalledTimes(2);
+    expect(auditLog).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        event: 'login',
+        outcome: 'success',
+        sessionId: first.session.id,
+        userId: first.user.id,
+      }),
+    );
   });
 
   it('rejects nonce mismatch, username collisions, expired tickets, and replay', async () => {
@@ -733,6 +807,9 @@ describe('OidcService', () => {
 function createService(
   prisma: PrismaMock,
   configurationOverrides?: Record<string, string>,
+  authAuditService: AuthAuditService = {
+    log: jest.fn(),
+  } as unknown as AuthAuditService,
 ): OidcService {
   const configuration = configurationOverrides ?? configuredEnvironment();
 
@@ -743,7 +820,7 @@ function createService(
         token: 'kestrel-access-token',
       })),
     } as unknown as AccessTokenService,
-    { log: jest.fn() } as unknown as AuthAuditService,
+    authAuditService,
     {
       get: jest.fn((key: string) => configuration[key]),
     } as unknown as ConfigService,
@@ -790,6 +867,7 @@ function createPrismaMock() {
   return {
     federatedIdentity: { findUnique: jest.fn() },
     oidcLoginAttempt: {
+      deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
       findUnique: jest.fn(),
       updateMany: jest.fn().mockResolvedValue({ count: 1 }),
     },

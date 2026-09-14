@@ -73,11 +73,11 @@ internal class CloudAuthRepository private constructor(
                 }
                 error("OIDC sign-in failed")
             }
-            is OidcCallback.Success -> {
-                val resumableAttempt = attempt.copy(exchangeTicket = callback.exchangeTicket)
-                oidcAttemptStore.save(resumableAttempt)
-                completeOidcExchange(resumableAttempt)
-            }
+            is OidcCallback.Success ->
+                completeOidcExchange(
+                    attempt = attempt.copy(exchangeTicket = callback.exchangeTicket),
+                    expectedAttempt = attempt,
+                )
         }
     }
 
@@ -227,13 +227,17 @@ internal class CloudAuthRepository private constructor(
         _hasSession.value = false
     }
 
-    private suspend fun completeOidcExchange(attempt: OidcAuthAttempt): CloudSession =
+    private suspend fun completeOidcExchange(
+        attempt: OidcAuthAttempt,
+        expectedAttempt: OidcAuthAttempt = attempt,
+    ): CloudSession =
         try {
             refreshMutex
                 .withLock {
-                    check(oidcAttemptStore.load() == attempt) {
+                    check(oidcAttemptStore.load() == expectedAttempt) {
                         "OIDC sign-in is no longer pending"
                     }
+                    oidcAttemptStore.save(attempt)
                     exchangeOidcWithRetry(
                         exchangeTicket = checkNotNull(attempt.exchangeTicket),
                         clientNonce = attempt.clientNonce,

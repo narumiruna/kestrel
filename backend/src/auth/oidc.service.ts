@@ -30,9 +30,11 @@ const AUTHORIZATION_LIFETIME_MS = 10 * 60 * 1000;
 const EXCHANGE_TICKET_LIFETIME_MS = 10 * 60 * 1000;
 const EXCHANGE_RETRY_LIFETIME_MS = 20 * 60 * 1000;
 const CALLBACK_CLAIM_RATE_WINDOW_MS = 60 * 1000;
+const CALLBACK_PROCESSING_LIFETIME_MS = 2 * 60 * 1000;
 const MAX_ACTIVE_CALLBACK_CLAIMS = 1000;
 const MAX_CALLBACK_CLAIMS_PER_WINDOW = 120;
 const CALLBACK_CLAIM_TRANSACTION_ATTEMPTS = 3;
+const CALLBACK_COMPLETION_ATTEMPTS = 3;
 const SESSION_DURATION_DAYS = 30;
 const SECRET_BYTES = 32;
 const ENCRYPTION_KEY_BYTES = 32;
@@ -90,6 +92,8 @@ type OidcExchangeResponse = {
 
 type ExchangeSession = OidcExchangeResponse['session'];
 type ExchangeUser = OidcExchangeResponse['user'];
+class RetryableOidcCallbackError extends Error {}
+
 type RecoverableExchangeAttempt = {
   clientNonceHash: string;
   consumedAt: Date | null;
@@ -216,28 +220,13 @@ export class OidcService {
         rawState,
       );
       const callbackCompletedAt = new Date();
-      const completed = await this.prismaService.oidcLoginAttempt.updateMany({
-        data: {
-          callbackCompletedAt,
-          exchangeTicketHash: hashValue(exchangeTicket),
-          expiresAt: new Date(
-            callbackCompletedAt.getTime() + EXCHANGE_TICKET_LIFETIME_MS,
-          ),
-          issuer: identity.issuer,
-          issuerHash: hashValue(identity.issuer),
-          preferredUsername: identity.preferredUsername,
-          subject: identity.subject,
-        },
-        where: {
-          callbackCompletedAt: null,
-          callbackStartedAt,
-          consumedAt: null,
-          id: attemptId,
-        },
-      });
-      if (completed.count !== 1) {
-        throw new GoneException('OIDC sign-in attempt is invalid or expired');
-      }
+      await this.completeCallbackClaim(
+        attemptId,
+        callbackStartedAt,
+        callbackCompletedAt,
+        exchangeTicket,
+        identity,
+      );
 
       return buildClientRedirect(
         authorizationState.clientType,
@@ -247,6 +236,12 @@ export class OidcService {
         authorizationState.clientNonceHash,
       );
     } catch (error) {
+      if (error instanceof RetryableOidcCallbackError) {
+        await this.releaseCallbackClaim(attemptId, callbackStartedAt);
+        throw new ServiceUnavailableException(
+          'OIDC callback is temporarily unavailable',
+        );
+      }
       await this.completeFailedCallback(attemptId, callbackStartedAt);
       this.logger.warn(
         { reason: error instanceof Error ? error.name : 'UnknownError' },
@@ -274,13 +269,25 @@ export class OidcService {
       where: { stateHash },
     });
     if (existing != null) {
-      return this.recoverCallbackRedirect(
-        existing,
-        rawState,
-        authorizationState,
-        configuration,
-        callbackStartedAt,
-      );
+      if (
+        existing.callbackCompletedAt != null ||
+        existing.expiresAt > callbackStartedAt
+      ) {
+        return this.recoverCallbackRedirect(
+          existing,
+          rawState,
+          authorizationState,
+          configuration,
+          callbackStartedAt,
+        );
+      }
+      await this.prismaService.oidcLoginAttempt.deleteMany({
+        where: {
+          callbackCompletedAt: null,
+          expiresAt: { lte: callbackStartedAt },
+          id: existing.id,
+        },
+      });
     }
 
     for (
@@ -360,7 +367,9 @@ export class OidcService {
             callbackStartedAt,
             clientNonceHash: authorizationState.clientNonceHash,
             clientType: authorizationState.clientType,
-            expiresAt: new Date(authorizationState.expiresAt),
+            expiresAt: new Date(
+              callbackStartedAt.getTime() + CALLBACK_PROCESSING_LIFETIME_MS,
+            ),
             id: attemptId,
             pkceVerifierEncrypted: '',
             provider: PROVIDER,
@@ -402,6 +411,80 @@ export class OidcService {
       exchangeTicket,
       authorizationState.clientNonceHash,
     );
+  }
+
+  private async completeCallbackClaim(
+    attemptId: string,
+    callbackStartedAt: Date,
+    callbackCompletedAt: Date,
+    exchangeTicket: string,
+    identity: VerifiedIdentity,
+  ): Promise<void> {
+    const exchangeTicketHash = hashValue(exchangeTicket);
+    for (
+      let attempt = 1;
+      attempt <= CALLBACK_COMPLETION_ATTEMPTS;
+      attempt += 1
+    ) {
+      try {
+        const completed = await this.prismaService.oidcLoginAttempt.updateMany({
+          data: {
+            callbackCompletedAt,
+            exchangeTicketHash,
+            expiresAt: new Date(
+              callbackCompletedAt.getTime() + EXCHANGE_TICKET_LIFETIME_MS,
+            ),
+            issuer: identity.issuer,
+            issuerHash: hashValue(identity.issuer),
+            preferredUsername: identity.preferredUsername,
+            subject: identity.subject,
+          },
+          where: {
+            callbackCompletedAt: null,
+            callbackStartedAt,
+            consumedAt: null,
+            id: attemptId,
+          },
+        });
+        if (completed.count === 1) return;
+        const stored = await this.prismaService.oidcLoginAttempt.findUnique({
+          where: { id: attemptId },
+        });
+        if (
+          stored?.callbackCompletedAt != null &&
+          stored.exchangeTicketHash === exchangeTicketHash
+        ) {
+          return;
+        }
+        throw new GoneException('OIDC sign-in attempt is invalid or expired');
+      } catch (error) {
+        if (
+          !isRetryablePrismaError(error) ||
+          attempt === CALLBACK_COMPLETION_ATTEMPTS
+        ) {
+          if (isRetryablePrismaError(error)) {
+            throw new RetryableOidcCallbackError(
+              'OIDC callback storage unavailable',
+            );
+          }
+          throw error;
+        }
+      }
+    }
+  }
+
+  private async releaseCallbackClaim(
+    attemptId: string,
+    callbackStartedAt: Date,
+  ): Promise<void> {
+    await this.prismaService.oidcLoginAttempt.deleteMany({
+      where: {
+        callbackCompletedAt: null,
+        callbackStartedAt,
+        consumedAt: null,
+        id: attemptId,
+      },
+    });
   }
 
   private async completeFailedCallback(
@@ -450,6 +533,7 @@ export class OidcService {
         now,
       );
       if (recovered != null) {
+        await this.auditSuccessfulExchange(recovered, metadata);
         return recovered;
       }
       throw new GoneException('OIDC exchange ticket is invalid or expired');
@@ -572,15 +656,7 @@ export class OidcService {
         now,
       );
 
-      await this.safeAuditLog({
-        ...metadata,
-        authMethod: PROVIDER,
-        event: 'login',
-        outcome: 'success',
-        sessionId: result.session.id,
-        userId: result.user.id,
-        username: result.user.username,
-      });
+      await this.auditSuccessfulExchange(response, metadata);
 
       return response;
     } catch (error) {
@@ -591,6 +667,7 @@ export class OidcService {
         now,
       );
       if (recovered != null) {
+        await this.auditSuccessfulExchange(recovered, metadata);
         return recovered;
       }
       await this.safeAuditLog({
@@ -605,6 +682,21 @@ export class OidcService {
       });
       throw error;
     }
+  }
+
+  private async auditSuccessfulExchange(
+    response: OidcExchangeResponse,
+    metadata: AuthAuditMetadata,
+  ): Promise<void> {
+    await this.safeAuditLog({
+      ...metadata,
+      authMethod: PROVIDER,
+      event: 'login',
+      outcome: 'success',
+      sessionId: response.session.id,
+      userId: response.user.id,
+      username: response.user.username,
+    });
   }
 
   private async recoverExchange(
@@ -730,14 +822,22 @@ export class OidcService {
         configuration.clientSecret,
       );
     }
-    const tokenResponse = await fetch(discovery.token_endpoint, {
-      body: tokenBody,
-      headers,
-      method: 'POST',
-      signal: AbortSignal.timeout(10_000),
-    });
+    let tokenResponse: Response;
+    try {
+      tokenResponse = await fetch(discovery.token_endpoint, {
+        body: tokenBody,
+        headers,
+        method: 'POST',
+        signal: AbortSignal.timeout(10_000),
+      });
+    } catch {
+      throw new RetryableOidcCallbackError('OIDC token exchange unavailable');
+    }
     if (!tokenResponse.ok) {
-      throw new ServiceUnavailableException('OIDC token exchange failed');
+      if (tokenResponse.status >= 500) {
+        throw new RetryableOidcCallbackError('OIDC token exchange unavailable');
+      }
+      throw new BadRequestException('OIDC token exchange rejected');
     }
     const tokenPayload = (await tokenResponse.json()) as Record<
       string,
@@ -801,11 +901,19 @@ export class OidcService {
   }
 
   private async fetchJwks(endpoint: string) {
-    const response = await fetch(endpoint, {
-      headers: { accept: 'application/json' },
-      signal: AbortSignal.timeout(10_000),
-    });
+    let response: Response;
+    try {
+      response = await fetch(endpoint, {
+        headers: { accept: 'application/json' },
+        signal: AbortSignal.timeout(10_000),
+      });
+    } catch {
+      throw new RetryableOidcCallbackError('OIDC signing keys unavailable');
+    }
     if (!response.ok) {
+      if (response.status >= 500) {
+        throw new RetryableOidcCallbackError('OIDC signing keys unavailable');
+      }
       throw new ServiceUnavailableException('OIDC signing keys failed');
     }
     const body = (await response.json()) as Partial<JSONWebKeySet>;
@@ -852,14 +960,24 @@ export class OidcService {
     const discoveryUrl = new URL(
       `${configuration.issuer.replace(/\/$/, '')}/.well-known/openid-configuration`,
     );
-    const response = await fetch(discoveryUrl, {
-      headers: { accept: 'application/json' },
-      signal: AbortSignal.timeout(10_000),
-    });
-    if (!response.ok) {
-      throw new ServiceUnavailableException('OIDC discovery failed');
+    let response: Response;
+    try {
+      response = await fetch(discoveryUrl, {
+        headers: { accept: 'application/json' },
+        signal: AbortSignal.timeout(10_000),
+      });
+    } catch {
+      throw new RetryableOidcCallbackError('OIDC discovery unavailable');
     }
-    const body = (await response.json()) as Record<string, unknown>;
+    if (!response.ok) {
+      throw new RetryableOidcCallbackError('OIDC discovery unavailable');
+    }
+    let body: Record<string, unknown>;
+    try {
+      body = (await response.json()) as Record<string, unknown>;
+    } catch {
+      throw new RetryableOidcCallbackError('OIDC discovery unavailable');
+    }
     const discovery = validateDiscovery(body, configuration.issuer);
     this.discoveryCache = {
       expiresAt: Date.now() + 5 * 60 * 1000,
@@ -1177,6 +1295,19 @@ function validateConfiguredUrl(value: string, label: string): URL {
   } catch {
     throw new InternalServerErrorException(`${label} is invalid`);
   }
+}
+
+function isRetryablePrismaError(error: unknown): boolean {
+  if (
+    error instanceof Prisma.PrismaClientUnknownRequestError ||
+    error instanceof Prisma.PrismaClientInitializationError
+  ) {
+    return true;
+  }
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    ['P1001', 'P1002', 'P1008', 'P1017', 'P2024', 'P2034'].includes(error.code)
+  );
 }
 
 function isAllowedUrlProtocol(url: URL): boolean {
