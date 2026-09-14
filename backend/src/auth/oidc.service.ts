@@ -397,9 +397,7 @@ export class OidcService {
             callbackStartedAt,
             clientNonceHash: authorizationState.clientNonceHash,
             clientType: authorizationState.clientType,
-            expiresAt: new Date(
-              callbackStartedAt.getTime() + CALLBACK_PROCESSING_LIFETIME_MS,
-            ),
+            expiresAt: new Date(authorizationState.expiresAt),
             id: attemptId,
             pkceVerifierEncrypted: '',
             provider: PROVIDER,
@@ -1465,7 +1463,7 @@ function buildClientRedirect(
   if (exchangeTicket != null) {
     fragment.set('ticket', exchangeTicket);
   }
-  if (isAndroid && clientNonceHash != null) {
+  if (clientNonceHash != null) {
     fragment.set('attempt', clientNonceHash);
   }
   url.hash = fragment.toString();

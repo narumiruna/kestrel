@@ -288,6 +288,7 @@ describe('OidcService', () => {
     expect(redirect.origin + redirect.pathname).toBe(WEB_CALLBACK);
     expect(redirect.search).toBe('');
     expect(fragment.has('client_nonce')).toBe(false);
+    expect(fragment.get('attempt')).toBe(sha256(CLIENT_NONCE));
     expect(fragment.get('ticket')).toHaveLength(43);
     expect(fragment.has('access_token')).toBe(false);
     expect(prisma.transaction.oidcLoginAttempt.deleteMany).toHaveBeenCalledWith(
@@ -317,9 +318,12 @@ describe('OidcService', () => {
     });
     const claim = prisma.transaction.oidcLoginAttempt.create.mock.calls[0][0]
       .data as { callbackStartedAt: Date; expiresAt: Date };
-    expect(claim.expiresAt.getTime() - claim.callbackStartedAt.getTime()).toBe(
-      2 * 60 * 1000,
-    );
+    expect(
+      claim.expiresAt.getTime() - claim.callbackStartedAt.getTime(),
+    ).toBeGreaterThan(9 * 60 * 1000);
+    expect(
+      claim.expiresAt.getTime() - claim.callbackStartedAt.getTime(),
+    ).toBeLessThanOrEqual(10 * 60 * 1000);
     const completion = prisma.oidcLoginAttempt.updateMany.mock.calls[0][0]
       .data as { callbackCompletedAt: Date; expiresAt: Date };
     expect(
@@ -760,9 +764,9 @@ describe('OidcService', () => {
         await service.callback({ error: providerError, state }),
       );
 
-      expect(new URLSearchParams(redirect.hash.slice(1)).get('error')).toBe(
-        expectedClientError,
-      );
+      const fragment = new URLSearchParams(redirect.hash.slice(1));
+      expect(fragment.get('attempt')).toBe(sha256(CLIENT_NONCE));
+      expect(fragment.get('error')).toBe(expectedClientError);
       expect(prisma.$transaction).not.toHaveBeenCalled();
       expect(prisma.oidcLoginAttempt.updateMany).not.toHaveBeenCalled();
     },

@@ -14,6 +14,7 @@ type PendingOidcExchange = {
 };
 
 const EXCHANGE_STORAGE_KEY = 'kestrel.web.oidc-exchange';
+const ATTEMPT_HASH_PATTERN = /^[a-f0-9]{64}$/;
 const EXCHANGE_VALUE_PATTERN = /^[A-Za-z0-9:._-]{16,128}$/;
 const TICKET_PATTERN = /^[A-Za-z0-9_-]{32,128}$/;
 
@@ -54,56 +55,68 @@ export function OidcCallback() {
     }
     startedRef.current = true;
 
-    const fragment = new URLSearchParams(window.location.hash.slice(1));
-    const keys = Array.from(fragment.keys());
-    if (keys.length > 0) {
-      const errorCodes = fragment.getAll('error');
-      const tickets = fragment.getAll('ticket');
-      if (keys.length === 1 && errorCodes.length === 1 && tickets.length === 0) {
+    void (async () => {
+      const fragment = new URLSearchParams(window.location.hash.slice(1));
+      const keys = Array.from(fragment.keys());
+      if (keys.length > 0) {
+        const authenticationAttempt = auth.getAuthenticationAttempt();
+        const callbackIsBound = await matchesAuthenticationAttempt(fragment, authenticationAttempt);
+        const errorCodes = fragment.getAll('error');
+        const tickets = fragment.getAll('ticket');
+        if (
+          callbackIsBound &&
+          keys.length === 2 &&
+          errorCodes.length === 1 &&
+          errorCodes[0].length > 0 &&
+          tickets.length === 0
+        ) {
+          window.history.replaceState(null, '', window.location.pathname);
+          clearPendingExchange();
+          setError(describeCallbackError(errorCodes[0]));
+          setIsCompleting(false);
+          return;
+        }
+
+        const ticket = tickets.length === 1 ? tickets[0] : null;
+        if (
+          !callbackIsBound ||
+          keys.length !== 2 ||
+          ticket == null ||
+          !TICKET_PATTERN.test(ticket) ||
+          authenticationAttempt == null
+        ) {
+          window.history.replaceState(null, '', window.location.pathname);
+          const pending = readPendingExchange();
+          if (pending?.authenticationAttempt === authenticationAttempt) {
+            setPendingExchange(pending);
+          }
+          setError('OIDC returned an incomplete sign-in response. Please try again.');
+          setIsCompleting(false);
+          return;
+        }
+
+        const pending = { authenticationAttempt, ticket };
+        if (!savePendingExchange(pending)) {
+          setError('Could not save the OIDC response. Reload this page to retry.');
+          setIsCompleting(false);
+          return;
+        }
         window.history.replaceState(null, '', window.location.pathname);
-        clearPendingExchange();
-        setError(describeCallbackError(errorCodes[0]));
-        setIsCompleting(false);
+        setPendingExchange(pending);
+        void completeExchange(pending);
         return;
       }
 
-      const ticket = tickets.length === 1 ? tickets[0] : null;
-      const authenticationAttempt = auth.getAuthenticationAttempt();
-      if (
-        keys.length !== 1 ||
-        ticket == null ||
-        !TICKET_PATTERN.test(ticket) ||
-        authenticationAttempt == null ||
-        !EXCHANGE_VALUE_PATTERN.test(authenticationAttempt)
-      ) {
-        window.history.replaceState(null, '', window.location.pathname);
+      const pending = readPendingExchange();
+      if (pending == null || auth.getAuthenticationAttempt() !== pending.authenticationAttempt) {
         clearPendingExchange();
         setError('OIDC returned an incomplete sign-in response. Please try again.');
         setIsCompleting(false);
         return;
       }
-
-      const pending = { authenticationAttempt, ticket };
-      if (!savePendingExchange(pending)) {
-        setError('Could not save the OIDC response. Reload this page to retry.');
-        setIsCompleting(false);
-        return;
-      }
-      window.history.replaceState(null, '', window.location.pathname);
       setPendingExchange(pending);
       void completeExchange(pending);
-      return;
-    }
-
-    const pending = readPendingExchange();
-    if (pending == null || auth.getAuthenticationAttempt() !== pending.authenticationAttempt) {
-      clearPendingExchange();
-      setError('OIDC returned an incomplete sign-in response. Please try again.');
-      setIsCompleting(false);
-      return;
-    }
-    setPendingExchange(pending);
-    void completeExchange(pending);
+    })();
   }, [auth, completeExchange]);
 
   return (
@@ -135,6 +148,34 @@ export function OidcCallback() {
       </section>
     </main>
   );
+}
+
+async function matchesAuthenticationAttempt(
+  fragment: URLSearchParams,
+  authenticationAttempt: string | null,
+): Promise<boolean> {
+  const attemptHashes = fragment.getAll('attempt');
+  if (
+    authenticationAttempt == null ||
+    !EXCHANGE_VALUE_PATTERN.test(authenticationAttempt) ||
+    attemptHashes.length !== 1 ||
+    !ATTEMPT_HASH_PATTERN.test(attemptHashes[0])
+  ) {
+    return false;
+  }
+
+  try {
+    const digest = await crypto.subtle.digest(
+      'SHA-256',
+      new TextEncoder().encode(authenticationAttempt),
+    );
+    const expectedHash = Array.from(new Uint8Array(digest), (byte) =>
+      byte.toString(16).padStart(2, '0'),
+    ).join('');
+    return expectedHash === attemptHashes[0];
+  } catch {
+    return false;
+  }
 }
 
 function isDefinitiveExchangeError(error: unknown): boolean {

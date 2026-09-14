@@ -63,10 +63,9 @@ internal class CloudAuthRepository private constructor(
         require(callback.matchesClientNonce(attempt.clientNonce)) {
             "OIDC callback does not match the pending sign-in"
         }
-        validateOidcAttemptServer(attempt, prefs, oidcAttemptStore)
-
         return when (callback) {
             is OidcCallback.Error -> {
+                validateOidcAttemptServer(attempt, prefs, oidcAttemptStore)
                 check(oidcAttemptStore.compareAndClear(attempt)) {
                     "OIDC sign-in is no longer pending"
                 }
@@ -80,6 +79,7 @@ internal class CloudAuthRepository private constructor(
                 check(oidcAttemptStore.compareAndSet(attempt, resumableAttempt)) {
                     "OIDC sign-in is no longer pending"
                 }
+                validateOidcAttemptServer(resumableAttempt, prefs, oidcAttemptStore)
                 completeOidcExchange(resumableAttempt)
             }
         }
@@ -103,7 +103,7 @@ internal class CloudAuthRepository private constructor(
                 .let {
                     saveNewSessionOrRevoke(
                         it.copy(refreshRequestId = UUID.randomUUID().toString()),
-                    ).also { oidcAttemptStore.clear() }
+                    ).also { runCatching { oidcAttemptStore.clear() } }
                 }
         }
 
@@ -121,7 +121,7 @@ internal class CloudAuthRepository private constructor(
                 ).let {
                     saveNewSessionOrRevoke(
                         it.copy(refreshRequestId = UUID.randomUUID().toString()),
-                    ).also { oidcAttemptStore.clear() }
+                    ).also { runCatching { oidcAttemptStore.clear() } }
                 }
         }
 
