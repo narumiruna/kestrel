@@ -190,6 +190,7 @@ export class OidcService {
       );
     }
 
+    const authorizationCode = validateAuthorizationCode(input.code);
     const attemptId = randomUUID();
     const recoveredRedirect = await this.claimCallback(
       attemptId,
@@ -203,12 +204,9 @@ export class OidcService {
     }
 
     try {
-      if (input.code == null || input.code === '') {
-        throw new BadRequestException('OIDC authorization code is missing');
-      }
       const discovery = await this.getDiscovery(configuration);
       const identity = await this.exchangeAndVerify(
-        input.code,
+        authorizationCode,
         rawState,
         authorizationState.codeVerifier,
         configuration,
@@ -1114,6 +1112,18 @@ function validateClientNonce(value: unknown): string {
     !CLIENT_NONCE_PATTERN.test(value)
   ) {
     throw new BadRequestException('clientNonce is invalid');
+  }
+  return value;
+}
+
+function validateAuthorizationCode(value: unknown): string {
+  if (
+    typeof value !== 'string' ||
+    value.length < 1 ||
+    value.length > 2048 ||
+    !/^[\x20-\x7e]+$/.test(value)
+  ) {
+    throw new BadRequestException('OIDC authorization code is invalid');
   }
   return value;
 }

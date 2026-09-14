@@ -217,6 +217,26 @@ describe('OidcService', () => {
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
+  it.each([undefined, 'a'.repeat(2049), 'code\nwith-control'])(
+    'rejects a missing or invalid authorization code before claiming it',
+    async (code) => {
+      const prisma = createPrismaMock();
+      mockDiscovery();
+      const service = createService(prisma);
+      const { authorizationUrl } = await service.start({
+        clientNonce: CLIENT_NONCE,
+        clientType: 'web',
+      });
+      const state = new URL(authorizationUrl).searchParams.get('state')!;
+
+      await expect(service.callback({ code, state })).rejects.toThrow(
+        'OIDC authorization code is invalid',
+      );
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+      expect(prisma.oidcLoginAttempt.updateMany).not.toHaveBeenCalled();
+    },
+  );
+
   it('verifies an OIDC callback using the default client_secret_basic method', async () => {
     const prisma = createPrismaMock();
     mockDiscovery();
