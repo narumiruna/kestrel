@@ -32,7 +32,7 @@ Additional auth settings:
 - `AUTH_RATE_LIMIT_BLOCK_SECONDS`: optional temporary block duration in seconds after hitting the limit (defaults to 900)
 - `AUTH_TOTP_ENCRYPTION_KEY`: 32-byte key encoded as base64 (or 64-char hex) for encrypting stored TOTP secrets
 - `AUTH_TOTP_ISSUER`: optional otpauth issuer label shown in authenticator apps
-- `AUTH_OIDC_ISSUER`, `AUTH_OIDC_CLIENT_ID`, `AUTH_OIDC_CLIENT_SECRET`, `AUTH_OIDC_REDIRECT_URI`, `AUTH_OIDC_WEB_CALLBACK_URI`, `AUTH_OIDC_ANDROID_CALLBACK_URI`: optional generic OIDC configuration; set all values to enable it
+- `AUTH_OIDC_ISSUER`, `AUTH_OIDC_CLIENT_ID`, `AUTH_OIDC_CLIENT_SECRET`, `AUTH_OIDC_FLOW_ENCRYPTION_KEY`, `KESTREL_PUBLIC_URL`: optional generic OIDC configuration; set all values to enable it (`AUTH_OIDC_DISPLAY_NAME` is optional)
 - `AUTH_OIDC_DISPLAY_NAME`: optional provider label shown by clients (defaults to `OpenID Connect`)
 - `AUTH_OIDC_FLOW_ENCRYPTION_KEY`: separate 32-byte base64 or 64-character hex key for short-lived OIDC state and exchange recovery
 

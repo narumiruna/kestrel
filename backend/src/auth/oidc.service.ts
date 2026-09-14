@@ -51,6 +51,9 @@ const USERNAME_PATTERN = /^[A-Za-z0-9._-]+$/;
 const MIN_USERNAME_LENGTH = 3;
 const MAX_USERNAME_LENGTH = 64;
 const DEFAULT_DISPLAY_NAME = 'OpenID Connect';
+const OIDC_ANDROID_CALLBACK_PATH = '/login/oidc/android';
+const OIDC_REDIRECT_PATH = '/api/backend/auth/oidc/callback';
+const OIDC_WEB_CALLBACK_PATH = '/login/oidc';
 
 export type OidcClientType = 'android' | 'web';
 
@@ -1152,19 +1155,13 @@ export class OidcService {
 
   private getConfiguration(rejectPartial: boolean): OidcConfiguration | null {
     const values = {
-      androidCallbackUri: this.configService
-        .get('AUTH_OIDC_ANDROID_CALLBACK_URI')
-        ?.trim(),
       clientId: this.configService.get('AUTH_OIDC_CLIENT_ID'),
       clientSecret: this.configService.get('AUTH_OIDC_CLIENT_SECRET'),
       encryptionKey: this.configService
         .get('AUTH_OIDC_FLOW_ENCRYPTION_KEY')
         ?.trim(),
       issuer: this.configService.get('AUTH_OIDC_ISSUER')?.trim(),
-      redirectUri: this.configService.get('AUTH_OIDC_REDIRECT_URI')?.trim(),
-      webCallbackUri: this.configService
-        .get('AUTH_OIDC_WEB_CALLBACK_URI')
-        ?.trim(),
+      publicUrl: this.configService.get('KESTREL_PUBLIC_URL')?.trim(),
     };
     const configuredCount = Object.values(values).filter(
       (value) => value != null && value.trim() !== '',
@@ -1181,13 +1178,8 @@ export class OidcService {
       return null;
     }
 
-    validateConfiguredUrl(
-      values.androidCallbackUri!,
-      'OIDC Android callback URI',
-    );
     validateConfiguredUrl(values.issuer!, 'OIDC issuer');
-    validateConfiguredUrl(values.redirectUri!, 'OIDC redirect URI');
-    validateWebCallbackUrl(values.webCallbackUri!);
+    const publicUrl = validateKestrelPublicUrl(values.publicUrl!);
     const encryptionKey = decodeEncryptionKey(values.encryptionKey!);
     const displayName = validateDisplayName(
       this.configService.get('AUTH_OIDC_DISPLAY_NAME')?.trim() ||
@@ -1195,14 +1187,14 @@ export class OidcService {
     );
 
     return {
-      androidCallbackUri: values.androidCallbackUri!,
+      androidCallbackUri: `${publicUrl}${OIDC_ANDROID_CALLBACK_PATH}`,
       clientId: values.clientId!,
       clientSecret: values.clientSecret!,
       displayName,
       encryptionKey,
       issuer: values.issuer!,
-      redirectUri: values.redirectUri!,
-      webCallbackUri: values.webCallbackUri!,
+      redirectUri: `${publicUrl}${OIDC_REDIRECT_PATH}`,
+      webCallbackUri: `${publicUrl}${OIDC_WEB_CALLBACK_PATH}`,
     };
   }
 
@@ -1461,16 +1453,22 @@ function validateConfiguredUrl(value: string, label: string): URL {
   }
 }
 
-function validateWebCallbackUrl(value: string): void {
-  const url = validateConfiguredUrl(value, 'OIDC Web callback URI');
+function validateKestrelPublicUrl(value: string): string {
+  const url = validateConfiguredUrl(value, 'Kestrel public URL');
+  if (url.pathname !== '/') {
+    throw new InternalServerErrorException(
+      'Kestrel public URL must contain only an origin',
+    );
+  }
   if (
     url.protocol !== 'https:' &&
     !['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)
   ) {
     throw new InternalServerErrorException(
-      'OIDC Web callback URI must use HTTPS or a loopback host',
+      'Kestrel public URL must use HTTPS or a loopback host',
     );
   }
+  return url.origin;
 }
 
 function isRetryableProviderStatus(status: number): boolean {

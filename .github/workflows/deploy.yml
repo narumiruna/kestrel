@@ -31,14 +31,12 @@ jobs:
           POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
           AUTH_ACCESS_TOKEN_SECRET: ${{ secrets.AUTH_ACCESS_TOKEN_SECRET }}
-          AUTH_OIDC_ANDROID_CALLBACK_URI: ${{ vars.AUTH_OIDC_ANDROID_CALLBACK_URI }}
           AUTH_OIDC_CLIENT_ID: ${{ vars.AUTH_OIDC_CLIENT_ID }}
           AUTH_OIDC_CLIENT_SECRET: ${{ secrets.AUTH_OIDC_CLIENT_SECRET }}
           AUTH_OIDC_DISPLAY_NAME: ${{ vars.AUTH_OIDC_DISPLAY_NAME }}
           AUTH_OIDC_FLOW_ENCRYPTION_KEY: ${{ secrets.AUTH_OIDC_FLOW_ENCRYPTION_KEY }}
           AUTH_OIDC_ISSUER: ${{ vars.AUTH_OIDC_ISSUER }}
-          AUTH_OIDC_REDIRECT_URI: ${{ vars.AUTH_OIDC_REDIRECT_URI }}
-          AUTH_OIDC_WEB_CALLBACK_URI: ${{ vars.AUTH_OIDC_WEB_CALLBACK_URI }}
+          KESTREL_PUBLIC_URL: ${{ vars.KESTREL_PUBLIC_URL }}
           AUTH_TOTP_ENCRYPTION_KEY: ${{ secrets.AUTH_TOTP_ENCRYPTION_KEY }}
         run: |
           docker compose --env-file /dev/null -f compose.yaml config --quiet
