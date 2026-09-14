@@ -82,7 +82,6 @@ internal class CloudAuthRepository private constructor(
                 check(oidcAttemptStore.compareAndSet(attempt, resumableAttempt)) {
                     "OIDC sign-in is no longer pending"
                 }
-                validateOidcAttemptServer(resumableAttempt, prefs, oidcAttemptStore)
                 completeOidcExchange(resumableAttempt)
             }
         }
@@ -91,8 +90,15 @@ internal class CloudAuthRepository private constructor(
     suspend fun resumeOidcLogin(): CloudSession? {
         val attempt = oidcAttemptStore.load() ?: return null
         if (attempt.exchangeTicket == null) return null
-        validateOidcAttemptServer(attempt, prefs, oidcAttemptStore)
         return completeOidcExchange(attempt)
+    }
+
+    suspend fun setCloudApiBaseUrl(apiBaseUrl: String) {
+        refreshMutex.withLock {
+            check(sessionStore.load() == null) { "Sign out before changing the cloud server" }
+            oidcAttemptStore.clear()
+            prefs.setCloudApiBaseUrl(apiBaseUrl)
+        }
     }
 
     suspend fun loginWithTotp(
@@ -249,6 +255,7 @@ internal class CloudAuthRepository private constructor(
                 check(oidcAttemptStore.load() == attempt) {
                     "OIDC sign-in is no longer pending"
                 }
+                validateOidcAttemptServer(attempt, prefs, oidcAttemptStore)
                 val session =
                     exchangeOidcWithRetry(
                         apiBaseUrl = attempt.apiBaseUrl,
@@ -298,8 +305,6 @@ internal class CloudAuthRepository private constructor(
         throw checkNotNull(lastFailure)
     }
 
-    private fun failOidcExchange(failure: CloudApiException): Nothing = throw failure
-
     private fun clearOidcAttemptAfterFailure(
         attempt: OidcAuthAttempt,
         failure: Exception,
@@ -330,6 +335,8 @@ internal class CloudAuthRepository private constructor(
             }
     }
 }
+
+private fun failOidcExchange(failure: CloudApiException): Nothing = throw failure
 
 private suspend fun validateOidcAttemptServer(
     attempt: OidcAuthAttempt,

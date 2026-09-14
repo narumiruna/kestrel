@@ -492,7 +492,7 @@ private fun CloudSettingsSection(
                 setError = { cloudError = it },
                 setMessage = { cloudMessage = it },
             ) {
-                prefs.setCloudApiBaseUrl(apiBaseUrl)
+                authRepository.setCloudApiBaseUrl(apiBaseUrl)
                 cloudMessage = "Saved API base URL"
             }
         },
