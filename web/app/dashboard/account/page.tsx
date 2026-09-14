@@ -25,6 +25,12 @@ type PendingAction =
   | { id: string; kind: 'session'; label: string }
   | { kind: 'others'; label: string };
 
+const UNAVAILABLE_OIDC_LINK_STATUS: OidcLinkStatus = {
+  displayName: 'OpenID Connect',
+  enabled: false,
+  linked: false,
+};
+
 export default function AccountSecurityPage() {
   const auth = useDashboardAuth();
   const [sessions, setSessions] = useState<AuthSessionSummary[]>([]);
@@ -59,14 +65,9 @@ export default function AccountSecurityPage() {
       ]);
       setSessions(sessionResponse.sessions);
       setDevices(deviceResponse.devices);
-      setOidcLinkStatus(
-        linkStatus ?? {
-          displayName: 'OpenID Connect',
-          enabled: false,
-          linked: false,
-        },
-      );
+      setOidcLinkStatus(linkStatus ?? UNAVAILABLE_OIDC_LINK_STATUS);
     } catch (nextError) {
+      setOidcLinkStatus((currentStatus) => currentStatus ?? UNAVAILABLE_OIDC_LINK_STATUS);
       setError(formatError(nextError));
     } finally {
       setIsLoading(false);
@@ -109,7 +110,11 @@ export default function AccountSecurityPage() {
     setNotice(null);
     const clientNonce = createOidcLinkNonce();
     try {
-      saveOidcLinkAttempt(clientNonce);
+      if (!saveOidcLinkAttempt(clientNonce)) {
+        throw new Error(
+          'Session storage is unavailable. Enable it before linking a sign-in method.',
+        );
+      }
       const { authorizationUrl } = await auth.apiRequest<{ authorizationUrl: string }>(
         '/auth/oidc/link/start',
         {
