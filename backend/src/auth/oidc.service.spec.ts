@@ -284,8 +284,8 @@ describe('OidcService', () => {
 
   it('form-encodes special characters for client_secret_basic', async () => {
     const prisma = createPrismaMock();
-    const clientId = 'client id!()~';
-    const clientSecret = "secret '()~";
+    const clientId = ' client id!()~ ';
+    const clientSecret = " secret '()~ ";
     mockDiscovery();
     const service = createService(
       prisma,
@@ -301,6 +301,9 @@ describe('OidcService', () => {
     const state = new URL(authorizationUrl).searchParams.get('state')!;
     await mockTokenAndJwks(state, { audience: clientId });
 
+    expect(new URL(authorizationUrl).searchParams.get('client_id')).toBe(
+      clientId,
+    );
     await service.callback({ code: 'authorization-code', state });
 
     const encode = (value: string) =>

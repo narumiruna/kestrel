@@ -60,7 +60,7 @@ Configure these repository secrets:
 - `AUTH_OIDC_CLIENT_SECRET`
 - `AUTH_OIDC_FLOW_ENCRYPTION_KEY`
 
-No deployment-specific issuer, client ID, or callback URL is stored in the repository. Compose passes empty values when OIDC is unconfigured, so local authentication remains available.
+No deployment-specific issuer, client ID, or callback URL is stored in the repository. Client IDs and secrets are opaque values and are used exactly as configured, including any leading or trailing whitespace. Compose passes empty values when OIDC is unconfigured, so local authentication remains available.
 
 Production ingress must apply a per-source rate limit to `POST /auth/oidc/start` and `GET /auth/oidc/callback` before requests reach Kestrel. Use only the ingress connection address or an address header that the ingress overwrites; never trust a client-supplied forwarding header. Kestrel additionally rejects callback claims above 120 new rows per minute or 1,000 active rows and prunes expired rows before admission. These global backstops bound database writes/storage but do not replace source-aware edge limits.
 

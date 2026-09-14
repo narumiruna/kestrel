@@ -996,8 +996,8 @@ export class OidcService {
       androidCallbackUri: this.configService
         .get('AUTH_OIDC_ANDROID_CALLBACK_URI')
         ?.trim(),
-      clientId: this.configService.get('AUTH_OIDC_CLIENT_ID')?.trim(),
-      clientSecret: this.configService.get('AUTH_OIDC_CLIENT_SECRET')?.trim(),
+      clientId: this.configService.get('AUTH_OIDC_CLIENT_ID'),
+      clientSecret: this.configService.get('AUTH_OIDC_CLIENT_SECRET'),
       encryptionKey: this.configService
         .get('AUTH_OIDC_FLOW_ENCRYPTION_KEY')
         ?.trim(),
@@ -1007,7 +1007,9 @@ export class OidcService {
         .get('AUTH_OIDC_WEB_CALLBACK_URI')
         ?.trim(),
     };
-    const configuredCount = Object.values(values).filter(Boolean).length;
+    const configuredCount = Object.values(values).filter(
+      (value) => value != null && value.trim() !== '',
+    ).length;
     if (configuredCount === 0) {
       return null;
     }
