@@ -94,7 +94,7 @@ type OidcExchangeResponse = {
 type ExchangeSession = OidcExchangeResponse['session'];
 type ExchangeUser = OidcExchangeResponse['user'];
 class RetryableOidcCallbackError extends Error {}
-class OidcPostRedemptionError extends Error {}
+class OidcUnsafeToRetryError extends Error {}
 
 type RecoverableExchangeAttempt = {
   clientNonceHash: string;
@@ -236,9 +236,9 @@ export class OidcService {
         authorizationState.clientNonceHash,
       );
     } catch (error) {
-      if (error instanceof OidcPostRedemptionError) {
+      if (error instanceof OidcUnsafeToRetryError) {
         throw new InternalServerErrorException(
-          'OIDC callback could not be completed after code redemption',
+          'OIDC callback cannot be safely retried after the token request',
         );
       }
       if (error instanceof RetryableOidcCallbackError) {
@@ -490,7 +490,7 @@ export class OidcService {
           Date.now() + CALLBACK_COMPLETION_RETRY_DELAY_MS >=
           completionDeadline
         ) {
-          throw new OidcPostRedemptionError(
+          throw new OidcUnsafeToRetryError(
             'OIDC callback storage unavailable after code redemption',
           );
         }
@@ -499,7 +499,7 @@ export class OidcService {
         }
       }
     }
-    throw new OidcPostRedemptionError(
+    throw new OidcUnsafeToRetryError(
       'OIDC callback storage unavailable after code redemption',
     );
   }
@@ -864,18 +864,26 @@ export class OidcService {
         signal: AbortSignal.timeout(10_000),
       });
     } catch {
-      throw new RetryableOidcCallbackError('OIDC token exchange unavailable');
+      throw new OidcUnsafeToRetryError(
+        'OIDC token exchange outcome is unknown',
+      );
     }
     if (!tokenResponse.ok) {
       if (isRetryableProviderStatus(tokenResponse.status)) {
-        throw new RetryableOidcCallbackError('OIDC token exchange unavailable');
+        throw new OidcUnsafeToRetryError(
+          'OIDC token exchange outcome is unknown',
+        );
       }
       throw new BadRequestException('OIDC token exchange rejected');
     }
-    const tokenPayload = (await tokenResponse.json()) as Record<
-      string,
-      unknown
-    >;
+    let tokenPayload: Record<string, unknown>;
+    try {
+      tokenPayload = (await tokenResponse.json()) as Record<string, unknown>;
+    } catch {
+      throw new OidcUnsafeToRetryError(
+        'OIDC token exchange response is incomplete',
+      );
+    }
     if (typeof tokenPayload.id_token !== 'string') {
       throw new ServiceUnavailableException('OIDC returned no ID token');
     }
@@ -998,7 +1006,7 @@ export class OidcService {
         await delay(CALLBACK_COMPLETION_RETRY_DELAY_MS);
       }
     }
-    throw new OidcPostRedemptionError(
+    throw new OidcUnsafeToRetryError(
       'OIDC user info unavailable after code redemption',
     );
   }

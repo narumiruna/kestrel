@@ -232,6 +232,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         saved = await withSessionLock(() => {
           if (window.localStorage.getItem(AUTHENTICATION_ATTEMPT_KEY) !== authenticationAttemptId) {
+            const storedSession = readStoredSession();
+            if (storedSession?.session.id === nextSession.session.id) {
+              persistSession(storedSession);
+              return true;
+            }
             return false;
           }
           window.localStorage.removeItem(AUTHENTICATION_ATTEMPT_KEY);

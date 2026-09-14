@@ -488,6 +488,27 @@ describe('OidcService', () => {
     },
   );
 
+  it('retains a callback claim after an ambiguous token response', async () => {
+    const prisma = createPrismaMock();
+    mockDiscovery();
+    const service = createService(prisma);
+    const { authorizationUrl } = await service.start({
+      clientNonce: CLIENT_NONCE,
+      clientType: 'web',
+    });
+    const state = new URL(authorizationUrl).searchParams.get('state')!;
+    await mockTokenAndJwks(state, { tokenStatus: 503 });
+
+    await expect(
+      service.callback({ code: 'authorization-code', state }),
+    ).rejects.toThrow(
+      'OIDC callback cannot be safely retried after the token request',
+    );
+    expect(prisma.oidcLoginAttempt.deleteMany).not.toHaveBeenCalled();
+    expect(prisma.oidcLoginAttempt.updateMany).not.toHaveBeenCalled();
+    expect(jest.mocked(global.fetch)).toHaveBeenCalledTimes(3);
+  });
+
   it('releases a callback claim after transient discovery failure', async () => {
     const prisma = createPrismaMock();
     mockDiscovery();
@@ -1104,6 +1125,7 @@ async function mockTokenAndJwks(
     issuer?: string;
     nonce?: string;
     preferredUsername?: string | null;
+    tokenStatus?: number;
   } = {},
 ): Promise<void> {
   const { privateKey, publicKey } = generateKeyPairSync('rsa', {
@@ -1131,10 +1153,12 @@ async function mockTokenAndJwks(
     jsonResponse({ keys: [{ ...publicJwk, alg: 'RS256', kid: 'test-key' }] }),
   );
   fetchMock.mockResolvedValueOnce(
-    jsonResponse({
-      access_token: overrides.accessToken,
-      id_token: idToken,
-    }),
+    overrides.tokenStatus == null
+      ? jsonResponse({
+          access_token: overrides.accessToken,
+          id_token: idToken,
+        })
+      : new Response(null, { status: overrides.tokenStatus }),
   );
 }
 
