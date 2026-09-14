@@ -15,6 +15,7 @@ import { ApiError, type AuthSession, apiFetch, refreshSession } from '@/lib/api'
 type AuthContextValue = {
   apiRequest: <T>(path: string, options?: RequestInit) => Promise<T>;
   beginAuthentication: () => Promise<string>;
+  getAuthenticationAttempt: () => string | null;
   isAuthenticated: boolean;
   isHydrated: boolean;
   logout: () => Promise<void>;
@@ -216,6 +217,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const getAuthenticationAttempt = useCallback(() => {
+    try {
+      return window.localStorage.getItem(AUTHENTICATION_ATTEMPT_KEY);
+    } catch {
+      return null;
+    }
+  }, []);
+
   const saveSession = useCallback(
     async (nextSession: AuthSession, authenticationAttemptId: string) => {
       let persistenceError: unknown;
@@ -223,6 +232,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         saved = await withSessionLock(() => {
           if (window.localStorage.getItem(AUTHENTICATION_ATTEMPT_KEY) !== authenticationAttemptId) {
+            const storedSession = readStoredSession();
+            if (storedSession?.session.id === nextSession.session.id) {
+              persistSession(storedSession);
+              return true;
+            }
             return false;
           }
           window.localStorage.removeItem(AUTHENTICATION_ATTEMPT_KEY);
@@ -626,13 +640,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => ({
       apiRequest,
       beginAuthentication,
+      getAuthenticationAttempt,
       isAuthenticated: session != null,
       isHydrated,
       logout,
       saveSession,
       session,
     }),
-    [apiRequest, beginAuthentication, isHydrated, logout, saveSession, session],
+    [
+      apiRequest,
+      beginAuthentication,
+      getAuthenticationAttempt,
+      isHydrated,
+      logout,
+      saveSession,
+      session,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -7,10 +7,12 @@ import {
   getRequestMetadata,
 } from './auth-request';
 import { AuthService } from './auth.service';
+import { OidcService } from './oidc.service';
 import type { SessionAuth } from './session-auth.middleware';
 
 export function createAuthRoutes(
   authService: AuthService,
+  oidcService: OidcService,
   sessionAuth: SessionAuth,
 ): Hono<{ Variables: AuthVariables }> {
   const routes = new Hono<{ Variables: AuthVariables }>();
@@ -39,6 +41,43 @@ export function createAuthRoutes(
       201,
     ),
   );
+
+  routes.get('/methods', (context) => {
+    context.header('Cache-Control', 'no-store');
+    return context.json(oidcService.getMethods());
+  });
+
+  routes.post('/oidc/start', async (context) => {
+    context.header('Cache-Control', 'no-store');
+    return context.json(
+      await oidcService.start(await readJsonBody(context)),
+      201,
+    );
+  });
+
+  routes.get('/oidc/callback', async (context) => {
+    context.header('Cache-Control', 'no-store');
+    context.header('Referrer-Policy', 'no-referrer');
+    return context.redirect(
+      await oidcService.callback({
+        code: context.req.query('code'),
+        error: context.req.query('error'),
+        state: context.req.query('state'),
+      }),
+      302,
+    );
+  });
+
+  routes.post('/oidc/exchange', async (context) => {
+    context.header('Cache-Control', 'no-store');
+    return context.json(
+      await oidcService.exchange(
+        await readJsonBody(context),
+        getRequestMetadata(context),
+      ),
+      201,
+    );
+  });
 
   routes.post('/refresh', async (context) =>
     context.json(

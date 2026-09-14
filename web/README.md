@@ -23,6 +23,7 @@ KESTREL_API_BASE_URL=http://localhost:3300 npm run dev
 
 - Register + TOTP setup.
 - Username/password + TOTP or recovery-code login.
+- Optional provider-neutral OIDC login through the Kestrel backend; see [`docs/oidc.md`](../docs/oidc.md).
 - LocalStorage-backed access/refresh session with one retry after refresh.
 - Authenticated dashboard shell and logout.
 - Place list/create/edit/delete.

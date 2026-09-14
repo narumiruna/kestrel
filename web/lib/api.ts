@@ -19,6 +19,15 @@ export type LoginInput = {
   username: string;
 };
 
+export type AuthMethods = {
+  oidc: {
+    displayName: string;
+    enabled: boolean;
+  };
+};
+
+export type OidcClientType = 'android' | 'web';
+
 export type ChangePasswordInput = {
   currentPassword: string;
   newPassword: string;
@@ -280,6 +289,8 @@ export class ApiError extends Error {
 }
 
 const API_BASE_URL = '/api/backend';
+const OIDC_EXCHANGE_ATTEMPTS = 2;
+const OIDC_EXCHANGE_TIMEOUT_MS = 15_000;
 
 export async function apiFetch<T>(
   path: string,
@@ -311,6 +322,36 @@ export function login(input: LoginInput) {
     body: JSON.stringify(input),
     method: 'POST',
   });
+}
+
+export function getAuthMethods() {
+  return apiFetch<AuthMethods>('/auth/methods', { cache: 'no-store' });
+}
+
+export function startOidc(clientNonce: string, clientType: OidcClientType) {
+  return apiFetch<{ authorizationUrl: string }>('/auth/oidc/start', {
+    body: JSON.stringify({ clientNonce, clientType }),
+    method: 'POST',
+  });
+}
+
+export async function exchangeOidc(exchangeTicket: string, clientNonce: string) {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < OIDC_EXCHANGE_ATTEMPTS; attempt += 1) {
+    try {
+      return await apiFetch<AuthSession>('/auth/oidc/exchange', {
+        body: JSON.stringify({ clientNonce, exchangeTicket }),
+        method: 'POST',
+        signal: AbortSignal.timeout(OIDC_EXCHANGE_TIMEOUT_MS),
+      });
+    } catch (error) {
+      lastError = error;
+      if (error instanceof ApiError && error.status < 500) {
+        throw error;
+      }
+    }
+  }
+  throw lastError;
 }
 
 export function refreshSession(

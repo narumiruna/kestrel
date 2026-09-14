@@ -1,5 +1,7 @@
 package dev.narumi.kestrel.feature.options
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -50,6 +52,7 @@ import dev.narumi.kestrel.core.cloud.CloudPlaceConflict
 import dev.narumi.kestrel.core.cloud.CloudSession
 import dev.narumi.kestrel.core.cloud.CloudSyncRepository
 import dev.narumi.kestrel.core.cloud.CloudSyncState
+import dev.narumi.kestrel.core.cloud.OidcMethod
 import dev.narumi.kestrel.core.cloud.RemoteCommandStatus
 import dev.narumi.kestrel.core.cloud.RemoteControlRepository
 import dev.narumi.kestrel.core.cloud.RemoteControlRuntimeStatus
@@ -115,7 +118,11 @@ private fun OptionsCard(
 
 @Suppress("LongMethod")
 @Composable
-fun OptionsScreen(modifier: Modifier = Modifier) {
+fun OptionsScreen(
+    pendingOidcCallback: String? = null,
+    onOidcCallbackConsumed: (String) -> Unit = {},
+    modifier: Modifier = Modifier,
+) {
     val context = LocalContext.current
     val prefs = remember { KestrelPrefs(context) }
     val libraryRepository = remember { LibraryRepository.getInstance(context) }
@@ -261,13 +268,19 @@ fun OptionsScreen(modifier: Modifier = Modifier) {
         )
 
         KestrelSectionHeader(title = "Connected services", modifier = Modifier.padding(top = 12.dp))
-        CloudSettingsSection()
+        CloudSettingsSection(
+            pendingOidcCallback = pendingOidcCallback,
+            onOidcCallbackConsumed = onOidcCallbackConsumed,
+        )
     }
 }
 
 @Suppress("CyclomaticComplexMethod", "LongMethod")
 @Composable
-private fun CloudSettingsSection() {
+private fun CloudSettingsSection(
+    pendingOidcCallback: String?,
+    onOidcCallbackConsumed: (String) -> Unit,
+) {
     val context = LocalContext.current
     val prefs = remember { KestrelPrefs(context) }
     val authRepository = remember { CloudAuthRepository.getInstance(context) }
@@ -289,6 +302,7 @@ private fun CloudSettingsSection() {
     var cloudMessage by remember { mutableStateOf<String?>(null) }
     var cloudError by remember { mutableStateOf<String?>(null) }
     var cloudLoading by remember { mutableStateOf(false) }
+    var oidcMethod by remember { mutableStateOf(OidcMethod(enabled = false)) }
     var apiBaseUrl by remember { mutableStateOf(cloudSettings.apiBaseUrl) }
     var confirmRemoteEnable by remember { mutableStateOf(false) }
     var confirmSignOut by remember { mutableStateOf(false) }
@@ -308,6 +322,35 @@ private fun CloudSettingsSection() {
 
     LaunchedEffect(cloudSettings.apiBaseUrl) {
         apiBaseUrl = cloudSettings.apiBaseUrl
+        oidcMethod =
+            try {
+                authRepository.getOidcMethod()
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: CloudApiException) {
+                OidcMethod(enabled = false)
+            } catch (_: IOException) {
+                OidcMethod(enabled = false)
+            } catch (_: IllegalStateException) {
+                OidcMethod(enabled = false)
+            }
+    }
+
+    LaunchedEffect(cloudSessionLoaded, pendingOidcCallback) {
+        if (!cloudSessionLoaded || cloudSession != null || pendingOidcCallback != null) {
+            return@LaunchedEffect
+        }
+        runCloudAction(
+            setLoading = { cloudLoading = it },
+            setError = { cloudError = it },
+            setMessage = { cloudMessage = it },
+        ) {
+            val session = authRepository.resumeOidcLogin() ?: return@runCloudAction
+            cloudSession = session
+            loginForm = CloudLoginForm()
+            syncRepository.syncNow()
+            cloudMessage = "Signed in as ${session.username} with ${oidcMethod.displayName}"
+        }
     }
 
     fun setRemoteControlEnabled(enabled: Boolean) {
@@ -367,6 +410,25 @@ private fun CloudSettingsSection() {
         }
     }
 
+    LaunchedEffect(pendingOidcCallback) {
+        val callbackUri = pendingOidcCallback ?: return@LaunchedEffect
+        try {
+            runCloudAction(
+                setLoading = { cloudLoading = it },
+                setError = { cloudError = it },
+                setMessage = { cloudMessage = it },
+            ) {
+                val session = authRepository.completeOidcLogin(callbackUri)
+                cloudSession = session
+                loginForm = CloudLoginForm()
+                syncRepository.syncNow()
+                cloudMessage = "Signed in as ${session.username} with ${oidcMethod.displayName}"
+            }
+        } finally {
+            onOidcCallbackConsumed(callbackUri)
+        }
+    }
+
     if (confirmRemoteEnable) {
         ConfirmRemoteControlDialog(
             deviceName = remoteControlSettings.deviceName,
@@ -411,6 +473,7 @@ private fun CloudSettingsSection() {
                 syncState = cloudSyncState,
             ),
         loginForm = loginForm,
+        serverValid = isValidCloudServerAddress(apiBaseUrl),
         sessionLoaded = cloudSessionLoaded,
         expanded = cloudExpanded,
         onExpandedChange = { expanded ->
@@ -429,7 +492,7 @@ private fun CloudSettingsSection() {
                 setError = { cloudError = it },
                 setMessage = { cloudMessage = it },
             ) {
-                prefs.setCloudApiBaseUrl(apiBaseUrl)
+                authRepository.setCloudApiBaseUrl(apiBaseUrl)
                 cloudMessage = "Saved API base URL"
             }
         },
@@ -458,6 +521,19 @@ private fun CloudSettingsSection() {
                 loginForm = CloudLoginForm()
                 syncRepository.syncNow()
                 cloudMessage = "Signed in as ${session.username}"
+            }
+        },
+        oidcMethod = oidcMethod,
+        onOidcLogin = {
+            launchCloudUiAction(
+                scope = scope,
+                setLoading = { cloudLoading = it },
+                setError = { cloudError = it },
+                setMessage = { cloudMessage = it },
+            ) {
+                val authorizationUrl = authRepository.beginOidcLogin()
+                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(authorizationUrl)))
+                cloudMessage = "Continue sign-in in your browser"
             }
         },
         onRefreshSession = {
@@ -526,6 +602,7 @@ private fun CloudSettingsSection() {
 private fun CloudSettingsCard(
     uiState: CloudSettingsUiState,
     loginForm: CloudLoginForm,
+    serverValid: Boolean,
     sessionLoaded: Boolean,
     expanded: Boolean,
     onExpandedChange: (Boolean) -> Unit,
@@ -533,11 +610,12 @@ private fun CloudSettingsCard(
     onLoginFormChange: (CloudLoginForm) -> Unit,
     onSaveApiBaseUrl: () -> Unit,
     onLogin: () -> Unit,
+    oidcMethod: OidcMethod,
+    onOidcLogin: () -> Unit,
     onRefreshSession: () -> Unit,
     onLogout: () -> Unit,
     onSyncNow: () -> Unit,
 ) {
-    val serverValid = isValidCloudServerAddress(uiState.apiBaseUrl)
     OptionsDisclosureCard(
         title = OptionsSection.Cloud.title,
         icon = Icons.Outlined.CloudQueue,
@@ -599,6 +677,8 @@ private fun CloudSettingsCard(
                 loading = uiState.loading,
                 onLoginFormChange = onLoginFormChange,
                 onLogin = onLogin,
+                oidcMethod = oidcMethod,
+                onOidcLogin = onOidcLogin,
             )
         } else {
             CloudSignedInCardContent(
@@ -692,6 +772,8 @@ private fun CloudSignedOutCardContent(
     loading: Boolean,
     onLoginFormChange: (CloudLoginForm) -> Unit,
     onLogin: () -> Unit,
+    oidcMethod: OidcMethod,
+    onOidcLogin: () -> Unit,
 ) {
     OutlinedTextField(
         value = loginForm.username,
@@ -751,6 +833,16 @@ private fun CloudSignedOutCardContent(
                     loginForm.oneTimeCode.isNotBlank(),
         ) {
             Text(if (loading) "Signing in…" else "Sign in")
+        }
+    }
+    if (oidcMethod.enabled) {
+        HorizontalDivider()
+        OutlinedButton(
+            onClick = onOidcLogin,
+            enabled = !loading,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text("Continue with ${oidcMethod.displayName}")
         }
     }
 }

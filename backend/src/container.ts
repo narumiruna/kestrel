@@ -4,6 +4,7 @@ import { AccessTokenService } from './auth/access-token.service';
 import { AuthAuditService } from './auth/auth-audit.service';
 import { AuthRateLimitService } from './auth/auth-rate-limit.service';
 import { AuthService } from './auth/auth.service';
+import { OidcService } from './auth/oidc.service';
 import { SessionRevocationService } from './auth/session-revocation.service';
 import {
   type SessionAuth,
@@ -23,6 +24,7 @@ export type Container = {
   appService: AppService;
   authService: AuthService;
   libraryService: LibraryService;
+  oidcService: OidcService;
   prismaService: PrismaService;
   remoteControlService: RemoteControlService;
   sessionAuth: SessionAuth;
@@ -66,6 +68,13 @@ export function createContainer(
     appService: new AppService(configService, prismaService),
     authService,
     libraryService: new LibraryService(prismaService),
+    oidcService: new OidcService(
+      accessTokenService,
+      authAuditService,
+      configService,
+      prismaService,
+      totpService,
+    ),
     prismaService,
     remoteControlService: new RemoteControlService(prismaService),
     sessionAuth: createSessionAuth(accessTokenService, prismaService),

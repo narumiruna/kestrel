@@ -42,6 +42,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.narumi.kestrel.core.cloud.CloudSyncRepository
 import dev.narumi.kestrel.core.cloud.RemoteControlPoller
+import dev.narumi.kestrel.core.cloud.isOidcCallbackUri
 import dev.narumi.kestrel.core.library.LibraryItemWithContent
 import dev.narumi.kestrel.core.location.LatLng
 import dev.narumi.kestrel.core.location.LocationService
@@ -59,6 +60,7 @@ private const val OPERATION_TIMEOUT_MILLIS = 10_000L
 
 class MainActivity : ComponentActivity() {
     private var pendingMapLinkPoint by mutableStateOf<LatLng?>(null)
+    private var pendingOidcCallback by mutableStateOf<String?>(null)
     private var skipCloudSyncOnForeground by mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -69,8 +71,10 @@ class MainActivity : ComponentActivity() {
             KestrelTheme {
                 KestrelApp(
                     pendingMapLinkPoint = pendingMapLinkPoint,
+                    pendingOidcCallback = pendingOidcCallback,
                     skipCloudSyncOnForeground = skipCloudSyncOnForeground,
                     onMapLinkPointConsumed = { pendingMapLinkPoint = null },
+                    onOidcCallbackConsumed = ::consumeOidcCallbackIntent,
                 )
             }
         }
@@ -84,7 +88,25 @@ class MainActivity : ComponentActivity() {
 
     private fun consumeMainIntent(intent: Intent?) {
         skipCloudSyncOnForeground = intent?.getBooleanExtra(EXTRA_SKIP_CLOUD_SYNC_ON_FOREGROUND, false) == true
-        consumeMapLinkIntent(intent)
+        val viewedUri = intent?.dataString.takeIf { intent?.action == Intent.ACTION_VIEW }
+        if (isOidcCallbackUri(viewedUri)) {
+            pendingMapLinkPoint = null
+            pendingOidcCallback = viewedUri
+        } else {
+            consumeMapLinkIntent(intent)
+        }
+    }
+
+    private fun consumeOidcCallbackIntent(consumedUri: String) {
+        if (pendingOidcCallback != consumedUri) return
+        pendingOidcCallback = null
+        if (intent?.action != Intent.ACTION_VIEW || intent?.dataString != consumedUri) return
+        setIntent(
+            Intent(intent).apply {
+                action = null
+                data = null
+            },
+        )
     }
 
     private fun consumeMapLinkIntent(intent: Intent?) {
@@ -107,8 +129,10 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun KestrelApp(
     pendingMapLinkPoint: LatLng? = null,
+    pendingOidcCallback: String? = null,
     skipCloudSyncOnForeground: Boolean = false,
     onMapLinkPointConsumed: () -> Unit = {},
+    onOidcCallbackConsumed: (String) -> Unit = {},
 ) {
     var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.HOME) }
     var pendingFavoriteApply by remember { mutableStateOf<LibraryItemWithContent?>(null) }
@@ -144,6 +168,12 @@ fun KestrelApp(
     LaunchedEffect(pendingMapLinkPoint) {
         if (pendingMapLinkPoint != null) {
             currentDestination = AppDestinations.HOME
+        }
+    }
+
+    LaunchedEffect(pendingOidcCallback) {
+        if (pendingOidcCallback != null) {
+            currentDestination = AppDestinations.SETTINGS
         }
     }
 
@@ -206,8 +236,10 @@ fun KestrelApp(
                     currentDestination = currentDestination,
                     pendingFavoriteApply = pendingFavoriteApply,
                     pendingMapLinkPoint = pendingMapLinkPoint,
+                    pendingOidcCallback = pendingOidcCallback,
                     onFavoriteApplyConsumed = { pendingFavoriteApply = null },
                     onMapLinkPointConsumed = onMapLinkPointConsumed,
+                    onOidcCallbackConsumed = onOidcCallbackConsumed,
                     onApplyFavorite = { favorite ->
                         pendingFavoriteApply = favorite
                         currentDestination = AppDestinations.HOME
@@ -252,8 +284,10 @@ private fun AppDestinationContent(
     currentDestination: AppDestinations,
     pendingFavoriteApply: LibraryItemWithContent?,
     pendingMapLinkPoint: LatLng?,
+    pendingOidcCallback: String?,
     onFavoriteApplyConsumed: () -> Unit,
     onMapLinkPointConsumed: () -> Unit,
+    onOidcCallbackConsumed: (String) -> Unit,
     onApplyFavorite: (LibraryItemWithContent) -> Unit,
     onShowMap: () -> Unit,
     onShowFavorites: () -> Unit,
@@ -275,7 +309,12 @@ private fun AppDestinationContent(
                 onApplyToMap = onApplyFavorite,
                 onChooseOnMap = onShowMap,
             )
-        AppDestinations.SETTINGS -> OptionsScreen(modifier = modifier)
+        AppDestinations.SETTINGS ->
+            OptionsScreen(
+                pendingOidcCallback = pendingOidcCallback,
+                onOidcCallbackConsumed = onOidcCallbackConsumed,
+                modifier = modifier,
+            )
     }
 }
 

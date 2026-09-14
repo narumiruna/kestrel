@@ -89,7 +89,7 @@ Kestrel 是不需 root 的 Android 模擬定位應用程式，並包含雲端同
 
 - `just reset`、`pm clear`、uninstall、可能重裝應用程式的流程，以及 connected instrumentation，可能清除手機上的 favorites、preferences 與 mock state。執行前明確說明風險並取得同意；需要保留資料時先用 `adb shell run-as` 備份 DataStore。
 - `just br`／`just install`／`just run` 會改變連線裝置狀態；不要在未確認目標裝置與使用者意圖時執行。
-- 正式部署只能使用 `compose.deploy.yaml`；`compose.dev.yaml` 含 watch process、開發用祕密與原始碼 bind mount，不得用於正式環境。
+- 正式部署只能使用 `compose.yaml`；`compose.dev.yaml` 含 watch process、開發用祕密與原始碼 bind mount，不得用於正式環境。
 - Android release 必須具備四個 `KESTREL_RELEASE_*` 環境變數；不得削弱簽章檢查或發布未簽章 APK。
 
 ## 工作流程與 Git

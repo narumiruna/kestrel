@@ -22,7 +22,11 @@ export function createApp(container: Container): Hono<{
   app.route('/', createAppRoutes(container.appService));
   app.route(
     '/auth',
-    createAuthRoutes(container.authService, container.sessionAuth),
+    createAuthRoutes(
+      container.authService,
+      container.oidcService,
+      container.sessionAuth,
+    ),
   );
   app.route(
     '/',

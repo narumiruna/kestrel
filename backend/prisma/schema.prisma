@@ -17,6 +17,7 @@ model User {
   updatedAt           DateTime             @updatedAt @map("updated_at")
   authAuditLogs       AuthAuditLog[]
   devices             Device[]
+  federatedIdentities FederatedIdentity[]
   remoteCommands      RemoteCommand[]
   libraryItems        LibraryItem[]
   places              Place[]
@@ -29,6 +30,45 @@ model User {
   syncEvents          SyncEvent[]
 
   @@map("users")
+}
+
+model FederatedIdentity {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  provider   String   @db.VarChar(32)
+  issuer     String
+  issuerHash String   @map("issuer_hash") @db.VarChar(64)
+  subject    String   @db.VarChar(255)
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, issuerHash, subject])
+  @@index([userId])
+  @@map("federated_identities")
+}
+
+model OidcLoginAttempt {
+  id                            String    @id @default(uuid()) @db.Uuid
+  provider                      String    @db.VarChar(32)
+  clientType                    String    @map("client_type") @db.VarChar(16)
+  stateHash                     String    @unique @map("state_hash") @db.VarChar(64)
+  clientNonceHash               String    @map("client_nonce_hash") @db.VarChar(64)
+  pkceVerifierEncrypted         String    @map("pkce_verifier_encrypted")
+  expiresAt                     DateTime  @map("expires_at")
+  exchangeTicketHash            String?   @unique @map("exchange_ticket_hash") @db.VarChar(64)
+  exchangeSessionId             String?   @map("exchange_session_id") @db.Uuid
+  issuer                        String?
+  issuerHash                    String?   @map("issuer_hash") @db.VarChar(64)
+  subject                       String?   @db.VarChar(255)
+  preferredUsername             String?   @map("preferred_username") @db.VarChar(64)
+  callbackStartedAt             DateTime? @map("callback_started_at")
+  callbackCompletedAt           DateTime? @map("callback_completed_at")
+  consumedAt                    DateTime? @map("consumed_at")
+  createdAt                     DateTime  @default(now()) @map("created_at")
+
+  @@index([expiresAt])
+  @@map("oidc_login_attempts")
 }
 
 model RecoveryCode {

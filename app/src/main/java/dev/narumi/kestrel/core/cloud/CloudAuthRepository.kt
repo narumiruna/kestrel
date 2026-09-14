@@ -10,6 +10,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.SerializationException
 import java.io.IOException
+import java.net.URI
 import java.security.GeneralSecurityException
 import java.util.UUID
 
@@ -19,6 +20,7 @@ internal class CloudAuthRepository private constructor(
     private val applicationContext = context.applicationContext
     private val prefs = KestrelPrefs(applicationContext)
     private val sessionStore = CloudSessionStore(applicationContext)
+    private val oidcAttemptStore = OidcAuthAttemptStore(applicationContext)
     private val apiClient = CloudApiClient(baseUrlProvider = { prefs.cloudSettingsValue().apiBaseUrl })
     private val refreshMutex = Mutex()
     private val _hasSession = MutableStateFlow(sessionStore.hasSession())
@@ -30,12 +32,82 @@ internal class CloudAuthRepository private constructor(
             _hasSession.value = session != null
         }
 
+    suspend fun getOidcMethod(): OidcMethod = apiClient.getAuthMethods().oidc
+
+    suspend fun beginOidcLogin(): String =
+        refreshMutex.withLock {
+            val apiBaseUrl = normalizeCloudApiBaseUrl(prefs.cloudSettingsValue().apiBaseUrl)
+            val clientNonce = UUID.randomUUID().toString()
+            val attempt = OidcAuthAttempt(apiBaseUrl = apiBaseUrl, clientNonce = clientNonce)
+            oidcAttemptStore.save(attempt)
+            try {
+                apiClient
+                    .startOidc(clientNonce, apiBaseUrl)
+                    .authorizationUrl
+                    .also(::validateAuthorizationUrl)
+            } catch (failure: CancellationException) {
+                clearOidcAttemptAfterFailure(attempt, failure)
+            } catch (failure: CloudApiException) {
+                clearOidcAttemptAfterFailure(attempt, failure)
+            } catch (failure: IOException) {
+                clearOidcAttemptAfterFailure(attempt, failure)
+            } catch (failure: SerializationException) {
+                clearOidcAttemptAfterFailure(attempt, failure)
+            } catch (failure: IllegalArgumentException) {
+                clearOidcAttemptAfterFailure(attempt, failure)
+            } catch (failure: IllegalStateException) {
+                clearOidcAttemptAfterFailure(attempt, failure)
+            }
+        }
+
+    suspend fun completeOidcLogin(rawCallbackUri: String): CloudSession {
+        val callback = parseOidcCallback(rawCallbackUri)
+        val attempt = oidcAttemptStore.load() ?: error("No OIDC sign-in is pending")
+        require(callback.matchesClientNonce(attempt.clientNonce)) {
+            "OIDC callback does not match the pending sign-in"
+        }
+        return when (callback) {
+            is OidcCallback.Error -> {
+                validateOidcAttemptServer(attempt, prefs, oidcAttemptStore)
+                check(oidcAttemptStore.compareAndClear(attempt)) {
+                    "OIDC sign-in is no longer pending"
+                }
+                if (callback.errorCode == "access_denied") {
+                    error("OIDC sign-in was cancelled")
+                }
+                error("OIDC sign-in failed")
+            }
+            is OidcCallback.Success -> {
+                val resumableAttempt = attempt.copy(exchangeTicket = callback.exchangeTicket)
+                check(oidcAttemptStore.compareAndSet(attempt, resumableAttempt)) {
+                    "OIDC sign-in is no longer pending"
+                }
+                completeOidcExchange(resumableAttempt)
+            }
+        }
+    }
+
+    suspend fun resumeOidcLogin(): CloudSession? {
+        val attempt = oidcAttemptStore.load() ?: return null
+        if (attempt.exchangeTicket == null) return null
+        return completeOidcExchange(attempt)
+    }
+
+    suspend fun setCloudApiBaseUrl(apiBaseUrl: String) {
+        refreshMutex.withLock {
+            check(sessionStore.load() == null) { "Sign out before changing the cloud server" }
+            oidcAttemptStore.clear()
+            prefs.setCloudApiBaseUrl(apiBaseUrl)
+        }
+    }
+
     suspend fun loginWithTotp(
         username: String,
         password: String,
         totpCode: String,
     ): CloudSession =
         refreshMutex.withLock {
+            oidcAttemptStore.clear()
             apiClient
                 .loginWithTotp(username = username, password = password, totpCode = totpCode)
                 .let {
@@ -51,6 +123,7 @@ internal class CloudAuthRepository private constructor(
         recoveryCode: String,
     ): CloudSession =
         refreshMutex.withLock {
+            oidcAttemptStore.clear()
             apiClient
                 .loginWithRecoveryCode(
                     username = username,
@@ -165,12 +238,93 @@ internal class CloudAuthRepository private constructor(
     }
 
     private fun clearSession() {
-        sessionStore.clear()
-        _hasSession.value = false
+        try {
+            oidcAttemptStore.clear()
+        } finally {
+            try {
+                sessionStore.clear()
+            } finally {
+                _hasSession.value = false
+            }
+        }
+    }
+
+    private suspend fun completeOidcExchange(attempt: OidcAuthAttempt): CloudSession =
+        try {
+            refreshMutex.withLock {
+                check(oidcAttemptStore.load() == attempt) {
+                    "OIDC sign-in is no longer pending"
+                }
+                validateOidcAttemptServer(attempt, prefs, oidcAttemptStore)
+                val session =
+                    exchangeOidcWithRetry(
+                        apiBaseUrl = attempt.apiBaseUrl,
+                        exchangeTicket = checkNotNull(attempt.exchangeTicket),
+                        clientNonce = attempt.clientNonce,
+                    ).let {
+                        saveNewSessionOrRevoke(
+                            it.copy(refreshRequestId = UUID.randomUUID().toString()),
+                        )
+                    }
+                runCatching { oidcAttemptStore.compareAndClear(attempt) }
+                session
+            }
+        } catch (failure: CloudApiException) {
+            if (failure.statusCode in OIDC_TERMINAL_EXCHANGE_STATUS_CODES) {
+                runCatching { oidcAttemptStore.compareAndClear(attempt) }
+            }
+            throw failure
+        }
+
+    private suspend fun exchangeOidcWithRetry(
+        apiBaseUrl: String,
+        exchangeTicket: String,
+        clientNonce: String,
+    ): CloudSession {
+        var lastFailure: Exception? = null
+        repeat(OIDC_EXCHANGE_ATTEMPTS) {
+            try {
+                return apiClient.exchangeOidc(
+                    apiBaseUrl = apiBaseUrl,
+                    exchangeTicket = exchangeTicket,
+                    clientNonce = clientNonce,
+                )
+            } catch (failure: CancellationException) {
+                throw failure
+            } catch (failure: CloudApiException) {
+                if (failure.statusCode in OIDC_TERMINAL_EXCHANGE_STATUS_CODES) {
+                    failOidcExchange(failure)
+                }
+                lastFailure = failure
+            } catch (failure: IOException) {
+                lastFailure = failure
+            } catch (failure: SerializationException) {
+                lastFailure = failure
+            }
+        }
+        throw checkNotNull(lastFailure)
+    }
+
+    private fun clearOidcAttemptAfterFailure(
+        attempt: OidcAuthAttempt,
+        failure: Exception,
+    ): Nothing {
+        runCatching { oidcAttemptStore.compareAndClear(attempt) }
+        throw failure
+    }
+
+    private fun validateAuthorizationUrl(rawUrl: String) {
+        val uri = URI.create(rawUrl)
+        check(uri.scheme == "https" || uri.scheme == "http") {
+            "Cloud returned an invalid OIDC authorization URL"
+        }
+        check(!uri.host.isNullOrBlank()) { "Cloud returned an invalid OIDC authorization URL" }
     }
 
     companion object {
+        private val OIDC_TERMINAL_EXCHANGE_STATUS_CODES = setOf(400, 409, 410)
         private const val HTTP_UNAUTHORIZED = 401
+        private const val OIDC_EXCHANGE_ATTEMPTS = 2
         private const val REFRESH_ATTEMPTS = 2
 
         @Volatile private var instance: CloudAuthRepository? = null
@@ -179,5 +333,19 @@ internal class CloudAuthRepository private constructor(
             instance ?: synchronized(this) {
                 instance ?: CloudAuthRepository(context.applicationContext).also { instance = it }
             }
+    }
+}
+
+private fun failOidcExchange(failure: CloudApiException): Nothing = throw failure
+
+private suspend fun validateOidcAttemptServer(
+    attempt: OidcAuthAttempt,
+    prefs: KestrelPrefs,
+    attemptStore: OidcAuthAttemptStore,
+) {
+    val currentBaseUrl = normalizeCloudApiBaseUrl(prefs.cloudSettingsValue().apiBaseUrl)
+    if (currentBaseUrl != attempt.apiBaseUrl) {
+        attemptStore.compareAndClear(attempt)
+        error("Cloud server changed during OIDC sign-in")
     }
 }

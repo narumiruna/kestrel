@@ -14,6 +14,34 @@ data class CloudSession(
 )
 
 @Serializable
+internal data class AuthMethodsResponse(
+    val oidc: OidcMethod,
+)
+
+@Serializable
+internal data class OidcMethod(
+    val enabled: Boolean,
+    val displayName: String = "OpenID Connect",
+)
+
+@Serializable
+internal data class StartOidcRequest(
+    val clientType: String,
+    val clientNonce: String,
+)
+
+@Serializable
+internal data class StartOidcResponse(
+    val authorizationUrl: String,
+)
+
+@Serializable
+internal data class ExchangeOidcRequest(
+    val exchangeTicket: String,
+    val clientNonce: String,
+)
+
+@Serializable
 internal data class LoginWithTotpRequest(
     val username: String,
     val password: String,

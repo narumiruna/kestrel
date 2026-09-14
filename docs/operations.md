@@ -2,19 +2,21 @@
 
 ## Production deployment
 
-Production deploys run `.github/workflows/deploy.yml` on the self-hosted runner and use `compose.deploy.yaml`. Do not deploy with `compose.dev.yaml`; its bind mounts and watch processes are development-only.
+Production deploys run `.github/workflows/deploy.yml` on the self-hosted runner and use `compose.yaml`. Do not deploy with `compose.dev.yaml`; its bind mounts and watch processes are development-only.
 
-Required GitHub Actions secrets:
+Required GitHub Actions secrets (`AUTH_OIDC_FLOW_ENCRYPTION_KEY` and `AUTH_OIDC_CLIENT_SECRET` are required only when OIDC is enabled):
 
 | Secret | Purpose | Rotation impact |
 | --- | --- | --- |
 | `POSTGRES_USER` | PostgreSQL application/backup role | Update PostgreSQL and deploy configuration together. |
 | `POSTGRES_PASSWORD` | PostgreSQL role password | Rotate in PostgreSQL first, then update the secret and redeploy. |
 | `AUTH_ACCESS_TOKEN_SECRET` | HMAC access-token signing | Existing short-lived access tokens stop working; refresh sessions can obtain replacements. |
+| `AUTH_OIDC_FLOW_ENCRYPTION_KEY` | Encrypts short-lived OIDC authorization state and exchange recovery | In-flight OIDC logins fail; existing sessions are unaffected. Configure only with all OIDC values. |
+| `AUTH_OIDC_CLIENT_SECRET` | OIDC confidential-client secret | In-flight/new OIDC logins fail until both sides use the new secret. |
 | `AUTH_TOTP_ENCRYPTION_KEY` | Encrypts stored TOTP secrets | Do not replace directly. Re-encrypt every stored TOTP secret during a maintenance migration, then update the secret. |
 | `PAT_TOKEN` | Allows version/tag workflows to trigger follow-up workflows | Replace with a token that can write repository contents and workflows. |
 
-`POSTGRES_DB` is optional and defaults to `kestrel`. The workflow writes a mode-`0600` temporary `.env`, validates the Compose model, deploys production images, and removes the file even after failure.
+`POSTGRES_DB` is optional and defaults to `kestrel`. Generic OIDC is optional and disabled unless every required value is configured. Store `AUTH_OIDC_CLIENT_SECRET` and `AUTH_OIDC_FLOW_ENCRYPTION_KEY` as GitHub Actions secrets; store the issuer, client ID, display name, and Web/Android/backend callback URLs as repository variables listed in [`oidc.md`](oidc.md). No deployment-specific OIDC value has a repository fallback. The workflow passes deployment values to Compose only through the deploy step's process environment, explicitly disables dotenv input, validates the Compose model, and then deploys production images.
 
 After deployment, verify readiness and request correlation:
 
@@ -32,13 +34,13 @@ The backend logs with [pino](https://getpino.io) and writes one NDJSON line per 
 Every line carries `time` (ISO 8601), `level` (`debug`, `info`, `warn`, `error`, `fatal`), `service`, the emitting `context` (for example `HttpRequest`, `AuthService`, `Prisma`), and `msg`.
 
 The backend reads `LOG_LEVEL` and defaults to `info`; an unrecognized value falls back to `info`, and the test environment is silent.
-Both Compose files map `KESTREL_LOG_LEVEL` onto the container's `LOG_LEVEL`, defaulting to `info` in `compose.deploy.yaml` and `debug` in `compose.dev.yaml`.
+Both Compose files map `KESTREL_LOG_LEVEL` onto the container's `LOG_LEVEL`, defaulting to `info` in `compose.yaml` and `debug` in `compose.dev.yaml`.
 Set `LOG_LEVEL` directly when the backend runs outside Compose.
 
 Read the stream locally by piping it through the pretty printer:
 
 ```bash
-docker compose -f compose.deploy.yaml logs -f backend | npx pino-pretty
+docker compose -f compose.yaml logs -f backend | npx pino-pretty
 ```
 
 `npm run start:pretty` runs the dev server through the pretty printer.
@@ -54,7 +56,7 @@ Username, IP address, and user agent stay in the database and must not reach the
 Rate-limit logs report the limit type and attempt count without the blocked subject.
 
 Unhandled errors are logged under `HttpException` with the request ID, so a failing response can be traced back to its request log line.
-The logger also censors `password`, `accessToken`, `refreshToken`, `totpCode`, `recoveryCode`, and `authorization` fields as a backstop; that redaction is a safety net, not a licence to pass those values to a log call.
+The logger also censors password/session fields plus OIDC authorization codes, client nonces, exchange tickets, and ID tokens as a backstop; that redaction is a safety net, not a licence to pass those values to a log call.
 
 ## Local environment
 
@@ -74,11 +76,11 @@ Create a custom-format backup before schema migrations, credential-key migration
 ```bash
 umask 077
 backup="kestrel-$(date -u +%Y%m%dT%H%M%SZ).dump"
-docker compose --env-file .env -f compose.deploy.yaml exec -T postgres \
+docker compose --env-file .env -f compose.yaml exec -T postgres \
   sh -c 'pg_dump --format=custom --no-owner --no-acl --username="$POSTGRES_USER" --dbname="$POSTGRES_DB"' \
   > "$backup"
 test -s "$backup"
-docker compose --env-file .env -f compose.deploy.yaml exec -T postgres \
+docker compose --env-file .env -f compose.yaml exec -T postgres \
   pg_restore --list < "$backup" >/dev/null
 ```
 
@@ -86,14 +88,14 @@ A backup is not accepted until this bounded restore drill succeeds against an is
 
 ```bash
 restore_db="kestrel_restore_check_$(date -u +%Y%m%d%H%M%S)"
-docker compose --env-file .env -f compose.deploy.yaml exec -T postgres \
+docker compose --env-file .env -f compose.yaml exec -T postgres \
   sh -c 'createdb --username="$POSTGRES_USER" "$1"' sh "$restore_db"
-docker compose --env-file .env -f compose.deploy.yaml exec -T postgres \
+docker compose --env-file .env -f compose.yaml exec -T postgres \
   sh -c 'pg_restore --exit-on-error --no-owner --no-acl --username="$POSTGRES_USER" --dbname="$1"' sh "$restore_db" \
   < "$backup"
-docker compose --env-file .env -f compose.deploy.yaml exec -T postgres \
+docker compose --env-file .env -f compose.yaml exec -T postgres \
   sh -c 'psql --username="$POSTGRES_USER" --dbname="$1" --tuples-only --command="SELECT COUNT(*) FROM _prisma_migrations;"' sh "$restore_db"
-docker compose --env-file .env -f compose.deploy.yaml exec -T postgres \
+docker compose --env-file .env -f compose.yaml exec -T postgres \
   sh -c 'dropdb --username="$POSTGRES_USER" "$1"' sh "$restore_db"
 ```
 
