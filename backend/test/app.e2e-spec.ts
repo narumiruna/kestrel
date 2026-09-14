@@ -983,14 +983,12 @@ function applySelect(
 }
 
 function clearOidcEnvironment(): void {
-  delete process.env.AUTH_OIDC_ANDROID_CALLBACK_URI;
   delete process.env.AUTH_OIDC_CLIENT_ID;
   delete process.env.AUTH_OIDC_CLIENT_SECRET;
   delete process.env.AUTH_OIDC_DISPLAY_NAME;
   delete process.env.AUTH_OIDC_FLOW_ENCRYPTION_KEY;
   delete process.env.AUTH_OIDC_ISSUER;
-  delete process.env.AUTH_OIDC_REDIRECT_URI;
-  delete process.env.AUTH_OIDC_WEB_CALLBACK_URI;
+  delete process.env.KESTREL_PUBLIC_URL;
 }
 
 function getRateLimitKey(type: string, subject: string): string {
