@@ -24,7 +24,7 @@ export function createApp(container: Container): Hono<{
     '/auth',
     createAuthRoutes(
       container.authService,
-      container.pocketIdService,
+      container.oidcService,
       container.sessionAuth,
     ),
   );

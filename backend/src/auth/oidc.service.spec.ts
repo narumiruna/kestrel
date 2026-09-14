@@ -7,19 +7,20 @@ import { ConflictException, GoneException } from '../http/errors';
 import { PrismaService } from '../prisma/prisma.service';
 import { AccessTokenService } from './access-token.service';
 import { AuthAuditService } from './auth-audit.service';
-import { PocketIdService } from './pocket-id.service';
+import { OidcService } from './oidc.service';
 
-const ISSUER = 'https://pocket-id.example.test';
+const ISSUER = 'https://oidc.example.test';
 const CLIENT_ID = 'client-id';
 const CLIENT_NONCE = 'browser-attempt:1234567890abcdef';
 const ENCRYPTION_KEY = Buffer.alloc(32, 7).toString('base64');
-const WEB_CALLBACK = 'https://kestrel.example.test/login/pocket-id';
+const ANDROID_CALLBACK = 'https://kestrel.example.test/login/oidc/android';
+const WEB_CALLBACK = 'https://kestrel.example.test/login/oidc';
 const REDIRECT_URI =
-  'https://kestrel.example.test/api/backend/auth/oidc/pocket-id/callback';
+  'https://kestrel.example.test/api/backend/auth/oidc/callback';
 
 type PrismaMock = ReturnType<typeof createPrismaMock>;
 
-describe('PocketIdService', () => {
+describe('OidcService', () => {
   afterEach(() => {
     jest.restoreAllMocks();
     jest.useRealTimers();
@@ -28,15 +29,37 @@ describe('PocketIdService', () => {
   it('reports disabled without configuration and rejects partial configuration', async () => {
     const prisma = createPrismaMock();
     const disabled = createService(prisma, {});
-    expect(disabled.getMethods()).toEqual({ pocketId: { enabled: false } });
+    expect(disabled.getMethods()).toEqual({
+      oidc: { displayName: 'OpenID Connect', enabled: false },
+    });
 
     const partial = createService(prisma, {
-      AUTH_POCKET_ID_ISSUER: ISSUER,
+      AUTH_OIDC_ISSUER: ISSUER,
     });
-    expect(partial.getMethods()).toEqual({ pocketId: { enabled: false } });
+    expect(partial.getMethods()).toEqual({
+      oidc: { displayName: 'OpenID Connect', enabled: false },
+    });
     await expect(
       partial.start({ clientNonce: CLIENT_NONCE, clientType: 'web' }),
-    ).rejects.toThrow('Pocket ID configuration is incomplete');
+    ).rejects.toThrow('OIDC configuration is incomplete');
+
+    const invalid = createService(prisma, {
+      AUTH_OIDC_ANDROID_CALLBACK_URI: ANDROID_CALLBACK,
+      AUTH_OIDC_CLIENT_ID: CLIENT_ID,
+      AUTH_OIDC_CLIENT_SECRET: 'client-secret',
+      AUTH_OIDC_FLOW_ENCRYPTION_KEY: 'invalid',
+      AUTH_OIDC_ISSUER: ISSUER,
+      AUTH_OIDC_REDIRECT_URI: REDIRECT_URI,
+      AUTH_OIDC_WEB_CALLBACK_URI: WEB_CALLBACK,
+    });
+    expect(invalid.getMethods()).toEqual({
+      oidc: { displayName: 'OpenID Connect', enabled: false },
+    });
+    await expect(
+      invalid.start({ clientNonce: CLIENT_NONCE, clientType: 'web' }),
+    ).rejects.toThrow(
+      'AUTH_OIDC_FLOW_ENCRYPTION_KEY must contain exactly 32 bytes',
+    );
   });
 
   it('creates a server-bound authorization request with PKCE, state, and nonce', async () => {
@@ -44,6 +67,9 @@ describe('PocketIdService', () => {
     mockDiscovery();
     const service = createService(prisma);
 
+    expect(service.getMethods()).toEqual({
+      oidc: { displayName: 'Example Identity', enabled: true },
+    });
     const result = await service.start({
       clientNonce: CLIENT_NONCE,
       clientType: 'web',
@@ -74,6 +100,19 @@ describe('PocketIdService', () => {
     expect(prisma.transaction.oidcLoginAttempt.create).not.toHaveBeenCalled();
   });
 
+  it('rejects a provider that advertises no PKCE S256 support', async () => {
+    const prisma = createPrismaMock();
+    mockDiscovery({ codeChallengeMethods: ['plain'] });
+
+    await expect(
+      createService(prisma).start({
+        clientNonce: CLIENT_NONCE,
+        clientType: 'web',
+      }),
+    ).rejects.toThrow('OIDC provider does not support PKCE S256');
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
   it('rejects tampered and expired encrypted authorization state', async () => {
     jest.useFakeTimers({ now: new Date('2026-09-14T00:00:00.000Z') });
     const prisma = createPrismaMock();
@@ -90,16 +129,16 @@ describe('PocketIdService', () => {
 
     await expect(
       service.callback({ state: stateParts.join('.') }),
-    ).rejects.toThrow('Pocket ID sign-in state is invalid');
+    ).rejects.toThrow('OIDC sign-in state is invalid');
 
     jest.advanceTimersByTime(11 * 60 * 1000);
     await expect(service.callback({ state })).rejects.toThrow(
-      'Pocket ID sign-in attempt is invalid or expired',
+      'OIDC sign-in attempt is invalid or expired',
     );
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
-  it('verifies a Pocket ID callback and redirects with only a one-time ticket', async () => {
+  it('verifies an OIDC callback using the default client_secret_basic method', async () => {
     const prisma = createPrismaMock();
     mockDiscovery();
     const service = createService(prisma);
@@ -114,6 +153,13 @@ describe('PocketIdService', () => {
       await service.callback({ code: 'authorization-code', state }),
     );
 
+    const tokenRequest = jest.mocked(global.fetch).mock.calls[1][1];
+    expect(new Headers(tokenRequest?.headers).get('authorization')).toBe(
+      `Basic ${Buffer.from('client-id:client-secret').toString('base64')}`,
+    );
+    expect((tokenRequest?.body as URLSearchParams).has('client_secret')).toBe(
+      false,
+    );
     const fragment = new URLSearchParams(redirect.hash.slice(1));
     expect(redirect.origin + redirect.pathname).toBe(WEB_CALLBACK);
     expect(redirect.search).toBe('');
@@ -133,9 +179,9 @@ describe('PocketIdService', () => {
         exchangeTicketHash: expect.stringMatching(/^[a-f0-9]{64}$/),
         expiresAt: expect.any(Date),
         issuer: ISSUER,
-        preferredUsername: 'pocket-user',
+        preferredUsername: 'oidc-user',
         stateHash: sha256(state),
-        subject: 'pocket-subject',
+        subject: 'oidc-subject',
       }),
     });
     const completion = prisma.transaction.oidcLoginAttempt.create.mock
@@ -145,9 +191,9 @@ describe('PocketIdService', () => {
     ).toBe(10 * 60 * 1000);
   });
 
-  it('carries a missing optional username through a valid callback', async () => {
+  it('supports client_secret_post and a missing optional username', async () => {
     const prisma = createPrismaMock();
-    mockDiscovery();
+    mockDiscovery({ tokenAuthMethods: ['client_secret_post'] });
     const service = createService(prisma);
     const { authorizationUrl } = await service.start({
       clientNonce: CLIENT_NONCE,
@@ -166,6 +212,11 @@ describe('PocketIdService', () => {
       await service.callback({ code: 'authorization-code', state }),
     );
 
+    const tokenRequest = jest.mocked(global.fetch).mock.calls[1][1];
+    expect(new Headers(tokenRequest?.headers).has('authorization')).toBe(false);
+    expect((tokenRequest?.body as URLSearchParams).get('client_secret')).toBe(
+      'client-secret',
+    );
     expect(
       new URLSearchParams(redirect.hash.slice(1)).get('ticket'),
     ).toHaveLength(43);
@@ -251,9 +302,7 @@ describe('PocketIdService', () => {
       );
 
       const fragment = new URLSearchParams(redirect.hash.slice(1));
-      expect(redirect.origin + redirect.pathname).toBe(
-        'https://kestrel.narumi.dev/login/pocket-id/android',
-      );
+      expect(redirect.origin + redirect.pathname).toBe(ANDROID_CALLBACK);
       expect(fragment.get('attempt')).toBe(sha256(CLIENT_NONCE));
       expect(fragment.get('error')).toBe('authentication_failed');
       expect(fragment.has('ticket')).toBe(false);
@@ -276,10 +325,10 @@ describe('PocketIdService', () => {
       issuer: ISSUER,
       issuerHash: sha256(ISSUER),
       pkceVerifierEncrypted: '',
-      preferredUsername: 'pocket-user',
-      provider: 'pocket_id',
+      preferredUsername: 'oidc-user',
+      provider: 'oidc',
       stateHash: sha256('state'),
-      subject: 'pocket-subject',
+      subject: 'oidc-subject',
     });
     prisma.transaction.oidcLoginAttempt.updateMany.mockResolvedValue({
       count: 1,
@@ -288,11 +337,11 @@ describe('PocketIdService', () => {
     prisma.transaction.user.findUnique.mockResolvedValue(null);
     prisma.transaction.user.create.mockResolvedValue({
       id: 'user-1',
-      username: 'pocket-user',
+      username: 'oidc-user',
     });
     prisma.transaction.federatedIdentity.create.mockResolvedValue({
       id: 'identity-1',
-      user: { id: 'user-1', username: 'pocket-user' },
+      user: { id: 'user-1', username: 'oidc-user' },
     });
     prisma.transaction.session.create.mockResolvedValue({
       createdAt: now,
@@ -312,18 +361,18 @@ describe('PocketIdService', () => {
     expect(result).toEqual(
       expect.objectContaining({
         accessToken: 'kestrel-access-token',
-        authMethod: 'pocket_id',
+        authMethod: 'oidc',
         refreshToken: expect.any(String),
         session: expect.objectContaining({ id: 'session-1' }),
-        user: { id: 'user-1', username: 'pocket-user' },
+        user: { id: 'user-1', username: 'oidc-user' },
       }),
     );
     expect(prisma.transaction.federatedIdentity.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
           issuer: ISSUER,
-          provider: 'pocket_id',
-          subject: 'pocket-subject',
+          provider: 'oidc',
+          subject: 'oidc-subject',
         }),
       }),
     );
@@ -380,7 +429,7 @@ describe('PocketIdService', () => {
     });
     prisma.transaction.federatedIdentity.findUnique.mockResolvedValue({
       issuer: ISSUER,
-      user: { id: 'user-1', username: 'pocket-user' },
+      user: { id: 'user-1', username: 'oidc-user' },
     });
     prisma.transaction.session.create.mockImplementation(
       ({ data }: { data: { expiresAt: Date; id: string } }) => ({
@@ -484,17 +533,19 @@ describe('PocketIdService', () => {
 function createService(
   prisma: PrismaMock,
   configurationOverrides?: Record<string, string>,
-): PocketIdService {
+): OidcService {
   const configuration: Record<string, string> = configurationOverrides ?? {
+    AUTH_OIDC_ANDROID_CALLBACK_URI: ANDROID_CALLBACK,
+    AUTH_OIDC_CLIENT_ID: CLIENT_ID,
+    AUTH_OIDC_CLIENT_SECRET: 'client-secret',
+    AUTH_OIDC_DISPLAY_NAME: 'Example Identity',
     AUTH_OIDC_FLOW_ENCRYPTION_KEY: ENCRYPTION_KEY,
-    AUTH_POCKET_ID_CLIENT_ID: CLIENT_ID,
-    AUTH_POCKET_ID_CLIENT_SECRET: 'client-secret',
-    AUTH_POCKET_ID_ISSUER: ISSUER,
-    AUTH_POCKET_ID_REDIRECT_URI: REDIRECT_URI,
-    AUTH_POCKET_ID_WEB_CALLBACK_URI: WEB_CALLBACK,
+    AUTH_OIDC_ISSUER: ISSUER,
+    AUTH_OIDC_REDIRECT_URI: REDIRECT_URI,
+    AUTH_OIDC_WEB_CALLBACK_URI: WEB_CALLBACK,
   };
 
-  return new PocketIdService(
+  return new OidcService(
     {
       issueToken: jest.fn(() => ({
         expiresAt: new Date(Date.now() + 900_000),
@@ -545,13 +596,28 @@ function createPrismaMock() {
   };
 }
 
-function mockDiscovery(): void {
+function mockDiscovery(
+  options: {
+    codeChallengeMethods?: string[];
+    tokenAuthMethods?: string[];
+  } = {},
+): void {
   jest.spyOn(global, 'fetch').mockResolvedValueOnce(
     jsonResponse({
       authorization_endpoint: `${ISSUER}/authorize`,
+      ...(options.codeChallengeMethods == null
+        ? {}
+        : {
+            code_challenge_methods_supported: options.codeChallengeMethods,
+          }),
       issuer: ISSUER,
       jwks_uri: `${ISSUER}/.well-known/jwks.json`,
       token_endpoint: `${ISSUER}/api/oidc/token`,
+      ...(options.tokenAuthMethods == null
+        ? {}
+        : {
+            token_endpoint_auth_methods_supported: options.tokenAuthMethods,
+          }),
       userinfo_endpoint: `${ISSUER}/api/oidc/userinfo`,
     }),
   );
@@ -577,13 +643,13 @@ async function mockTokenAndJwks(
     nonce: overrides.nonce ?? expectedNonce,
     preferred_username:
       overrides.preferredUsername === undefined
-        ? 'pocket-user'
+        ? 'oidc-user'
         : overrides.preferredUsername,
   })
     .setProtectedHeader({ alg: 'RS256', kid: 'test-key' })
     .setIssuer(overrides.issuer ?? ISSUER)
     .setAudience(overrides.audience ?? CLIENT_ID)
-    .setSubject('pocket-subject')
+    .setSubject('oidc-subject')
     .setIssuedAt()
     .setExpirationTime(overrides.expiresAt ?? '5m')
     .sign(privateKey);
@@ -624,10 +690,10 @@ function completedAttempt() {
     issuer: ISSUER,
     issuerHash: sha256(ISSUER),
     pkceVerifierEncrypted: '',
-    preferredUsername: 'pocket-user',
-    provider: 'pocket_id',
+    preferredUsername: 'oidc-user',
+    provider: 'oidc',
     stateHash: sha256('state'),
-    subject: 'pocket-subject',
+    subject: 'oidc-subject',
   };
 }
 

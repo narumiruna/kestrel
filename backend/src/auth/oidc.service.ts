@@ -22,7 +22,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AccessTokenService } from './access-token.service';
 import { AuthAuditMetadata, AuthAuditService } from './auth-audit.service';
 
-const PROVIDER = 'pocket_id';
+const PROVIDER = 'oidc';
 const AUTHORIZATION_LIFETIME_MS = 10 * 60 * 1000;
 const EXCHANGE_TICKET_LIFETIME_MS = 10 * 60 * 1000;
 const EXCHANGE_RETRY_LIFETIME_MS = 20 * 60 * 1000;
@@ -34,14 +34,15 @@ const CLIENT_NONCE_PATTERN = /^[A-Za-z0-9:._-]+$/;
 const USERNAME_PATTERN = /^[A-Za-z0-9._-]+$/;
 const MIN_USERNAME_LENGTH = 3;
 const MAX_USERNAME_LENGTH = 64;
-const ANDROID_CALLBACK_URI =
-  'https://kestrel.narumi.dev/login/pocket-id/android';
+const DEFAULT_DISPLAY_NAME = 'OpenID Connect';
 
-export type PocketIdClientType = 'android' | 'web';
+export type OidcClientType = 'android' | 'web';
 
-type PocketIdConfiguration = {
+type OidcConfiguration = {
+  androidCallbackUri: string;
   clientId: string;
   clientSecret: string;
+  displayName: string;
   encryptionKey: Buffer;
   issuer: string;
   redirectUri: string;
@@ -50,15 +51,17 @@ type PocketIdConfiguration = {
 
 type OidcDiscovery = {
   authorization_endpoint: string;
+  code_challenge_methods_supported?: string[];
   issuer: string;
   jwks_uri: string;
   token_endpoint: string;
+  token_endpoint_auth_methods_supported?: string[];
   userinfo_endpoint?: string;
 };
 
 type AuthorizationState = {
   clientNonceHash: string;
-  clientType: PocketIdClientType;
+  clientType: OidcClientType;
   codeVerifier: string;
   expiresAt: number;
 };
@@ -69,17 +72,17 @@ type VerifiedIdentity = {
   subject: string;
 };
 
-type PocketIdExchangeResponse = {
+type OidcExchangeResponse = {
   accessToken: string;
   accessTokenExpiresAt: Date;
-  authMethod: 'pocket_id';
+  authMethod: 'oidc';
   refreshToken: string;
   session: { createdAt: Date; expiresAt: Date; id: string; lastUsedAt: Date };
   user: { id: string; username: string };
 };
 
-type ExchangeSession = PocketIdExchangeResponse['session'];
-type ExchangeUser = PocketIdExchangeResponse['user'];
+type ExchangeSession = OidcExchangeResponse['session'];
+type ExchangeUser = OidcExchangeResponse['user'];
 type RecoverableExchangeAttempt = {
   clientNonceHash: string;
   consumedAt: Date | null;
@@ -89,8 +92,8 @@ type RecoverableExchangeAttempt = {
   provider: string;
 };
 
-export class PocketIdService {
-  private readonly logger = createLogger(PocketIdService.name);
+export class OidcService {
+  private readonly logger = createLogger(OidcService.name);
   private discoveryCache?: { expiresAt: number; value: OidcDiscovery };
 
   constructor(
@@ -100,8 +103,20 @@ export class PocketIdService {
     private readonly prismaService: PrismaService,
   ) {}
 
-  getMethods(): { pocketId: { enabled: boolean } } {
-    return { pocketId: { enabled: this.getConfiguration(false) != null } };
+  getMethods(): { oidc: { displayName: string; enabled: boolean } } {
+    try {
+      const configuration = this.getConfiguration(false);
+      return {
+        oidc: {
+          displayName: configuration?.displayName ?? DEFAULT_DISPLAY_NAME,
+          enabled: configuration != null,
+        },
+      };
+    } catch {
+      return {
+        oidc: { displayName: DEFAULT_DISPLAY_NAME, enabled: false },
+      };
+    }
   }
 
   async start(input: unknown): Promise<{ authorizationUrl: string }> {
@@ -149,15 +164,13 @@ export class PocketIdService {
       configuration.encryptionKey,
     );
     if (authorizationState.expiresAt <= Date.now()) {
-      throw new GoneException(
-        'Pocket ID sign-in attempt is invalid or expired',
-      );
+      throw new GoneException('OIDC sign-in attempt is invalid or expired');
     }
 
     if (input.error != null) {
       return buildClientRedirect(
         authorizationState.clientType,
-        configuration.webCallbackUri,
+        configuration,
         input.error === 'access_denied'
           ? 'access_denied'
           : 'authentication_failed',
@@ -168,9 +181,7 @@ export class PocketIdService {
 
     try {
       if (input.code == null || input.code === '') {
-        throw new BadRequestException(
-          'Pocket ID authorization code is missing',
-        );
+        throw new BadRequestException('OIDC authorization code is missing');
       }
       const discovery = await this.getDiscovery(configuration);
       const identity = await this.exchangeAndVerify(
@@ -209,7 +220,7 @@ export class PocketIdService {
 
       return buildClientRedirect(
         authorizationState.clientType,
-        configuration.webCallbackUri,
+        configuration,
         undefined,
         exchangeTicket,
         authorizationState.clientNonceHash,
@@ -217,11 +228,11 @@ export class PocketIdService {
     } catch (error) {
       this.logger.warn(
         { reason: error instanceof Error ? error.name : 'UnknownError' },
-        'Pocket ID callback failed',
+        'OIDC callback failed',
       );
       return buildClientRedirect(
         authorizationState.clientType,
-        configuration.webCallbackUri,
+        configuration,
         'authentication_failed',
         undefined,
         authorizationState.clientNonceHash,
@@ -232,7 +243,7 @@ export class PocketIdService {
   async exchange(
     input: unknown,
     metadata: AuthAuditMetadata = {},
-  ): Promise<PocketIdExchangeResponse> {
+  ): Promise<OidcExchangeResponse> {
     const configuration = this.requireConfiguration();
     const { clientNonce, exchangeTicket } = parseExchangeRequest(input);
     const exchangeTicketHash = hashValue(exchangeTicket);
@@ -246,9 +257,7 @@ export class PocketIdService {
       attempt.provider !== PROVIDER ||
       !secureHashMatches(attempt.clientNonceHash, clientNonce)
     ) {
-      throw new GoneException(
-        'Pocket ID exchange ticket is invalid or expired',
-      );
+      throw new GoneException('OIDC exchange ticket is invalid or expired');
     }
     if (attempt.consumedAt != null) {
       const recovered = await this.recoverCompletedExchange(
@@ -260,9 +269,7 @@ export class PocketIdService {
       if (recovered != null) {
         return recovered;
       }
-      throw new GoneException(
-        'Pocket ID exchange ticket is invalid or expired',
-      );
+      throw new GoneException('OIDC exchange ticket is invalid or expired');
     }
     if (
       attempt.callbackCompletedAt == null ||
@@ -271,9 +278,7 @@ export class PocketIdService {
       attempt.issuerHash == null ||
       attempt.subject == null
     ) {
-      throw new GoneException(
-        'Pocket ID exchange ticket is invalid or expired',
-      );
+      throw new GoneException('OIDC exchange ticket is invalid or expired');
     }
 
     const refreshToken = createRandomSecret();
@@ -301,7 +306,7 @@ export class PocketIdService {
           });
           if (consumed.count !== 1) {
             throw new GoneException(
-              'Pocket ID exchange ticket is invalid or expired',
+              'OIDC exchange ticket is invalid or expired',
             );
           }
 
@@ -322,16 +327,14 @@ export class PocketIdService {
           }
 
           if (identity == null) {
-            const username = validatePocketIdUsername(
-              attempt.preferredUsername,
-            );
+            const username = validateOidcUsername(attempt.preferredUsername);
             const collision = await transaction.user.findUnique({
               select: { id: true },
               where: { username },
             });
             if (collision != null) {
               throw new ConflictException(
-                'Pocket ID username already belongs to another Kestrel account',
+                'OIDC username already belongs to another Kestrel account',
               );
             }
 
@@ -423,9 +426,9 @@ export class PocketIdService {
   private async recoverExchange(
     exchangeTicketHash: string,
     clientNonce: string,
-    configuration: PocketIdConfiguration,
+    configuration: OidcConfiguration,
     now: Date,
-  ): Promise<PocketIdExchangeResponse | null> {
+  ): Promise<OidcExchangeResponse | null> {
     const attempt = await this.prismaService.oidcLoginAttempt.findUnique({
       where: { exchangeTicketHash },
     });
@@ -440,9 +443,9 @@ export class PocketIdService {
   private async recoverCompletedExchange(
     attempt: RecoverableExchangeAttempt | null,
     clientNonce: string,
-    configuration: PocketIdConfiguration,
+    configuration: OidcConfiguration,
     now: Date,
-  ): Promise<PocketIdExchangeResponse | null> {
+  ): Promise<OidcExchangeResponse | null> {
     if (
       attempt == null ||
       attempt.provider !== PROVIDER ||
@@ -498,7 +501,7 @@ export class PocketIdService {
     user: ExchangeUser,
     refreshToken: string,
     issuedAt: Date,
-  ): PocketIdExchangeResponse {
+  ): OidcExchangeResponse {
     const accessToken = this.accessTokenService.issueToken(
       { sessionId: session.id, userId: user.id },
       issuedAt,
@@ -517,32 +520,48 @@ export class PocketIdService {
     code: string,
     expectedNonce: string,
     codeVerifier: string,
-    configuration: PocketIdConfiguration,
+    configuration: OidcConfiguration,
     discovery: OidcDiscovery,
   ): Promise<VerifiedIdentity> {
+    const tokenAuthMethod = selectTokenAuthMethod(discovery);
+    const tokenBody = new URLSearchParams({
+      client_id: configuration.clientId,
+      code,
+      code_verifier: codeVerifier,
+      grant_type: 'authorization_code',
+      redirect_uri: configuration.redirectUri,
+    });
+    const headers: Record<string, string> = {
+      accept: 'application/json',
+      'content-type': 'application/x-www-form-urlencoded',
+    };
+    if (tokenAuthMethod === 'client_secret_post') {
+      tokenBody.set('client_secret', configuration.clientSecret);
+    } else {
+      headers.authorization = createClientSecretBasicAuthorization(
+        configuration.clientId,
+        configuration.clientSecret,
+      );
+    }
     const tokenResponse = await fetch(discovery.token_endpoint, {
-      body: new URLSearchParams({
-        client_id: configuration.clientId,
-        client_secret: configuration.clientSecret,
-        code,
-        code_verifier: codeVerifier,
-        grant_type: 'authorization_code',
-        redirect_uri: configuration.redirectUri,
-      }),
-      headers: { accept: 'application/json' },
+      body: tokenBody,
+      headers,
       method: 'POST',
       signal: AbortSignal.timeout(10_000),
     });
     if (!tokenResponse.ok) {
-      throw new ServiceUnavailableException('Pocket ID token exchange failed');
+      throw new ServiceUnavailableException('OIDC token exchange failed');
     }
-    const tokenBody = (await tokenResponse.json()) as Record<string, unknown>;
-    if (typeof tokenBody.id_token !== 'string') {
-      throw new ServiceUnavailableException('Pocket ID returned no ID token');
+    const tokenPayload = (await tokenResponse.json()) as Record<
+      string,
+      unknown
+    >;
+    if (typeof tokenPayload.id_token !== 'string') {
+      throw new ServiceUnavailableException('OIDC returned no ID token');
     }
 
     const { payload } = await jwtVerify(
-      tokenBody.id_token,
+      tokenPayload.id_token,
       await this.fetchJwks(discovery.jwks_uri),
       {
         audience: configuration.clientId,
@@ -556,34 +575,32 @@ export class PocketIdService {
         payload.azp == null) ||
       (payload.azp != null && payload.azp !== configuration.clientId)
     ) {
-      throw new BadRequestException('Pocket ID authorized party is invalid');
+      throw new BadRequestException('OIDC authorized party is invalid');
     }
     if (payload.nonce !== expectedNonce) {
-      throw new BadRequestException('Pocket ID nonce is invalid');
+      throw new BadRequestException('OIDC nonce is invalid');
     }
     if (
       typeof payload.sub !== 'string' ||
       payload.sub.length === 0 ||
       payload.sub.length > 255
     ) {
-      throw new BadRequestException('Pocket ID subject is invalid');
+      throw new BadRequestException('OIDC subject is invalid');
     }
 
     let preferredUsername = payload.preferred_username;
     if (
       typeof preferredUsername !== 'string' &&
-      typeof tokenBody.access_token === 'string' &&
+      typeof tokenPayload.access_token === 'string' &&
       discovery.userinfo_endpoint != null
     ) {
       const userInfo = await this.fetchUserInfo(
         discovery.userinfo_endpoint,
-        tokenBody.access_token,
+        tokenPayload.access_token,
       );
       if (userInfo != null) {
         if (userInfo.sub !== payload.sub) {
-          throw new BadRequestException(
-            'Pocket ID user info subject is invalid',
-          );
+          throw new BadRequestException('OIDC user info subject is invalid');
         }
         preferredUsername = userInfo.preferred_username;
       }
@@ -591,7 +608,7 @@ export class PocketIdService {
 
     return {
       issuer: configuration.issuer,
-      preferredUsername: normalizePocketIdUsernameClaim(preferredUsername),
+      preferredUsername: normalizeOidcUsernameClaim(preferredUsername),
       subject: payload.sub,
     };
   }
@@ -602,13 +619,11 @@ export class PocketIdService {
       signal: AbortSignal.timeout(10_000),
     });
     if (!response.ok) {
-      throw new ServiceUnavailableException('Pocket ID signing keys failed');
+      throw new ServiceUnavailableException('OIDC signing keys failed');
     }
     const body = (await response.json()) as Partial<JSONWebKeySet>;
     if (!Array.isArray(body.keys)) {
-      throw new ServiceUnavailableException(
-        'Pocket ID signing keys are invalid',
-      );
+      throw new ServiceUnavailableException('OIDC signing keys are invalid');
     }
     return createLocalJWKSet(body as JSONWebKeySet);
   }
@@ -638,7 +653,7 @@ export class PocketIdService {
   }
 
   private async getDiscovery(
-    configuration: PocketIdConfiguration,
+    configuration: OidcConfiguration,
   ): Promise<OidcDiscovery> {
     if (
       this.discoveryCache != null &&
@@ -655,7 +670,7 @@ export class PocketIdService {
       signal: AbortSignal.timeout(10_000),
     });
     if (!response.ok) {
-      throw new ServiceUnavailableException('Pocket ID discovery failed');
+      throw new ServiceUnavailableException('OIDC discovery failed');
     }
     const body = (await response.json()) as Record<string, unknown>;
     const discovery = validateDiscovery(body, configuration.issuer);
@@ -666,31 +681,28 @@ export class PocketIdService {
     return discovery;
   }
 
-  private requireConfiguration(): PocketIdConfiguration {
+  private requireConfiguration(): OidcConfiguration {
     const configuration = this.getConfiguration(true);
     if (configuration == null) {
-      throw new ServiceUnavailableException('Pocket ID sign-in is disabled');
+      throw new ServiceUnavailableException('OIDC sign-in is disabled');
     }
     return configuration;
   }
 
-  private getConfiguration(
-    rejectPartial: boolean,
-  ): PocketIdConfiguration | null {
+  private getConfiguration(rejectPartial: boolean): OidcConfiguration | null {
     const values = {
-      clientId: this.configService.get('AUTH_POCKET_ID_CLIENT_ID')?.trim(),
-      clientSecret: this.configService
-        .get('AUTH_POCKET_ID_CLIENT_SECRET')
+      androidCallbackUri: this.configService
+        .get('AUTH_OIDC_ANDROID_CALLBACK_URI')
         ?.trim(),
+      clientId: this.configService.get('AUTH_OIDC_CLIENT_ID')?.trim(),
+      clientSecret: this.configService.get('AUTH_OIDC_CLIENT_SECRET')?.trim(),
       encryptionKey: this.configService
         .get('AUTH_OIDC_FLOW_ENCRYPTION_KEY')
         ?.trim(),
-      issuer: this.configService.get('AUTH_POCKET_ID_ISSUER')?.trim(),
-      redirectUri: this.configService
-        .get('AUTH_POCKET_ID_REDIRECT_URI')
-        ?.trim(),
+      issuer: this.configService.get('AUTH_OIDC_ISSUER')?.trim(),
+      redirectUri: this.configService.get('AUTH_OIDC_REDIRECT_URI')?.trim(),
       webCallbackUri: this.configService
-        .get('AUTH_POCKET_ID_WEB_CALLBACK_URI')
+        .get('AUTH_OIDC_WEB_CALLBACK_URI')
         ?.trim(),
     };
     const configuredCount = Object.values(values).filter(Boolean).length;
@@ -700,26 +712,36 @@ export class PocketIdService {
     if (configuredCount !== Object.keys(values).length) {
       if (rejectPartial) {
         throw new InternalServerErrorException(
-          'Pocket ID configuration is incomplete',
+          'OIDC configuration is incomplete',
         );
       }
       return null;
     }
 
-    const issuer = validateConfiguredUrl(values.issuer!, 'Pocket ID issuer');
+    const androidCallbackUri = validateConfiguredUrl(
+      values.androidCallbackUri!,
+      'OIDC Android callback URI',
+    );
+    const issuer = validateConfiguredUrl(values.issuer!, 'OIDC issuer');
     const redirectUri = validateConfiguredUrl(
       values.redirectUri!,
-      'Pocket ID redirect URI',
+      'OIDC redirect URI',
     );
     const webCallbackUri = validateConfiguredUrl(
       values.webCallbackUri!,
-      'Pocket ID Web callback URI',
+      'OIDC Web callback URI',
     );
     const encryptionKey = decodeEncryptionKey(values.encryptionKey!);
+    const displayName = validateDisplayName(
+      this.configService.get('AUTH_OIDC_DISPLAY_NAME')?.trim() ??
+        DEFAULT_DISPLAY_NAME,
+    );
 
     return {
+      androidCallbackUri: androidCallbackUri.toString(),
       clientId: values.clientId!,
       clientSecret: values.clientSecret!,
+      displayName,
       encryptionKey,
       issuer: issuer.toString().replace(/\/$/, ''),
       redirectUri: redirectUri.toString(),
@@ -735,7 +757,7 @@ export class PocketIdService {
     } catch {
       this.logger.warn(
         { event: entry.event },
-        'failed to persist Pocket ID auth audit log',
+        'failed to persist OIDC auth audit log',
       );
     }
   }
@@ -743,7 +765,7 @@ export class PocketIdService {
 
 function parseStartRequest(input: unknown): {
   clientNonce: string;
-  clientType: PocketIdClientType;
+  clientType: OidcClientType;
 } {
   const record = parseRecord(input);
   if (record.clientType !== 'android' && record.clientType !== 'web') {
@@ -799,7 +821,7 @@ function validateCallbackState(value: unknown): string {
     value.length > 1024 ||
     !/^v1(?:\.[A-Za-z0-9_-]+){3}$/.test(value)
   ) {
-    throw new BadRequestException('Pocket ID sign-in state is invalid');
+    throw new BadRequestException('OIDC sign-in state is invalid');
   }
   return value;
 }
@@ -831,11 +853,11 @@ function parseAuthorizationState(
     }
     return parsed as AuthorizationState;
   } catch {
-    throw new BadRequestException('Pocket ID sign-in state is invalid');
+    throw new BadRequestException('OIDC sign-in state is invalid');
   }
 }
 
-function normalizePocketIdUsernameClaim(value: unknown): string | null {
+function normalizeOidcUsernameClaim(value: unknown): string | null {
   if (typeof value !== 'string') {
     return null;
   }
@@ -843,7 +865,7 @@ function normalizePocketIdUsernameClaim(value: unknown): string | null {
   return username.length <= MAX_USERNAME_LENGTH ? username : null;
 }
 
-function validatePocketIdUsername(value: string | null): string {
+function validateOidcUsername(value: string | null): string {
   const username = value?.trim() ?? '';
   if (
     username.length < MIN_USERNAME_LENGTH ||
@@ -851,7 +873,7 @@ function validatePocketIdUsername(value: string | null): string {
     !USERNAME_PATTERN.test(username)
   ) {
     throw new ConflictException(
-      'Pocket ID username must be 3-64 letters, numbers, dots, underscores, or hyphens',
+      'OIDC username must be 3-64 letters, numbers, dots, underscores, or hyphens',
     );
   }
   return username;
@@ -862,9 +884,7 @@ function validateDiscovery(
   expectedIssuer: string,
 ): OidcDiscovery {
   if (value.issuer !== expectedIssuer) {
-    throw new ServiceUnavailableException(
-      'Pocket ID discovery issuer mismatch',
-    );
+    throw new ServiceUnavailableException('OIDC discovery issuer mismatch');
   }
   for (const key of [
     'authorization_endpoint',
@@ -872,17 +892,66 @@ function validateDiscovery(
     'token_endpoint',
   ] as const) {
     if (typeof value[key] !== 'string') {
-      throw new ServiceUnavailableException('Pocket ID discovery is invalid');
+      throw new ServiceUnavailableException('OIDC discovery is invalid');
     }
     validateProviderEndpoint(value[key], key);
   }
   if (value.userinfo_endpoint != null) {
     if (typeof value.userinfo_endpoint !== 'string') {
-      throw new ServiceUnavailableException('Pocket ID discovery is invalid');
+      throw new ServiceUnavailableException('OIDC discovery is invalid');
     }
     validateProviderEndpoint(value.userinfo_endpoint, 'userinfo_endpoint');
   }
+  if (
+    value.token_endpoint_auth_methods_supported != null &&
+    (!Array.isArray(value.token_endpoint_auth_methods_supported) ||
+      !value.token_endpoint_auth_methods_supported.every(
+        (method) => typeof method === 'string',
+      ))
+  ) {
+    throw new ServiceUnavailableException('OIDC discovery is invalid');
+  }
+  if (value.code_challenge_methods_supported != null) {
+    if (
+      !Array.isArray(value.code_challenge_methods_supported) ||
+      !value.code_challenge_methods_supported.every(
+        (method) => typeof method === 'string',
+      )
+    ) {
+      throw new ServiceUnavailableException('OIDC discovery is invalid');
+    }
+    if (!value.code_challenge_methods_supported.includes('S256')) {
+      throw new ServiceUnavailableException(
+        'OIDC provider does not support PKCE S256',
+      );
+    }
+  }
   return value as OidcDiscovery;
+}
+
+function selectTokenAuthMethod(
+  discovery: OidcDiscovery,
+): 'client_secret_basic' | 'client_secret_post' {
+  const supported = discovery.token_endpoint_auth_methods_supported ?? [
+    'client_secret_basic',
+  ];
+  if (supported.includes('client_secret_basic')) {
+    return 'client_secret_basic';
+  }
+  if (supported.includes('client_secret_post')) {
+    return 'client_secret_post';
+  }
+  throw new ServiceUnavailableException(
+    'OIDC provider does not support confidential client authentication',
+  );
+}
+
+function createClientSecretBasicAuthorization(
+  clientId: string,
+  clientSecret: string,
+): string {
+  const credentials = `${encodeURIComponent(clientId)}:${encodeURIComponent(clientSecret)}`;
+  return `Basic ${Buffer.from(credentials).toString('base64')}`;
 }
 
 function validateProviderEndpoint(value: string, label: string): void {
@@ -911,15 +980,28 @@ function validateConfiguredUrl(value: string, label: string): URL {
   }
 }
 
+function validateDisplayName(value: string): string {
+  const hasControlCharacter = [...value].some((character) => {
+    const codePoint = character.codePointAt(0) ?? 0;
+    return codePoint < 32 || codePoint === 127;
+  });
+  if (value.length < 1 || value.length > 64 || hasControlCharacter) {
+    throw new InternalServerErrorException('OIDC display name is invalid');
+  }
+  return value;
+}
+
 function buildClientRedirect(
   clientType: string,
-  webCallbackUri: string,
+  configuration: OidcConfiguration,
   error?: string,
   exchangeTicket?: string,
   clientNonceHash?: string,
 ): string {
   const isAndroid = clientType === 'android';
-  const url = new URL(isAndroid ? ANDROID_CALLBACK_URI : webCallbackUri);
+  const url = new URL(
+    isAndroid ? configuration.androidCallbackUri : configuration.webCallbackUri,
+  );
   const fragment = new URLSearchParams();
   if (error != null) {
     fragment.set('error', error);

@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   robots: { follow: false, index: false },
 };
 
-export default function AndroidPocketIdCallbackPage() {
+export default function AndroidOidcCallbackPage() {
   return (
     <main className="auth-page">
       <section className="card auth-card stack">

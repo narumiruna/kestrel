@@ -52,6 +52,7 @@ import dev.narumi.kestrel.core.cloud.CloudPlaceConflict
 import dev.narumi.kestrel.core.cloud.CloudSession
 import dev.narumi.kestrel.core.cloud.CloudSyncRepository
 import dev.narumi.kestrel.core.cloud.CloudSyncState
+import dev.narumi.kestrel.core.cloud.OidcMethod
 import dev.narumi.kestrel.core.cloud.RemoteCommandStatus
 import dev.narumi.kestrel.core.cloud.RemoteControlRepository
 import dev.narumi.kestrel.core.cloud.RemoteControlRuntimeStatus
@@ -118,8 +119,8 @@ private fun OptionsCard(
 @Suppress("LongMethod")
 @Composable
 fun OptionsScreen(
-    pendingPocketIdCallback: String? = null,
-    onPocketIdCallbackConsumed: () -> Unit = {},
+    pendingOidcCallback: String? = null,
+    onOidcCallbackConsumed: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -268,8 +269,8 @@ fun OptionsScreen(
 
         KestrelSectionHeader(title = "Connected services", modifier = Modifier.padding(top = 12.dp))
         CloudSettingsSection(
-            pendingPocketIdCallback = pendingPocketIdCallback,
-            onPocketIdCallbackConsumed = onPocketIdCallbackConsumed,
+            pendingOidcCallback = pendingOidcCallback,
+            onOidcCallbackConsumed = onOidcCallbackConsumed,
         )
     }
 }
@@ -277,8 +278,8 @@ fun OptionsScreen(
 @Suppress("CyclomaticComplexMethod", "LongMethod")
 @Composable
 private fun CloudSettingsSection(
-    pendingPocketIdCallback: String?,
-    onPocketIdCallbackConsumed: () -> Unit,
+    pendingOidcCallback: String?,
+    onOidcCallbackConsumed: () -> Unit,
 ) {
     val context = LocalContext.current
     val prefs = remember { KestrelPrefs(context) }
@@ -301,7 +302,7 @@ private fun CloudSettingsSection(
     var cloudMessage by remember { mutableStateOf<String?>(null) }
     var cloudError by remember { mutableStateOf<String?>(null) }
     var cloudLoading by remember { mutableStateOf(false) }
-    var pocketIdEnabled by remember { mutableStateOf(false) }
+    var oidcMethod by remember { mutableStateOf(OidcMethod(enabled = false)) }
     var apiBaseUrl by remember { mutableStateOf(cloudSettings.apiBaseUrl) }
     var confirmRemoteEnable by remember { mutableStateOf(false) }
     var confirmSignOut by remember { mutableStateOf(false) }
@@ -321,22 +322,22 @@ private fun CloudSettingsSection(
 
     LaunchedEffect(cloudSettings.apiBaseUrl) {
         apiBaseUrl = cloudSettings.apiBaseUrl
-        pocketIdEnabled =
+        oidcMethod =
             try {
-                authRepository.isPocketIdEnabled()
+                authRepository.getOidcMethod()
             } catch (error: CancellationException) {
                 throw error
             } catch (_: CloudApiException) {
-                false
+                OidcMethod(enabled = false)
             } catch (_: IOException) {
-                false
+                OidcMethod(enabled = false)
             } catch (_: IllegalStateException) {
-                false
+                OidcMethod(enabled = false)
             }
     }
 
-    LaunchedEffect(cloudSessionLoaded, pendingPocketIdCallback) {
-        if (!cloudSessionLoaded || cloudSession != null || pendingPocketIdCallback != null) {
+    LaunchedEffect(cloudSessionLoaded, pendingOidcCallback) {
+        if (!cloudSessionLoaded || cloudSession != null || pendingOidcCallback != null) {
             return@LaunchedEffect
         }
         runCloudAction(
@@ -344,11 +345,11 @@ private fun CloudSettingsSection(
             setError = { cloudError = it },
             setMessage = { cloudMessage = it },
         ) {
-            val session = authRepository.resumePocketIdLogin() ?: return@runCloudAction
+            val session = authRepository.resumeOidcLogin() ?: return@runCloudAction
             cloudSession = session
             loginForm = CloudLoginForm()
             syncRepository.syncNow()
-            cloudMessage = "Signed in as ${session.username} with Pocket ID"
+            cloudMessage = "Signed in as ${session.username} with ${oidcMethod.displayName}"
         }
     }
 
@@ -409,22 +410,22 @@ private fun CloudSettingsSection(
         }
     }
 
-    LaunchedEffect(pendingPocketIdCallback) {
-        val callbackUri = pendingPocketIdCallback ?: return@LaunchedEffect
+    LaunchedEffect(pendingOidcCallback) {
+        val callbackUri = pendingOidcCallback ?: return@LaunchedEffect
         try {
             runCloudAction(
                 setLoading = { cloudLoading = it },
                 setError = { cloudError = it },
                 setMessage = { cloudMessage = it },
             ) {
-                val session = authRepository.completePocketIdLogin(callbackUri)
+                val session = authRepository.completeOidcLogin(callbackUri)
                 cloudSession = session
                 loginForm = CloudLoginForm()
                 syncRepository.syncNow()
-                cloudMessage = "Signed in as ${session.username} with Pocket ID"
+                cloudMessage = "Signed in as ${session.username} with ${oidcMethod.displayName}"
             }
         } finally {
-            onPocketIdCallbackConsumed()
+            onOidcCallbackConsumed()
         }
     }
 
@@ -522,15 +523,15 @@ private fun CloudSettingsSection(
                 cloudMessage = "Signed in as ${session.username}"
             }
         },
-        pocketIdEnabled = pocketIdEnabled,
-        onPocketIdLogin = {
+        oidcMethod = oidcMethod,
+        onOidcLogin = {
             launchCloudUiAction(
                 scope = scope,
                 setLoading = { cloudLoading = it },
                 setError = { cloudError = it },
                 setMessage = { cloudMessage = it },
             ) {
-                val authorizationUrl = authRepository.beginPocketIdLogin()
+                val authorizationUrl = authRepository.beginOidcLogin()
                 context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(authorizationUrl)))
                 cloudMessage = "Continue sign-in in your browser"
             }
@@ -609,8 +610,8 @@ private fun CloudSettingsCard(
     onLoginFormChange: (CloudLoginForm) -> Unit,
     onSaveApiBaseUrl: () -> Unit,
     onLogin: () -> Unit,
-    pocketIdEnabled: Boolean,
-    onPocketIdLogin: () -> Unit,
+    oidcMethod: OidcMethod,
+    onOidcLogin: () -> Unit,
     onRefreshSession: () -> Unit,
     onLogout: () -> Unit,
     onSyncNow: () -> Unit,
@@ -676,8 +677,8 @@ private fun CloudSettingsCard(
                 loading = uiState.loading,
                 onLoginFormChange = onLoginFormChange,
                 onLogin = onLogin,
-                pocketIdEnabled = pocketIdEnabled,
-                onPocketIdLogin = onPocketIdLogin,
+                oidcMethod = oidcMethod,
+                onOidcLogin = onOidcLogin,
             )
         } else {
             CloudSignedInCardContent(
@@ -771,8 +772,8 @@ private fun CloudSignedOutCardContent(
     loading: Boolean,
     onLoginFormChange: (CloudLoginForm) -> Unit,
     onLogin: () -> Unit,
-    pocketIdEnabled: Boolean,
-    onPocketIdLogin: () -> Unit,
+    oidcMethod: OidcMethod,
+    onOidcLogin: () -> Unit,
 ) {
     OutlinedTextField(
         value = loginForm.username,
@@ -834,14 +835,14 @@ private fun CloudSignedOutCardContent(
             Text(if (loading) "Signing in…" else "Sign in")
         }
     }
-    if (pocketIdEnabled) {
+    if (oidcMethod.enabled) {
         HorizontalDivider()
         OutlinedButton(
-            onClick = onPocketIdLogin,
+            onClick = onOidcLogin,
             enabled = !loading,
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Text("Continue with Pocket ID")
+            Text("Continue with ${oidcMethod.displayName}")
         }
     }
 }

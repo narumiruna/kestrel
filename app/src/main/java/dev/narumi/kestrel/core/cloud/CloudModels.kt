@@ -15,27 +15,28 @@ data class CloudSession(
 
 @Serializable
 internal data class AuthMethodsResponse(
-    val pocketId: PocketIdMethod,
+    val oidc: OidcMethod,
 )
 
 @Serializable
-internal data class PocketIdMethod(
+internal data class OidcMethod(
     val enabled: Boolean,
+    val displayName: String = "OpenID Connect",
 )
 
 @Serializable
-internal data class StartPocketIdRequest(
+internal data class StartOidcRequest(
     val clientType: String = "android",
     val clientNonce: String,
 )
 
 @Serializable
-internal data class StartPocketIdResponse(
+internal data class StartOidcResponse(
     val authorizationUrl: String,
 )
 
 @Serializable
-internal data class ExchangePocketIdRequest(
+internal data class ExchangeOidcRequest(
     val exchangeTicket: String,
     val clientNonce: String,
 )

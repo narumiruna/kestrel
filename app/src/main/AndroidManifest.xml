@@ -53,7 +53,7 @@
 
                 <data
                     android:host="kestrel.narumi.dev"
-                    android:path="/login/pocket-id/android"
+                    android:path="/login/oidc/android"
                     android:scheme="https" />
             </intent-filter>
             <intent-filter android:autoVerify="true">

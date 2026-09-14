@@ -7,12 +7,12 @@ import {
   getRequestMetadata,
 } from './auth-request';
 import { AuthService } from './auth.service';
-import { PocketIdService } from './pocket-id.service';
+import { OidcService } from './oidc.service';
 import type { SessionAuth } from './session-auth.middleware';
 
 export function createAuthRoutes(
   authService: AuthService,
-  pocketIdService: PocketIdService,
+  oidcService: OidcService,
   sessionAuth: SessionAuth,
 ): Hono<{ Variables: AuthVariables }> {
   const routes = new Hono<{ Variables: AuthVariables }>();
@@ -44,22 +44,22 @@ export function createAuthRoutes(
 
   routes.get('/methods', (context) => {
     context.header('Cache-Control', 'no-store');
-    return context.json(pocketIdService.getMethods());
+    return context.json(oidcService.getMethods());
   });
 
-  routes.post('/oidc/pocket-id/start', async (context) => {
+  routes.post('/oidc/start', async (context) => {
     context.header('Cache-Control', 'no-store');
     return context.json(
-      await pocketIdService.start(await readJsonBody(context)),
+      await oidcService.start(await readJsonBody(context)),
       201,
     );
   });
 
-  routes.get('/oidc/pocket-id/callback', async (context) => {
+  routes.get('/oidc/callback', async (context) => {
     context.header('Cache-Control', 'no-store');
     context.header('Referrer-Policy', 'no-referrer');
     return context.redirect(
-      await pocketIdService.callback({
+      await oidcService.callback({
         code: context.req.query('code'),
         error: context.req.query('error'),
         state: context.req.query('state'),
@@ -68,10 +68,10 @@ export function createAuthRoutes(
     );
   });
 
-  routes.post('/oidc/pocket-id/exchange', async (context) => {
+  routes.post('/oidc/exchange', async (context) => {
     context.header('Cache-Control', 'no-store');
     return context.json(
-      await pocketIdService.exchange(
+      await oidcService.exchange(
         await readJsonBody(context),
         getRequestMetadata(context),
       ),

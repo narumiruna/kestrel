@@ -6,31 +6,31 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import { BrandMark } from '@/components/BrandMark';
 import { Button } from '@/components/ui/radix-ui';
-import { ApiError, exchangePocketId } from '@/lib/api';
+import { ApiError, exchangeOidc } from '@/lib/api';
 
-type PendingPocketIdExchange = {
+type PendingOidcExchange = {
   authenticationAttempt: string;
   ticket: string;
 };
 
-const EXCHANGE_STORAGE_KEY = 'kestrel.web.pocket-id-exchange';
+const EXCHANGE_STORAGE_KEY = 'kestrel.web.oidc-exchange';
 const EXCHANGE_VALUE_PATTERN = /^[A-Za-z0-9:._-]{16,128}$/;
 const TICKET_PATTERN = /^[A-Za-z0-9_-]{32,128}$/;
 
-export function PocketIdCallback() {
+export function OidcCallback() {
   const auth = useAuth();
   const router = useRouter();
   const startedRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [isCompleting, setIsCompleting] = useState(true);
-  const [pendingExchange, setPendingExchange] = useState<PendingPocketIdExchange | null>(null);
+  const [pendingExchange, setPendingExchange] = useState<PendingOidcExchange | null>(null);
 
   const completeExchange = useCallback(
-    async (pending: PendingPocketIdExchange) => {
+    async (pending: PendingOidcExchange) => {
       setError(null);
       setIsCompleting(true);
       try {
-        const session = await exchangePocketId(pending.ticket, pending.authenticationAttempt);
+        const session = await exchangeOidc(pending.ticket, pending.authenticationAttempt);
         await auth.saveSession(session, pending.authenticationAttempt);
         clearPendingExchange();
         setPendingExchange(null);
@@ -40,7 +40,7 @@ export function PocketIdCallback() {
           clearPendingExchange();
           setPendingExchange(null);
         }
-        setError(nextError instanceof Error ? nextError.message : 'Pocket ID sign-in failed');
+        setError(nextError instanceof Error ? nextError.message : 'OIDC sign-in failed');
       } finally {
         setIsCompleting(false);
       }
@@ -77,7 +77,7 @@ export function PocketIdCallback() {
         !EXCHANGE_VALUE_PATTERN.test(authenticationAttempt)
       ) {
         clearPendingExchange();
-        setError('Pocket ID returned an incomplete sign-in response. Please try again.');
+        setError('OIDC returned an incomplete sign-in response. Please try again.');
         setIsCompleting(false);
         return;
       }
@@ -92,7 +92,7 @@ export function PocketIdCallback() {
     const pending = readPendingExchange();
     if (pending == null || auth.getAuthenticationAttempt() !== pending.authenticationAttempt) {
       clearPendingExchange();
-      setError('Pocket ID returned an incomplete sign-in response. Please try again.');
+      setError('OIDC returned an incomplete sign-in response. Please try again.');
       setIsCompleting(false);
       return;
     }
@@ -105,7 +105,7 @@ export function PocketIdCallback() {
       <section className="card auth-card stack" aria-live="polite">
         <BrandMark className="auth-brand" subtitle="Completing secure sign-in." titleAs="h1" />
         {error == null ? (
-          <p className="muted">Completing Pocket ID sign-in…</p>
+          <p className="muted">Completing OIDC sign-in…</p>
         ) : (
           <>
             <div className="error" role="alert">
@@ -131,13 +131,13 @@ export function PocketIdCallback() {
   );
 }
 
-function readPendingExchange(): PendingPocketIdExchange | null {
+function readPendingExchange(): PendingOidcExchange | null {
   try {
     const serialized = window.sessionStorage.getItem(EXCHANGE_STORAGE_KEY);
     if (serialized == null) {
       return null;
     }
-    const value = JSON.parse(serialized) as Partial<PendingPocketIdExchange>;
+    const value = JSON.parse(serialized) as Partial<PendingOidcExchange>;
     return typeof value.authenticationAttempt === 'string' &&
       EXCHANGE_VALUE_PATTERN.test(value.authenticationAttempt) &&
       typeof value.ticket === 'string' &&
@@ -149,7 +149,7 @@ function readPendingExchange(): PendingPocketIdExchange | null {
   }
 }
 
-function savePendingExchange(pending: PendingPocketIdExchange): void {
+function savePendingExchange(pending: PendingOidcExchange): void {
   try {
     window.sessionStorage.setItem(EXCHANGE_STORAGE_KEY, JSON.stringify(pending));
   } catch {
@@ -167,7 +167,7 @@ function clearPendingExchange(): void {
 
 function describeCallbackError(errorCode: string): string {
   if (errorCode === 'access_denied') {
-    return 'Pocket ID sign-in was cancelled.';
+    return 'OIDC sign-in was cancelled.';
   }
-  return 'Pocket ID could not complete sign-in. Please try again.';
+  return 'OIDC could not complete sign-in. Please try again.';
 }

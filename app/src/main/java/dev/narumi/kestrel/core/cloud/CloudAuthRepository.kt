@@ -20,7 +20,7 @@ internal class CloudAuthRepository private constructor(
     private val applicationContext = context.applicationContext
     private val prefs = KestrelPrefs(applicationContext)
     private val sessionStore = CloudSessionStore(applicationContext)
-    private val pocketIdAttemptStore = PocketIdAuthAttemptStore(applicationContext)
+    private val oidcAttemptStore = OidcAuthAttemptStore(applicationContext)
     private val apiClient = CloudApiClient(baseUrlProvider = { prefs.cloudSettingsValue().apiBaseUrl })
     private val refreshMutex = Mutex()
     private val _hasSession = MutableStateFlow(sessionStore.hasSession())
@@ -32,60 +32,60 @@ internal class CloudAuthRepository private constructor(
             _hasSession.value = session != null
         }
 
-    suspend fun isPocketIdEnabled(): Boolean = apiClient.getAuthMethods().pocketId.enabled
+    suspend fun getOidcMethod(): OidcMethod = apiClient.getAuthMethods().oidc
 
-    suspend fun beginPocketIdLogin(): String {
+    suspend fun beginOidcLogin(): String {
         val apiBaseUrl = normalizeCloudApiBaseUrl(prefs.cloudSettingsValue().apiBaseUrl)
         val clientNonce = UUID.randomUUID().toString()
-        pocketIdAttemptStore.save(
-            PocketIdAuthAttempt(apiBaseUrl = apiBaseUrl, clientNonce = clientNonce),
+        oidcAttemptStore.save(
+            OidcAuthAttempt(apiBaseUrl = apiBaseUrl, clientNonce = clientNonce),
         )
         return try {
-            apiClient.startPocketId(clientNonce).authorizationUrl.also(::validateAuthorizationUrl)
+            apiClient.startOidc(clientNonce).authorizationUrl.also(::validateAuthorizationUrl)
         } catch (failure: CancellationException) {
-            clearPocketIdAttemptAfterFailure(failure)
+            clearOidcAttemptAfterFailure(failure)
         } catch (failure: CloudApiException) {
-            clearPocketIdAttemptAfterFailure(failure)
+            clearOidcAttemptAfterFailure(failure)
         } catch (failure: IOException) {
-            clearPocketIdAttemptAfterFailure(failure)
+            clearOidcAttemptAfterFailure(failure)
         } catch (failure: SerializationException) {
-            clearPocketIdAttemptAfterFailure(failure)
+            clearOidcAttemptAfterFailure(failure)
         } catch (failure: IllegalArgumentException) {
-            clearPocketIdAttemptAfterFailure(failure)
+            clearOidcAttemptAfterFailure(failure)
         } catch (failure: IllegalStateException) {
-            clearPocketIdAttemptAfterFailure(failure)
+            clearOidcAttemptAfterFailure(failure)
         }
     }
 
-    suspend fun completePocketIdLogin(rawCallbackUri: String): CloudSession {
-        val callback = parsePocketIdCallback(rawCallbackUri)
-        val attempt = pocketIdAttemptStore.load() ?: error("No Pocket ID sign-in is pending")
+    suspend fun completeOidcLogin(rawCallbackUri: String): CloudSession {
+        val callback = parseOidcCallback(rawCallbackUri)
+        val attempt = oidcAttemptStore.load() ?: error("No OIDC sign-in is pending")
         require(callback.matchesClientNonce(attempt.clientNonce)) {
-            "Pocket ID callback does not match the pending sign-in"
+            "OIDC callback does not match the pending sign-in"
         }
-        validatePocketIdAttemptServer(attempt, prefs, pocketIdAttemptStore)
+        validateOidcAttemptServer(attempt, prefs, oidcAttemptStore)
 
         return when (callback) {
-            is PocketIdCallback.Error -> {
-                pocketIdAttemptStore.clear()
+            is OidcCallback.Error -> {
+                oidcAttemptStore.clear()
                 if (callback.errorCode == "access_denied") {
-                    error("Pocket ID sign-in was cancelled")
+                    error("OIDC sign-in was cancelled")
                 }
-                error("Pocket ID sign-in failed")
+                error("OIDC sign-in failed")
             }
-            is PocketIdCallback.Success -> {
+            is OidcCallback.Success -> {
                 val resumableAttempt = attempt.copy(exchangeTicket = callback.exchangeTicket)
-                pocketIdAttemptStore.save(resumableAttempt)
-                completePocketIdExchange(resumableAttempt)
+                oidcAttemptStore.save(resumableAttempt)
+                completeOidcExchange(resumableAttempt)
             }
         }
     }
 
-    suspend fun resumePocketIdLogin(): CloudSession? {
-        val attempt = pocketIdAttemptStore.load() ?: return null
+    suspend fun resumeOidcLogin(): CloudSession? {
+        val attempt = oidcAttemptStore.load() ?: return null
         if (attempt.exchangeTicket == null) return null
-        validatePocketIdAttemptServer(attempt, prefs, pocketIdAttemptStore)
-        return completePocketIdExchange(attempt)
+        validateOidcAttemptServer(attempt, prefs, oidcAttemptStore)
+        return completeOidcExchange(attempt)
     }
 
     suspend fun loginWithTotp(
@@ -227,11 +227,11 @@ internal class CloudAuthRepository private constructor(
         _hasSession.value = false
     }
 
-    private suspend fun completePocketIdExchange(attempt: PocketIdAuthAttempt): CloudSession =
+    private suspend fun completeOidcExchange(attempt: OidcAuthAttempt): CloudSession =
         try {
             refreshMutex
                 .withLock {
-                    exchangePocketIdWithRetry(
+                    exchangeOidcWithRetry(
                         exchangeTicket = checkNotNull(attempt.exchangeTicket),
                         clientNonce = attempt.clientNonce,
                     ).let {
@@ -239,29 +239,29 @@ internal class CloudAuthRepository private constructor(
                             it.copy(refreshRequestId = UUID.randomUUID().toString()),
                         )
                     }
-                }.also { pocketIdAttemptStore.clear() }
+                }.also { oidcAttemptStore.clear() }
         } catch (failure: CloudApiException) {
             if (failure.statusCode in HTTP_CLIENT_ERROR_RANGE) {
-                pocketIdAttemptStore.clear()
+                oidcAttemptStore.clear()
             }
             throw failure
         }
 
-    private suspend fun exchangePocketIdWithRetry(
+    private suspend fun exchangeOidcWithRetry(
         exchangeTicket: String,
         clientNonce: String,
     ): CloudSession {
         var lastFailure: Exception? = null
-        repeat(POCKET_ID_EXCHANGE_ATTEMPTS) {
+        repeat(OIDC_EXCHANGE_ATTEMPTS) {
             try {
-                return apiClient.exchangePocketId(
+                return apiClient.exchangeOidc(
                     exchangeTicket = exchangeTicket,
                     clientNonce = clientNonce,
                 )
             } catch (failure: CancellationException) {
                 throw failure
             } catch (failure: CloudApiException) {
-                if (failure.statusCode in HTTP_CLIENT_ERROR_RANGE) failPocketIdExchange(failure)
+                if (failure.statusCode in HTTP_CLIENT_ERROR_RANGE) failOidcExchange(failure)
                 lastFailure = failure
             } catch (failure: IOException) {
                 lastFailure = failure
@@ -272,25 +272,25 @@ internal class CloudAuthRepository private constructor(
         throw checkNotNull(lastFailure)
     }
 
-    private fun failPocketIdExchange(failure: CloudApiException): Nothing = throw failure
+    private fun failOidcExchange(failure: CloudApiException): Nothing = throw failure
 
-    private fun clearPocketIdAttemptAfterFailure(failure: Exception): Nothing {
-        runCatching { pocketIdAttemptStore.clear() }
+    private fun clearOidcAttemptAfterFailure(failure: Exception): Nothing {
+        runCatching { oidcAttemptStore.clear() }
         throw failure
     }
 
     private fun validateAuthorizationUrl(rawUrl: String) {
         val uri = URI.create(rawUrl)
         check(uri.scheme == "https" || uri.scheme == "http") {
-            "Cloud returned an invalid Pocket ID authorization URL"
+            "Cloud returned an invalid OIDC authorization URL"
         }
-        check(!uri.host.isNullOrBlank()) { "Cloud returned an invalid Pocket ID authorization URL" }
+        check(!uri.host.isNullOrBlank()) { "Cloud returned an invalid OIDC authorization URL" }
     }
 
     companion object {
         private val HTTP_CLIENT_ERROR_RANGE = 400..499
         private const val HTTP_UNAUTHORIZED = 401
-        private const val POCKET_ID_EXCHANGE_ATTEMPTS = 2
+        private const val OIDC_EXCHANGE_ATTEMPTS = 2
         private const val REFRESH_ATTEMPTS = 2
 
         @Volatile private var instance: CloudAuthRepository? = null
@@ -302,14 +302,14 @@ internal class CloudAuthRepository private constructor(
     }
 }
 
-private suspend fun validatePocketIdAttemptServer(
-    attempt: PocketIdAuthAttempt,
+private suspend fun validateOidcAttemptServer(
+    attempt: OidcAuthAttempt,
     prefs: KestrelPrefs,
-    attemptStore: PocketIdAuthAttemptStore,
+    attemptStore: OidcAuthAttemptStore,
 ) {
     val currentBaseUrl = normalizeCloudApiBaseUrl(prefs.cloudSettingsValue().apiBaseUrl)
     if (currentBaseUrl != attempt.apiBaseUrl) {
         attemptStore.clear()
-        error("Cloud server changed during Pocket ID sign-in")
+        error("Cloud server changed during OIDC sign-in")
     }
 }

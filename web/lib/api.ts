@@ -20,12 +20,13 @@ export type LoginInput = {
 };
 
 export type AuthMethods = {
-  pocketId: {
+  oidc: {
+    displayName: string;
     enabled: boolean;
   };
 };
 
-export type PocketIdClientType = 'android' | 'web';
+export type OidcClientType = 'android' | 'web';
 
 export type ChangePasswordInput = {
   currentPassword: string;
@@ -288,7 +289,7 @@ export class ApiError extends Error {
 }
 
 const API_BASE_URL = '/api/backend';
-const POCKET_ID_EXCHANGE_ATTEMPTS = 2;
+const OIDC_EXCHANGE_ATTEMPTS = 2;
 
 export async function apiFetch<T>(
   path: string,
@@ -326,18 +327,18 @@ export function getAuthMethods() {
   return apiFetch<AuthMethods>('/auth/methods', { cache: 'no-store' });
 }
 
-export function startPocketId(clientNonce: string, clientType: PocketIdClientType) {
-  return apiFetch<{ authorizationUrl: string }>('/auth/oidc/pocket-id/start', {
+export function startOidc(clientNonce: string, clientType: OidcClientType) {
+  return apiFetch<{ authorizationUrl: string }>('/auth/oidc/start', {
     body: JSON.stringify({ clientNonce, clientType }),
     method: 'POST',
   });
 }
 
-export async function exchangePocketId(exchangeTicket: string, clientNonce: string) {
+export async function exchangeOidc(exchangeTicket: string, clientNonce: string) {
   let lastError: unknown;
-  for (let attempt = 0; attempt < POCKET_ID_EXCHANGE_ATTEMPTS; attempt += 1) {
+  for (let attempt = 0; attempt < OIDC_EXCHANGE_ATTEMPTS; attempt += 1) {
     try {
-      return await apiFetch<AuthSession>('/auth/oidc/pocket-id/exchange', {
+      return await apiFetch<AuthSession>('/auth/oidc/exchange', {
         body: JSON.stringify({ clientNonce, exchangeTicket }),
         method: 'POST',
       });

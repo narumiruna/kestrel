@@ -12,7 +12,7 @@ import {
   login,
   register,
   setupTotp,
-  startPocketId,
+  startOidc,
   verifyTotp,
 } from '@/lib/api';
 
@@ -38,7 +38,8 @@ export default function LoginPage() {
   const [recoveryCodes, setRecoveryCodes] = useState<string[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [pocketIdEnabled, setPocketIdEnabled] = useState(false);
+  const [oidcEnabled, setOidcEnabled] = useState(false);
+  const [oidcDisplayName, setOidcDisplayName] = useState('OpenID Connect');
   const didApplyDevDefaultsRef = useRef(false);
 
   useEffect(() => {
@@ -62,7 +63,8 @@ export default function LoginPage() {
     getAuthMethods()
       .then((methods) => {
         if (!cancelled) {
-          setPocketIdEnabled(methods.pocketId.enabled);
+          setOidcEnabled(methods.oidc.enabled);
+          setOidcDisplayName(methods.oidc.displayName);
         }
       })
       .catch(() => {
@@ -73,12 +75,12 @@ export default function LoginPage() {
     };
   }, []);
 
-  async function beginPocketIdSignIn() {
+  async function beginOidcSignIn() {
     setError(null);
     setIsSubmitting(true);
     try {
       const authenticationAttemptId = await auth.beginAuthentication();
-      const { authorizationUrl } = await startPocketId(authenticationAttemptId, 'web');
+      const { authorizationUrl } = await startOidc(authenticationAttemptId, 'web');
       window.location.assign(authorizationUrl);
     } catch (nextError) {
       setError(formatError(nextError));
@@ -216,7 +218,7 @@ export default function LoginPage() {
               <Button disabled={isSubmitting} type="submit">
                 {isSubmitting ? 'Signing in…' : 'Sign in'}
               </Button>
-              {pocketIdEnabled ? (
+              {oidcEnabled ? (
                 <>
                   <div className="auth-alternative" aria-hidden="true">
                     <span>or</span>
@@ -225,9 +227,9 @@ export default function LoginPage() {
                     className="secondary"
                     disabled={isSubmitting}
                     type="button"
-                    onClick={() => void beginPocketIdSignIn()}
+                    onClick={() => void beginOidcSignIn()}
                   >
-                    Continue with Pocket ID
+                    Continue with {oidcDisplayName}
                   </Button>
                 </>
               ) : null}

@@ -21,19 +21,19 @@ internal class CloudApiClient(
 
     suspend fun getAuthMethods(): AuthMethodsResponse = getJson(path = "/auth/methods")
 
-    suspend fun startPocketId(clientNonce: String): StartPocketIdResponse =
-        postJson<StartPocketIdRequest, StartPocketIdResponse>(
-            path = "/auth/oidc/pocket-id/start",
-            body = StartPocketIdRequest(clientNonce = clientNonce),
+    suspend fun startOidc(clientNonce: String): StartOidcResponse =
+        postJson<StartOidcRequest, StartOidcResponse>(
+            path = "/auth/oidc/start",
+            body = StartOidcRequest(clientNonce = clientNonce),
         )
 
-    suspend fun exchangePocketId(
+    suspend fun exchangeOidc(
         exchangeTicket: String,
         clientNonce: String,
     ): CloudSession =
-        postJson<ExchangePocketIdRequest, AuthSessionResponse>(
-            path = "/auth/oidc/pocket-id/exchange",
-            body = ExchangePocketIdRequest(exchangeTicket = exchangeTicket, clientNonce = clientNonce),
+        postJson<ExchangeOidcRequest, AuthSessionResponse>(
+            path = "/auth/oidc/exchange",
+            body = ExchangeOidcRequest(exchangeTicket = exchangeTicket, clientNonce = clientNonce),
         ).toSession()
 
     suspend fun loginWithTotp(
