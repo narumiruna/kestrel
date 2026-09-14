@@ -41,5 +41,5 @@ jobs:
           AUTH_OIDC_WEB_CALLBACK_URI: ${{ vars.AUTH_OIDC_WEB_CALLBACK_URI }}
           AUTH_TOTP_ENCRYPTION_KEY: ${{ secrets.AUTH_TOTP_ENCRYPTION_KEY }}
         run: |
-          docker compose --env-file /dev/null -f compose.deploy.yaml config --quiet
-          docker compose --env-file /dev/null -f compose.deploy.yaml up -d --build --remove-orphans
+          docker compose --env-file /dev/null -f compose.yaml config --quiet
+          docker compose --env-file /dev/null -f compose.yaml up -d --build --remove-orphans

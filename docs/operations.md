@@ -2,7 +2,7 @@
 
 ## Production deployment
 
-Production deploys run `.github/workflows/deploy.yml` on the self-hosted runner and use `compose.deploy.yaml`. Do not deploy with `compose.dev.yaml`; its bind mounts and watch processes are development-only.
+Production deploys run `.github/workflows/deploy.yml` on the self-hosted runner and use `compose.yaml`. Do not deploy with `compose.dev.yaml`; its bind mounts and watch processes are development-only.
 
 Required GitHub Actions secrets (`AUTH_OIDC_FLOW_ENCRYPTION_KEY` and `AUTH_OIDC_CLIENT_SECRET` are required only when OIDC is enabled):
 
@@ -34,13 +34,13 @@ The backend logs with [pino](https://getpino.io) and writes one NDJSON line per 
 Every line carries `time` (ISO 8601), `level` (`debug`, `info`, `warn`, `error`, `fatal`), `service`, the emitting `context` (for example `HttpRequest`, `AuthService`, `Prisma`), and `msg`.
 
 The backend reads `LOG_LEVEL` and defaults to `info`; an unrecognized value falls back to `info`, and the test environment is silent.
-Both Compose files map `KESTREL_LOG_LEVEL` onto the container's `LOG_LEVEL`, defaulting to `info` in `compose.deploy.yaml` and `debug` in `compose.dev.yaml`.
+Both Compose files map `KESTREL_LOG_LEVEL` onto the container's `LOG_LEVEL`, defaulting to `info` in `compose.yaml` and `debug` in `compose.dev.yaml`.
 Set `LOG_LEVEL` directly when the backend runs outside Compose.
 
 Read the stream locally by piping it through the pretty printer:
 
 ```bash
-docker compose -f compose.deploy.yaml logs -f backend | npx pino-pretty
+docker compose -f compose.yaml logs -f backend | npx pino-pretty
 ```
 
 `npm run start:pretty` runs the dev server through the pretty printer.
@@ -76,11 +76,11 @@ Create a custom-format backup before schema migrations, credential-key migration
 ```bash
 umask 077
 backup="kestrel-$(date -u +%Y%m%dT%H%M%SZ).dump"
-docker compose --env-file .env -f compose.deploy.yaml exec -T postgres \
+docker compose --env-file .env -f compose.yaml exec -T postgres \
   sh -c 'pg_dump --format=custom --no-owner --no-acl --username="$POSTGRES_USER" --dbname="$POSTGRES_DB"' \
   > "$backup"
 test -s "$backup"
-docker compose --env-file .env -f compose.deploy.yaml exec -T postgres \
+docker compose --env-file .env -f compose.yaml exec -T postgres \
   pg_restore --list < "$backup" >/dev/null
 ```
 
@@ -88,14 +88,14 @@ A backup is not accepted until this bounded restore drill succeeds against an is
 
 ```bash
 restore_db="kestrel_restore_check_$(date -u +%Y%m%d%H%M%S)"
-docker compose --env-file .env -f compose.deploy.yaml exec -T postgres \
+docker compose --env-file .env -f compose.yaml exec -T postgres \
   sh -c 'createdb --username="$POSTGRES_USER" "$1"' sh "$restore_db"
-docker compose --env-file .env -f compose.deploy.yaml exec -T postgres \
+docker compose --env-file .env -f compose.yaml exec -T postgres \
   sh -c 'pg_restore --exit-on-error --no-owner --no-acl --username="$POSTGRES_USER" --dbname="$1"' sh "$restore_db" \
   < "$backup"
-docker compose --env-file .env -f compose.deploy.yaml exec -T postgres \
+docker compose --env-file .env -f compose.yaml exec -T postgres \
   sh -c 'psql --username="$POSTGRES_USER" --dbname="$1" --tuples-only --command="SELECT COUNT(*) FROM _prisma_migrations;"' sh "$restore_db"
-docker compose --env-file .env -f compose.deploy.yaml exec -T postgres \
+docker compose --env-file .env -f compose.yaml exec -T postgres \
   sh -c 'dropdb --username="$POSTGRES_USER" "$1"' sh "$restore_db"
 ```
 
