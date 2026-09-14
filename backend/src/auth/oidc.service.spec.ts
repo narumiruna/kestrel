@@ -8,6 +8,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AccessTokenService } from './access-token.service';
 import { AuthAuditService } from './auth-audit.service';
 import { OidcService } from './oidc.service';
+import { TotpService } from './totp.service';
 
 const ISSUER = 'https://oidc.example.test';
 const CLIENT_ID = 'client-id';
@@ -478,6 +479,47 @@ describe('OidcService', () => {
     expect(jest.mocked(global.fetch).mock.calls[4][1]?.redirect).toBe('error');
     expect(prisma.oidcLoginAttempt.updateMany).toHaveBeenCalledWith({
       data: expect.objectContaining({ preferredUsername: 'retried-user' }),
+      where: expect.objectContaining({ id: expect.any(String) }),
+    });
+  });
+
+  it('caps a late UserInfo request to the remaining callback lease', async () => {
+    const prisma = createPrismaMock();
+    mockDiscovery();
+    const service = createService(prisma);
+    const { authorizationUrl } = await service.start({
+      clientNonce: CLIENT_NONCE,
+      clientType: 'web',
+    });
+    const state = new URL(authorizationUrl).searchParams.get('state')!;
+    await mockTokenAndJwks(state, {
+      accessToken: 'provider-access-token',
+      preferredUsername: null,
+    });
+    const callbackStartedAt = Date.now();
+    const timeoutSpy = jest.spyOn(AbortSignal, 'timeout');
+    jest
+      .mocked(global.fetch)
+      .mockImplementationOnce(() => {
+        jest.spyOn(Date, 'now').mockReturnValue(callbackStartedAt + 115 * 1000);
+        return Promise.resolve(new Response(null, { status: 503 }));
+      })
+      .mockResolvedValueOnce(
+        jsonResponse({
+          preferred_username: 'late-user',
+          sub: 'oidc-subject',
+        }),
+      );
+
+    await service.callback({ code: 'authorization-code', state });
+
+    expect(
+      timeoutSpy.mock.calls.some(
+        ([timeout]) => timeout > 0 && timeout < 5 * 1000,
+      ),
+    ).toBe(true);
+    expect(prisma.oidcLoginAttempt.updateMany).toHaveBeenCalledWith({
+      data: expect.objectContaining({ preferredUsername: 'late-user' }),
       where: expect.objectContaining({ id: expect.any(String) }),
     });
   });
@@ -1044,6 +1086,42 @@ describe('OidcService', () => {
     );
   });
 
+  it('recovers the current refresh token after session rotation', async () => {
+    const prisma = createPrismaMock();
+    const now = new Date();
+    const rotatedRefreshToken = 'rotated-refresh-token';
+    prisma.oidcLoginAttempt.findUnique.mockResolvedValue({
+      ...completedAttempt(),
+      consumedAt: now,
+      exchangeSessionId: 'session-1',
+      expiresAt: new Date(now.getTime() + 20 * 60 * 1000),
+    });
+    prisma.session.findUnique.mockResolvedValue({
+      createdAt: now,
+      expiresAt: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
+      id: 'session-1',
+      lastUsedAt: now,
+      refreshTokenHash: sha256(rotatedRefreshToken),
+      revokedAt: null,
+      rotatedRefreshTokenEncrypted: 'encrypted-rotated-token',
+      user: { id: 'user-1', username: 'oidc-user' },
+    });
+    const decryptSecret = jest.fn().mockReturnValue(rotatedRefreshToken);
+    const service = createService(prisma, undefined, undefined, {
+      decryptSecret,
+    } as unknown as TotpService);
+
+    const recovered = await service.exchange({
+      clientNonce: CLIENT_NONCE,
+      exchangeTicket: 'exchange-ticket-value-1234567890123456',
+    });
+
+    expect(recovered.refreshToken).toBe(rotatedRefreshToken);
+    expect(recovered.session.id).toBe('session-1');
+    expect(decryptSecret).toHaveBeenCalledWith('encrypted-rotated-token');
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
   it('rejects nonce mismatch, username collisions, expired tickets, and replay', async () => {
     const prisma = createPrismaMock();
     const attempt = completedAttempt();
@@ -1099,6 +1177,9 @@ function createService(
   authAuditService: AuthAuditService = {
     log: jest.fn(),
   } as unknown as AuthAuditService,
+  totpService: TotpService = {
+    decryptSecret: jest.fn(),
+  } as unknown as TotpService,
 ): OidcService {
   const configuration = configurationOverrides ?? configuredEnvironment();
 
@@ -1114,6 +1195,7 @@ function createService(
       get: jest.fn((key: string) => configuration[key]),
     } as unknown as ConfigService,
     prisma as unknown as PrismaService,
+    totpService,
   );
 }
 

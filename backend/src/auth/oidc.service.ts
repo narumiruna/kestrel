@@ -30,6 +30,7 @@ import { createLogger } from '../logger';
 import { PrismaService } from '../prisma/prisma.service';
 import { AccessTokenService } from './access-token.service';
 import { AuthAuditMetadata, AuthAuditService } from './auth-audit.service';
+import { TotpService } from './totp.service';
 
 const PROVIDER = 'oidc';
 const AUTHORIZATION_LIFETIME_MS = 10 * 60 * 1000;
@@ -118,6 +119,7 @@ export class OidcService {
     private readonly authAuditService: AuthAuditService,
     private readonly configService: ConfigService,
     private readonly prismaService: PrismaService,
+    private readonly totpService: TotpService,
   ) {}
 
   getMethods(): { oidc: { displayName: string; enabled: boolean } } {
@@ -781,6 +783,7 @@ export class OidcService {
         lastUsedAt: true,
         refreshTokenHash: true,
         revokedAt: true,
+        rotatedRefreshTokenEncrypted: true,
         user: { select: { id: true, username: true } },
       },
       where: { id: attempt.exchangeSessionId },
@@ -792,14 +795,26 @@ export class OidcService {
     ) {
       return null;
     }
-    const refreshToken = deriveSecret(
+    let refreshToken = deriveSecret(
       configuration.encryptionKey,
       'exchange-refresh-token',
       exchangeTicket,
       clientNonce,
     );
     if (!secureHashMatches(session.refreshTokenHash, refreshToken)) {
-      return null;
+      if (session.rotatedRefreshTokenEncrypted == null) {
+        return null;
+      }
+      try {
+        refreshToken = this.totpService.decryptSecret(
+          session.rotatedRefreshTokenEncrypted,
+        );
+      } catch {
+        return null;
+      }
+      if (!secureHashMatches(session.refreshTokenHash, refreshToken)) {
+        return null;
+      }
     }
     return this.issueExchangeResponse(
       {
@@ -1017,6 +1032,11 @@ export class OidcService {
   ): Promise<Record<string, unknown> | null> {
     let attempt = 0;
     while (Date.now() < processingDeadline) {
+      const requestTimeout = Math.min(
+        10_000,
+        processingDeadline - Date.now() - CALLBACK_COMPLETION_RETRY_DELAY_MS,
+      );
+      if (requestTimeout <= 0) break;
       attempt += 1;
       try {
         const response = await fetch(endpoint, {
@@ -1025,7 +1045,7 @@ export class OidcService {
             authorization: `Bearer ${accessToken}`,
           },
           redirect: 'error',
-          signal: AbortSignal.timeout(10_000),
+          signal: AbortSignal.timeout(requestTimeout),
         });
         if (!response.ok && !isRetryableProviderStatus(response.status)) {
           return null;

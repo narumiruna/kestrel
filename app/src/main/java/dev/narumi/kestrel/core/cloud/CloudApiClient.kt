@@ -21,19 +21,25 @@ internal class CloudApiClient(
 
     suspend fun getAuthMethods(): AuthMethodsResponse = getJson(path = "/auth/methods")
 
-    suspend fun startOidc(clientNonce: String): StartOidcResponse =
+    suspend fun startOidc(
+        clientNonce: String,
+        apiBaseUrl: String,
+    ): StartOidcResponse =
         postJson<StartOidcRequest, StartOidcResponse>(
             path = "/auth/oidc/start",
             body = StartOidcRequest(clientNonce = clientNonce),
+            apiBaseUrl = apiBaseUrl,
         )
 
     suspend fun exchangeOidc(
+        apiBaseUrl: String,
         exchangeTicket: String,
         clientNonce: String,
     ): CloudSession =
         postJson<ExchangeOidcRequest, AuthSessionResponse>(
             path = "/auth/oidc/exchange",
             body = ExchangeOidcRequest(exchangeTicket = exchangeTicket, clientNonce = clientNonce),
+            apiBaseUrl = apiBaseUrl,
         ).toSession()
 
     suspend fun loginWithTotp(
@@ -154,6 +160,7 @@ internal class CloudApiClient(
         path: String,
         body: Request,
         accessToken: String? = null,
+        apiBaseUrl: String? = null,
     ): Response {
         val requestBody = json.encodeToString(body)
         return request(
@@ -161,6 +168,7 @@ internal class CloudApiClient(
             path = path,
             body = requestBody,
             accessToken = accessToken,
+            apiBaseUrl = apiBaseUrl,
         )
     }
 
@@ -190,9 +198,10 @@ internal class CloudApiClient(
         path: String,
         body: String? = null,
         accessToken: String? = null,
+        apiBaseUrl: String? = null,
     ): Response =
         withContext(Dispatchers.IO) {
-            val url = URL(normalizedBaseUrl() + path)
+            val url = URL((apiBaseUrl ?: normalizedBaseUrl()) + path)
             val connection =
                 (url.openConnection() as HttpURLConnection).apply {
                     requestMethod = method

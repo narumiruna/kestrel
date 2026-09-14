@@ -73,6 +73,7 @@ export function createContainer(
       authAuditService,
       configService,
       prismaService,
+      totpService,
     ),
     prismaService,
     remoteControlService: new RemoteControlService(prismaService),

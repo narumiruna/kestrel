@@ -41,7 +41,10 @@ internal class CloudAuthRepository private constructor(
             val attempt = OidcAuthAttempt(apiBaseUrl = apiBaseUrl, clientNonce = clientNonce)
             oidcAttemptStore.save(attempt)
             try {
-                apiClient.startOidc(clientNonce).authorizationUrl.also(::validateAuthorizationUrl)
+                apiClient
+                    .startOidc(clientNonce, apiBaseUrl)
+                    .authorizationUrl
+                    .also(::validateAuthorizationUrl)
             } catch (failure: CancellationException) {
                 clearOidcAttemptAfterFailure(attempt, failure)
             } catch (failure: CloudApiException) {
@@ -248,6 +251,7 @@ internal class CloudAuthRepository private constructor(
                 }
                 val session =
                     exchangeOidcWithRetry(
+                        apiBaseUrl = attempt.apiBaseUrl,
                         exchangeTicket = checkNotNull(attempt.exchangeTicket),
                         clientNonce = attempt.clientNonce,
                     ).let {
@@ -255,9 +259,7 @@ internal class CloudAuthRepository private constructor(
                             it.copy(refreshRequestId = UUID.randomUUID().toString()),
                         )
                     }
-                check(oidcAttemptStore.compareAndClear(attempt)) {
-                    "OIDC sign-in is no longer pending"
-                }
+                runCatching { oidcAttemptStore.compareAndClear(attempt) }
                 session
             }
         } catch (failure: CloudApiException) {
@@ -268,6 +270,7 @@ internal class CloudAuthRepository private constructor(
         }
 
     private suspend fun exchangeOidcWithRetry(
+        apiBaseUrl: String,
         exchangeTicket: String,
         clientNonce: String,
     ): CloudSession {
@@ -275,6 +278,7 @@ internal class CloudAuthRepository private constructor(
         repeat(OIDC_EXCHANGE_ATTEMPTS) {
             try {
                 return apiClient.exchangeOidc(
+                    apiBaseUrl = apiBaseUrl,
                     exchangeTicket = exchangeTicket,
                     clientNonce = clientNonce,
                 )
