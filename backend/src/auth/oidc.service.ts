@@ -518,14 +518,30 @@ export class OidcService {
     attemptId: string,
     callbackStartedAt: Date,
   ): Promise<void> {
-    await this.prismaService.oidcLoginAttempt.deleteMany({
-      where: {
-        callbackCompletedAt: null,
-        callbackStartedAt,
-        consumedAt: null,
-        id: attemptId,
-      },
-    });
+    for (
+      let attempt = 1;
+      attempt <= CALLBACK_CLAIM_TRANSACTION_ATTEMPTS;
+      attempt += 1
+    ) {
+      try {
+        await this.prismaService.oidcLoginAttempt.deleteMany({
+          where: {
+            callbackCompletedAt: null,
+            callbackStartedAt,
+            consumedAt: null,
+            id: attemptId,
+          },
+        });
+        return;
+      } catch (error) {
+        if (
+          !isRetryablePrismaError(error) ||
+          attempt === CALLBACK_CLAIM_TRANSACTION_ATTEMPTS
+        ) {
+          throw error;
+        }
+      }
+    }
   }
 
   private async completeFailedCallback(

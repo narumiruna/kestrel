@@ -650,11 +650,18 @@ describe('OidcService', () => {
     jest
       .mocked(global.fetch)
       .mockRejectedValueOnce(new TypeError('provider unavailable'));
+    prisma.oidcLoginAttempt.deleteMany.mockRejectedValueOnce(
+      new Prisma.PrismaClientKnownRequestError('database unavailable', {
+        clientVersion: '6.19.3',
+        code: 'P1001',
+      }),
+    );
 
     await expect(
       callbackService.callback({ code: 'authorization-code', state }),
     ).rejects.toThrow('OIDC callback is temporarily unavailable');
-    expect(prisma.oidcLoginAttempt.deleteMany).toHaveBeenCalledWith({
+    expect(prisma.oidcLoginAttempt.deleteMany).toHaveBeenCalledTimes(2);
+    expect(prisma.oidcLoginAttempt.deleteMany).toHaveBeenLastCalledWith({
       where: expect.objectContaining({ id: expect.any(String) }),
     });
 
