@@ -290,6 +290,7 @@ export class ApiError extends Error {
 
 const API_BASE_URL = '/api/backend';
 const OIDC_EXCHANGE_ATTEMPTS = 2;
+const OIDC_EXCHANGE_TIMEOUT_MS = 15_000;
 
 export async function apiFetch<T>(
   path: string,
@@ -341,6 +342,7 @@ export async function exchangeOidc(exchangeTicket: string, clientNonce: string) 
       return await apiFetch<AuthSession>('/auth/oidc/exchange', {
         body: JSON.stringify({ clientNonce, exchangeTicket }),
         method: 'POST',
+        signal: AbortSignal.timeout(OIDC_EXCHANGE_TIMEOUT_MS),
       });
     } catch (error) {
       lastError = error;

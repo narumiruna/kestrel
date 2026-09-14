@@ -866,6 +866,7 @@ export class OidcService {
         body: tokenBody,
         headers,
         method: 'POST',
+        redirect: 'error',
         signal: AbortSignal.timeout(10_000),
       });
     } catch {
@@ -982,6 +983,7 @@ export class OidcService {
     try {
       response = await fetch(endpoint, {
         headers: { accept: 'application/json' },
+        redirect: 'error',
         signal: AbortSignal.timeout(10_000),
       });
     } catch {
@@ -1019,6 +1021,7 @@ export class OidcService {
             accept: 'application/json',
             authorization: `Bearer ${accessToken}`,
           },
+          redirect: 'error',
           signal: AbortSignal.timeout(10_000),
         });
         if (!response.ok && !isRetryableProviderStatus(response.status)) {
@@ -1067,6 +1070,7 @@ export class OidcService {
     try {
       response = await fetch(discoveryUrl, {
         headers: { accept: 'application/json' },
+        redirect: 'error',
         signal: AbortSignal.timeout(10_000),
       });
     } catch {

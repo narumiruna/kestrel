@@ -354,6 +354,7 @@ describe('OidcService', () => {
     const encode = (value: string) =>
       new URLSearchParams({ value }).toString().slice('value='.length);
     const tokenRequest = jest.mocked(global.fetch).mock.calls[2][1];
+    expect(tokenRequest?.redirect).toBe('error');
     expect(new Headers(tokenRequest?.headers).get('authorization')).toBe(
       `Basic ${Buffer.from(`${encode(clientId)}:${encode(clientSecret)}`).toString('base64')}`,
     );
@@ -414,6 +415,8 @@ describe('OidcService', () => {
     await service.callback({ code: 'authorization-code', state });
 
     expect(jest.mocked(global.fetch)).toHaveBeenCalledTimes(5);
+    expect(jest.mocked(global.fetch).mock.calls[3][1]?.redirect).toBe('error');
+    expect(jest.mocked(global.fetch).mock.calls[4][1]?.redirect).toBe('error');
     expect(prisma.oidcLoginAttempt.updateMany).toHaveBeenCalledWith({
       data: expect.objectContaining({ preferredUsername: 'retried-user' }),
       where: expect.objectContaining({ id: expect.any(String) }),
