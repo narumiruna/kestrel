@@ -66,7 +66,7 @@ Production ingress must apply a per-source rate limit to `POST /auth/oidc/start`
 
 ## Android App Link
 
-`AUTH_OIDC_ANDROID_CALLBACK_URI` must be an HTTPS App Link claimed by the Android build, not a custom scheme. Its scheme, host, and path must exactly match the app manifest, and that host must serve `/.well-known/assetlinks.json` for the app's package and signing certificate. A self-hosted fork using another domain or application ID must change the manifest callback constants and publish its own Digital Asset Links file before enabling Android OIDC.
+`AUTH_OIDC_ANDROID_CALLBACK_URI` must be an HTTPS App Link claimed by the Android build, not a custom scheme. Its scheme, host, and path must exactly match the app manifest, and that host must serve `/.well-known/assetlinks.json` for the app's package and signing certificate. Only deployment-owned hosts belong in `android:autoVerify` filters; third-party candidate links such as Google Maps must remain unverified so Android 10–11 can verify the callback host independently. A self-hosted fork using another domain or application ID must change the manifest callback constants and publish its own Digital Asset Links file before enabling Android OIDC.
 
 ## Account behavior
 
