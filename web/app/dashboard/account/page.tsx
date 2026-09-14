@@ -36,7 +36,9 @@ export default function AccountSecurityPage() {
   const [sessions, setSessions] = useState<AuthSessionSummary[]>([]);
   const [devices, setDevices] = useState<RemoteDevice[]>([]);
   const [oidcLinkStatus, setOidcLinkStatus] = useState<OidcLinkStatus | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [areSessionsLoading, setAreSessionsLoading] = useState(true);
+  const [areDevicesLoading, setAreDevicesLoading] = useState(true);
+  const [isOidcLinkStatusLoading, setIsOidcLinkStatusLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
@@ -47,42 +49,38 @@ export default function AccountSecurityPage() {
   const [isOidcLinkOpen, setIsOidcLinkOpen] = useState(false);
   const [oidcCurrentPassword, setOidcCurrentPassword] = useState('');
 
-  const loadSecurityData = useCallback(async () => {
+  const loadSecurityData = useCallback(() => {
     if (!auth.isAuthenticated) {
       return;
     }
 
-    setIsLoading(true);
+    setAreSessionsLoading(true);
+    setAreDevicesLoading(true);
+    setIsOidcLinkStatusLoading(true);
     setError(null);
-    try {
-      const [sessionResult, deviceResult, linkStatusResult] = await Promise.allSettled([
-        auth.apiRequest<AuthSessionsResponse>('/auth/sessions'),
-        auth.apiRequest<RemoteDevicesResponse>('/devices'),
-        auth.apiRequest<OidcLinkStatus>('/auth/oidc/link'),
-      ]);
-      setOidcLinkStatus((currentStatus) =>
-        linkStatusResult.status === 'fulfilled'
-          ? linkStatusResult.value
-          : (currentStatus ?? UNAVAILABLE_OIDC_LINK_STATUS),
-      );
-      if (sessionResult.status === 'rejected') {
-        throw sessionResult.reason;
-      }
-      if (deviceResult.status === 'rejected') {
-        throw deviceResult.reason;
-      }
-      setSessions(sessionResult.value.sessions);
-      setDevices(deviceResult.value.devices);
-    } catch (nextError) {
-      setError(formatError(nextError));
-    } finally {
-      setIsLoading(false);
-    }
+
+    void auth
+      .apiRequest<AuthSessionsResponse>('/auth/sessions')
+      .then((response) => setSessions(response.sessions))
+      .catch((nextError) => setError(formatError(nextError)))
+      .finally(() => setAreSessionsLoading(false));
+    void auth
+      .apiRequest<RemoteDevicesResponse>('/devices')
+      .then((response) => setDevices(response.devices))
+      .catch((nextError) => setError(formatError(nextError)))
+      .finally(() => setAreDevicesLoading(false));
+    void auth
+      .apiRequest<OidcLinkStatus>('/auth/oidc/link')
+      .then(setOidcLinkStatus)
+      .catch(() =>
+        setOidcLinkStatus((currentStatus) => currentStatus ?? UNAVAILABLE_OIDC_LINK_STATUS),
+      )
+      .finally(() => setIsOidcLinkStatusLoading(false));
   }, [auth]);
 
   useEffect(() => {
     if (auth.isHydrated && auth.isAuthenticated) {
-      void loadSecurityData();
+      loadSecurityData();
     }
   }, [auth.isAuthenticated, auth.isHydrated, loadSecurityData]);
 
@@ -166,7 +164,7 @@ export default function AccountSecurityPage() {
       setNotice(`${pendingAction.label} revoked.`);
       setPendingAction(null);
       setCurrentPassword('');
-      await loadSecurityData();
+      loadSecurityData();
     } catch (nextError) {
       setError(formatError(nextError));
     } finally {
@@ -231,7 +229,7 @@ export default function AccountSecurityPage() {
               <span className="chip remote-chip-online">linked</span>
             ) : null}
           </div>
-          {isLoading || oidcLinkStatus == null ? (
+          {isOidcLinkStatusLoading || oidcLinkStatus == null ? (
             <p className="muted">Loading sign-in methods…</p>
           ) : !oidcLinkStatus.enabled ? (
             <p className="muted">OIDC account linking is unavailable on this server.</p>
@@ -268,15 +266,15 @@ export default function AccountSecurityPage() {
             </div>
             <Button
               className="secondary"
-              disabled={isLoading || otherSessionCount === 0 || isSubmitting}
+              disabled={areSessionsLoading || otherSessionCount === 0 || isSubmitting}
               type="button"
               onClick={() => setPendingAction({ kind: 'others', label: 'Other sessions' })}
             >
               Revoke all others
             </Button>
           </div>
-          {isLoading ? <p className="muted">Loading sessions…</p> : null}
-          {!isLoading && sessions.length === 0 ? (
+          {areSessionsLoading ? <p className="muted">Loading sessions…</p> : null}
+          {!areSessionsLoading && sessions.length === 0 ? (
             <p className="muted">No active sessions were returned.</p>
           ) : null}
           <div className="account-security-list">
@@ -284,7 +282,7 @@ export default function AccountSecurityPage() {
               <SessionRow
                 key={session.id}
                 session={session}
-                disabled={isSubmitting}
+                disabled={areSessionsLoading || isSubmitting}
                 onRevoke={() => {
                   if (session.isCurrent) {
                     setIsSignOutOpen(true);
@@ -318,9 +316,9 @@ export default function AccountSecurityPage() {
             </div>
             <Button
               className="secondary"
-              disabled={isLoading}
+              disabled={areDevicesLoading}
               type="button"
-              onClick={() => void loadSecurityData()}
+              onClick={loadSecurityData}
             >
               Refresh
             </Button>
@@ -329,8 +327,8 @@ export default function AccountSecurityPage() {
             Revoking a device also revokes the Android session that last registered it. A command
             already delivered to Android may still finish.
           </p>
-          {isLoading ? <p className="muted">Loading devices…</p> : null}
-          {!isLoading && devices.length === 0 ? (
+          {areDevicesLoading ? <p className="muted">Loading devices…</p> : null}
+          {!areDevicesLoading && devices.length === 0 ? (
             <p className="muted">
               No Android devices registered. Enable web remote control in Kestrel Options to add
               one.
@@ -341,7 +339,7 @@ export default function AccountSecurityPage() {
               <DeviceRow
                 key={device.id}
                 device={device}
-                disabled={isSubmitting}
+                disabled={areDevicesLoading || isSubmitting}
                 onRevoke={() =>
                   setPendingAction({ id: device.id, kind: 'device', label: device.name })
                 }
