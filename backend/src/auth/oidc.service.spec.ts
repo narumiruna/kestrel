@@ -498,6 +498,52 @@ describe('OidcService', () => {
     },
   );
 
+  it('recovers an ambiguously committed callback claim', async () => {
+    const prisma = createPrismaMock();
+    let committedAttempt: ReturnType<typeof completedAttempt> | null = null;
+    prisma.transaction.oidcLoginAttempt.create.mockImplementation(
+      ({ data }: { data: ReturnType<typeof completedAttempt> }) => {
+        committedAttempt = {
+          ...completedAttempt(),
+          ...data,
+          callbackCompletedAt: null,
+          exchangeTicketHash: null,
+        };
+        return committedAttempt;
+      },
+    );
+    prisma.oidcLoginAttempt.findUnique.mockImplementation(() =>
+      Promise.resolve(committedAttempt),
+    );
+    prisma.$transaction.mockImplementationOnce(async (operation) => {
+      await operation(prisma.transaction);
+      throw new Prisma.PrismaClientKnownRequestError(
+        'commit acknowledgement lost',
+        {
+          clientVersion: '6.19.3',
+          code: 'P1001',
+        },
+      );
+    });
+    mockDiscovery();
+    const service = createService(prisma);
+    const { authorizationUrl } = await service.start({
+      clientNonce: CLIENT_NONCE,
+      clientType: 'web',
+    });
+    const state = new URL(authorizationUrl).searchParams.get('state')!;
+    await mockTokenAndJwks(state);
+
+    const redirect = new URL(
+      await service.callback({ code: 'authorization-code', state }),
+    );
+
+    expect(
+      new URLSearchParams(redirect.hash.slice(1)).get('ticket'),
+    ).toHaveLength(43);
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+  });
+
   it('retries a serializable callback-claim conflict', async () => {
     const prisma = createPrismaMock();
     mockDiscovery();

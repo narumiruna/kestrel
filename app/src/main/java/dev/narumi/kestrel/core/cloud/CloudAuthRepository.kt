@@ -34,27 +34,28 @@ internal class CloudAuthRepository private constructor(
 
     suspend fun getOidcMethod(): OidcMethod = apiClient.getAuthMethods().oidc
 
-    suspend fun beginOidcLogin(): String {
-        val apiBaseUrl = normalizeCloudApiBaseUrl(prefs.cloudSettingsValue().apiBaseUrl)
-        val clientNonce = UUID.randomUUID().toString()
-        val attempt = OidcAuthAttempt(apiBaseUrl = apiBaseUrl, clientNonce = clientNonce)
-        oidcAttemptStore.save(attempt)
-        return try {
-            apiClient.startOidc(clientNonce).authorizationUrl.also(::validateAuthorizationUrl)
-        } catch (failure: CancellationException) {
-            clearOidcAttemptAfterFailure(attempt, failure)
-        } catch (failure: CloudApiException) {
-            clearOidcAttemptAfterFailure(attempt, failure)
-        } catch (failure: IOException) {
-            clearOidcAttemptAfterFailure(attempt, failure)
-        } catch (failure: SerializationException) {
-            clearOidcAttemptAfterFailure(attempt, failure)
-        } catch (failure: IllegalArgumentException) {
-            clearOidcAttemptAfterFailure(attempt, failure)
-        } catch (failure: IllegalStateException) {
-            clearOidcAttemptAfterFailure(attempt, failure)
+    suspend fun beginOidcLogin(): String =
+        refreshMutex.withLock {
+            val apiBaseUrl = normalizeCloudApiBaseUrl(prefs.cloudSettingsValue().apiBaseUrl)
+            val clientNonce = UUID.randomUUID().toString()
+            val attempt = OidcAuthAttempt(apiBaseUrl = apiBaseUrl, clientNonce = clientNonce)
+            oidcAttemptStore.save(attempt)
+            try {
+                apiClient.startOidc(clientNonce).authorizationUrl.also(::validateAuthorizationUrl)
+            } catch (failure: CancellationException) {
+                clearOidcAttemptAfterFailure(attempt, failure)
+            } catch (failure: CloudApiException) {
+                clearOidcAttemptAfterFailure(attempt, failure)
+            } catch (failure: IOException) {
+                clearOidcAttemptAfterFailure(attempt, failure)
+            } catch (failure: SerializationException) {
+                clearOidcAttemptAfterFailure(attempt, failure)
+            } catch (failure: IllegalArgumentException) {
+                clearOidcAttemptAfterFailure(attempt, failure)
+            } catch (failure: IllegalStateException) {
+                clearOidcAttemptAfterFailure(attempt, failure)
+            }
         }
-    }
 
     suspend fun completeOidcLogin(rawCallbackUri: String): CloudSession {
         val callback = parseOidcCallback(rawCallbackUri)

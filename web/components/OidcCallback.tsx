@@ -57,10 +57,10 @@ export function OidcCallback() {
     const fragment = new URLSearchParams(window.location.hash.slice(1));
     const keys = Array.from(fragment.keys());
     if (keys.length > 0) {
-      window.history.replaceState(null, '', window.location.pathname);
       const errorCodes = fragment.getAll('error');
       const tickets = fragment.getAll('ticket');
       if (keys.length === 1 && errorCodes.length === 1 && tickets.length === 0) {
+        window.history.replaceState(null, '', window.location.pathname);
         clearPendingExchange();
         setError(describeCallbackError(errorCodes[0]));
         setIsCompleting(false);
@@ -76,6 +76,7 @@ export function OidcCallback() {
         authenticationAttempt == null ||
         !EXCHANGE_VALUE_PATTERN.test(authenticationAttempt)
       ) {
+        window.history.replaceState(null, '', window.location.pathname);
         clearPendingExchange();
         setError('OIDC returned an incomplete sign-in response. Please try again.');
         setIsCompleting(false);
@@ -83,7 +84,12 @@ export function OidcCallback() {
       }
 
       const pending = { authenticationAttempt, ticket };
-      savePendingExchange(pending);
+      if (!savePendingExchange(pending)) {
+        setError('Could not save the OIDC response. Reload this page to retry.');
+        setIsCompleting(false);
+        return;
+      }
+      window.history.replaceState(null, '', window.location.pathname);
       setPendingExchange(pending);
       void completeExchange(pending);
       return;
@@ -149,11 +155,12 @@ function readPendingExchange(): PendingOidcExchange | null {
   }
 }
 
-function savePendingExchange(pending: PendingOidcExchange): void {
+function savePendingExchange(pending: PendingOidcExchange): boolean {
   try {
     window.sessionStorage.setItem(EXCHANGE_STORAGE_KEY, JSON.stringify(pending));
+    return true;
   } catch {
-    // The in-memory retry remains available when tab storage is unavailable.
+    return false;
   }
 }
 

@@ -316,20 +316,37 @@ export class OidcService {
         if (code === 'P2034' && attempt < CALLBACK_CLAIM_TRANSACTION_ATTEMPTS) {
           continue;
         }
-        if (code !== 'P2002') {
-          throw error;
+        if (code === 'P2002' || isRetryablePrismaError(error)) {
+          try {
+            const committedAttempt =
+              await this.prismaService.oidcLoginAttempt.findUnique({
+                where: { stateHash },
+              });
+            if (committedAttempt?.id === attemptId) {
+              return null;
+            }
+            if (committedAttempt != null || code === 'P2002') {
+              return this.recoverCallbackRedirect(
+                committedAttempt,
+                rawState,
+                authorizationState,
+                configuration,
+                callbackStartedAt,
+              );
+            }
+          } catch (lookupError) {
+            if (
+              !isRetryablePrismaError(lookupError) ||
+              attempt === CALLBACK_CLAIM_TRANSACTION_ATTEMPTS
+            ) {
+              throw lookupError;
+            }
+          }
+          if (attempt < CALLBACK_CLAIM_TRANSACTION_ATTEMPTS) {
+            continue;
+          }
         }
-        const racedAttempt =
-          await this.prismaService.oidcLoginAttempt.findUnique({
-            where: { stateHash },
-          });
-        return this.recoverCallbackRedirect(
-          racedAttempt,
-          rawState,
-          authorizationState,
-          configuration,
-          callbackStartedAt,
-        );
+        throw error;
       }
     }
     throw new InternalServerErrorException('OIDC callback claim failed');
