@@ -14,6 +14,33 @@ data class CloudSession(
 )
 
 @Serializable
+internal data class AuthMethodsResponse(
+    val pocketId: PocketIdMethod,
+)
+
+@Serializable
+internal data class PocketIdMethod(
+    val enabled: Boolean,
+)
+
+@Serializable
+internal data class StartPocketIdRequest(
+    val clientType: String = "android",
+    val clientNonce: String,
+)
+
+@Serializable
+internal data class StartPocketIdResponse(
+    val authorizationUrl: String,
+)
+
+@Serializable
+internal data class ExchangePocketIdRequest(
+    val exchangeTicket: String,
+    val clientNonce: String,
+)
+
+@Serializable
 internal data class LoginWithTotpRequest(
     val username: String,
     val password: String,

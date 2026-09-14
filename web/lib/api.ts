@@ -19,6 +19,14 @@ export type LoginInput = {
   username: string;
 };
 
+export type AuthMethods = {
+  pocketId: {
+    enabled: boolean;
+  };
+};
+
+export type PocketIdClientType = 'android' | 'web';
+
 export type ChangePasswordInput = {
   currentPassword: string;
   newPassword: string;
@@ -309,6 +317,24 @@ export async function apiFetch<T>(
 export function login(input: LoginInput) {
   return apiFetch<AuthSession>('/auth/login', {
     body: JSON.stringify(input),
+    method: 'POST',
+  });
+}
+
+export function getAuthMethods() {
+  return apiFetch<AuthMethods>('/auth/methods', { cache: 'no-store' });
+}
+
+export function startPocketId(clientNonce: string, clientType: PocketIdClientType) {
+  return apiFetch<{ authorizationUrl: string }>('/auth/oidc/pocket-id/start', {
+    body: JSON.stringify({ clientNonce, clientType }),
+    method: 'POST',
+  });
+}
+
+export function exchangePocketId(exchangeTicket: string, clientNonce: string) {
+  return apiFetch<AuthSession>('/auth/oidc/pocket-id/exchange', {
+    body: JSON.stringify({ clientNonce, exchangeTicket }),
     method: 'POST',
   });
 }

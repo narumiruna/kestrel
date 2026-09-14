@@ -6,7 +6,15 @@ import { type FormEvent, useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import { BrandMark } from '@/components/BrandMark';
 import { Button, CheckboxField, Tabs, TextInput } from '@/components/ui/radix-ui';
-import { ApiError, login, register, setupTotp, verifyTotp } from '@/lib/api';
+import {
+  ApiError,
+  getAuthMethods,
+  login,
+  register,
+  setupTotp,
+  startPocketId,
+  verifyTotp,
+} from '@/lib/api';
 
 type AuthTab = 'login' | 'register';
 type TotpSetup = {
@@ -30,6 +38,7 @@ export default function LoginPage() {
   const [recoveryCodes, setRecoveryCodes] = useState<string[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [pocketIdEnabled, setPocketIdEnabled] = useState(false);
   const didApplyDevDefaultsRef = useRef(false);
 
   useEffect(() => {
@@ -47,6 +56,35 @@ export default function LoginPage() {
       router.replace('/dashboard');
     }
   }, [auth.isAuthenticated, auth.isHydrated, router]);
+
+  useEffect(() => {
+    let cancelled = false;
+    getAuthMethods()
+      .then((methods) => {
+        if (!cancelled) {
+          setPocketIdEnabled(methods.pocketId.enabled);
+        }
+      })
+      .catch(() => {
+        // Local authentication remains available when method discovery fails.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function beginPocketIdSignIn() {
+    setError(null);
+    setIsSubmitting(true);
+    try {
+      const authenticationAttemptId = await auth.beginAuthentication();
+      const { authorizationUrl } = await startPocketId(authenticationAttemptId, 'web');
+      window.location.assign(authorizationUrl);
+    } catch (nextError) {
+      setError(formatError(nextError));
+      setIsSubmitting(false);
+    }
+  }
 
   async function submitLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -178,6 +216,21 @@ export default function LoginPage() {
               <Button disabled={isSubmitting} type="submit">
                 {isSubmitting ? 'Signing in…' : 'Sign in'}
               </Button>
+              {pocketIdEnabled ? (
+                <>
+                  <div className="auth-alternative" aria-hidden="true">
+                    <span>or</span>
+                  </div>
+                  <Button
+                    className="secondary"
+                    disabled={isSubmitting}
+                    type="button"
+                    onClick={() => void beginPocketIdSignIn()}
+                  >
+                    Continue with Pocket ID
+                  </Button>
+                </>
+              ) : null}
             </form>
           </Tabs.Panel>
           <Tabs.Panel className="auth-tab-panel" value="register">

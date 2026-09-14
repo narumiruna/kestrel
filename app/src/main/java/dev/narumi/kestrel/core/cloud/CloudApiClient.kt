@@ -19,6 +19,23 @@ internal class CloudApiClient(
     CloudRemoteControlApi {
     private val json = Json { ignoreUnknownKeys = true }
 
+    suspend fun getAuthMethods(): AuthMethodsResponse = getJson(path = "/auth/methods")
+
+    suspend fun startPocketId(clientNonce: String): StartPocketIdResponse =
+        postJson<StartPocketIdRequest, StartPocketIdResponse>(
+            path = "/auth/oidc/pocket-id/start",
+            body = StartPocketIdRequest(clientNonce = clientNonce),
+        )
+
+    suspend fun exchangePocketId(
+        exchangeTicket: String,
+        clientNonce: String,
+    ): CloudSession =
+        postJson<ExchangePocketIdRequest, AuthSessionResponse>(
+            path = "/auth/oidc/pocket-id/exchange",
+            body = ExchangePocketIdRequest(exchangeTicket = exchangeTicket, clientNonce = clientNonce),
+        ).toSession()
+
     suspend fun loginWithTotp(
         username: String,
         password: String,

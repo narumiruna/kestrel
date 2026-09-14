@@ -32,6 +32,10 @@ Additional auth settings:
 - `AUTH_RATE_LIMIT_BLOCK_SECONDS`: optional temporary block duration in seconds after hitting the limit (defaults to 900)
 - `AUTH_TOTP_ENCRYPTION_KEY`: 32-byte key encoded as base64 (or 64-char hex) for encrypting stored TOTP secrets
 - `AUTH_TOTP_ISSUER`: optional otpauth issuer label shown in authenticator apps
+- `AUTH_POCKET_ID_ISSUER`, `AUTH_POCKET_ID_CLIENT_ID`, `AUTH_POCKET_ID_CLIENT_SECRET`, `AUTH_POCKET_ID_REDIRECT_URI`, `AUTH_POCKET_ID_WEB_CALLBACK_URI`: optional Pocket ID OIDC configuration; set all values to enable it
+- `AUTH_OIDC_FLOW_ENCRYPTION_KEY`: separate 32-byte base64 or 64-character hex key for short-lived OIDC PKCE state
+
+See [`docs/pocket-id.md`](../docs/pocket-id.md) for Pocket ID client setup and account-mapping rules.
 
 ## Local development
 
@@ -76,6 +80,11 @@ The current migrations establish the core Phase 1 auth tables:
 - `totp_enabled_at`
 - `created_at`
 - `updated_at`
+
+### `federated_identities` and `oidc_login_attempts`
+
+- Immutable provider `issuer + sub` mappings to Kestrel users
+- Short-lived hashed state/exchange tickets and encrypted PKCE verifier data
 
 ### `recovery_codes`
 
@@ -123,5 +132,9 @@ The current migrations establish the core Phase 1 auth tables:
 ## Auth endpoints
 
 - `POST /auth/login`: username/password + TOTP or recovery code → access token + refresh token + session
+- `GET /auth/methods`: public availability of optional sign-in methods
+- `POST /auth/oidc/pocket-id/start`: create a Web/Android Pocket ID authorization attempt
+- `GET /auth/oidc/pocket-id/callback`: verify Pocket ID and redirect with a one-time exchange ticket
+- `POST /auth/oidc/pocket-id/exchange`: consume the client-bound ticket → normal Kestrel session
 - `POST /auth/refresh`: refresh token rotation + new short-lived access token; retrying the immediately previous token within 20 minutes returns the same encrypted-at-rest successor, while reuse after that window revokes the session
 - `POST /auth/session/revoke`: revoke the current session using `Authorization: Bearer <access_token>`

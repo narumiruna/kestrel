@@ -75,7 +75,9 @@ The choice applies to the next route start or restore. A route restored after pr
 
 ### Cloud sync
 
-Sign in with username, password, and then an authenticator or recovery code. Local Favorites remain available while signed out or offline. Sync errors retain the previous local data and provide a retry/reconnect action.
+Sign in with username, password, and then an authenticator or recovery code. When the selected server enables Pocket ID, **Continue with Pocket ID** opens the system browser for passkey authentication and returns to Kestrel through an exact app deep link. Local Favorites remain available while signed out or offline. Sync errors retain the previous local data and provide a retry/reconnect action.
+
+Pocket ID account provisioning and collision behavior are documented in [Pocket ID sign-in](pocket-id.md).
 
 The server address can be changed only while signed out so account, session, and remote-control state cannot be split between servers.
 

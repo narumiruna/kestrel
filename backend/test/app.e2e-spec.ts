@@ -238,6 +238,7 @@ describe('AppController (e2e)', () => {
     process.env.AUTH_TOTP_ENCRYPTION_KEY =
       'MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=';
     process.env.AUTH_TOTP_ISSUER = 'Kestrel Test';
+    clearPocketIdEnvironment();
     storedAuditLogs = [];
     storedRateLimits = new Map();
     storedRecoveryCodes = [];
@@ -705,6 +706,16 @@ describe('AppController (e2e)', () => {
     expect(prismaService.$queryRaw).toHaveBeenCalledTimes(1);
   });
 
+  it('/auth/methods (GET) keeps local auth available when Pocket ID is disabled', async () => {
+    await request(server)
+      .get('/auth/methods')
+      .expect('cache-control', 'no-store')
+      .expect(200)
+      .expect({
+        pocketId: { enabled: false },
+      });
+  });
+
   it('/auth/register (POST)', async () => {
     const createdAt = new Date('2026-05-09T00:00:00.000Z');
 
@@ -921,6 +932,7 @@ describe('AppController (e2e)', () => {
     delete process.env.AUTH_ACCESS_TOKEN_TTL_SECONDS;
     delete process.env.AUTH_TOTP_ENCRYPTION_KEY;
     delete process.env.AUTH_TOTP_ISSUER;
+    clearPocketIdEnvironment();
   });
 
   function enrichSessionRecord(
@@ -968,6 +980,15 @@ function applySelect(
       return [];
     }),
   );
+}
+
+function clearPocketIdEnvironment(): void {
+  delete process.env.AUTH_OIDC_FLOW_ENCRYPTION_KEY;
+  delete process.env.AUTH_POCKET_ID_CLIENT_ID;
+  delete process.env.AUTH_POCKET_ID_CLIENT_SECRET;
+  delete process.env.AUTH_POCKET_ID_ISSUER;
+  delete process.env.AUTH_POCKET_ID_REDIRECT_URI;
+  delete process.env.AUTH_POCKET_ID_WEB_CALLBACK_URI;
 }
 
 function getRateLimitKey(type: string, subject: string): string {

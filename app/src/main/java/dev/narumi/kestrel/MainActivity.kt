@@ -42,6 +42,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.narumi.kestrel.core.cloud.CloudSyncRepository
 import dev.narumi.kestrel.core.cloud.RemoteControlPoller
+import dev.narumi.kestrel.core.cloud.isPocketIdCallbackUri
 import dev.narumi.kestrel.core.library.LibraryItemWithContent
 import dev.narumi.kestrel.core.location.LatLng
 import dev.narumi.kestrel.core.location.LocationService
@@ -59,6 +60,7 @@ private const val OPERATION_TIMEOUT_MILLIS = 10_000L
 
 class MainActivity : ComponentActivity() {
     private var pendingMapLinkPoint by mutableStateOf<LatLng?>(null)
+    private var pendingPocketIdCallback by mutableStateOf<String?>(null)
     private var skipCloudSyncOnForeground by mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -69,8 +71,10 @@ class MainActivity : ComponentActivity() {
             KestrelTheme {
                 KestrelApp(
                     pendingMapLinkPoint = pendingMapLinkPoint,
+                    pendingPocketIdCallback = pendingPocketIdCallback,
                     skipCloudSyncOnForeground = skipCloudSyncOnForeground,
                     onMapLinkPointConsumed = { pendingMapLinkPoint = null },
+                    onPocketIdCallbackConsumed = { pendingPocketIdCallback = null },
                 )
             }
         }
@@ -84,7 +88,13 @@ class MainActivity : ComponentActivity() {
 
     private fun consumeMainIntent(intent: Intent?) {
         skipCloudSyncOnForeground = intent?.getBooleanExtra(EXTRA_SKIP_CLOUD_SYNC_ON_FOREGROUND, false) == true
-        consumeMapLinkIntent(intent)
+        val viewedUri = intent?.dataString.takeIf { intent?.action == Intent.ACTION_VIEW }
+        if (isPocketIdCallbackUri(viewedUri)) {
+            pendingMapLinkPoint = null
+            pendingPocketIdCallback = viewedUri
+        } else {
+            consumeMapLinkIntent(intent)
+        }
     }
 
     private fun consumeMapLinkIntent(intent: Intent?) {
@@ -107,8 +117,10 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun KestrelApp(
     pendingMapLinkPoint: LatLng? = null,
+    pendingPocketIdCallback: String? = null,
     skipCloudSyncOnForeground: Boolean = false,
     onMapLinkPointConsumed: () -> Unit = {},
+    onPocketIdCallbackConsumed: () -> Unit = {},
 ) {
     var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.HOME) }
     var pendingFavoriteApply by remember { mutableStateOf<LibraryItemWithContent?>(null) }
@@ -144,6 +156,12 @@ fun KestrelApp(
     LaunchedEffect(pendingMapLinkPoint) {
         if (pendingMapLinkPoint != null) {
             currentDestination = AppDestinations.HOME
+        }
+    }
+
+    LaunchedEffect(pendingPocketIdCallback) {
+        if (pendingPocketIdCallback != null) {
+            currentDestination = AppDestinations.SETTINGS
         }
     }
 
@@ -206,8 +224,10 @@ fun KestrelApp(
                     currentDestination = currentDestination,
                     pendingFavoriteApply = pendingFavoriteApply,
                     pendingMapLinkPoint = pendingMapLinkPoint,
+                    pendingPocketIdCallback = pendingPocketIdCallback,
                     onFavoriteApplyConsumed = { pendingFavoriteApply = null },
                     onMapLinkPointConsumed = onMapLinkPointConsumed,
+                    onPocketIdCallbackConsumed = onPocketIdCallbackConsumed,
                     onApplyFavorite = { favorite ->
                         pendingFavoriteApply = favorite
                         currentDestination = AppDestinations.HOME
@@ -252,8 +272,10 @@ private fun AppDestinationContent(
     currentDestination: AppDestinations,
     pendingFavoriteApply: LibraryItemWithContent?,
     pendingMapLinkPoint: LatLng?,
+    pendingPocketIdCallback: String?,
     onFavoriteApplyConsumed: () -> Unit,
     onMapLinkPointConsumed: () -> Unit,
+    onPocketIdCallbackConsumed: () -> Unit,
     onApplyFavorite: (LibraryItemWithContent) -> Unit,
     onShowMap: () -> Unit,
     onShowFavorites: () -> Unit,
@@ -275,7 +297,12 @@ private fun AppDestinationContent(
                 onApplyToMap = onApplyFavorite,
                 onChooseOnMap = onShowMap,
             )
-        AppDestinations.SETTINGS -> OptionsScreen(modifier = modifier)
+        AppDestinations.SETTINGS ->
+            OptionsScreen(
+                pendingPocketIdCallback = pendingPocketIdCallback,
+                onPocketIdCallbackConsumed = onPocketIdCallbackConsumed,
+                modifier = modifier,
+            )
     }
 }
 

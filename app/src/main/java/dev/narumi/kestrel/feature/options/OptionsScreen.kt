@@ -1,5 +1,7 @@
 package dev.narumi.kestrel.feature.options
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -115,7 +117,11 @@ private fun OptionsCard(
 
 @Suppress("LongMethod")
 @Composable
-fun OptionsScreen(modifier: Modifier = Modifier) {
+fun OptionsScreen(
+    pendingPocketIdCallback: String? = null,
+    onPocketIdCallbackConsumed: () -> Unit = {},
+    modifier: Modifier = Modifier,
+) {
     val context = LocalContext.current
     val prefs = remember { KestrelPrefs(context) }
     val libraryRepository = remember { LibraryRepository.getInstance(context) }
@@ -261,13 +267,19 @@ fun OptionsScreen(modifier: Modifier = Modifier) {
         )
 
         KestrelSectionHeader(title = "Connected services", modifier = Modifier.padding(top = 12.dp))
-        CloudSettingsSection()
+        CloudSettingsSection(
+            pendingPocketIdCallback = pendingPocketIdCallback,
+            onPocketIdCallbackConsumed = onPocketIdCallbackConsumed,
+        )
     }
 }
 
 @Suppress("CyclomaticComplexMethod", "LongMethod")
 @Composable
-private fun CloudSettingsSection() {
+private fun CloudSettingsSection(
+    pendingPocketIdCallback: String?,
+    onPocketIdCallbackConsumed: () -> Unit,
+) {
     val context = LocalContext.current
     val prefs = remember { KestrelPrefs(context) }
     val authRepository = remember { CloudAuthRepository.getInstance(context) }
@@ -289,6 +301,7 @@ private fun CloudSettingsSection() {
     var cloudMessage by remember { mutableStateOf<String?>(null) }
     var cloudError by remember { mutableStateOf<String?>(null) }
     var cloudLoading by remember { mutableStateOf(false) }
+    var pocketIdEnabled by remember { mutableStateOf(false) }
     var apiBaseUrl by remember { mutableStateOf(cloudSettings.apiBaseUrl) }
     var confirmRemoteEnable by remember { mutableStateOf(false) }
     var confirmSignOut by remember { mutableStateOf(false) }
@@ -308,6 +321,18 @@ private fun CloudSettingsSection() {
 
     LaunchedEffect(cloudSettings.apiBaseUrl) {
         apiBaseUrl = cloudSettings.apiBaseUrl
+        pocketIdEnabled =
+            try {
+                authRepository.isPocketIdEnabled()
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: CloudApiException) {
+                false
+            } catch (_: IOException) {
+                false
+            } catch (_: IllegalStateException) {
+                false
+            }
     }
 
     fun setRemoteControlEnabled(enabled: Boolean) {
@@ -367,6 +392,25 @@ private fun CloudSettingsSection() {
         }
     }
 
+    LaunchedEffect(pendingPocketIdCallback) {
+        val callbackUri = pendingPocketIdCallback ?: return@LaunchedEffect
+        try {
+            runCloudAction(
+                setLoading = { cloudLoading = it },
+                setError = { cloudError = it },
+                setMessage = { cloudMessage = it },
+            ) {
+                val session = authRepository.completePocketIdLogin(callbackUri)
+                cloudSession = session
+                loginForm = CloudLoginForm()
+                syncRepository.syncNow()
+                cloudMessage = "Signed in as ${session.username} with Pocket ID"
+            }
+        } finally {
+            onPocketIdCallbackConsumed()
+        }
+    }
+
     if (confirmRemoteEnable) {
         ConfirmRemoteControlDialog(
             deviceName = remoteControlSettings.deviceName,
@@ -411,6 +455,7 @@ private fun CloudSettingsSection() {
                 syncState = cloudSyncState,
             ),
         loginForm = loginForm,
+        serverValid = isValidCloudServerAddress(apiBaseUrl),
         sessionLoaded = cloudSessionLoaded,
         expanded = cloudExpanded,
         onExpandedChange = { expanded ->
@@ -458,6 +503,19 @@ private fun CloudSettingsSection() {
                 loginForm = CloudLoginForm()
                 syncRepository.syncNow()
                 cloudMessage = "Signed in as ${session.username}"
+            }
+        },
+        pocketIdEnabled = pocketIdEnabled,
+        onPocketIdLogin = {
+            launchCloudUiAction(
+                scope = scope,
+                setLoading = { cloudLoading = it },
+                setError = { cloudError = it },
+                setMessage = { cloudMessage = it },
+            ) {
+                val authorizationUrl = authRepository.beginPocketIdLogin()
+                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(authorizationUrl)))
+                cloudMessage = "Continue sign-in in your browser"
             }
         },
         onRefreshSession = {
@@ -526,6 +584,7 @@ private fun CloudSettingsSection() {
 private fun CloudSettingsCard(
     uiState: CloudSettingsUiState,
     loginForm: CloudLoginForm,
+    serverValid: Boolean,
     sessionLoaded: Boolean,
     expanded: Boolean,
     onExpandedChange: (Boolean) -> Unit,
@@ -533,11 +592,12 @@ private fun CloudSettingsCard(
     onLoginFormChange: (CloudLoginForm) -> Unit,
     onSaveApiBaseUrl: () -> Unit,
     onLogin: () -> Unit,
+    pocketIdEnabled: Boolean,
+    onPocketIdLogin: () -> Unit,
     onRefreshSession: () -> Unit,
     onLogout: () -> Unit,
     onSyncNow: () -> Unit,
 ) {
-    val serverValid = isValidCloudServerAddress(uiState.apiBaseUrl)
     OptionsDisclosureCard(
         title = OptionsSection.Cloud.title,
         icon = Icons.Outlined.CloudQueue,
@@ -599,6 +659,8 @@ private fun CloudSettingsCard(
                 loading = uiState.loading,
                 onLoginFormChange = onLoginFormChange,
                 onLogin = onLogin,
+                pocketIdEnabled = pocketIdEnabled,
+                onPocketIdLogin = onPocketIdLogin,
             )
         } else {
             CloudSignedInCardContent(
@@ -692,6 +754,8 @@ private fun CloudSignedOutCardContent(
     loading: Boolean,
     onLoginFormChange: (CloudLoginForm) -> Unit,
     onLogin: () -> Unit,
+    pocketIdEnabled: Boolean,
+    onPocketIdLogin: () -> Unit,
 ) {
     OutlinedTextField(
         value = loginForm.username,
@@ -751,6 +815,16 @@ private fun CloudSignedOutCardContent(
                     loginForm.oneTimeCode.isNotBlank(),
         ) {
             Text(if (loading) "Signing in…" else "Sign in")
+        }
+    }
+    if (pocketIdEnabled) {
+        HorizontalDivider()
+        OutlinedButton(
+            onClick = onPocketIdLogin,
+            enabled = !loading,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text("Continue with Pocket ID")
         }
     }
 }

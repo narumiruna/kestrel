@@ -10,6 +10,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.SerializationException
 import java.io.IOException
+import java.net.URI
 import java.security.GeneralSecurityException
 import java.util.UUID
 
@@ -19,6 +20,7 @@ internal class CloudAuthRepository private constructor(
     private val applicationContext = context.applicationContext
     private val prefs = KestrelPrefs(applicationContext)
     private val sessionStore = CloudSessionStore(applicationContext)
+    private val pocketIdAttemptStore = PocketIdAuthAttemptStore(applicationContext)
     private val apiClient = CloudApiClient(baseUrlProvider = { prefs.cloudSettingsValue().apiBaseUrl })
     private val refreshMutex = Mutex()
     private val _hasSession = MutableStateFlow(sessionStore.hasSession())
@@ -29,6 +31,65 @@ internal class CloudAuthRepository private constructor(
         sessionStore.load().also { session ->
             _hasSession.value = session != null
         }
+
+    suspend fun isPocketIdEnabled(): Boolean = apiClient.getAuthMethods().pocketId.enabled
+
+    suspend fun beginPocketIdLogin(): String {
+        val apiBaseUrl = normalizeCloudApiBaseUrl(prefs.cloudSettingsValue().apiBaseUrl)
+        val clientNonce = UUID.randomUUID().toString()
+        pocketIdAttemptStore.save(
+            PocketIdAuthAttempt(apiBaseUrl = apiBaseUrl, clientNonce = clientNonce),
+        )
+        return try {
+            apiClient.startPocketId(clientNonce).authorizationUrl.also(::validateAuthorizationUrl)
+        } catch (failure: CancellationException) {
+            clearPocketIdAttemptAfterFailure(failure)
+        } catch (failure: CloudApiException) {
+            clearPocketIdAttemptAfterFailure(failure)
+        } catch (failure: IOException) {
+            clearPocketIdAttemptAfterFailure(failure)
+        } catch (failure: SerializationException) {
+            clearPocketIdAttemptAfterFailure(failure)
+        } catch (failure: IllegalArgumentException) {
+            clearPocketIdAttemptAfterFailure(failure)
+        } catch (failure: IllegalStateException) {
+            clearPocketIdAttemptAfterFailure(failure)
+        }
+    }
+
+    suspend fun completePocketIdLogin(rawCallbackUri: String): CloudSession {
+        val callback = parsePocketIdCallback(rawCallbackUri)
+        val attempt = pocketIdAttemptStore.load() ?: error("No Pocket ID sign-in is pending")
+        val currentBaseUrl = normalizeCloudApiBaseUrl(prefs.cloudSettingsValue().apiBaseUrl)
+        check(currentBaseUrl == attempt.apiBaseUrl) {
+            "Cloud server changed during Pocket ID sign-in"
+        }
+
+        return try {
+            when (callback) {
+                is PocketIdCallback.Error -> {
+                    if (callback.errorCode == "access_denied") {
+                        error("Pocket ID sign-in was cancelled")
+                    }
+                    error("Pocket ID sign-in failed")
+                }
+                is PocketIdCallback.Success ->
+                    refreshMutex.withLock {
+                        apiClient
+                            .exchangePocketId(
+                                exchangeTicket = callback.exchangeTicket,
+                                clientNonce = attempt.clientNonce,
+                            ).let {
+                                saveNewSessionOrRevoke(
+                                    it.copy(refreshRequestId = UUID.randomUUID().toString()),
+                                )
+                            }
+                    }
+            }
+        } finally {
+            pocketIdAttemptStore.clear()
+        }
+    }
 
     suspend fun loginWithTotp(
         username: String,
@@ -167,6 +228,19 @@ internal class CloudAuthRepository private constructor(
     private fun clearSession() {
         sessionStore.clear()
         _hasSession.value = false
+    }
+
+    private fun clearPocketIdAttemptAfterFailure(failure: Exception): Nothing {
+        runCatching { pocketIdAttemptStore.clear() }
+        throw failure
+    }
+
+    private fun validateAuthorizationUrl(rawUrl: String) {
+        val uri = URI.create(rawUrl)
+        check(uri.scheme == "https" || uri.scheme == "http") {
+            "Cloud returned an invalid Pocket ID authorization URL"
+        }
+        check(!uri.host.isNullOrBlank()) { "Cloud returned an invalid Pocket ID authorization URL" }
     }
 
     companion object {
