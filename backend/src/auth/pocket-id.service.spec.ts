@@ -2,7 +2,11 @@
 import { createHash, generateKeyPairSync } from 'node:crypto';
 import { SignJWT } from 'jose';
 import { ConfigService } from '../config.service';
-import { ConflictException, GoneException } from '../http/errors';
+import {
+  ConflictException,
+  GoneException,
+  HttpException,
+} from '../http/errors';
 import { PrismaService } from '../prisma/prisma.service';
 import { AccessTokenService } from './access-token.service';
 import { AuthAuditService } from './auth-audit.service';
@@ -68,7 +72,7 @@ describe('PocketIdService', () => {
     expect(state).toMatch(/^[A-Za-z0-9_-]{43}$/);
     expect(state).not.toContain(CLIENT_NONCE);
     expect(providerNonce).toBe(state);
-    expect(prisma.oidcLoginAttempt.create).toHaveBeenCalledWith({
+    expect(prisma.transaction.oidcLoginAttempt.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         clientType: 'web',
         provider: 'pocket_id',
@@ -76,9 +80,41 @@ describe('PocketIdService', () => {
         stateHash: expect.stringMatching(/^[a-f0-9]{64}$/),
       }),
     });
-    expect(prisma.oidcLoginAttempt.create.mock.calls[0][0].data).not.toEqual(
-      expect.objectContaining({ state }),
+    expect(
+      prisma.transaction.oidcLoginAttempt.create.mock.calls[0][0].data,
+    ).not.toEqual(expect.objectContaining({ state }));
+  });
+
+  it('prunes expired attempts and rejects new attempts at the active cap', async () => {
+    const prisma = createPrismaMock();
+    mockDiscovery();
+    prisma.transaction.oidcLoginAttempt.count.mockResolvedValue(1_000);
+    const service = createService(prisma);
+
+    let rejected: unknown;
+    try {
+      await service.start({
+        clientNonce: CLIENT_NONCE,
+        clientType: 'web',
+      });
+    } catch (error) {
+      rejected = error;
+    }
+
+    expect(rejected).toBeInstanceOf(HttpException);
+    expect((rejected as HttpException).getStatus()).toBe(429);
+    expect(prisma.transaction.oidcLoginAttempt.deleteMany).toHaveBeenCalledWith(
+      {
+        where: { expiresAt: { lte: expect.any(Date) } },
+      },
     );
+    expect(prisma.transaction.oidcLoginAttempt.count).toHaveBeenCalledWith({
+      where: {
+        expiresAt: { gt: expect.any(Date) },
+        provider: 'pocket_id',
+      },
+    });
+    expect(prisma.transaction.oidcLoginAttempt.create).not.toHaveBeenCalled();
   });
 
   it('verifies a Pocket ID callback and redirects with only a one-time ticket', async () => {
@@ -90,8 +126,8 @@ describe('PocketIdService', () => {
       clientType: 'web',
     });
     const state = new URL(authorizationUrl).searchParams.get('state')!;
-    const nonce = state.split('.')[0];
-    const stored = prisma.oidcLoginAttempt.create.mock.calls[0][0].data;
+    const stored =
+      prisma.transaction.oidcLoginAttempt.create.mock.calls[0][0].data;
     prisma.oidcLoginAttempt.findUnique.mockResolvedValue({
       ...stored,
       callbackCompletedAt: null,
@@ -105,7 +141,7 @@ describe('PocketIdService', () => {
       subject: null,
     });
     prisma.oidcLoginAttempt.updateMany.mockResolvedValue({ count: 1 });
-    await mockTokenAndJwks(nonce);
+    await mockTokenAndJwks(state);
 
     const redirect = new URL(
       await service.callback({ code: 'authorization-code', state }),
@@ -128,6 +164,49 @@ describe('PocketIdService', () => {
     });
   });
 
+  it('rejects a duplicate callback before redeeming the authorization code', async () => {
+    const prisma = createPrismaMock();
+    mockDiscovery();
+    const service = createService(prisma);
+    const { authorizationUrl } = await service.start({
+      clientNonce: CLIENT_NONCE,
+      clientType: 'web',
+    });
+    const state = new URL(authorizationUrl).searchParams.get('state')!;
+    const stored =
+      prisma.transaction.oidcLoginAttempt.create.mock.calls[0][0].data;
+    prisma.oidcLoginAttempt.findUnique.mockResolvedValue({
+      ...stored,
+      callbackCompletedAt: null,
+      callbackStartedAt: null,
+      consumedAt: null,
+      createdAt: new Date(),
+      exchangeTicketHash: null,
+      id: 'attempt-1',
+      issuer: null,
+      issuerHash: null,
+      preferredUsername: null,
+      subject: null,
+    });
+    prisma.oidcLoginAttempt.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(
+      service.callback({ code: 'authorization-code', state }),
+    ).rejects.toThrow(GoneException);
+
+    expect(prisma.oidcLoginAttempt.updateMany).toHaveBeenCalledTimes(1);
+    expect(prisma.oidcLoginAttempt.updateMany).toHaveBeenCalledWith({
+      data: { callbackStartedAt: expect.any(Date) },
+      where: {
+        callbackCompletedAt: null,
+        callbackStartedAt: null,
+        consumedAt: null,
+        expiresAt: { gt: expect.any(Date) },
+        id: 'attempt-1',
+      },
+    });
+  });
+
   it.each([
     ['access_denied', 'access_denied'],
     ['server_error', 'authentication_failed'],
@@ -142,7 +221,8 @@ describe('PocketIdService', () => {
         clientType: 'web',
       });
       const state = new URL(authorizationUrl).searchParams.get('state')!;
-      const stored = prisma.oidcLoginAttempt.create.mock.calls[0][0].data;
+      const stored =
+        prisma.transaction.oidcLoginAttempt.create.mock.calls[0][0].data;
       prisma.oidcLoginAttempt.findUnique.mockResolvedValue({
         ...stored,
         callbackCompletedAt: null,
@@ -166,7 +246,12 @@ describe('PocketIdService', () => {
       );
       expect(prisma.oidcLoginAttempt.updateMany).toHaveBeenCalledWith({
         data: expect.objectContaining({ consumedAt: expect.any(Date) }),
-        where: { consumedAt: null, id: 'attempt-1' },
+        where: {
+          callbackCompletedAt: null,
+          callbackStartedAt: expect.any(Date),
+          consumedAt: null,
+          id: 'attempt-1',
+        },
       });
     },
   );
@@ -175,6 +260,7 @@ describe('PocketIdService', () => {
     ['nonce', { nonce: 'wrong-nonce' }],
     ['issuer', { issuer: 'https://attacker.example.test' }],
     ['audience', { audience: 'another-client' }],
+    ['authorized party', { azp: 'another-client' }],
     ['expiry', { expiresAt: Math.floor(Date.now() / 1000) - 60 }],
   ])(
     'fails closed when the ID token %s is invalid',
@@ -187,7 +273,8 @@ describe('PocketIdService', () => {
         clientType: 'android',
       });
       const state = new URL(authorizationUrl).searchParams.get('state')!;
-      const stored = prisma.oidcLoginAttempt.create.mock.calls[0][0].data;
+      const stored =
+        prisma.transaction.oidcLoginAttempt.create.mock.calls[0][0].data;
       prisma.oidcLoginAttempt.findUnique.mockResolvedValue({
         ...stored,
         callbackCompletedAt: null,
@@ -213,7 +300,12 @@ describe('PocketIdService', () => {
       expect(fragment.has('ticket')).toBe(false);
       expect(prisma.oidcLoginAttempt.updateMany).toHaveBeenCalledWith({
         data: expect.objectContaining({ consumedAt: expect.any(Date) }),
-        where: { consumedAt: null, id: 'attempt-1' },
+        where: {
+          callbackCompletedAt: null,
+          callbackStartedAt: expect.any(Date),
+          consumedAt: null,
+          id: 'attempt-1',
+        },
       });
     },
   );
@@ -292,6 +384,68 @@ describe('PocketIdService', () => {
       }),
       select: expect.any(Object),
     });
+  });
+
+  it('recovers the same session after an exchange response is lost', async () => {
+    const prisma = createPrismaMock();
+    const attempt = completedAttempt();
+    const now = new Date();
+    prisma.oidcLoginAttempt.findUnique.mockResolvedValue(attempt);
+    prisma.transaction.oidcLoginAttempt.updateMany.mockResolvedValue({
+      count: 1,
+    });
+    prisma.transaction.federatedIdentity.findUnique.mockResolvedValue({
+      issuer: ISSUER,
+      user: { id: 'user-1', username: 'pocket-user' },
+    });
+    prisma.transaction.session.create.mockImplementation(
+      ({ data }: { data: { expiresAt: Date; id: string } }) => ({
+        createdAt: now,
+        expiresAt: data.expiresAt,
+        id: data.id,
+        lastUsedAt: now,
+      }),
+    );
+    const service = createService(prisma);
+    const request = {
+      clientNonce: CLIENT_NONCE,
+      exchangeTicket: 'exchange-ticket-value-1234567890123456',
+    };
+
+    const first = await service.exchange(request);
+    const stored =
+      prisma.transaction.oidcLoginAttempt.updateMany.mock.calls[0][0].data;
+    prisma.oidcLoginAttempt.findUnique.mockResolvedValue({
+      ...attempt,
+      consumedAt: stored.consumedAt,
+      exchangeRefreshTokenEncrypted: stored.exchangeRefreshTokenEncrypted,
+      exchangeSessionId: stored.exchangeSessionId,
+      expiresAt: stored.expiresAt,
+    });
+    prisma.session.findUnique.mockResolvedValue({
+      createdAt: first.session.createdAt,
+      expiresAt: first.session.expiresAt,
+      id: first.session.id,
+      lastUsedAt: first.session.lastUsedAt,
+      refreshTokenHash: sha256(first.refreshToken),
+      revokedAt: null,
+      user: first.user,
+    });
+
+    await expect(
+      service.exchange({
+        ...request,
+        clientNonce: 'wrong-client-nonce-1234567890',
+      }),
+    ).rejects.toThrow(GoneException);
+    const recovered = await service.exchange(request);
+
+    expect(recovered.refreshToken).toBe(first.refreshToken);
+    expect(recovered.session).toEqual(first.session);
+    expect(recovered.user).toEqual(first.user);
+    expect(stored.exchangeRefreshTokenEncrypted).toMatch(/^v1\./);
+    expect(stored.exchangeSessionId).toBe(first.session.id);
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
   });
 
   it('rejects nonce mismatch, username collisions, expired tickets, and replay', async () => {
@@ -378,6 +532,9 @@ function createPrismaMock() {
       findUnique: jest.fn(),
     },
     oidcLoginAttempt: {
+      count: jest.fn().mockResolvedValue(0),
+      create: jest.fn(),
+      deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
       updateMany: jest.fn(),
     },
     session: {
@@ -391,10 +548,11 @@ function createPrismaMock() {
   return {
     federatedIdentity: { findUnique: jest.fn() },
     oidcLoginAttempt: {
-      create: jest.fn(),
-      deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
       findUnique: jest.fn(),
       updateMany: jest.fn(),
+    },
+    session: {
+      findUnique: jest.fn(),
     },
     transaction,
     $transaction: jest.fn((operation: (value: typeof transaction) => unknown) =>
@@ -419,6 +577,7 @@ async function mockTokenAndJwks(
   expectedNonce: string,
   overrides: {
     audience?: string;
+    azp?: string;
     expiresAt?: number;
     issuer?: string;
     nonce?: string;
@@ -428,6 +587,7 @@ async function mockTokenAndJwks(
     modulusLength: 2048,
   });
   const idToken = await new SignJWT({
+    azp: overrides.azp,
     nonce: overrides.nonce ?? expectedNonce,
     preferred_username: 'pocket-user',
   })
@@ -462,6 +622,8 @@ function completedAttempt() {
     clientType: 'web',
     consumedAt: null,
     createdAt: now,
+    exchangeRefreshTokenEncrypted: null,
+    exchangeSessionId: null,
     exchangeTicketHash: sha256('exchange-ticket-value-1234567890123456'),
     expiresAt: new Date(now.getTime() + 60_000),
     id: 'attempt-1',

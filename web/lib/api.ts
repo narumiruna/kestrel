@@ -288,6 +288,7 @@ export class ApiError extends Error {
 }
 
 const API_BASE_URL = '/api/backend';
+const POCKET_ID_EXCHANGE_ATTEMPTS = 2;
 
 export async function apiFetch<T>(
   path: string,
@@ -332,11 +333,22 @@ export function startPocketId(clientNonce: string, clientType: PocketIdClientTyp
   });
 }
 
-export function exchangePocketId(exchangeTicket: string, clientNonce: string) {
-  return apiFetch<AuthSession>('/auth/oidc/pocket-id/exchange', {
-    body: JSON.stringify({ clientNonce, exchangeTicket }),
-    method: 'POST',
-  });
+export async function exchangePocketId(exchangeTicket: string, clientNonce: string) {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < POCKET_ID_EXCHANGE_ATTEMPTS; attempt += 1) {
+    try {
+      return await apiFetch<AuthSession>('/auth/oidc/pocket-id/exchange', {
+        body: JSON.stringify({ clientNonce, exchangeTicket }),
+        method: 'POST',
+      });
+    } catch (error) {
+      lastError = error;
+      if (error instanceof ApiError && error.status < 500) {
+        throw error;
+      }
+    }
+  }
+  throw lastError;
 }
 
 export function refreshSession(

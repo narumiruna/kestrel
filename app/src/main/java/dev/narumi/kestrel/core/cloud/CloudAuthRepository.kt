@@ -75,15 +75,14 @@ internal class CloudAuthRepository private constructor(
                 }
                 is PocketIdCallback.Success ->
                     refreshMutex.withLock {
-                        apiClient
-                            .exchangePocketId(
-                                exchangeTicket = callback.exchangeTicket,
-                                clientNonce = attempt.clientNonce,
-                            ).let {
-                                saveNewSessionOrRevoke(
-                                    it.copy(refreshRequestId = UUID.randomUUID().toString()),
-                                )
-                            }
+                        exchangePocketIdWithRetry(
+                            exchangeTicket = callback.exchangeTicket,
+                            clientNonce = attempt.clientNonce,
+                        ).let {
+                            saveNewSessionOrRevoke(
+                                it.copy(refreshRequestId = UUID.randomUUID().toString()),
+                            )
+                        }
                     }
             }
         } finally {
@@ -230,6 +229,33 @@ internal class CloudAuthRepository private constructor(
         _hasSession.value = false
     }
 
+    private suspend fun exchangePocketIdWithRetry(
+        exchangeTicket: String,
+        clientNonce: String,
+    ): CloudSession {
+        var lastFailure: Exception? = null
+        repeat(POCKET_ID_EXCHANGE_ATTEMPTS) {
+            try {
+                return apiClient.exchangePocketId(
+                    exchangeTicket = exchangeTicket,
+                    clientNonce = clientNonce,
+                )
+            } catch (failure: CancellationException) {
+                throw failure
+            } catch (failure: CloudApiException) {
+                if (failure.statusCode in HTTP_CLIENT_ERROR_RANGE) failPocketIdExchange(failure)
+                lastFailure = failure
+            } catch (failure: IOException) {
+                lastFailure = failure
+            } catch (failure: SerializationException) {
+                lastFailure = failure
+            }
+        }
+        throw checkNotNull(lastFailure)
+    }
+
+    private fun failPocketIdExchange(failure: CloudApiException): Nothing = throw failure
+
     private fun clearPocketIdAttemptAfterFailure(failure: Exception): Nothing {
         runCatching { pocketIdAttemptStore.clear() }
         throw failure
@@ -244,7 +270,9 @@ internal class CloudAuthRepository private constructor(
     }
 
     companion object {
+        private val HTTP_CLIENT_ERROR_RANGE = 400..499
         private const val HTTP_UNAUTHORIZED = 401
+        private const val POCKET_ID_EXCHANGE_ATTEMPTS = 2
         private const val REFRESH_ATTEMPTS = 2
 
         @Volatile private var instance: CloudAuthRepository? = null

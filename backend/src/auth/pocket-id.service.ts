@@ -6,6 +6,7 @@ import {
   createDecipheriv,
   createHash,
   randomBytes,
+  randomUUID,
   timingSafeEqual,
 } from 'node:crypto';
 import { ConfigService } from '../config.service';
@@ -13,6 +14,8 @@ import {
   BadRequestException,
   ConflictException,
   GoneException,
+  HttpException,
+  HttpStatus,
   InternalServerErrorException,
   ServiceUnavailableException,
 } from '../http/errors';
@@ -23,6 +26,8 @@ import { AuthAuditMetadata, AuthAuditService } from './auth-audit.service';
 
 const PROVIDER = 'pocket_id';
 const AUTHORIZATION_LIFETIME_MS = 10 * 60 * 1000;
+const EXCHANGE_RETRY_LIFETIME_MS = 20 * 60 * 1000;
+const MAX_UNEXPIRED_LOGIN_ATTEMPTS = 1_000;
 const SESSION_DURATION_DAYS = 30;
 const SECRET_BYTES = 32;
 const ENCRYPTION_KEY_BYTES = 32;
@@ -58,6 +63,26 @@ type VerifiedIdentity = {
   subject: string;
 };
 
+type PocketIdExchangeResponse = {
+  accessToken: string;
+  accessTokenExpiresAt: Date;
+  authMethod: 'pocket_id';
+  refreshToken: string;
+  session: { createdAt: Date; expiresAt: Date; id: string; lastUsedAt: Date };
+  user: { id: string; username: string };
+};
+
+type ExchangeSession = PocketIdExchangeResponse['session'];
+type ExchangeUser = PocketIdExchangeResponse['user'];
+type RecoverableExchangeAttempt = {
+  clientNonceHash: string;
+  consumedAt: Date | null;
+  exchangeRefreshTokenEncrypted: string | null;
+  exchangeSessionId: string | null;
+  expiresAt: Date;
+  provider: string;
+};
+
 export class PocketIdService {
   private readonly logger = createLogger(PocketIdService.name);
   private discoveryCache?: { expiresAt: number; value: OidcDiscovery };
@@ -82,20 +107,43 @@ export class PocketIdService {
     const codeChallenge = createPkceChallenge(codeVerifier);
     const now = new Date();
 
-    await this.prismaService.oidcLoginAttempt.create({
-      data: {
-        clientNonceHash: hashValue(clientNonce),
-        clientType,
-        expiresAt: new Date(now.getTime() + AUTHORIZATION_LIFETIME_MS),
-        pkceVerifierEncrypted: encryptValue(
-          codeVerifier,
-          configuration.encryptionKey,
-        ),
-        provider: PROVIDER,
-        stateHash: hashValue(state),
+    await this.prismaService.$transaction(
+      async (transaction) => {
+        await transaction.oidcLoginAttempt.deleteMany({
+          where: { expiresAt: { lte: now } },
+        });
+        const currentAttempts = await transaction.oidcLoginAttempt.count({
+          where: {
+            expiresAt: { gt: now },
+            provider: PROVIDER,
+          },
+        });
+        if (currentAttempts >= MAX_UNEXPIRED_LOGIN_ATTEMPTS) {
+          throw new HttpException(
+            {
+              error: 'Too Many Requests',
+              message: 'too many Pocket ID sign-in attempts',
+              statusCode: HttpStatus.TOO_MANY_REQUESTS,
+            },
+            HttpStatus.TOO_MANY_REQUESTS,
+          );
+        }
+        await transaction.oidcLoginAttempt.create({
+          data: {
+            clientNonceHash: hashValue(clientNonce),
+            clientType,
+            expiresAt: new Date(now.getTime() + AUTHORIZATION_LIFETIME_MS),
+            pkceVerifierEncrypted: encryptValue(
+              codeVerifier,
+              configuration.encryptionKey,
+            ),
+            provider: PROVIDER,
+            stateHash: hashValue(state),
+          },
+        });
       },
-    });
-    void this.deleteExpiredAttempts(now);
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    );
 
     const authorizationUrl = new URL(discovery.authorization_endpoint);
     authorizationUrl.searchParams.set('client_id', configuration.clientId);
@@ -129,9 +177,26 @@ export class PocketIdService {
       attempt == null ||
       attempt.provider !== PROVIDER ||
       attempt.consumedAt != null ||
+      attempt.callbackStartedAt != null ||
       attempt.callbackCompletedAt != null ||
       attempt.expiresAt <= now
     ) {
+      throw new GoneException(
+        'Pocket ID sign-in attempt is invalid or expired',
+      );
+    }
+
+    const claimed = await this.prismaService.oidcLoginAttempt.updateMany({
+      data: { callbackStartedAt: now },
+      where: {
+        callbackCompletedAt: null,
+        callbackStartedAt: null,
+        consumedAt: null,
+        expiresAt: { gt: now },
+        id: attempt.id,
+      },
+    });
+    if (claimed.count !== 1) {
       throw new GoneException(
         'Pocket ID sign-in attempt is invalid or expired',
       );
@@ -178,6 +243,7 @@ export class PocketIdService {
         },
         where: {
           callbackCompletedAt: null,
+          callbackStartedAt: now,
           consumedAt: null,
           expiresAt: { gt: now },
           id: attempt.id,
@@ -215,32 +281,45 @@ export class PocketIdService {
   async exchange(
     input: unknown,
     metadata: AuthAuditMetadata = {},
-  ): Promise<{
-    accessToken: string;
-    accessTokenExpiresAt: Date;
-    authMethod: 'pocket_id';
-    refreshToken: string;
-    session: { createdAt: Date; expiresAt: Date; id: string; lastUsedAt: Date };
-    user: { id: string; username: string };
-  }> {
-    this.requireConfiguration();
+  ): Promise<PocketIdExchangeResponse> {
+    const configuration = this.requireConfiguration();
     const { clientNonce, exchangeTicket } = parseExchangeRequest(input);
+    const exchangeTicketHash = hashValue(exchangeTicket);
     const now = new Date();
     const attempt = await this.prismaService.oidcLoginAttempt.findUnique({
-      where: { exchangeTicketHash: hashValue(exchangeTicket) },
+      where: { exchangeTicketHash },
     });
 
     if (
       attempt == null ||
       attempt.provider !== PROVIDER ||
+      !secureHashMatches(attempt.clientNonceHash, clientNonce)
+    ) {
+      throw new GoneException(
+        'Pocket ID exchange ticket is invalid or expired',
+      );
+    }
+    if (attempt.consumedAt != null) {
+      const recovered = await this.recoverCompletedExchange(
+        attempt,
+        clientNonce,
+        configuration,
+        now,
+      );
+      if (recovered != null) {
+        return recovered;
+      }
+      throw new GoneException(
+        'Pocket ID exchange ticket is invalid or expired',
+      );
+    }
+    if (
       attempt.callbackCompletedAt == null ||
-      attempt.consumedAt != null ||
       attempt.expiresAt <= now ||
       attempt.issuer == null ||
       attempt.issuerHash == null ||
       attempt.subject == null ||
-      attempt.preferredUsername == null ||
-      !secureHashMatches(attempt.clientNonceHash, clientNonce)
+      attempt.preferredUsername == null
     ) {
       throw new GoneException(
         'Pocket ID exchange ticket is invalid or expired',
@@ -250,12 +329,21 @@ export class PocketIdService {
     const passwordHash = await hash(createRandomSecret(), { type: argon2id });
     const refreshToken = createRandomSecret();
     const refreshTokenHash = hashValue(refreshToken);
+    const sessionId = randomUUID();
 
     try {
       const result = await this.prismaService.$transaction(
         async (transaction) => {
           const consumed = await transaction.oidcLoginAttempt.updateMany({
-            data: { consumedAt: now },
+            data: {
+              consumedAt: now,
+              exchangeRefreshTokenEncrypted: encryptValue(
+                refreshToken,
+                configuration.encryptionKey,
+              ),
+              exchangeSessionId: sessionId,
+              expiresAt: new Date(now.getTime() + EXCHANGE_RETRY_LIFETIME_MS),
+            },
             where: {
               consumedAt: null,
               expiresAt: { gt: now },
@@ -319,6 +407,7 @@ export class PocketIdService {
           const session = await transaction.session.create({
             data: {
               expiresAt: createSessionExpiry(now),
+              id: sessionId,
               ipAddress: metadata.ipAddress,
               lastUsedAt: now,
               refreshTokenHash,
@@ -337,8 +426,10 @@ export class PocketIdService {
         },
         { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
       );
-      const accessToken = this.accessTokenService.issueToken(
-        { sessionId: result.session.id, userId: result.user.id },
+      const response = this.issueExchangeResponse(
+        result.session,
+        result.user,
+        refreshToken,
         now,
       );
 
@@ -352,15 +443,17 @@ export class PocketIdService {
         username: result.user.username,
       });
 
-      return {
-        accessToken: accessToken.token,
-        accessTokenExpiresAt: accessToken.expiresAt,
-        authMethod: PROVIDER,
-        refreshToken,
-        session: result.session,
-        user: { id: result.user.id, username: result.user.username },
-      };
+      return response;
     } catch (error) {
+      const recovered = await this.recoverExchange(
+        exchangeTicketHash,
+        clientNonce,
+        configuration,
+        now,
+      );
+      if (recovered != null) {
+        return recovered;
+      }
       await this.safeAuditLog({
         ...metadata,
         authMethod: PROVIDER,
@@ -373,6 +466,99 @@ export class PocketIdService {
       });
       throw error;
     }
+  }
+
+  private async recoverExchange(
+    exchangeTicketHash: string,
+    clientNonce: string,
+    configuration: PocketIdConfiguration,
+    now: Date,
+  ): Promise<PocketIdExchangeResponse | null> {
+    const attempt = await this.prismaService.oidcLoginAttempt.findUnique({
+      where: { exchangeTicketHash },
+    });
+    return this.recoverCompletedExchange(
+      attempt,
+      clientNonce,
+      configuration,
+      now,
+    );
+  }
+
+  private async recoverCompletedExchange(
+    attempt: RecoverableExchangeAttempt | null,
+    clientNonce: string,
+    configuration: PocketIdConfiguration,
+    now: Date,
+  ): Promise<PocketIdExchangeResponse | null> {
+    if (
+      attempt == null ||
+      attempt.provider !== PROVIDER ||
+      attempt.consumedAt == null ||
+      attempt.exchangeRefreshTokenEncrypted == null ||
+      attempt.exchangeSessionId == null ||
+      attempt.expiresAt <= now ||
+      !secureHashMatches(attempt.clientNonceHash, clientNonce)
+    ) {
+      return null;
+    }
+    const session = await this.prismaService.session.findUnique({
+      select: {
+        createdAt: true,
+        expiresAt: true,
+        id: true,
+        lastUsedAt: true,
+        refreshTokenHash: true,
+        revokedAt: true,
+        user: { select: { id: true, username: true } },
+      },
+      where: { id: attempt.exchangeSessionId },
+    });
+    if (
+      session == null ||
+      session.revokedAt != null ||
+      session.expiresAt <= now
+    ) {
+      return null;
+    }
+    const refreshToken = decryptValue(
+      attempt.exchangeRefreshTokenEncrypted,
+      configuration.encryptionKey,
+    );
+    if (!secureHashMatches(session.refreshTokenHash, refreshToken)) {
+      return null;
+    }
+    return this.issueExchangeResponse(
+      {
+        createdAt: session.createdAt,
+        expiresAt: session.expiresAt,
+        id: session.id,
+        lastUsedAt: session.lastUsedAt,
+      },
+      session.user,
+      refreshToken,
+      now,
+    );
+  }
+
+  private issueExchangeResponse(
+    session: ExchangeSession,
+    user: ExchangeUser,
+    refreshToken: string,
+    issuedAt: Date,
+  ): PocketIdExchangeResponse {
+    const accessToken = this.accessTokenService.issueToken(
+      { sessionId: session.id, userId: user.id },
+      issuedAt,
+    );
+    return {
+      accessToken: accessToken.token,
+      accessTokenExpiresAt: accessToken.expiresAt,
+      authMethod: PROVIDER,
+      refreshToken,
+      session,
+      user: { id: user.id, username: user.username },
+    };
   }
 
   private async exchangeAndVerify(
@@ -413,9 +599,10 @@ export class PocketIdService {
       },
     );
     if (
-      Array.isArray(payload.aud) &&
-      payload.aud.length > 1 &&
-      payload.azp !== configuration.clientId
+      (Array.isArray(payload.aud) &&
+        payload.aud.length > 1 &&
+        payload.azp == null) ||
+      (payload.azp != null && payload.azp !== configuration.clientId)
     ) {
       throw new BadRequestException('Pocket ID authorized party is invalid');
     }
@@ -583,20 +770,13 @@ export class PocketIdService {
   private async consumeFailedAttempt(id: string, now: Date): Promise<void> {
     await this.prismaService.oidcLoginAttempt.updateMany({
       data: { consumedAt: now, pkceVerifierEncrypted: '' },
-      where: { consumedAt: null, id },
+      where: {
+        callbackCompletedAt: null,
+        callbackStartedAt: now,
+        consumedAt: null,
+        id,
+      },
     });
-  }
-
-  private async deleteExpiredAttempts(now: Date): Promise<void> {
-    try {
-      await this.prismaService.oidcLoginAttempt.deleteMany({
-        where: {
-          expiresAt: { lt: new Date(now.getTime() - 24 * 60 * 60 * 1000) },
-        },
-      });
-    } catch {
-      this.logger.warn('failed to delete expired OIDC login attempts');
-    }
   }
 
   private async safeAuditLog(

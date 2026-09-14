@@ -31,7 +31,7 @@ sequenceDiagram
     K-->>C: Existing Kestrel access + refresh session response
 ```
 
-- Persist hashed authorization state, encrypted PKCE verifier, verified identity claims, hashed one-time exchange ticket, expiry, and consumption state. Raw Pocket ID tokens are not persisted.
+- Persist hashed authorization state, encrypted PKCE verifier, verified identity claims, hashed one-time exchange ticket, expiry, consumption state, and a short-lived encrypted Kestrel exchange result for response-loss recovery. Raw Pocket ID tokens are not persisted.
 - Bind the final exchange to a client-generated nonce. Web stores it through the existing authentication-attempt mechanism; Android stores it in app-private preferences so process recreation does not break the browser return.
 - Redirect Web to a fixed configured HTTPS callback page and Android to the fixed `dev.narumi.kestrel://auth/pocket-id` deep link. Do not accept caller-controlled redirect URIs.
 - Provision a Pocket ID-only user with an unusable random local password hash so existing non-null database and password-auth contracts remain compatible. Password login and username/email account merging remain unavailable for that user.
@@ -45,7 +45,7 @@ sequenceDiagram
 
 ## Risks
 
-- OAuth login CSRF or intercepted Android deep links: mitigate with high-entropy state, provider nonce, PKCE, a separate one-time exchange ticket, client-nonce binding, short expiry, and atomic consumption.
+- OAuth login CSRF or intercepted Android deep links: mitigate with high-entropy state, provider nonce, PKCE, a separate one-time exchange ticket, client-nonce binding, short expiry, atomic consumption, and same-client retry recovery.
 - Account takeover through mutable claims: use only verified `issuer + sub` for identity and reject username collisions without linking.
 - Open redirect or token leakage: use fixed callback destinations, put no Kestrel access/refresh or Pocket ID tokens in URLs, and redact OIDC secrets/tickets from logs.
 - Provider outage or malformed discovery/JWKS data: fail closed without changing existing local authentication.
