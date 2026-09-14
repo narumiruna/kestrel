@@ -37,23 +37,22 @@ internal class CloudAuthRepository private constructor(
     suspend fun beginOidcLogin(): String {
         val apiBaseUrl = normalizeCloudApiBaseUrl(prefs.cloudSettingsValue().apiBaseUrl)
         val clientNonce = UUID.randomUUID().toString()
-        oidcAttemptStore.save(
-            OidcAuthAttempt(apiBaseUrl = apiBaseUrl, clientNonce = clientNonce),
-        )
+        val attempt = OidcAuthAttempt(apiBaseUrl = apiBaseUrl, clientNonce = clientNonce)
+        oidcAttemptStore.save(attempt)
         return try {
             apiClient.startOidc(clientNonce).authorizationUrl.also(::validateAuthorizationUrl)
         } catch (failure: CancellationException) {
-            clearOidcAttemptAfterFailure(failure)
+            clearOidcAttemptAfterFailure(attempt, failure)
         } catch (failure: CloudApiException) {
-            clearOidcAttemptAfterFailure(failure)
+            clearOidcAttemptAfterFailure(attempt, failure)
         } catch (failure: IOException) {
-            clearOidcAttemptAfterFailure(failure)
+            clearOidcAttemptAfterFailure(attempt, failure)
         } catch (failure: SerializationException) {
-            clearOidcAttemptAfterFailure(failure)
+            clearOidcAttemptAfterFailure(attempt, failure)
         } catch (failure: IllegalArgumentException) {
-            clearOidcAttemptAfterFailure(failure)
+            clearOidcAttemptAfterFailure(attempt, failure)
         } catch (failure: IllegalStateException) {
-            clearOidcAttemptAfterFailure(failure)
+            clearOidcAttemptAfterFailure(attempt, failure)
         }
     }
 
@@ -279,8 +278,11 @@ internal class CloudAuthRepository private constructor(
 
     private fun failOidcExchange(failure: CloudApiException): Nothing = throw failure
 
-    private fun clearOidcAttemptAfterFailure(failure: Exception): Nothing {
-        runCatching { oidcAttemptStore.clear() }
+    private fun clearOidcAttemptAfterFailure(
+        attempt: OidcAuthAttempt,
+        failure: Exception,
+    ): Nothing {
+        runCatching { oidcAttemptStore.compareAndClear(attempt) }
         throw failure
     }
 

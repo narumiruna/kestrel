@@ -28,10 +28,14 @@ internal class OidcAuthAttemptStore(
             true
         }
 
-    fun clear() =
+    fun compareAndClear(expected: OidcAuthAttempt): Boolean =
         synchronized(LOCK) {
-            check(preferences.edit().clear().commit()) { "Failed to clear OIDC sign-in attempt" }
+            if (loadLocked() != expected) return@synchronized false
+            clearLocked()
+            true
         }
+
+    fun clear() = synchronized(LOCK) { clearLocked() }
 
     private fun loadLocked(): OidcAuthAttempt? {
         val apiBaseUrl = preferences.getString(KEY_API_BASE_URL, null) ?: return null
@@ -41,6 +45,10 @@ internal class OidcAuthAttemptStore(
             clientNonce = clientNonce,
             exchangeTicket = preferences.getString(KEY_EXCHANGE_TICKET, null),
         )
+    }
+
+    private fun clearLocked() {
+        check(preferences.edit().clear().commit()) { "Failed to clear OIDC sign-in attempt" }
     }
 
     private fun saveLocked(attempt: OidcAuthAttempt) {

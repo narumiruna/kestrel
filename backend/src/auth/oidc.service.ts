@@ -10,6 +10,7 @@ import {
   randomUUID,
   timingSafeEqual,
 } from 'node:crypto';
+import { setTimeout as delay } from 'node:timers/promises';
 import { ConfigService } from '../config.service';
 import {
   BadRequestException,
@@ -34,7 +35,7 @@ const CALLBACK_PROCESSING_LIFETIME_MS = 2 * 60 * 1000;
 const MAX_ACTIVE_CALLBACK_CLAIMS = 1000;
 const MAX_CALLBACK_CLAIMS_PER_WINDOW = 120;
 const CALLBACK_CLAIM_TRANSACTION_ATTEMPTS = 3;
-const CALLBACK_COMPLETION_ATTEMPTS = 3;
+const CALLBACK_COMPLETION_RETRY_DELAY_MS = 1000;
 const SESSION_DURATION_DAYS = 30;
 const SECRET_BYTES = 32;
 const ENCRYPTION_KEY_BYTES = 32;
@@ -93,6 +94,7 @@ type OidcExchangeResponse = {
 type ExchangeSession = OidcExchangeResponse['session'];
 type ExchangeUser = OidcExchangeResponse['user'];
 class RetryableOidcCallbackError extends Error {}
+class OidcCompletionStorageError extends Error {}
 
 type RecoverableExchangeAttempt = {
   clientNonceHash: string;
@@ -234,6 +236,11 @@ export class OidcService {
         authorizationState.clientNonceHash,
       );
     } catch (error) {
+      if (error instanceof OidcCompletionStorageError) {
+        throw new InternalServerErrorException(
+          'OIDC callback completion could not be persisted',
+        );
+      }
       if (error instanceof RetryableOidcCallbackError) {
         await this.releaseCallbackClaim(attemptId, callbackStartedAt);
         throw new ServiceUnavailableException(
@@ -419,11 +426,11 @@ export class OidcService {
     identity: VerifiedIdentity,
   ): Promise<void> {
     const exchangeTicketHash = hashValue(exchangeTicket);
-    for (
-      let attempt = 1;
-      attempt <= CALLBACK_COMPLETION_ATTEMPTS;
-      attempt += 1
-    ) {
+    const completionDeadline =
+      callbackStartedAt.getTime() + CALLBACK_PROCESSING_LIFETIME_MS;
+    let attempt = 0;
+    while (Date.now() < completionDeadline) {
+      attempt += 1;
       try {
         const completed = await this.prismaService.oidcLoginAttempt.updateMany({
           data: {
@@ -456,19 +463,25 @@ export class OidcService {
         }
         throw new GoneException('OIDC sign-in attempt is invalid or expired');
       } catch (error) {
-        if (
-          !isRetryablePrismaError(error) ||
-          attempt === CALLBACK_COMPLETION_ATTEMPTS
-        ) {
-          if (isRetryablePrismaError(error)) {
-            throw new RetryableOidcCallbackError(
-              'OIDC callback storage unavailable',
-            );
-          }
+        if (!isRetryablePrismaError(error)) {
           throw error;
+        }
+        if (
+          Date.now() + CALLBACK_COMPLETION_RETRY_DELAY_MS >=
+          completionDeadline
+        ) {
+          throw new OidcCompletionStorageError(
+            'OIDC callback storage unavailable after code redemption',
+          );
+        }
+        if (attempt >= 3) {
+          await delay(CALLBACK_COMPLETION_RETRY_DELAY_MS);
         }
       }
     }
+    throw new OidcCompletionStorageError(
+      'OIDC callback storage unavailable after code redemption',
+    );
   }
 
   private async releaseCallbackClaim(
@@ -911,7 +924,12 @@ export class OidcService {
       }
       throw new ServiceUnavailableException('OIDC signing keys failed');
     }
-    const body = (await response.json()) as Partial<JSONWebKeySet>;
+    let body: Partial<JSONWebKeySet>;
+    try {
+      body = (await response.json()) as Partial<JSONWebKeySet>;
+    } catch {
+      throw new RetryableOidcCallbackError('OIDC signing keys unavailable');
+    }
     if (!Array.isArray(body.keys)) {
       throw new ServiceUnavailableException('OIDC signing keys are invalid');
     }

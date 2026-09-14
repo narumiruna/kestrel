@@ -392,6 +392,28 @@ describe('OidcService', () => {
     expect(jest.mocked(global.fetch)).toHaveBeenCalledTimes(1);
   });
 
+  it('releases a callback claim after a truncated signing-key body', async () => {
+    const prisma = createPrismaMock();
+    mockDiscovery();
+    const service = createService(prisma);
+    const { authorizationUrl } = await service.start({
+      clientNonce: CLIENT_NONCE,
+      clientType: 'web',
+    });
+    const state = new URL(authorizationUrl).searchParams.get('state')!;
+    const truncatedResponse = jsonResponse({ keys: [] });
+    jest
+      .spyOn(truncatedResponse, 'json')
+      .mockRejectedValueOnce(new TypeError('truncated body'));
+    jest.mocked(global.fetch).mockResolvedValueOnce(truncatedResponse);
+
+    await expect(
+      service.callback({ code: 'authorization-code', state }),
+    ).rejects.toThrow('OIDC callback is temporarily unavailable');
+    expect(prisma.oidcLoginAttempt.deleteMany).toHaveBeenCalledTimes(1);
+    expect(jest.mocked(global.fetch)).toHaveBeenCalledTimes(2);
+  });
+
   it('releases a callback claim after transient discovery failure', async () => {
     const prisma = createPrismaMock();
     mockDiscovery();

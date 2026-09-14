@@ -55,7 +55,7 @@ sequenceDiagram
 
 ## Plan
 
-- [x] Rename Backend service, routes, wire types, provider key, configuration, logs, and tests from Pocket ID to generic OIDC; 163 unit tests and 9 e2e tests pass.
+- [x] Rename Backend service, routes, wire types, provider key, configuration, logs, and tests from Pocket ID to generic OIDC; 164 unit tests and 9 e2e tests pass.
 - [x] Add a forward Prisma migration for the provider-key rename and removal of persisted raw recovery credentials; validate generated Prisma artifacts without rewriting prior migrations.
 - [x] Atomically claim code callbacks before provider requests, bound claims to 120 new rows per minute and 1,000 active rows, use a bounded processing lease, fetch signing keys before code redemption, keep transient failures retryable, and audit recovered exchanges.
 - [x] Derive reproducible callback/session retry secrets, preserve exact issuer identifiers and endpoint queries, support form-correct client authentication, and persist Android callback tickets through a cancellation-safe compare-and-set before serialized exchange.
@@ -66,7 +66,7 @@ sequenceDiagram
 
 ## Completion Checklist
 
-- [x] Backend lint, 163 unit tests, 9 e2e tests, typecheck, build, Prisma generation, and schema validation pass.
+- [x] Backend lint, 164 unit tests, 9 e2e tests, typecheck, build, Prisma generation, and schema validation pass.
 - [x] Web Biome CI, typecheck, and production build pass.
 - [x] Android formatting, Detekt, JVM tests, and debug build pass without changing a connected device.
 - [x] Production Compose validates with OIDC unset and with a complete generic OIDC configuration; Backend tests confirm incomplete or invalid configuration reports the method disabled.
