@@ -173,7 +173,10 @@ describe('OidcService', () => {
 
     await service.callback({ code: 'authorization-code', state });
 
-    expect(jest.mocked(global.fetch).mock.calls[1][0]).toBe(tokenEndpoint);
+    expect(jest.mocked(global.fetch).mock.calls[1][0]).toBe(
+      `${ISSUER}/.well-known/jwks.json`,
+    );
+    expect(jest.mocked(global.fetch).mock.calls[2][0]).toBe(tokenEndpoint);
   });
 
   it('rejects a provider that advertises no PKCE S256 support', async () => {
@@ -229,7 +232,7 @@ describe('OidcService', () => {
       await service.callback({ code: 'authorization-code', state }),
     );
 
-    const tokenRequest = jest.mocked(global.fetch).mock.calls[1][1];
+    const tokenRequest = jest.mocked(global.fetch).mock.calls[2][1];
     expect(new Headers(tokenRequest?.headers).get('authorization')).toBe(
       `Basic ${Buffer.from('client-id:client-secret').toString('base64')}`,
     );
@@ -302,7 +305,7 @@ describe('OidcService', () => {
 
     const encode = (value: string) =>
       new URLSearchParams({ value }).toString().slice('value='.length);
-    const tokenRequest = jest.mocked(global.fetch).mock.calls[1][1];
+    const tokenRequest = jest.mocked(global.fetch).mock.calls[2][1];
     expect(new Headers(tokenRequest?.headers).get('authorization')).toBe(
       `Basic ${Buffer.from(`${encode(clientId)}:${encode(clientSecret)}`).toString('base64')}`,
     );
@@ -329,7 +332,7 @@ describe('OidcService', () => {
       await service.callback({ code: 'authorization-code', state }),
     );
 
-    const tokenRequest = jest.mocked(global.fetch).mock.calls[1][1];
+    const tokenRequest = jest.mocked(global.fetch).mock.calls[2][1];
     expect(new Headers(tokenRequest?.headers).has('authorization')).toBe(false);
     expect((tokenRequest?.body as URLSearchParams).get('client_secret')).toBe(
       'client-secret',
@@ -946,13 +949,13 @@ async function mockTokenAndJwks(
 
   const fetchMock = jest.mocked(global.fetch);
   fetchMock.mockResolvedValueOnce(
+    jsonResponse({ keys: [{ ...publicJwk, alg: 'RS256', kid: 'test-key' }] }),
+  );
+  fetchMock.mockResolvedValueOnce(
     jsonResponse({
       access_token: overrides.accessToken,
       id_token: idToken,
     }),
-  );
-  fetchMock.mockResolvedValueOnce(
-    jsonResponse({ keys: [{ ...publicJwk, alg: 'RS256', kid: 'test-key' }] }),
   );
 }
 

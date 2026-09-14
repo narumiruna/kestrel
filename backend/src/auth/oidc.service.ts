@@ -802,6 +802,7 @@ export class OidcService {
     configuration: OidcConfiguration,
     discovery: OidcDiscovery,
   ): Promise<VerifiedIdentity> {
+    const signingKeys = await this.fetchJwks(discovery.jwks_uri);
     const tokenAuthMethod = selectTokenAuthMethod(discovery);
     const tokenBody = new URLSearchParams({
       client_id: configuration.clientId,
@@ -847,15 +848,11 @@ export class OidcService {
       throw new ServiceUnavailableException('OIDC returned no ID token');
     }
 
-    const { payload } = await jwtVerify(
-      tokenPayload.id_token,
-      await this.fetchJwks(discovery.jwks_uri),
-      {
-        audience: configuration.clientId,
-        issuer: configuration.issuer,
-        requiredClaims: ['exp', 'iat', 'nonce', 'sub'],
-      },
-    );
+    const { payload } = await jwtVerify(tokenPayload.id_token, signingKeys, {
+      audience: configuration.clientId,
+      issuer: configuration.issuer,
+      requiredClaims: ['exp', 'iat', 'nonce', 'sub'],
+    });
     if (
       (Array.isArray(payload.aud) &&
         payload.aud.length > 1 &&
