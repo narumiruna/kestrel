@@ -16,7 +16,7 @@ Required GitHub Actions secrets (`AUTH_OIDC_FLOW_ENCRYPTION_KEY` and `AUTH_OIDC_
 | `AUTH_TOTP_ENCRYPTION_KEY` | Encrypts stored TOTP secrets | Do not replace directly. Re-encrypt every stored TOTP secret during a maintenance migration, then update the secret. |
 | `PAT_TOKEN` | Allows version/tag workflows to trigger follow-up workflows | Replace with a token that can write repository contents and workflows. |
 
-`POSTGRES_DB` is optional and defaults to `kestrel`. Generic OIDC is optional and disabled unless every required value is configured. Store `AUTH_OIDC_CLIENT_SECRET` and `AUTH_OIDC_FLOW_ENCRYPTION_KEY` as GitHub Actions secrets; store the issuer, client ID, display name, and Web/Android/backend callback URLs as repository variables listed in [`oidc.md`](oidc.md). No deployment-specific OIDC value has a repository fallback. The workflow writes a mode-`0600` temporary `.env`, validates the Compose model, deploys production images, and removes the file even after failure.
+`POSTGRES_DB` is optional and defaults to `kestrel`. Generic OIDC is optional and disabled unless every required value is configured. Store `AUTH_OIDC_CLIENT_SECRET` and `AUTH_OIDC_FLOW_ENCRYPTION_KEY` as GitHub Actions secrets; store the issuer, client ID, display name, and Web/Android/backend callback URLs as repository variables listed in [`oidc.md`](oidc.md). No deployment-specific OIDC value has a repository fallback. The workflow passes deployment values to Compose only through the deploy step's process environment, explicitly disables dotenv input, validates the Compose model, and then deploys production images.
 
 After deployment, verify readiness and request correlation:
 

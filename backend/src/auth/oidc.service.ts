@@ -1081,19 +1081,13 @@ export class OidcService {
       return null;
     }
 
-    const androidCallbackUri = validateConfiguredUrl(
+    validateConfiguredUrl(
       values.androidCallbackUri!,
       'OIDC Android callback URI',
     );
     validateConfiguredUrl(values.issuer!, 'OIDC issuer');
-    const redirectUri = validateConfiguredUrl(
-      values.redirectUri!,
-      'OIDC redirect URI',
-    );
-    const webCallbackUri = validateConfiguredUrl(
-      values.webCallbackUri!,
-      'OIDC Web callback URI',
-    );
+    validateConfiguredUrl(values.redirectUri!, 'OIDC redirect URI');
+    validateConfiguredUrl(values.webCallbackUri!, 'OIDC Web callback URI');
     const encryptionKey = decodeEncryptionKey(values.encryptionKey!);
     const displayName = validateDisplayName(
       this.configService.get('AUTH_OIDC_DISPLAY_NAME')?.trim() ||
@@ -1101,14 +1095,14 @@ export class OidcService {
     );
 
     return {
-      androidCallbackUri: androidCallbackUri.toString(),
+      androidCallbackUri: values.androidCallbackUri!,
       clientId: values.clientId!,
       clientSecret: values.clientSecret!,
       displayName,
       encryptionKey,
       issuer: values.issuer!,
-      redirectUri: redirectUri.toString(),
-      webCallbackUri: webCallbackUri.toString(),
+      redirectUri: values.redirectUri!,
+      webCallbackUri: values.webCallbackUri!,
     };
   }
 

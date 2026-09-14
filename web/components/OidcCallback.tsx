@@ -36,7 +36,7 @@ export function OidcCallback() {
         setPendingExchange(null);
         router.replace('/dashboard');
       } catch (nextError) {
-        if (nextError instanceof ApiError && nextError.status < 500) {
+        if (isDefinitiveExchangeError(nextError)) {
           clearPendingExchange();
           setPendingExchange(null);
         }
@@ -135,6 +135,10 @@ export function OidcCallback() {
       </section>
     </main>
   );
+}
+
+function isDefinitiveExchangeError(error: unknown): boolean {
+  return error instanceof ApiError && [400, 409, 410].includes(error.status);
 }
 
 function readPendingExchange(): PendingOidcExchange | null {

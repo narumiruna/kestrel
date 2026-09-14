@@ -252,7 +252,7 @@ internal class CloudAuthRepository private constructor(
                 session
             }
         } catch (failure: CloudApiException) {
-            if (failure.statusCode in HTTP_CLIENT_ERROR_RANGE) {
+            if (failure.statusCode in OIDC_TERMINAL_EXCHANGE_STATUS_CODES) {
                 runCatching { oidcAttemptStore.compareAndClear(attempt) }
             }
             throw failure
@@ -272,7 +272,9 @@ internal class CloudAuthRepository private constructor(
             } catch (failure: CancellationException) {
                 throw failure
             } catch (failure: CloudApiException) {
-                if (failure.statusCode in HTTP_CLIENT_ERROR_RANGE) failOidcExchange(failure)
+                if (failure.statusCode in OIDC_TERMINAL_EXCHANGE_STATUS_CODES) {
+                    failOidcExchange(failure)
+                }
                 lastFailure = failure
             } catch (failure: IOException) {
                 lastFailure = failure
@@ -302,7 +304,7 @@ internal class CloudAuthRepository private constructor(
     }
 
     companion object {
-        private val HTTP_CLIENT_ERROR_RANGE = 400..499
+        private val OIDC_TERMINAL_EXCHANGE_STATUS_CODES = setOf(400, 409, 410)
         private const val HTTP_UNAUTHORIZED = 401
         private const val OIDC_EXCHANGE_ATTEMPTS = 2
         private const val REFRESH_ATTEMPTS = 2

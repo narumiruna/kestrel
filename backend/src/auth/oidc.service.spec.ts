@@ -154,6 +154,31 @@ describe('OidcService', () => {
     );
   });
 
+  it('preserves the exact configured redirect URI', async () => {
+    const redirectUri =
+      'https://kestrel.example.test:443/api/../api/backend/auth/oidc/callback';
+    const prisma = createPrismaMock();
+    mockDiscovery();
+    const service = createService(
+      prisma,
+      configuredEnvironment({ AUTH_OIDC_REDIRECT_URI: redirectUri }),
+    );
+    const { authorizationUrl } = await service.start({
+      clientNonce: CLIENT_NONCE,
+      clientType: 'web',
+    });
+    const authorization = new URL(authorizationUrl);
+    const state = authorization.searchParams.get('state')!;
+    await mockTokenAndJwks(state);
+
+    expect(authorization.searchParams.get('redirect_uri')).toBe(redirectUri);
+    await service.callback({ code: 'authorization-code', state });
+    const tokenRequest = jest.mocked(global.fetch).mock.calls[2][1];
+    expect((tokenRequest?.body as URLSearchParams).get('redirect_uri')).toBe(
+      redirectUri,
+    );
+  });
+
   it('preserves fixed query parameters in discovered provider endpoints', async () => {
     const prisma = createPrismaMock();
     const tokenEndpoint = `${ISSUER}/api/oidc/token?audience=kestrel`;

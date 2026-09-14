@@ -25,7 +25,7 @@ jobs:
           # root-owned ignored build artifacts (for example web/.next).
           clean: false
 
-      - name: Prepare environment file
+      - name: Validate and deploy with Docker Compose
         env:
           POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
           POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
@@ -41,31 +41,5 @@ jobs:
           AUTH_OIDC_WEB_CALLBACK_URI: ${{ vars.AUTH_OIDC_WEB_CALLBACK_URI }}
           AUTH_TOTP_ENCRYPTION_KEY: ${{ secrets.AUTH_TOTP_ENCRYPTION_KEY }}
         run: |
-          install -m 600 /dev/null .env
-          {
-            echo "POSTGRES_DB=${POSTGRES_DB:-kestrel}"
-            echo "POSTGRES_USER=${POSTGRES_USER}"
-            echo "POSTGRES_PASSWORD=${POSTGRES_PASSWORD}"
-            echo "AUTH_ACCESS_TOKEN_SECRET=${AUTH_ACCESS_TOKEN_SECRET}"
-            echo "AUTH_OIDC_ANDROID_CALLBACK_URI=${AUTH_OIDC_ANDROID_CALLBACK_URI}"
-            echo "AUTH_OIDC_CLIENT_ID=${AUTH_OIDC_CLIENT_ID}"
-            echo "AUTH_OIDC_CLIENT_SECRET=${AUTH_OIDC_CLIENT_SECRET}"
-            echo "AUTH_OIDC_DISPLAY_NAME=${AUTH_OIDC_DISPLAY_NAME}"
-            echo "AUTH_OIDC_FLOW_ENCRYPTION_KEY=${AUTH_OIDC_FLOW_ENCRYPTION_KEY}"
-            echo "AUTH_OIDC_ISSUER=${AUTH_OIDC_ISSUER}"
-            echo "AUTH_OIDC_REDIRECT_URI=${AUTH_OIDC_REDIRECT_URI}"
-            echo "AUTH_OIDC_WEB_CALLBACK_URI=${AUTH_OIDC_WEB_CALLBACK_URI}"
-            echo "AUTH_TOTP_ENCRYPTION_KEY=${AUTH_TOTP_ENCRYPTION_KEY}"
-          } >> .env
-
-      - name: Validate Docker Compose config
-        run: |
-          docker compose -f compose.deploy.yaml config --quiet
-
-      - name: Deploy with Docker Compose
-        run: |
-          docker compose -f compose.deploy.yaml up -d --build --remove-orphans
-
-      - name: Remove environment file
-        if: always()
-        run: rm -f .env
+          docker compose --env-file /dev/null -f compose.deploy.yaml config --quiet
+          docker compose --env-file /dev/null -f compose.deploy.yaml up -d --build --remove-orphans
