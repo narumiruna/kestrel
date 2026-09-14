@@ -6,6 +6,7 @@ import {
   type Prisma,
 } from '@prisma/client';
 import { createLogger } from './logger';
+import { createPrismaAdapter } from './prisma/prisma-adapter';
 
 const DEV_ADMIN_PASSWORD = 'admin';
 const DEV_ADMIN_USERNAME = 'admin';
@@ -86,7 +87,9 @@ export function buildSeedRoutePayload(route: (typeof SAMPLE_ROUTES)[number]) {
   };
 }
 
-export async function seedDevData(prisma = new PrismaClient()) {
+export async function seedDevData(
+  prisma = new PrismaClient({ adapter: createPrismaAdapter() }),
+) {
   if (!isDevSeedEnabled()) {
     return;
   }
@@ -294,7 +297,7 @@ function isDevSeedEnabled() {
 
 if (require.main === module) {
   const logger = createLogger('DevSeed');
-  const prisma = new PrismaClient();
+  const prisma = new PrismaClient({ adapter: createPrismaAdapter() });
 
   seedDevData(prisma)
     .then(() => {
