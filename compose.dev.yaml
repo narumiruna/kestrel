@@ -64,7 +64,7 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
-    command: sh -c "npx prisma generate && npx prisma migrate deploy && npm run dev:seed && npm run start:dev"
+    command: sh -c "npm ci && npx prisma generate && npx prisma migrate deploy && npm run dev:seed && npm run start:dev"
 
   web-watch:
     profiles: ["watch"]
