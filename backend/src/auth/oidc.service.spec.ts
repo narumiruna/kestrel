@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
+import { Prisma } from '@prisma/client';
 import { createHash, generateKeyPairSync } from 'node:crypto';
 import { SignJWT } from 'jose';
 import { ConfigService } from '../config.service';
@@ -360,6 +361,59 @@ describe('OidcService', () => {
     expect(jest.mocked(global.fetch)).toHaveBeenCalledTimes(1);
   });
 
+  it.each([
+    [1000, 0],
+    [0, 120],
+  ])(
+    'rejects a new callback claim at the active/recent capacity (%i, %i)',
+    async (activeClaims, recentClaims) => {
+      const prisma = createPrismaMock();
+      mockDiscovery();
+      const service = createService(prisma);
+      const { authorizationUrl } = await service.start({
+        clientNonce: CLIENT_NONCE,
+        clientType: 'web',
+      });
+      const state = new URL(authorizationUrl).searchParams.get('state')!;
+      prisma.transaction.oidcLoginAttempt.count
+        .mockResolvedValueOnce(activeClaims)
+        .mockResolvedValueOnce(recentClaims);
+
+      await expect(
+        service.callback({ code: 'authorization-code', state }),
+      ).rejects.toThrow('OIDC callback capacity is temporarily unavailable');
+      expect(prisma.transaction.oidcLoginAttempt.create).not.toHaveBeenCalled();
+      expect(jest.mocked(global.fetch)).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it('retries a serializable callback-claim conflict', async () => {
+    const prisma = createPrismaMock();
+    mockDiscovery();
+    const service = createService(prisma);
+    const { authorizationUrl } = await service.start({
+      clientNonce: CLIENT_NONCE,
+      clientType: 'web',
+    });
+    const state = new URL(authorizationUrl).searchParams.get('state')!;
+    await mockTokenAndJwks(state);
+    prisma.$transaction.mockRejectedValueOnce(
+      new Prisma.PrismaClientKnownRequestError('write conflict', {
+        clientVersion: '6.19.3',
+        code: 'P2034',
+      }),
+    );
+
+    const redirect = new URL(
+      await service.callback({ code: 'authorization-code', state }),
+    );
+
+    expect(
+      new URLSearchParams(redirect.hash.slice(1)).get('ticket'),
+    ).toHaveLength(43);
+    expect(prisma.$transaction).toHaveBeenCalledTimes(2);
+  });
+
   it('returns the same ticket when a completed provider callback is retried', async () => {
     const prisma = createPrismaMock();
     mockDiscovery();
@@ -416,11 +470,8 @@ describe('OidcService', () => {
       expect(new URLSearchParams(redirect.hash.slice(1)).get('error')).toBe(
         expectedClientError,
       );
-      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
-      expect(prisma.oidcLoginAttempt.updateMany).toHaveBeenCalledWith({
-        data: expect.objectContaining({ consumedAt: expect.any(Date) }),
-        where: expect.objectContaining({ id: expect.any(String) }),
-      });
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+      expect(prisma.oidcLoginAttempt.updateMany).not.toHaveBeenCalled();
     },
   );
 

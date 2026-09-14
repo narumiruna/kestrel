@@ -15,6 +15,8 @@ import {
   BadRequestException,
   ConflictException,
   GoneException,
+  HttpException,
+  HttpStatus,
   InternalServerErrorException,
   ServiceUnavailableException,
 } from '../http/errors';
@@ -27,6 +29,10 @@ const PROVIDER = 'oidc';
 const AUTHORIZATION_LIFETIME_MS = 10 * 60 * 1000;
 const EXCHANGE_TICKET_LIFETIME_MS = 10 * 60 * 1000;
 const EXCHANGE_RETRY_LIFETIME_MS = 20 * 60 * 1000;
+const CALLBACK_CLAIM_RATE_WINDOW_MS = 60 * 1000;
+const MAX_ACTIVE_CALLBACK_CLAIMS = 1000;
+const MAX_CALLBACK_CLAIMS_PER_WINDOW = 120;
+const CALLBACK_CLAIM_TRANSACTION_ATTEMPTS = 3;
 const SESSION_DURATION_DAYS = 30;
 const SECRET_BYTES = 32;
 const ENCRYPTION_KEY_BYTES = 32;
@@ -168,6 +174,18 @@ export class OidcService {
       throw new GoneException('OIDC sign-in attempt is invalid or expired');
     }
 
+    if (input.error != null) {
+      return buildClientRedirect(
+        authorizationState.clientType,
+        configuration,
+        input.error === 'access_denied'
+          ? 'access_denied'
+          : 'authentication_failed',
+        undefined,
+        authorizationState.clientNonceHash,
+      );
+    }
+
     const attemptId = randomUUID();
     const recoveredRedirect = await this.claimCallback(
       attemptId,
@@ -178,19 +196,6 @@ export class OidcService {
     );
     if (recoveredRedirect != null) {
       return recoveredRedirect;
-    }
-
-    if (input.error != null) {
-      await this.completeFailedCallback(attemptId, callbackStartedAt);
-      return buildClientRedirect(
-        authorizationState.clientType,
-        configuration,
-        input.error === 'access_denied'
-          ? 'access_denied'
-          : 'authentication_failed',
-        undefined,
-        authorizationState.clientNonceHash,
-      );
     }
 
     try {
@@ -278,11 +283,78 @@ export class OidcService {
       );
     }
 
-    try {
-      await this.prismaService.$transaction(async (transaction) => {
+    for (
+      let attempt = 1;
+      attempt <= CALLBACK_CLAIM_TRANSACTION_ATTEMPTS;
+      attempt += 1
+    ) {
+      try {
+        await this.insertCallbackClaim(
+          attemptId,
+          stateHash,
+          authorizationState,
+          callbackStartedAt,
+        );
+        return null;
+      } catch (error) {
+        const code =
+          error instanceof Prisma.PrismaClientKnownRequestError
+            ? error.code
+            : null;
+        if (code === 'P2034' && attempt < CALLBACK_CLAIM_TRANSACTION_ATTEMPTS) {
+          continue;
+        }
+        if (code !== 'P2002') {
+          throw error;
+        }
+        const racedAttempt =
+          await this.prismaService.oidcLoginAttempt.findUnique({
+            where: { stateHash },
+          });
+        return this.recoverCallbackRedirect(
+          racedAttempt,
+          rawState,
+          authorizationState,
+          configuration,
+          callbackStartedAt,
+        );
+      }
+    }
+    throw new InternalServerErrorException('OIDC callback claim failed');
+  }
+
+  private async insertCallbackClaim(
+    attemptId: string,
+    stateHash: string,
+    authorizationState: AuthorizationState,
+    callbackStartedAt: Date,
+  ): Promise<void> {
+    await this.prismaService.$transaction(
+      async (transaction) => {
         await transaction.oidcLoginAttempt.deleteMany({
           where: { expiresAt: { lte: callbackStartedAt } },
         });
+        const [activeClaims, recentClaims] = await Promise.all([
+          transaction.oidcLoginAttempt.count(),
+          transaction.oidcLoginAttempt.count({
+            where: {
+              createdAt: {
+                gt: new Date(
+                  callbackStartedAt.getTime() - CALLBACK_CLAIM_RATE_WINDOW_MS,
+                ),
+              },
+            },
+          }),
+        ]);
+        if (
+          activeClaims >= MAX_ACTIVE_CALLBACK_CLAIMS ||
+          recentClaims >= MAX_CALLBACK_CLAIMS_PER_WINDOW
+        ) {
+          throw new HttpException(
+            'OIDC callback capacity is temporarily unavailable',
+            HttpStatus.TOO_MANY_REQUESTS,
+          );
+        }
         await transaction.oidcLoginAttempt.create({
           data: {
             callbackStartedAt,
@@ -295,28 +367,9 @@ export class OidcService {
             stateHash,
           },
         });
-      });
-      return null;
-    } catch (error) {
-      if (
-        !(error instanceof Prisma.PrismaClientKnownRequestError) ||
-        error.code !== 'P2002'
-      ) {
-        throw error;
-      }
-      const racedAttempt = await this.prismaService.oidcLoginAttempt.findUnique(
-        {
-          where: { stateHash },
-        },
-      );
-      return this.recoverCallbackRedirect(
-        racedAttempt,
-        rawState,
-        authorizationState,
-        configuration,
-        callbackStartedAt,
-      );
-    }
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    );
   }
 
   private recoverCallbackRedirect(

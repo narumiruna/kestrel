@@ -62,6 +62,8 @@ Configure these repository secrets:
 
 No deployment-specific issuer, client ID, or callback URL is stored in the repository. Compose passes empty values when OIDC is unconfigured, so local authentication remains available.
 
+Production ingress must apply a per-source rate limit to `POST /auth/oidc/start` and `GET /auth/oidc/callback` before requests reach Kestrel. Use only the ingress connection address or an address header that the ingress overwrites; never trust a client-supplied forwarding header. Kestrel additionally rejects callback claims above 120 new rows per minute or 1,000 active rows and prunes expired rows before admission. These global backstops bound database writes/storage but do not replace source-aware edge limits.
+
 ## Android App Link
 
 `AUTH_OIDC_ANDROID_CALLBACK_URI` must be an HTTPS App Link claimed by the Android build, not a custom scheme. Its scheme, host, and path must exactly match the app manifest, and that host must serve `/.well-known/assetlinks.json` for the app's package and signing certificate. A self-hosted fork using another domain or application ID must change the manifest callback constants and publish its own Digital Asset Links file before enabling Android OIDC.
@@ -76,6 +78,6 @@ Provider tokens stay in the backend and are not persisted. Web and Android recei
 
 ## Security flow
 
-The backend validates discovery issuer, ID-token signature, audience, authorized party, expiry, nonce, and subject. Authorization start is stateless: the PKCE verifier, client binding, client type, and expiry travel only in authenticated AES-256-GCM-encrypted state. The callback atomically records a short-lived state-hash claim before contacting the provider, so replaying one state cannot repeat the outbound token request.
+The backend validates discovery issuer, ID-token signature, audience, authorized party, expiry, nonce, and subject. Authorization start is stateless: the PKCE verifier, client binding, client type, and expiry travel only in authenticated AES-256-GCM-encrypted state. A callback carrying an authorization code atomically records a short-lived state-hash claim before contacting the provider, so replaying one state cannot repeat the outbound token request. Provider error callbacks do not contact the provider or write an attempt row.
 
 The backend redirects to fixed configured client callbacks with a short-lived, one-time Kestrel exchange ticket in the URL fragment. The ticket is bound to a nonce retained by the initiating Web tab or Android app and consumed atomically. Web keeps pending exchange data in tab-scoped storage. Android keeps it in app-private storage and validates the callback against the current attempt. A completed exchange remains recoverable by the same ticket and nonce for 20 minutes so ambiguous network failures can retry without creating another session. Recovery derives the same refresh token from those client-held secrets instead of persisting a decryptable raw session credential. Provider tokens and Kestrel session tokens never appear in callback URLs.
