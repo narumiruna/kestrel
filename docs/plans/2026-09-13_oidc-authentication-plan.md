@@ -58,7 +58,7 @@ sequenceDiagram
 - [x] Rename Backend service, routes, wire types, provider key, configuration, logs, and tests from Pocket ID to generic OIDC; 160 unit tests and 9 e2e tests pass.
 - [x] Add a forward Prisma migration for the provider-key rename and removal of persisted raw recovery credentials; validate generated Prisma artifacts without rewriting prior migrations.
 - [x] Atomically claim code callbacks before provider requests, bound claims to 120 new rows per minute and 1,000 active rows, use a bounded processing lease, keep transient failures retryable, and audit recovered exchanges.
-- [x] Derive reproducible callback/session retry secrets, preserve exact issuer identifiers and endpoint queries, support form-correct client authentication, and serialize Android callback persistence with local login.
+- [x] Derive reproducible callback/session retry secrets, preserve exact issuer identifiers and endpoint queries, support form-correct client authentication, and persist Android callback tickets through a cancellation-safe compare-and-set before serialized exchange.
 - [x] Rename Web API helpers, callback route/component, storage keys, UI state, and labels; the configured provider name is displayed while local login remains available.
 - [x] Rename Android models, API helpers, attempt store, callback parser, repository methods, UI state, and messages; callback binding and retry semantics remain covered by JVM tests.
 - [x] Move all deployment-specific OIDC values to GitHub Actions variables, keep secrets in Actions secrets, and leave required Compose values empty so OIDC stays optional.
