@@ -48,7 +48,7 @@ Only the client secret and independently generated flow-encryption key must be s
 
 ## Account behavior
 
-Kestrel identifies a Pocket ID account only by the verified OIDC `(issuer, sub)` pair. On first login it creates a new Kestrel account using `preferred_username` for display. It never links by mutable username or email.
+Kestrel identifies a Pocket ID account only by the verified OIDC `(issuer, sub)` pair. On first login it creates a new Kestrel account using `preferred_username` for display. The claim is required and validated only for first-time provisioning; an already-linked identity can still sign in if Pocket ID later omits it. Kestrel never links by mutable username or email.
 
 The Pocket ID username must be 3–64 characters and contain only letters, numbers, dots, underscores, or hyphens. If that username already belongs to any Kestrel account, login fails instead of merging accounts. Change the Pocket ID username or use a separate Kestrel deployment; automatic linking is intentionally unsupported.
 
@@ -58,4 +58,4 @@ Pocket ID-only accounts can sign out and revoke their current session. Existing 
 
 ## Security flow
 
-The backend uses Authorization Code flow with PKCE, verifies discovery issuer, ID-token signature, audience, authorized party, expiry, OIDC nonce, and subject, and then redirects clients with a short-lived one-time Kestrel exchange ticket in the URL fragment so Web servers do not receive it. The ticket is bound to a secret retained by the initiating Web tab or Android app and consumed atomically. The encrypted exchange result remains recoverable by that same ticket and client secret for 20 minutes so an ambiguous network response can be retried without creating another session. Expired attempts are pruned before new attempts, and unexpired unauthenticated attempts are capped. Pocket ID tokens and Kestrel session tokens never appear in callback URLs.
+The backend uses Authorization Code flow with PKCE, verifies discovery issuer, ID-token signature, audience, authorized party, expiry, OIDC nonce, and subject, and then redirects clients with a short-lived one-time Kestrel exchange ticket in the URL fragment so Web servers do not receive it. The ticket is bound to a secret retained by the initiating Web tab or Android app and consumed atomically. Web keeps the pending ticket in tab-scoped storage, while Android keeps it in app-private storage, until session persistence succeeds or a terminal response occurs. The encrypted exchange result remains recoverable by that same ticket and client nonce for 20 minutes so an ambiguous network response can be retried without creating another session. Expired attempts are pruned before new attempts. Unexpired starts are capped per hashed transport source, with a larger provider-wide cap retained as a distributed storage backstop. Pocket ID tokens and Kestrel session tokens never appear in callback URLs.

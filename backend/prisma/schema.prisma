@@ -63,12 +63,14 @@ model OidcLoginAttempt {
   issuerHash                    String?   @map("issuer_hash") @db.VarChar(64)
   subject                       String?   @db.VarChar(255)
   preferredUsername             String?   @map("preferred_username") @db.VarChar(64)
+  sourceHash                    String?   @map("source_hash") @db.VarChar(64)
   callbackStartedAt             DateTime? @map("callback_started_at")
   callbackCompletedAt           DateTime? @map("callback_completed_at")
   consumedAt                    DateTime? @map("consumed_at")
   createdAt                     DateTime  @default(now()) @map("created_at")
 
   @@index([expiresAt])
+  @@index([provider, sourceHash, expiresAt])
   @@map("oidc_login_attempts")
 }
 

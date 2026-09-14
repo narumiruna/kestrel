@@ -58,36 +58,38 @@ internal class CloudAuthRepository private constructor(
     }
 
     suspend fun completePocketIdLogin(rawCallbackUri: String): CloudSession {
-        val callback = parsePocketIdCallback(rawCallbackUri)
-        val attempt = pocketIdAttemptStore.load() ?: error("No Pocket ID sign-in is pending")
-        val currentBaseUrl = normalizeCloudApiBaseUrl(prefs.cloudSettingsValue().apiBaseUrl)
-        check(currentBaseUrl == attempt.apiBaseUrl) {
-            "Cloud server changed during Pocket ID sign-in"
-        }
-
-        return try {
-            when (callback) {
-                is PocketIdCallback.Error -> {
-                    if (callback.errorCode == "access_denied") {
-                        error("Pocket ID sign-in was cancelled")
-                    }
-                    error("Pocket ID sign-in failed")
-                }
-                is PocketIdCallback.Success ->
-                    refreshMutex.withLock {
-                        exchangePocketIdWithRetry(
-                            exchangeTicket = callback.exchangeTicket,
-                            clientNonce = attempt.clientNonce,
-                        ).let {
-                            saveNewSessionOrRevoke(
-                                it.copy(refreshRequestId = UUID.randomUUID().toString()),
-                            )
-                        }
-                    }
+        val callback =
+            try {
+                parsePocketIdCallback(rawCallbackUri)
+            } catch (failure: IllegalArgumentException) {
+                clearPocketIdAttemptAfterFailure(failure)
+            } catch (failure: IllegalStateException) {
+                clearPocketIdAttemptAfterFailure(failure)
             }
-        } finally {
-            pocketIdAttemptStore.clear()
+        val attempt = pocketIdAttemptStore.load() ?: error("No Pocket ID sign-in is pending")
+        validatePocketIdAttemptServer(attempt, prefs, pocketIdAttemptStore)
+
+        return when (callback) {
+            is PocketIdCallback.Error -> {
+                pocketIdAttemptStore.clear()
+                if (callback.errorCode == "access_denied") {
+                    error("Pocket ID sign-in was cancelled")
+                }
+                error("Pocket ID sign-in failed")
+            }
+            is PocketIdCallback.Success -> {
+                val resumableAttempt = attempt.copy(exchangeTicket = callback.exchangeTicket)
+                pocketIdAttemptStore.save(resumableAttempt)
+                completePocketIdExchange(resumableAttempt)
+            }
         }
+    }
+
+    suspend fun resumePocketIdLogin(): CloudSession? {
+        val attempt = pocketIdAttemptStore.load() ?: return null
+        if (attempt.exchangeTicket == null) return null
+        validatePocketIdAttemptServer(attempt, prefs, pocketIdAttemptStore)
+        return completePocketIdExchange(attempt)
     }
 
     suspend fun loginWithTotp(
@@ -229,6 +231,26 @@ internal class CloudAuthRepository private constructor(
         _hasSession.value = false
     }
 
+    private suspend fun completePocketIdExchange(attempt: PocketIdAuthAttempt): CloudSession =
+        try {
+            refreshMutex
+                .withLock {
+                    exchangePocketIdWithRetry(
+                        exchangeTicket = checkNotNull(attempt.exchangeTicket),
+                        clientNonce = attempt.clientNonce,
+                    ).let {
+                        saveNewSessionOrRevoke(
+                            it.copy(refreshRequestId = UUID.randomUUID().toString()),
+                        )
+                    }
+                }.also { pocketIdAttemptStore.clear() }
+        } catch (failure: CloudApiException) {
+            if (failure.statusCode in HTTP_CLIENT_ERROR_RANGE) {
+                pocketIdAttemptStore.clear()
+            }
+            throw failure
+        }
+
     private suspend fun exchangePocketIdWithRetry(
         exchangeTicket: String,
         clientNonce: String,
@@ -281,5 +303,17 @@ internal class CloudAuthRepository private constructor(
             instance ?: synchronized(this) {
                 instance ?: CloudAuthRepository(context.applicationContext).also { instance = it }
             }
+    }
+}
+
+private suspend fun validatePocketIdAttemptServer(
+    attempt: PocketIdAuthAttempt,
+    prefs: KestrelPrefs,
+    attemptStore: PocketIdAuthAttemptStore,
+) {
+    val currentBaseUrl = normalizeCloudApiBaseUrl(prefs.cloudSettingsValue().apiBaseUrl)
+    if (currentBaseUrl != attempt.apiBaseUrl) {
+        attemptStore.clear()
+        error("Cloud server changed during Pocket ID sign-in")
     }
 }

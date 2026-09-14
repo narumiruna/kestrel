@@ -2,53 +2,103 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import { BrandMark } from '@/components/BrandMark';
 import { Button } from '@/components/ui/radix-ui';
-import { exchangePocketId } from '@/lib/api';
+import { ApiError, exchangePocketId } from '@/lib/api';
+
+type PendingPocketIdExchange = {
+  authenticationAttempt: string;
+  ticket: string;
+};
+
+const EXCHANGE_STORAGE_KEY = 'kestrel.web.pocket-id-exchange';
+const EXCHANGE_VALUE_PATTERN = /^[A-Za-z0-9:._-]{16,128}$/;
+const TICKET_PATTERN = /^[A-Za-z0-9_-]{32,128}$/;
 
 export function PocketIdCallback() {
   const auth = useAuth();
   const router = useRouter();
   const startedRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
+  const [isCompleting, setIsCompleting] = useState(true);
+  const [pendingExchange, setPendingExchange] = useState<PendingPocketIdExchange | null>(null);
+
+  const completeExchange = useCallback(
+    async (pending: PendingPocketIdExchange) => {
+      setError(null);
+      setIsCompleting(true);
+      try {
+        const session = await exchangePocketId(pending.ticket, pending.authenticationAttempt);
+        await auth.saveSession(session, pending.authenticationAttempt);
+        clearPendingExchange();
+        setPendingExchange(null);
+        router.replace('/dashboard');
+      } catch (nextError) {
+        if (nextError instanceof ApiError && nextError.status < 500) {
+          clearPendingExchange();
+          setPendingExchange(null);
+        }
+        setError(nextError instanceof Error ? nextError.message : 'Pocket ID sign-in failed');
+      } finally {
+        setIsCompleting(false);
+      }
+    },
+    [auth, router],
+  );
 
   useEffect(() => {
     if (startedRef.current) {
       return;
     }
     startedRef.current = true;
+
     const fragment = new URLSearchParams(window.location.hash.slice(1));
-    window.history.replaceState(null, '', window.location.pathname);
     const keys = Array.from(fragment.keys());
-    const errorCodes = fragment.getAll('error');
-    const tickets = fragment.getAll('ticket');
-    if (keys.length === 1 && errorCodes.length === 1 && tickets.length === 0) {
-      setError(describeCallbackError(errorCodes[0]));
-      return;
-    }
-    const ticket = tickets.length === 1 ? tickets[0] : null;
-    const authenticationAttempt = auth.getAuthenticationAttempt();
-    if (
-      keys.length !== 1 ||
-      ticket == null ||
-      !/^[A-Za-z0-9_-]{32,128}$/.test(ticket) ||
-      authenticationAttempt == null
-    ) {
-      setError('Pocket ID returned an incomplete sign-in response. Please try again.');
+    if (keys.length > 0) {
+      window.history.replaceState(null, '', window.location.pathname);
+      const errorCodes = fragment.getAll('error');
+      const tickets = fragment.getAll('ticket');
+      if (keys.length === 1 && errorCodes.length === 1 && tickets.length === 0) {
+        clearPendingExchange();
+        setError(describeCallbackError(errorCodes[0]));
+        setIsCompleting(false);
+        return;
+      }
+
+      const ticket = tickets.length === 1 ? tickets[0] : null;
+      const authenticationAttempt = auth.getAuthenticationAttempt();
+      if (
+        keys.length !== 1 ||
+        ticket == null ||
+        !TICKET_PATTERN.test(ticket) ||
+        authenticationAttempt == null ||
+        !EXCHANGE_VALUE_PATTERN.test(authenticationAttempt)
+      ) {
+        clearPendingExchange();
+        setError('Pocket ID returned an incomplete sign-in response. Please try again.');
+        setIsCompleting(false);
+        return;
+      }
+
+      const pending = { authenticationAttempt, ticket };
+      savePendingExchange(pending);
+      setPendingExchange(pending);
+      void completeExchange(pending);
       return;
     }
 
-    exchangePocketId(ticket, authenticationAttempt)
-      .then(async (session) => {
-        await auth.saveSession(session, authenticationAttempt);
-        router.replace('/dashboard');
-      })
-      .catch((nextError: unknown) => {
-        setError(nextError instanceof Error ? nextError.message : 'Pocket ID sign-in failed');
-      });
-  }, [auth, router]);
+    const pending = readPendingExchange();
+    if (pending == null || auth.getAuthenticationAttempt() !== pending.authenticationAttempt) {
+      clearPendingExchange();
+      setError('Pocket ID returned an incomplete sign-in response. Please try again.');
+      setIsCompleting(false);
+      return;
+    }
+    setPendingExchange(pending);
+    void completeExchange(pending);
+  }, [auth, completeExchange]);
 
   return (
     <main className="auth-page">
@@ -61,14 +111,58 @@ export function PocketIdCallback() {
             <div className="error" role="alert">
               {error}
             </div>
+            {pendingExchange != null ? (
+              <Button
+                disabled={isCompleting}
+                onClick={() => void completeExchange(pendingExchange)}
+              >
+                Retry sign-in
+              </Button>
+            ) : null}
             <Button asChild className="secondary">
-              <Link href="/login">Return to login</Link>
+              <Link href="/login" onClick={clearPendingExchange}>
+                Return to login
+              </Link>
             </Button>
           </>
         )}
       </section>
     </main>
   );
+}
+
+function readPendingExchange(): PendingPocketIdExchange | null {
+  try {
+    const serialized = window.sessionStorage.getItem(EXCHANGE_STORAGE_KEY);
+    if (serialized == null) {
+      return null;
+    }
+    const value = JSON.parse(serialized) as Partial<PendingPocketIdExchange>;
+    return typeof value.authenticationAttempt === 'string' &&
+      EXCHANGE_VALUE_PATTERN.test(value.authenticationAttempt) &&
+      typeof value.ticket === 'string' &&
+      TICKET_PATTERN.test(value.ticket)
+      ? { authenticationAttempt: value.authenticationAttempt, ticket: value.ticket }
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function savePendingExchange(pending: PendingPocketIdExchange): void {
+  try {
+    window.sessionStorage.setItem(EXCHANGE_STORAGE_KEY, JSON.stringify(pending));
+  } catch {
+    // The in-memory retry remains available when tab storage is unavailable.
+  }
+}
+
+function clearPendingExchange(): void {
+  try {
+    window.sessionStorage.removeItem(EXCHANGE_STORAGE_KEY);
+  } catch {
+    // There is no recoverable storage state to clear when tab storage is unavailable.
+  }
 }
 
 function describeCallbackError(errorCode: string): string {

@@ -26,8 +26,11 @@ import { AuthAuditMetadata, AuthAuditService } from './auth-audit.service';
 
 const PROVIDER = 'pocket_id';
 const AUTHORIZATION_LIFETIME_MS = 10 * 60 * 1000;
+const EXCHANGE_TICKET_LIFETIME_MS = 10 * 60 * 1000;
 const EXCHANGE_RETRY_LIFETIME_MS = 20 * 60 * 1000;
 const MAX_UNEXPIRED_LOGIN_ATTEMPTS = 1_000;
+const MAX_UNEXPIRED_LOGIN_ATTEMPTS_PER_SOURCE = 100;
+const LOGIN_ATTEMPT_TRANSACTION_ATTEMPTS = 3;
 const SESSION_DURATION_DAYS = 30;
 const SECRET_BYTES = 32;
 const ENCRYPTION_KEY_BYTES = 32;
@@ -59,7 +62,7 @@ type OidcDiscovery = {
 
 type VerifiedIdentity = {
   issuer: string;
-  preferredUsername: string;
+  preferredUsername: string | null;
   subject: string;
 };
 
@@ -98,7 +101,10 @@ export class PocketIdService {
     return { pocketId: { enabled: this.getConfiguration(false) != null } };
   }
 
-  async start(input: unknown): Promise<{ authorizationUrl: string }> {
+  async start(
+    input: unknown,
+    metadata: AuthAuditMetadata = {},
+  ): Promise<{ authorizationUrl: string }> {
     const configuration = this.requireConfiguration();
     const { clientNonce, clientType } = parseStartRequest(input);
     const discovery = await this.getDiscovery(configuration);
@@ -106,44 +112,65 @@ export class PocketIdService {
     const codeVerifier = createRandomSecret();
     const codeChallenge = createPkceChallenge(codeVerifier);
     const now = new Date();
+    const sourceHash = hashValue(metadata.ipAddress ?? 'unknown');
 
-    await this.prismaService.$transaction(
-      async (transaction) => {
-        await transaction.oidcLoginAttempt.deleteMany({
-          where: { expiresAt: { lte: now } },
-        });
-        const currentAttempts = await transaction.oidcLoginAttempt.count({
-          where: {
-            expiresAt: { gt: now },
-            provider: PROVIDER,
+    for (
+      let transactionAttempt = 1;
+      transactionAttempt <= LOGIN_ATTEMPT_TRANSACTION_ATTEMPTS;
+      transactionAttempt += 1
+    ) {
+      try {
+        await this.prismaService.$transaction(
+          async (transaction) => {
+            await transaction.oidcLoginAttempt.deleteMany({
+              where: { expiresAt: { lte: now } },
+            });
+            const sourceAttempts = await transaction.oidcLoginAttempt.count({
+              where: {
+                expiresAt: { gt: now },
+                provider: PROVIDER,
+                sourceHash,
+              },
+            });
+            if (sourceAttempts >= MAX_UNEXPIRED_LOGIN_ATTEMPTS_PER_SOURCE) {
+              throwTooManyPocketIdAttempts();
+            }
+            const currentAttempts = await transaction.oidcLoginAttempt.count({
+              where: {
+                expiresAt: { gt: now },
+                provider: PROVIDER,
+              },
+            });
+            if (currentAttempts >= MAX_UNEXPIRED_LOGIN_ATTEMPTS) {
+              throwTooManyPocketIdAttempts();
+            }
+            await transaction.oidcLoginAttempt.create({
+              data: {
+                clientNonceHash: hashValue(clientNonce),
+                clientType,
+                expiresAt: new Date(now.getTime() + AUTHORIZATION_LIFETIME_MS),
+                pkceVerifierEncrypted: encryptValue(
+                  codeVerifier,
+                  configuration.encryptionKey,
+                ),
+                provider: PROVIDER,
+                sourceHash,
+                stateHash: hashValue(state),
+              },
+            });
           },
-        });
-        if (currentAttempts >= MAX_UNEXPIRED_LOGIN_ATTEMPTS) {
-          throw new HttpException(
-            {
-              error: 'Too Many Requests',
-              message: 'too many Pocket ID sign-in attempts',
-              statusCode: HttpStatus.TOO_MANY_REQUESTS,
-            },
-            HttpStatus.TOO_MANY_REQUESTS,
-          );
+          { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+        );
+        break;
+      } catch (error) {
+        if (
+          !isPrismaSerializationConflict(error) ||
+          transactionAttempt === LOGIN_ATTEMPT_TRANSACTION_ATTEMPTS
+        ) {
+          throw error;
         }
-        await transaction.oidcLoginAttempt.create({
-          data: {
-            clientNonceHash: hashValue(clientNonce),
-            clientType,
-            expiresAt: new Date(now.getTime() + AUTHORIZATION_LIFETIME_MS),
-            pkceVerifierEncrypted: encryptValue(
-              codeVerifier,
-              configuration.encryptionKey,
-            ),
-            provider: PROVIDER,
-            stateHash: hashValue(state),
-          },
-        });
-      },
-      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
-    );
+      }
+    }
 
     const authorizationUrl = new URL(discovery.authorization_endpoint);
     authorizationUrl.searchParams.set('client_id', configuration.clientId);
@@ -231,10 +258,14 @@ export class PocketIdService {
         discovery,
       );
       const exchangeTicket = createRandomSecret();
+      const callbackCompletedAt = new Date();
       const updated = await this.prismaService.oidcLoginAttempt.updateMany({
         data: {
-          callbackCompletedAt: now,
+          callbackCompletedAt,
           exchangeTicketHash: hashValue(exchangeTicket),
+          expiresAt: new Date(
+            callbackCompletedAt.getTime() + EXCHANGE_TICKET_LIFETIME_MS,
+          ),
           issuer: identity.issuer,
           issuerHash: hashValue(identity.issuer),
           pkceVerifierEncrypted: '',
@@ -318,15 +349,13 @@ export class PocketIdService {
       attempt.expiresAt <= now ||
       attempt.issuer == null ||
       attempt.issuerHash == null ||
-      attempt.subject == null ||
-      attempt.preferredUsername == null
+      attempt.subject == null
     ) {
       throw new GoneException(
         'Pocket ID exchange ticket is invalid or expired',
       );
     }
 
-    const passwordHash = await hash(createRandomSecret(), { type: argon2id });
     const refreshToken = createRandomSecret();
     const refreshTokenHash = hashValue(refreshToken);
     const sessionId = randomUUID();
@@ -374,7 +403,7 @@ export class PocketIdService {
 
           if (identity == null) {
             const username = validatePocketIdUsername(
-              attempt.preferredUsername!,
+              attempt.preferredUsername,
             );
             const collision = await transaction.user.findUnique({
               select: { id: true },
@@ -386,6 +415,9 @@ export class PocketIdService {
               );
             }
 
+            const passwordHash = await hash(createRandomSecret(), {
+              type: argon2id,
+            });
             const user = await transaction.user.create({
               data: {
                 passwordHash,
@@ -627,18 +659,19 @@ export class PocketIdService {
         discovery.userinfo_endpoint,
         tokenBody.access_token,
       );
-      if (userInfo.sub !== payload.sub) {
-        throw new BadRequestException('Pocket ID user info subject is invalid');
+      if (userInfo != null) {
+        if (userInfo.sub !== payload.sub) {
+          throw new BadRequestException(
+            'Pocket ID user info subject is invalid',
+          );
+        }
+        preferredUsername = userInfo.preferred_username;
       }
-      preferredUsername = userInfo.preferred_username;
-    }
-    if (typeof preferredUsername !== 'string') {
-      throw new BadRequestException('Pocket ID username is missing');
     }
 
     return {
       issuer: configuration.issuer,
-      preferredUsername: validatePocketIdUsername(preferredUsername),
+      preferredUsername: normalizePocketIdUsernameClaim(preferredUsername),
       subject: payload.sub,
     };
   }
@@ -663,18 +696,25 @@ export class PocketIdService {
   private async fetchUserInfo(
     endpoint: string,
     accessToken: string,
-  ): Promise<Record<string, unknown>> {
-    const response = await fetch(endpoint, {
-      headers: {
-        accept: 'application/json',
-        authorization: `Bearer ${accessToken}`,
-      },
-      signal: AbortSignal.timeout(10_000),
-    });
-    if (!response.ok) {
-      throw new ServiceUnavailableException('Pocket ID user info failed');
+  ): Promise<Record<string, unknown> | null> {
+    try {
+      const response = await fetch(endpoint, {
+        headers: {
+          accept: 'application/json',
+          authorization: `Bearer ${accessToken}`,
+        },
+        signal: AbortSignal.timeout(10_000),
+      });
+      if (!response.ok) {
+        return null;
+      }
+      const body = (await response.json()) as unknown;
+      return body != null && typeof body === 'object' && !Array.isArray(body)
+        ? (body as Record<string, unknown>)
+        : null;
+    } catch {
+      return null;
     }
-    return (await response.json()) as Record<string, unknown>;
   }
 
   private async getDiscovery(
@@ -793,6 +833,24 @@ export class PocketIdService {
   }
 }
 
+function throwTooManyPocketIdAttempts(): never {
+  throw new HttpException(
+    {
+      error: 'Too Many Requests',
+      message: 'too many Pocket ID sign-in attempts',
+      statusCode: HttpStatus.TOO_MANY_REQUESTS,
+    },
+    HttpStatus.TOO_MANY_REQUESTS,
+  );
+}
+
+function isPrismaSerializationConflict(error: unknown): boolean {
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === 'P2034'
+  );
+}
+
 function parseStartRequest(input: unknown): {
   clientNonce: string;
   clientType: PocketIdClientType;
@@ -856,8 +914,16 @@ function validateCallbackState(value: unknown): string {
   return value;
 }
 
-function validatePocketIdUsername(value: string): string {
+function normalizePocketIdUsernameClaim(value: unknown): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
   const username = value.trim();
+  return username.length <= MAX_USERNAME_LENGTH ? username : null;
+}
+
+function validatePocketIdUsername(value: string | null): string {
+  const username = value?.trim() ?? '';
   if (
     username.length < MIN_USERNAME_LENGTH ||
     username.length > MAX_USERNAME_LENGTH ||

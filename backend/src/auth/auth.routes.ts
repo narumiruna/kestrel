@@ -50,7 +50,10 @@ export function createAuthRoutes(
   routes.post('/oidc/pocket-id/start', async (context) => {
     context.header('Cache-Control', 'no-store');
     return context.json(
-      await pocketIdService.start(await readJsonBody(context)),
+      await pocketIdService.start(
+        await readJsonBody(context),
+        getRequestMetadata(context),
+      ),
       201,
     );
   });

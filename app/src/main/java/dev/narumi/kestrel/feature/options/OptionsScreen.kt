@@ -335,6 +335,23 @@ private fun CloudSettingsSection(
             }
     }
 
+    LaunchedEffect(cloudSessionLoaded, pendingPocketIdCallback) {
+        if (!cloudSessionLoaded || cloudSession != null || pendingPocketIdCallback != null) {
+            return@LaunchedEffect
+        }
+        runCloudAction(
+            setLoading = { cloudLoading = it },
+            setError = { cloudError = it },
+            setMessage = { cloudMessage = it },
+        ) {
+            val session = authRepository.resumePocketIdLogin() ?: return@runCloudAction
+            cloudSession = session
+            loginForm = CloudLoginForm()
+            syncRepository.syncNow()
+            cloudMessage = "Signed in as ${session.username} with Pocket ID"
+        }
+    }
+
     fun setRemoteControlEnabled(enabled: Boolean) {
         launchCloudUiAction(
             scope = scope,

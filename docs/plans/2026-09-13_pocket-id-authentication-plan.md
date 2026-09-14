@@ -32,7 +32,7 @@ sequenceDiagram
 ```
 
 - Persist hashed authorization state, encrypted PKCE verifier, verified identity claims, hashed one-time exchange ticket, expiry, consumption state, and a short-lived encrypted Kestrel exchange result for response-loss recovery. Raw Pocket ID tokens are not persisted.
-- Bind the final exchange to a client-generated nonce. Web stores it through the existing authentication-attempt mechanism; Android stores it in app-private preferences so process recreation does not break the browser return.
+- Bind the final exchange to a client-generated nonce. Web stores it through the existing authentication-attempt mechanism; Android stores the nonce and returned exchange ticket in app-private preferences until completion so process recreation or an ambiguous network failure does not break the browser return.
 - Redirect Web to a fixed configured HTTPS callback page and Android to the fixed `dev.narumi.kestrel://auth/pocket-id` deep link. Do not accept caller-controlled redirect URIs.
 - Provision a Pocket ID-only user with an unusable random local password hash so existing non-null database and password-auth contracts remain compatible. Password login and username/email account merging remain unavailable for that user.
 

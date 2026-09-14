@@ -5,6 +5,7 @@ import android.content.Context
 internal data class PocketIdAuthAttempt(
     val apiBaseUrl: String,
     val clientNonce: String,
+    val exchangeTicket: String? = null,
 )
 
 internal class PocketIdAuthAttemptStore(
@@ -16,17 +17,25 @@ internal class PocketIdAuthAttemptStore(
     fun load(): PocketIdAuthAttempt? {
         val apiBaseUrl = preferences.getString(KEY_API_BASE_URL, null) ?: return null
         val clientNonce = preferences.getString(KEY_CLIENT_NONCE, null) ?: return null
-        return PocketIdAuthAttempt(apiBaseUrl = apiBaseUrl, clientNonce = clientNonce)
+        return PocketIdAuthAttempt(
+            apiBaseUrl = apiBaseUrl,
+            clientNonce = clientNonce,
+            exchangeTicket = preferences.getString(KEY_EXCHANGE_TICKET, null),
+        )
     }
 
     fun save(attempt: PocketIdAuthAttempt) {
-        check(
+        val editor =
             preferences
                 .edit()
                 .putString(KEY_API_BASE_URL, attempt.apiBaseUrl)
                 .putString(KEY_CLIENT_NONCE, attempt.clientNonce)
-                .commit(),
-        ) { "Failed to persist Pocket ID sign-in attempt" }
+        if (attempt.exchangeTicket == null) {
+            editor.remove(KEY_EXCHANGE_TICKET)
+        } else {
+            editor.putString(KEY_EXCHANGE_TICKET, attempt.exchangeTicket)
+        }
+        check(editor.commit()) { "Failed to persist Pocket ID sign-in attempt" }
     }
 
     fun clear() {
@@ -36,6 +45,7 @@ internal class PocketIdAuthAttemptStore(
     companion object {
         private const val KEY_API_BASE_URL = "api_base_url"
         private const val KEY_CLIENT_NONCE = "client_nonce"
+        private const val KEY_EXCHANGE_TICKET = "exchange_ticket"
         private const val PREFERENCES_NAME = "kestrel_pocket_id_auth"
     }
 }
