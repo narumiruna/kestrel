@@ -23,9 +23,19 @@ export function createOidcLinkNonce(): string {
   )}`;
 }
 
-export function saveOidcLinkAttempt(clientNonce: string): void {
-  window.sessionStorage.setItem(LINK_ATTEMPT_STORAGE_KEY, clientNonce);
-  window.sessionStorage.removeItem(LINK_EXCHANGE_STORAGE_KEY);
+export function saveOidcLinkAttempt(clientNonce: string): boolean {
+  try {
+    window.sessionStorage.setItem(LINK_ATTEMPT_STORAGE_KEY, clientNonce);
+    window.sessionStorage.removeItem(LINK_EXCHANGE_STORAGE_KEY);
+    return true;
+  } catch {
+    try {
+      window.sessionStorage.removeItem(LINK_ATTEMPT_STORAGE_KEY);
+    } catch {
+      // Storage remains unavailable, so no further cleanup is possible.
+    }
+    return false;
+  }
 }
 
 export function readOidcLinkAttempt(): string | null {

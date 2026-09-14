@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { type FormEvent, useCallback, useEffect, useState } from 'react';
+import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { UserMark } from '@/components/cartographer/UserMark';
 import {
   clearOidcLinkState,
@@ -25,12 +25,20 @@ type PendingAction =
   | { id: string; kind: 'session'; label: string }
   | { kind: 'others'; label: string };
 
+const UNAVAILABLE_OIDC_LINK_STATUS: OidcLinkStatus = {
+  displayName: 'OpenID Connect',
+  enabled: false,
+  linked: false,
+};
+
 export default function AccountSecurityPage() {
   const auth = useDashboardAuth();
   const [sessions, setSessions] = useState<AuthSessionSummary[]>([]);
   const [devices, setDevices] = useState<RemoteDevice[]>([]);
   const [oidcLinkStatus, setOidcLinkStatus] = useState<OidcLinkStatus | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [areSessionsLoading, setAreSessionsLoading] = useState(true);
+  const [areDevicesLoading, setAreDevicesLoading] = useState(true);
+  const [isOidcLinkStatusLoading, setIsOidcLinkStatusLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
@@ -40,42 +48,77 @@ export default function AccountSecurityPage() {
   const [isSignOutOpen, setIsSignOutOpen] = useState(false);
   const [isOidcLinkOpen, setIsOidcLinkOpen] = useState(false);
   const [oidcCurrentPassword, setOidcCurrentPassword] = useState('');
+  const loadGenerationRef = useRef(0);
 
-  const loadSecurityData = useCallback(async () => {
+  const loadSecurityData = useCallback(() => {
     if (!auth.isAuthenticated) {
       return;
     }
 
-    setIsLoading(true);
+    const loadGeneration = loadGenerationRef.current + 1;
+    loadGenerationRef.current = loadGeneration;
+    const isCurrentLoad = () => loadGenerationRef.current === loadGeneration;
+    setAreSessionsLoading(true);
+    setAreDevicesLoading(true);
+    setIsOidcLinkStatusLoading(true);
     setError(null);
-    try {
-      const linkStatusRequest = auth
-        .apiRequest<OidcLinkStatus>('/auth/oidc/link')
-        .catch(() => null);
-      const [sessionResponse, deviceResponse, linkStatus] = await Promise.all([
-        auth.apiRequest<AuthSessionsResponse>('/auth/sessions'),
-        auth.apiRequest<RemoteDevicesResponse>('/devices'),
-        linkStatusRequest,
-      ]);
-      setSessions(sessionResponse.sessions);
-      setDevices(deviceResponse.devices);
-      setOidcLinkStatus(
-        linkStatus ?? {
-          displayName: 'OpenID Connect',
-          enabled: false,
-          linked: false,
-        },
-      );
-    } catch (nextError) {
-      setError(formatError(nextError));
-    } finally {
-      setIsLoading(false);
-    }
+
+    void auth
+      .apiRequest<AuthSessionsResponse>('/auth/sessions')
+      .then((response) => {
+        if (isCurrentLoad()) {
+          setSessions(response.sessions);
+        }
+      })
+      .catch((nextError) => {
+        if (isCurrentLoad()) {
+          setError(formatError(nextError));
+        }
+      })
+      .finally(() => {
+        if (isCurrentLoad()) {
+          setAreSessionsLoading(false);
+        }
+      });
+    void auth
+      .apiRequest<RemoteDevicesResponse>('/devices')
+      .then((response) => {
+        if (isCurrentLoad()) {
+          setDevices(response.devices);
+        }
+      })
+      .catch((nextError) => {
+        if (isCurrentLoad()) {
+          setError(formatError(nextError));
+        }
+      })
+      .finally(() => {
+        if (isCurrentLoad()) {
+          setAreDevicesLoading(false);
+        }
+      });
+    void auth
+      .apiRequest<OidcLinkStatus>('/auth/oidc/link')
+      .then((linkStatus) => {
+        if (isCurrentLoad()) {
+          setOidcLinkStatus(linkStatus);
+        }
+      })
+      .catch(() => {
+        if (isCurrentLoad()) {
+          setOidcLinkStatus((currentStatus) => currentStatus ?? UNAVAILABLE_OIDC_LINK_STATUS);
+        }
+      })
+      .finally(() => {
+        if (isCurrentLoad()) {
+          setIsOidcLinkStatusLoading(false);
+        }
+      });
   }, [auth]);
 
   useEffect(() => {
     if (auth.isHydrated && auth.isAuthenticated) {
-      void loadSecurityData();
+      loadSecurityData();
     }
   }, [auth.isAuthenticated, auth.isHydrated, loadSecurityData]);
 
@@ -109,7 +152,11 @@ export default function AccountSecurityPage() {
     setNotice(null);
     const clientNonce = createOidcLinkNonce();
     try {
-      saveOidcLinkAttempt(clientNonce);
+      if (!saveOidcLinkAttempt(clientNonce)) {
+        throw new Error(
+          'Session storage is unavailable. Enable it before linking a sign-in method.',
+        );
+      }
       const { authorizationUrl } = await auth.apiRequest<{ authorizationUrl: string }>(
         '/auth/oidc/link/start',
         {
@@ -155,7 +202,7 @@ export default function AccountSecurityPage() {
       setNotice(`${pendingAction.label} revoked.`);
       setPendingAction(null);
       setCurrentPassword('');
-      await loadSecurityData();
+      loadSecurityData();
     } catch (nextError) {
       setError(formatError(nextError));
     } finally {
@@ -220,7 +267,7 @@ export default function AccountSecurityPage() {
               <span className="chip remote-chip-online">linked</span>
             ) : null}
           </div>
-          {isLoading || oidcLinkStatus == null ? (
+          {isOidcLinkStatusLoading || oidcLinkStatus == null ? (
             <p className="muted">Loading sign-in methods…</p>
           ) : !oidcLinkStatus.enabled ? (
             <p className="muted">OIDC account linking is unavailable on this server.</p>
@@ -257,15 +304,15 @@ export default function AccountSecurityPage() {
             </div>
             <Button
               className="secondary"
-              disabled={isLoading || otherSessionCount === 0 || isSubmitting}
+              disabled={areSessionsLoading || otherSessionCount === 0 || isSubmitting}
               type="button"
               onClick={() => setPendingAction({ kind: 'others', label: 'Other sessions' })}
             >
               Revoke all others
             </Button>
           </div>
-          {isLoading ? <p className="muted">Loading sessions…</p> : null}
-          {!isLoading && sessions.length === 0 ? (
+          {areSessionsLoading ? <p className="muted">Loading sessions…</p> : null}
+          {!areSessionsLoading && sessions.length === 0 ? (
             <p className="muted">No active sessions were returned.</p>
           ) : null}
           <div className="account-security-list">
@@ -273,7 +320,7 @@ export default function AccountSecurityPage() {
               <SessionRow
                 key={session.id}
                 session={session}
-                disabled={isSubmitting}
+                disabled={areSessionsLoading || isSubmitting}
                 onRevoke={() => {
                   if (session.isCurrent) {
                     setIsSignOutOpen(true);
@@ -307,9 +354,9 @@ export default function AccountSecurityPage() {
             </div>
             <Button
               className="secondary"
-              disabled={isLoading}
+              disabled={areDevicesLoading}
               type="button"
-              onClick={() => void loadSecurityData()}
+              onClick={loadSecurityData}
             >
               Refresh
             </Button>
@@ -318,8 +365,8 @@ export default function AccountSecurityPage() {
             Revoking a device also revokes the Android session that last registered it. A command
             already delivered to Android may still finish.
           </p>
-          {isLoading ? <p className="muted">Loading devices…</p> : null}
-          {!isLoading && devices.length === 0 ? (
+          {areDevicesLoading ? <p className="muted">Loading devices…</p> : null}
+          {!areDevicesLoading && devices.length === 0 ? (
             <p className="muted">
               No Android devices registered. Enable web remote control in Kestrel Options to add
               one.
@@ -330,7 +377,7 @@ export default function AccountSecurityPage() {
               <DeviceRow
                 key={device.id}
                 device={device}
-                disabled={isSubmitting}
+                disabled={areDevicesLoading || isSubmitting}
                 onRevoke={() =>
                   setPendingAction({ id: device.id, kind: 'device', label: device.name })
                 }
