@@ -55,19 +55,25 @@ export default function AccountSecurityPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const linkStatusRequest = auth
-        .apiRequest<OidcLinkStatus>('/auth/oidc/link')
-        .catch(() => null);
-      const [sessionResponse, deviceResponse, linkStatus] = await Promise.all([
+      const [sessionResult, deviceResult, linkStatusResult] = await Promise.allSettled([
         auth.apiRequest<AuthSessionsResponse>('/auth/sessions'),
         auth.apiRequest<RemoteDevicesResponse>('/devices'),
-        linkStatusRequest,
+        auth.apiRequest<OidcLinkStatus>('/auth/oidc/link'),
       ]);
-      setSessions(sessionResponse.sessions);
-      setDevices(deviceResponse.devices);
-      setOidcLinkStatus(linkStatus ?? UNAVAILABLE_OIDC_LINK_STATUS);
+      setOidcLinkStatus((currentStatus) =>
+        linkStatusResult.status === 'fulfilled'
+          ? linkStatusResult.value
+          : (currentStatus ?? UNAVAILABLE_OIDC_LINK_STATUS),
+      );
+      if (sessionResult.status === 'rejected') {
+        throw sessionResult.reason;
+      }
+      if (deviceResult.status === 'rejected') {
+        throw deviceResult.reason;
+      }
+      setSessions(sessionResult.value.sessions);
+      setDevices(deviceResult.value.devices);
     } catch (nextError) {
-      setOidcLinkStatus((currentStatus) => currentStatus ?? UNAVAILABLE_OIDC_LINK_STATUS);
       setError(formatError(nextError));
     } finally {
       setIsLoading(false);

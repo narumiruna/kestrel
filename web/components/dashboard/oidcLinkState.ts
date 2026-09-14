@@ -29,6 +29,11 @@ export function saveOidcLinkAttempt(clientNonce: string): boolean {
     window.sessionStorage.removeItem(LINK_EXCHANGE_STORAGE_KEY);
     return true;
   } catch {
+    try {
+      window.sessionStorage.removeItem(LINK_ATTEMPT_STORAGE_KEY);
+    } catch {
+      // Storage remains unavailable, so no further cleanup is possible.
+    }
     return false;
   }
 }

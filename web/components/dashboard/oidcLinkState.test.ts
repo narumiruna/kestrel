@@ -7,29 +7,39 @@ const CLIENT_NONCE = 'link:1234567890abcdef1234567890abcdef';
 const ATTEMPT_HASH = createHash('sha256').update(CLIENT_NONCE).digest('hex');
 const TICKET = 'exchange-ticket-value-1234567890123456';
 
-test('contains unavailable session storage when saving a link attempt', () => {
-  const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
-  Object.defineProperty(globalThis, 'window', {
-    configurable: true,
-    value: {
-      sessionStorage: {
-        removeItem() {},
-        setItem() {
-          throw new Error('storage unavailable');
-        },
+test('reports failure when session storage is unavailable', () => {
+  withSessionStorage(
+    {
+      removeItem() {},
+      setItem() {
+        throw new Error('storage unavailable');
       },
     },
-  });
+    () => assert.equal(saveOidcLinkAttempt(CLIENT_NONCE), false),
+  );
+});
 
-  try {
-    assert.equal(saveOidcLinkAttempt(CLIENT_NONCE), false);
-  } finally {
-    if (originalWindow == null) {
-      Reflect.deleteProperty(globalThis, 'window');
-    } else {
-      Object.defineProperty(globalThis, 'window', originalWindow);
-    }
-  }
+test('clears a partially saved link attempt before reporting failure', () => {
+  const values = new Map<string, string>();
+  let removeCalls = 0;
+  withSessionStorage(
+    {
+      removeItem(key) {
+        removeCalls += 1;
+        if (removeCalls === 1) {
+          throw new Error('storage unavailable');
+        }
+        values.delete(key);
+      },
+      setItem(key, value) {
+        values.set(key, value);
+      },
+    },
+    () => {
+      assert.equal(saveOidcLinkAttempt(CLIENT_NONCE), false);
+      assert.equal(values.size, 0);
+    },
+  );
 });
 
 test('parses a callback bound to the pending link attempt', async () => {
@@ -64,3 +74,27 @@ test('parses provider cancellation and rejects extra fragment values', async () 
     { type: 'invalid' },
   );
 });
+
+function withSessionStorage(
+  sessionStorage: {
+    removeItem(key: string): void;
+    setItem(key: string, value: string): void;
+  },
+  action: () => void,
+): void {
+  const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
+  Object.defineProperty(globalThis, 'window', {
+    configurable: true,
+    value: { sessionStorage },
+  });
+
+  try {
+    action();
+  } finally {
+    if (originalWindow == null) {
+      Reflect.deleteProperty(globalThis, 'window');
+    } else {
+      Object.defineProperty(globalThis, 'window', originalWindow);
+    }
+  }
+}
