@@ -227,9 +227,15 @@ internal class CloudAuthRepository private constructor(
     }
 
     private fun clearSession() {
-        oidcAttemptStore.clear()
-        sessionStore.clear()
-        _hasSession.value = false
+        try {
+            oidcAttemptStore.clear()
+        } finally {
+            try {
+                sessionStore.clear()
+            } finally {
+                _hasSession.value = false
+            }
+        }
     }
 
     private suspend fun completeOidcExchange(attempt: OidcAuthAttempt): CloudSession =
