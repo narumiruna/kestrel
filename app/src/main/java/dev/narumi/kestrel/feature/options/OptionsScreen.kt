@@ -120,7 +120,7 @@ private fun OptionsCard(
 @Composable
 fun OptionsScreen(
     pendingOidcCallback: String? = null,
-    onOidcCallbackConsumed: () -> Unit = {},
+    onOidcCallbackConsumed: (String) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -279,7 +279,7 @@ fun OptionsScreen(
 @Composable
 private fun CloudSettingsSection(
     pendingOidcCallback: String?,
-    onOidcCallbackConsumed: () -> Unit,
+    onOidcCallbackConsumed: (String) -> Unit,
 ) {
     val context = LocalContext.current
     val prefs = remember { KestrelPrefs(context) }
@@ -425,7 +425,7 @@ private fun CloudSettingsSection(
                 cloudMessage = "Signed in as ${session.username} with ${oidcMethod.displayName}"
             }
         } finally {
-            onOidcCallbackConsumed()
+            onOidcCallbackConsumed(callbackUri)
         }
     }
 

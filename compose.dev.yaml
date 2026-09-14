@@ -25,6 +25,7 @@ x-backend-env: &backend-env
   AUTH_TOTP_ENCRYPTION_KEY: ${AUTH_TOTP_ENCRYPTION_KEY:-MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=}
   AUTH_TOTP_ISSUER: Kestrel Cloud Dev
   LOG_LEVEL: ${KESTREL_LOG_LEVEL:-debug}
+  NODE_ENV: development
   PORT: "3300"
 
 services:

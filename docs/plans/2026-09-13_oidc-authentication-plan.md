@@ -26,7 +26,7 @@ sequenceDiagram
 
 - OIDC is disabled unless every required `AUTH_OIDC_*` value is present and valid.
 - Discovery supplies provider endpoints; no provider-specific endpoint or claim is required. `preferred_username` is optional for existing identities and required only to provision a new Kestrel username.
-- Unauthenticated starts remain stateless. Authenticated-encrypted state carries PKCE verifier, client binding, client type, and expiry. A durable exchange row is created only after provider verification.
+- Unauthenticated starts remain stateless. Authenticated-encrypted state carries PKCE verifier, client binding, client type, and expiry. Callbacks atomically claim the state hash before outbound provider requests, and successful verification completes that row for ticket exchange.
 - The API exposes a configured display name but keeps one provider-neutral `oidc` method and route family.
 - Web and Android redirects are fixed server configuration, never caller input. Android uses a verified HTTPS App Link compiled into the app; self-hosted forks must claim their own domain and configure the matching backend callback.
 - Provider tokens remain backend-only. Clients receive only a short-lived, one-time Kestrel exchange ticket bound to their nonce.
@@ -54,8 +54,9 @@ sequenceDiagram
 
 ## Plan
 
-- [x] Rename Backend service, routes, wire types, provider key, configuration, logs, and tests from Pocket ID to generic OIDC; 149 unit tests and 9 e2e tests pass.
-- [x] Add a forward Prisma migration for the provider-key rename and validate generated Prisma artifacts without rewriting prior migrations; `prisma generate` and `prisma validate` pass.
+- [x] Rename Backend service, routes, wire types, provider key, configuration, logs, and tests from Pocket ID to generic OIDC; 155 unit tests and 9 e2e tests pass.
+- [x] Add a forward Prisma migration for the provider-key rename and removal of persisted raw recovery credentials; validate generated Prisma artifacts without rewriting prior migrations.
+- [x] Atomically claim callbacks before provider requests, derive reproducible callback/session retry secrets, preserve exact issuer identifiers and endpoint queries, and support form-correct client authentication.
 - [x] Rename Web API helpers, callback route/component, storage keys, UI state, and labels; the configured provider name is displayed while local login remains available.
 - [x] Rename Android models, API helpers, attempt store, callback parser, repository methods, UI state, and messages; callback binding and retry semantics remain covered by JVM tests.
 - [x] Move all deployment-specific OIDC values to GitHub Actions variables, keep secrets in Actions secrets, and leave required Compose values empty so OIDC stays optional.
@@ -63,7 +64,7 @@ sequenceDiagram
 
 ## Completion Checklist
 
-- [x] Backend lint, 149 unit tests, 9 e2e tests, typecheck, build, Prisma generation, and schema validation pass.
+- [x] Backend lint, 155 unit tests, 9 e2e tests, typecheck, build, Prisma generation, and schema validation pass.
 - [x] Web Biome CI, typecheck, and production build pass.
 - [x] Android formatting, Detekt, JVM tests, and debug build pass without changing a connected device.
 - [x] Production Compose validates with OIDC unset and with a complete generic OIDC configuration; Backend tests confirm incomplete or invalid configuration reports the method disabled.

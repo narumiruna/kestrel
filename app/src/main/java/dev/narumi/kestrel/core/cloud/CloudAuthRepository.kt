@@ -99,7 +99,7 @@ internal class CloudAuthRepository private constructor(
                 .let {
                     saveNewSessionOrRevoke(
                         it.copy(refreshRequestId = UUID.randomUUID().toString()),
-                    )
+                    ).also { oidcAttemptStore.clear() }
                 }
         }
 
@@ -117,7 +117,7 @@ internal class CloudAuthRepository private constructor(
                 ).let {
                     saveNewSessionOrRevoke(
                         it.copy(refreshRequestId = UUID.randomUUID().toString()),
-                    )
+                    ).also { oidcAttemptStore.clear() }
                 }
         }
 
@@ -231,6 +231,9 @@ internal class CloudAuthRepository private constructor(
         try {
             refreshMutex
                 .withLock {
+                    check(oidcAttemptStore.load() == attempt) {
+                        "OIDC sign-in is no longer pending"
+                    }
                     exchangeOidcWithRetry(
                         exchangeTicket = checkNotNull(attempt.exchangeTicket),
                         clientNonce = attempt.clientNonce,

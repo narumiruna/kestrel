@@ -85,7 +85,7 @@ The current migrations establish the core Phase 1 auth tables:
 ### `federated_identities` and `oidc_login_attempts`
 
 - Immutable provider `issuer + sub` mappings to Kestrel users
-- Authenticated-encrypted stateless PKCE authorization state, short-lived hashed exchange tickets, and encrypted same-client exchange recovery
+- Authenticated-encrypted stateless PKCE authorization state, one-time hashed exchange tickets, and deterministic same-client retry recovery without persisted raw session credentials
 
 ### `recovery_codes`
 

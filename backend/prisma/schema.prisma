@@ -58,7 +58,6 @@ model OidcLoginAttempt {
   expiresAt                     DateTime  @map("expires_at")
   exchangeTicketHash            String?   @unique @map("exchange_ticket_hash") @db.VarChar(64)
   exchangeSessionId             String?   @map("exchange_session_id") @db.Uuid
-  exchangeRefreshTokenEncrypted String?   @map("exchange_refresh_token_encrypted")
   issuer                        String?
   issuerHash                    String?   @map("issuer_hash") @db.VarChar(64)
   subject                       String?   @db.VarChar(255)

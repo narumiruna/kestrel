@@ -41,6 +41,7 @@ services:
       AUTH_TOTP_ENCRYPTION_KEY: ${AUTH_TOTP_ENCRYPTION_KEY:?AUTH_TOTP_ENCRYPTION_KEY is required}
       AUTH_TOTP_ISSUER: Kestrel Cloud
       LOG_LEVEL: ${KESTREL_LOG_LEVEL:-info}
+      NODE_ENV: production
       PORT: "3300"
     ports:
       - "${KESTREL_BACKEND_PORT:-3300}:3300"

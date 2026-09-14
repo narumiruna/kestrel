@@ -1,10 +1,11 @@
-import { Prisma } from '@prisma/client';
+import { Prisma, type OidcLoginAttempt } from '@prisma/client';
 import { argon2id, hash } from 'argon2';
 import { createLocalJWKSet, type JSONWebKeySet, jwtVerify } from 'jose';
 import {
   createCipheriv,
   createDecipheriv,
   createHash,
+  createHmac,
   randomBytes,
   randomUUID,
   timingSafeEqual,
@@ -86,7 +87,6 @@ type ExchangeUser = OidcExchangeResponse['user'];
 type RecoverableExchangeAttempt = {
   clientNonceHash: string;
   consumedAt: Date | null;
-  exchangeRefreshTokenEncrypted: string | null;
   exchangeSessionId: string | null;
   expiresAt: Date;
   provider: string;
@@ -163,11 +163,25 @@ export class OidcService {
       rawState,
       configuration.encryptionKey,
     );
-    if (authorizationState.expiresAt <= Date.now()) {
+    const callbackStartedAt = new Date();
+    if (authorizationState.expiresAt <= callbackStartedAt.getTime()) {
       throw new GoneException('OIDC sign-in attempt is invalid or expired');
     }
 
+    const attemptId = randomUUID();
+    const recoveredRedirect = await this.claimCallback(
+      attemptId,
+      rawState,
+      authorizationState,
+      configuration,
+      callbackStartedAt,
+    );
+    if (recoveredRedirect != null) {
+      return recoveredRedirect;
+    }
+
     if (input.error != null) {
+      await this.completeFailedCallback(attemptId, callbackStartedAt);
       return buildClientRedirect(
         authorizationState.clientType,
         configuration,
@@ -191,32 +205,34 @@ export class OidcService {
         configuration,
         discovery,
       );
-      const exchangeTicket = createRandomSecret();
+      const exchangeTicket = deriveSecret(
+        configuration.encryptionKey,
+        'callback-exchange-ticket',
+        rawState,
+      );
       const callbackCompletedAt = new Date();
-      await this.prismaService.$transaction(async (transaction) => {
-        await transaction.oidcLoginAttempt.deleteMany({
-          where: { expiresAt: { lte: callbackCompletedAt } },
-        });
-        await transaction.oidcLoginAttempt.create({
-          data: {
-            callbackCompletedAt,
-            callbackStartedAt: callbackCompletedAt,
-            clientNonceHash: authorizationState.clientNonceHash,
-            clientType: authorizationState.clientType,
-            exchangeTicketHash: hashValue(exchangeTicket),
-            expiresAt: new Date(
-              callbackCompletedAt.getTime() + EXCHANGE_TICKET_LIFETIME_MS,
-            ),
-            issuer: identity.issuer,
-            issuerHash: hashValue(identity.issuer),
-            pkceVerifierEncrypted: '',
-            preferredUsername: identity.preferredUsername,
-            provider: PROVIDER,
-            stateHash: hashValue(rawState),
-            subject: identity.subject,
-          },
-        });
+      const completed = await this.prismaService.oidcLoginAttempt.updateMany({
+        data: {
+          callbackCompletedAt,
+          exchangeTicketHash: hashValue(exchangeTicket),
+          expiresAt: new Date(
+            callbackCompletedAt.getTime() + EXCHANGE_TICKET_LIFETIME_MS,
+          ),
+          issuer: identity.issuer,
+          issuerHash: hashValue(identity.issuer),
+          preferredUsername: identity.preferredUsername,
+          subject: identity.subject,
+        },
+        where: {
+          callbackCompletedAt: null,
+          callbackStartedAt,
+          consumedAt: null,
+          id: attemptId,
+        },
       });
+      if (completed.count !== 1) {
+        throw new GoneException('OIDC sign-in attempt is invalid or expired');
+      }
 
       return buildClientRedirect(
         authorizationState.clientType,
@@ -226,6 +242,7 @@ export class OidcService {
         authorizationState.clientNonceHash,
       );
     } catch (error) {
+      await this.completeFailedCallback(attemptId, callbackStartedAt);
       this.logger.warn(
         { reason: error instanceof Error ? error.name : 'UnknownError' },
         'OIDC callback failed',
@@ -238,6 +255,118 @@ export class OidcService {
         authorizationState.clientNonceHash,
       );
     }
+  }
+
+  private async claimCallback(
+    attemptId: string,
+    rawState: string,
+    authorizationState: AuthorizationState,
+    configuration: OidcConfiguration,
+    callbackStartedAt: Date,
+  ): Promise<string | null> {
+    const stateHash = hashValue(rawState);
+    const existing = await this.prismaService.oidcLoginAttempt.findUnique({
+      where: { stateHash },
+    });
+    if (existing != null) {
+      return this.recoverCallbackRedirect(
+        existing,
+        rawState,
+        authorizationState,
+        configuration,
+        callbackStartedAt,
+      );
+    }
+
+    try {
+      await this.prismaService.$transaction(async (transaction) => {
+        await transaction.oidcLoginAttempt.deleteMany({
+          where: { expiresAt: { lte: callbackStartedAt } },
+        });
+        await transaction.oidcLoginAttempt.create({
+          data: {
+            callbackStartedAt,
+            clientNonceHash: authorizationState.clientNonceHash,
+            clientType: authorizationState.clientType,
+            expiresAt: new Date(authorizationState.expiresAt),
+            id: attemptId,
+            pkceVerifierEncrypted: '',
+            provider: PROVIDER,
+            stateHash,
+          },
+        });
+      });
+      return null;
+    } catch (error) {
+      if (
+        !(error instanceof Prisma.PrismaClientKnownRequestError) ||
+        error.code !== 'P2002'
+      ) {
+        throw error;
+      }
+      const racedAttempt = await this.prismaService.oidcLoginAttempt.findUnique(
+        {
+          where: { stateHash },
+        },
+      );
+      return this.recoverCallbackRedirect(
+        racedAttempt,
+        rawState,
+        authorizationState,
+        configuration,
+        callbackStartedAt,
+      );
+    }
+  }
+
+  private recoverCallbackRedirect(
+    attempt: OidcLoginAttempt | null,
+    rawState: string,
+    authorizationState: AuthorizationState,
+    configuration: OidcConfiguration,
+    now: Date,
+  ): string {
+    const exchangeTicket = deriveSecret(
+      configuration.encryptionKey,
+      'callback-exchange-ticket',
+      rawState,
+    );
+    if (
+      attempt == null ||
+      attempt.provider !== PROVIDER ||
+      attempt.callbackCompletedAt == null ||
+      attempt.expiresAt <= now ||
+      attempt.clientType !== authorizationState.clientType ||
+      attempt.clientNonceHash !== authorizationState.clientNonceHash ||
+      attempt.exchangeTicketHash !== hashValue(exchangeTicket)
+    ) {
+      throw new GoneException('OIDC sign-in attempt is invalid or expired');
+    }
+    return buildClientRedirect(
+      authorizationState.clientType,
+      configuration,
+      undefined,
+      exchangeTicket,
+      authorizationState.clientNonceHash,
+    );
+  }
+
+  private async completeFailedCallback(
+    attemptId: string,
+    callbackStartedAt: Date,
+  ): Promise<void> {
+    await this.prismaService.oidcLoginAttempt.updateMany({
+      data: {
+        callbackCompletedAt: new Date(),
+        consumedAt: new Date(),
+      },
+      where: {
+        callbackCompletedAt: null,
+        callbackStartedAt,
+        consumedAt: null,
+        id: attemptId,
+      },
+    });
   }
 
   async exchange(
@@ -262,6 +391,7 @@ export class OidcService {
     if (attempt.consumedAt != null) {
       const recovered = await this.recoverCompletedExchange(
         attempt,
+        exchangeTicket,
         clientNonce,
         configuration,
         now,
@@ -281,7 +411,12 @@ export class OidcService {
       throw new GoneException('OIDC exchange ticket is invalid or expired');
     }
 
-    const refreshToken = createRandomSecret();
+    const refreshToken = deriveSecret(
+      configuration.encryptionKey,
+      'exchange-refresh-token',
+      exchangeTicket,
+      clientNonce,
+    );
     const refreshTokenHash = hashValue(refreshToken);
     const sessionId = randomUUID();
 
@@ -291,10 +426,6 @@ export class OidcService {
           const consumed = await transaction.oidcLoginAttempt.updateMany({
             data: {
               consumedAt: now,
-              exchangeRefreshTokenEncrypted: encryptValue(
-                refreshToken,
-                configuration.encryptionKey,
-              ),
               exchangeSessionId: sessionId,
               expiresAt: new Date(now.getTime() + EXCHANGE_RETRY_LIFETIME_MS),
             },
@@ -401,7 +532,7 @@ export class OidcService {
       return response;
     } catch (error) {
       const recovered = await this.recoverExchange(
-        exchangeTicketHash,
+        exchangeTicket,
         clientNonce,
         configuration,
         now,
@@ -424,16 +555,17 @@ export class OidcService {
   }
 
   private async recoverExchange(
-    exchangeTicketHash: string,
+    exchangeTicket: string,
     clientNonce: string,
     configuration: OidcConfiguration,
     now: Date,
   ): Promise<OidcExchangeResponse | null> {
     const attempt = await this.prismaService.oidcLoginAttempt.findUnique({
-      where: { exchangeTicketHash },
+      where: { exchangeTicketHash: hashValue(exchangeTicket) },
     });
     return this.recoverCompletedExchange(
       attempt,
+      exchangeTicket,
       clientNonce,
       configuration,
       now,
@@ -442,6 +574,7 @@ export class OidcService {
 
   private async recoverCompletedExchange(
     attempt: RecoverableExchangeAttempt | null,
+    exchangeTicket: string,
     clientNonce: string,
     configuration: OidcConfiguration,
     now: Date,
@@ -450,7 +583,6 @@ export class OidcService {
       attempt == null ||
       attempt.provider !== PROVIDER ||
       attempt.consumedAt == null ||
-      attempt.exchangeRefreshTokenEncrypted == null ||
       attempt.exchangeSessionId == null ||
       attempt.expiresAt <= now ||
       !secureHashMatches(attempt.clientNonceHash, clientNonce)
@@ -476,9 +608,11 @@ export class OidcService {
     ) {
       return null;
     }
-    const refreshToken = decryptValue(
-      attempt.exchangeRefreshTokenEncrypted,
+    const refreshToken = deriveSecret(
       configuration.encryptionKey,
+      'exchange-refresh-token',
+      exchangeTicket,
+      clientNonce,
     );
     if (!secureHashMatches(session.refreshTokenHash, refreshToken)) {
       return null;
@@ -663,7 +797,7 @@ export class OidcService {
     }
 
     const discoveryUrl = new URL(
-      `${configuration.issuer}/.well-known/openid-configuration`,
+      `${configuration.issuer.replace(/\/$/, '')}/.well-known/openid-configuration`,
     );
     const response = await fetch(discoveryUrl, {
       headers: { accept: 'application/json' },
@@ -722,7 +856,7 @@ export class OidcService {
       values.androidCallbackUri!,
       'OIDC Android callback URI',
     );
-    const issuer = validateConfiguredUrl(values.issuer!, 'OIDC issuer');
+    validateConfiguredUrl(values.issuer!, 'OIDC issuer');
     const redirectUri = validateConfiguredUrl(
       values.redirectUri!,
       'OIDC redirect URI',
@@ -733,7 +867,7 @@ export class OidcService {
     );
     const encryptionKey = decodeEncryptionKey(values.encryptionKey!);
     const displayName = validateDisplayName(
-      this.configService.get('AUTH_OIDC_DISPLAY_NAME')?.trim() ??
+      this.configService.get('AUTH_OIDC_DISPLAY_NAME')?.trim() ||
         DEFAULT_DISPLAY_NAME,
     );
 
@@ -743,7 +877,7 @@ export class OidcService {
       clientSecret: values.clientSecret!,
       displayName,
       encryptionKey,
-      issuer: issuer.toString().replace(/\/$/, ''),
+      issuer: values.issuer!,
       redirectUri: redirectUri.toString(),
       webCallbackUri: webCallbackUri.toString(),
     };
@@ -950,13 +1084,26 @@ function createClientSecretBasicAuthorization(
   clientId: string,
   clientSecret: string,
 ): string {
-  const credentials = `${encodeURIComponent(clientId)}:${encodeURIComponent(clientSecret)}`;
+  const credentials = `${formEncode(clientId)}:${formEncode(clientSecret)}`;
   return `Basic ${Buffer.from(credentials).toString('base64')}`;
 }
 
+function formEncode(value: string): string {
+  return new URLSearchParams({ value }).toString().slice('value='.length);
+}
+
 function validateProviderEndpoint(value: string, label: string): void {
-  const url = validateConfiguredUrl(value, label);
-  if (url.username !== '' || url.password !== '') {
+  try {
+    const url = new URL(value);
+    if (
+      !isAllowedUrlProtocol(url) ||
+      url.username !== '' ||
+      url.password !== '' ||
+      url.hash !== ''
+    ) {
+      throw new Error('unsafe URL');
+    }
+  } catch {
     throw new ServiceUnavailableException(`${label} is invalid`);
   }
 }
@@ -965,8 +1112,7 @@ function validateConfiguredUrl(value: string, label: string): URL {
   try {
     const url = new URL(value);
     if (
-      (url.protocol !== 'https:' &&
-        !(process.env.NODE_ENV !== 'production' && url.protocol === 'http:')) ||
+      !isAllowedUrlProtocol(url) ||
       url.username !== '' ||
       url.password !== '' ||
       url.hash !== '' ||
@@ -978,6 +1124,13 @@ function validateConfiguredUrl(value: string, label: string): URL {
   } catch {
     throw new InternalServerErrorException(`${label} is invalid`);
   }
+}
+
+function isAllowedUrlProtocol(url: URL): boolean {
+  return (
+    url.protocol === 'https:' ||
+    (process.env.NODE_ENV !== 'production' && url.protocol === 'http:')
+  );
 }
 
 function validateDisplayName(value: string): string {
@@ -1022,6 +1175,18 @@ function createRandomSecret(): string {
 
 function hashValue(value: string): string {
   return createHash('sha256').update(value).digest('hex');
+}
+
+function deriveSecret(
+  key: Buffer,
+  context: string,
+  ...values: string[]
+): string {
+  const hmac = createHmac('sha256', key).update(context);
+  for (const value of values) {
+    hmac.update('\0').update(value);
+  }
+  return hmac.digest('base64url');
 }
 
 function createPkceChallenge(value: string): string {

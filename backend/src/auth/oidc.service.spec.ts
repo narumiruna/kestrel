@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
-import { Prisma } from '@prisma/client';
 import { createHash, generateKeyPairSync } from 'node:crypto';
 import { SignJWT } from 'jose';
 import { ConfigService } from '../config.service';
@@ -17,6 +16,7 @@ const ANDROID_CALLBACK = 'https://kestrel.example.test/login/oidc/android';
 const WEB_CALLBACK = 'https://kestrel.example.test/login/oidc';
 const REDIRECT_URI =
   'https://kestrel.example.test/api/backend/auth/oidc/callback';
+const ORIGINAL_NODE_ENV = process.env.NODE_ENV;
 
 type PrismaMock = ReturnType<typeof createPrismaMock>;
 
@@ -24,6 +24,11 @@ describe('OidcService', () => {
   afterEach(() => {
     jest.restoreAllMocks();
     jest.useRealTimers();
+    if (ORIGINAL_NODE_ENV == null) {
+      delete process.env.NODE_ENV;
+    } else {
+      process.env.NODE_ENV = ORIGINAL_NODE_ENV;
+    }
   });
 
   it('reports disabled without configuration and rejects partial configuration', async () => {
@@ -62,6 +67,38 @@ describe('OidcService', () => {
     );
   });
 
+  it('defaults an empty display name without disabling valid configuration', () => {
+    const service = createService(
+      createPrismaMock(),
+      configuredEnvironment({ AUTH_OIDC_DISPLAY_NAME: '   ' }),
+    );
+
+    expect(service.getMethods()).toEqual({
+      oidc: { displayName: 'OpenID Connect', enabled: true },
+    });
+  });
+
+  it('rejects HTTP OIDC URLs in production', async () => {
+    process.env.NODE_ENV = 'production';
+    const httpIssuer = 'http://oidc.example.test';
+    const service = createService(
+      createPrismaMock(),
+      configuredEnvironment({
+        AUTH_OIDC_ANDROID_CALLBACK_URI:
+          'http://kestrel.example.test/login/oidc/android',
+        AUTH_OIDC_ISSUER: httpIssuer,
+        AUTH_OIDC_REDIRECT_URI:
+          'http://kestrel.example.test/auth/oidc/callback',
+        AUTH_OIDC_WEB_CALLBACK_URI: 'http://kestrel.example.test/login/oidc',
+      }),
+    );
+
+    expect(service.getMethods().oidc.enabled).toBe(false);
+    await expect(
+      service.start({ clientNonce: CLIENT_NONCE, clientType: 'web' }),
+    ).rejects.toThrow('OIDC Android callback URI is invalid');
+  });
+
   it('creates a server-bound authorization request with PKCE, state, and nonce', async () => {
     const prisma = createPrismaMock();
     mockDiscovery();
@@ -98,6 +135,44 @@ describe('OidcService', () => {
     expect(providerNonce).toBe(state);
     expect(prisma.$transaction).not.toHaveBeenCalled();
     expect(prisma.transaction.oidcLoginAttempt.create).not.toHaveBeenCalled();
+  });
+
+  it('preserves a trailing slash in the configured issuer identifier', async () => {
+    const issuer = `${ISSUER}/`;
+    mockDiscovery({ issuer });
+    const service = createService(
+      createPrismaMock(),
+      configuredEnvironment({ AUTH_OIDC_ISSUER: issuer }),
+    );
+
+    await expect(
+      service.start({ clientNonce: CLIENT_NONCE, clientType: 'web' }),
+    ).resolves.toEqual({ authorizationUrl: expect.any(String) });
+    expect((jest.mocked(global.fetch).mock.calls[0][0] as URL).toString()).toBe(
+      `${ISSUER}/.well-known/openid-configuration`,
+    );
+  });
+
+  it('preserves fixed query parameters in discovered provider endpoints', async () => {
+    const prisma = createPrismaMock();
+    const tokenEndpoint = `${ISSUER}/api/oidc/token?audience=kestrel`;
+    mockDiscovery({
+      authorizationEndpoint: `${ISSUER}/authorize?connection=employees`,
+      tokenEndpoint,
+    });
+    const service = createService(prisma);
+    const { authorizationUrl } = await service.start({
+      clientNonce: CLIENT_NONCE,
+      clientType: 'web',
+    });
+    const authorization = new URL(authorizationUrl);
+    const state = authorization.searchParams.get('state')!;
+    expect(authorization.searchParams.get('connection')).toBe('employees');
+    await mockTokenAndJwks(state);
+
+    await service.callback({ code: 'authorization-code', state });
+
+    expect(jest.mocked(global.fetch).mock.calls[1][0]).toBe(tokenEndpoint);
   });
 
   it('rejects a provider that advertises no PKCE S256 support', async () => {
@@ -173,22 +248,58 @@ describe('OidcService', () => {
     );
     expect(prisma.transaction.oidcLoginAttempt.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
-        callbackCompletedAt: expect.any(Date),
+        callbackStartedAt: expect.any(Date),
         clientNonceHash: sha256(CLIENT_NONCE),
         clientType: 'web',
+        expiresAt: expect.any(Date),
+        stateHash: sha256(state),
+      }),
+    });
+    expect(prisma.oidcLoginAttempt.updateMany).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        callbackCompletedAt: expect.any(Date),
         exchangeTicketHash: expect.stringMatching(/^[a-f0-9]{64}$/),
         expiresAt: expect.any(Date),
         issuer: ISSUER,
         preferredUsername: 'oidc-user',
-        stateHash: sha256(state),
         subject: 'oidc-subject',
       }),
+      where: expect.objectContaining({ id: expect.any(String) }),
     });
-    const completion = prisma.transaction.oidcLoginAttempt.create.mock
-      .calls[0][0].data as { callbackCompletedAt: Date; expiresAt: Date };
+    const completion = prisma.oidcLoginAttempt.updateMany.mock.calls[0][0]
+      .data as { callbackCompletedAt: Date; expiresAt: Date };
     expect(
       completion.expiresAt.getTime() - completion.callbackCompletedAt.getTime(),
     ).toBe(10 * 60 * 1000);
+  });
+
+  it('form-encodes special characters for client_secret_basic', async () => {
+    const prisma = createPrismaMock();
+    const clientId = 'client id!()~';
+    const clientSecret = "secret '()~";
+    mockDiscovery();
+    const service = createService(
+      prisma,
+      configuredEnvironment({
+        AUTH_OIDC_CLIENT_ID: clientId,
+        AUTH_OIDC_CLIENT_SECRET: clientSecret,
+      }),
+    );
+    const { authorizationUrl } = await service.start({
+      clientNonce: CLIENT_NONCE,
+      clientType: 'web',
+    });
+    const state = new URL(authorizationUrl).searchParams.get('state')!;
+    await mockTokenAndJwks(state, { audience: clientId });
+
+    await service.callback({ code: 'authorization-code', state });
+
+    const encode = (value: string) =>
+      new URLSearchParams({ value }).toString().slice('value='.length);
+    const tokenRequest = jest.mocked(global.fetch).mock.calls[1][1];
+    expect(new Headers(tokenRequest?.headers).get('authorization')).toBe(
+      `Basic ${Buffer.from(`${encode(clientId)}:${encode(clientSecret)}`).toString('base64')}`,
+    );
   });
 
   it('supports client_secret_post and a missing optional username', async () => {
@@ -220,12 +331,36 @@ describe('OidcService', () => {
     expect(
       new URLSearchParams(redirect.hash.slice(1)).get('ticket'),
     ).toHaveLength(43);
-    expect(prisma.transaction.oidcLoginAttempt.create).toHaveBeenCalledWith({
+    expect(prisma.oidcLoginAttempt.updateMany).toHaveBeenCalledWith({
       data: expect.objectContaining({ preferredUsername: null }),
+      where: expect.objectContaining({ id: expect.any(String) }),
     });
   });
 
-  it('does not consume a successful attempt when duplicate callback storage loses', async () => {
+  it('rejects a replayed in-progress callback before contacting the token endpoint', async () => {
+    const prisma = createPrismaMock();
+    mockDiscovery();
+    const service = createService(prisma);
+    const { authorizationUrl } = await service.start({
+      clientNonce: CLIENT_NONCE,
+      clientType: 'web',
+    });
+    const state = new URL(authorizationUrl).searchParams.get('state')!;
+    prisma.oidcLoginAttempt.findUnique.mockResolvedValue({
+      ...completedAttempt(),
+      callbackCompletedAt: null,
+      exchangeTicketHash: null,
+      expiresAt: new Date(Date.now() + 60_000),
+      stateHash: sha256(state),
+    });
+
+    await expect(
+      service.callback({ code: 'replayed-code', state }),
+    ).rejects.toThrow(GoneException);
+    expect(jest.mocked(global.fetch)).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns the same ticket when a completed provider callback is retried', async () => {
     const prisma = createPrismaMock();
     mockDiscovery();
     const service = createService(prisma);
@@ -235,21 +370,28 @@ describe('OidcService', () => {
     });
     const state = new URL(authorizationUrl).searchParams.get('state')!;
     await mockTokenAndJwks(state);
-    prisma.transaction.oidcLoginAttempt.create.mockRejectedValue(
-      new Prisma.PrismaClientKnownRequestError('duplicate state', {
-        clientVersion: '6.19.3',
-        code: 'P2002',
-      }),
-    );
 
-    const redirect = new URL(
-      await service.callback({ code: 'authorization-code', state }),
-    );
+    const firstRedirect = await service.callback({
+      code: 'authorization-code',
+      state,
+    });
+    const claim =
+      prisma.transaction.oidcLoginAttempt.create.mock.calls[0][0].data;
+    const completion = prisma.oidcLoginAttempt.updateMany.mock.calls[0][0].data;
+    prisma.oidcLoginAttempt.findUnique.mockResolvedValue({
+      ...completedAttempt(),
+      ...claim,
+      ...completion,
+    });
 
-    expect(new URLSearchParams(redirect.hash.slice(1)).get('error')).toBe(
-      'authentication_failed',
-    );
-    expect(prisma.oidcLoginAttempt.updateMany).not.toHaveBeenCalled();
+    const retriedRedirect = await service.callback({
+      code: 'authorization-code',
+      state,
+    });
+
+    expect(retriedRedirect).toBe(firstRedirect);
+    expect(jest.mocked(global.fetch)).toHaveBeenCalledTimes(3);
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
   });
 
   it.each([
@@ -274,7 +416,11 @@ describe('OidcService', () => {
       expect(new URLSearchParams(redirect.hash.slice(1)).get('error')).toBe(
         expectedClientError,
       );
-      expect(prisma.$transaction).not.toHaveBeenCalled();
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(prisma.oidcLoginAttempt.updateMany).toHaveBeenCalledWith({
+        data: expect.objectContaining({ consumedAt: expect.any(Date) }),
+        where: expect.objectContaining({ id: expect.any(String) }),
+      });
     },
   );
 
@@ -306,7 +452,11 @@ describe('OidcService', () => {
       expect(fragment.get('attempt')).toBe(sha256(CLIENT_NONCE));
       expect(fragment.get('error')).toBe('authentication_failed');
       expect(fragment.has('ticket')).toBe(false);
-      expect(prisma.$transaction).not.toHaveBeenCalled();
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(prisma.oidcLoginAttempt.updateMany).toHaveBeenCalledWith({
+        data: expect.objectContaining({ consumedAt: expect.any(Date) }),
+        where: expect.objectContaining({ id: expect.any(String) }),
+      });
     },
   );
 
@@ -451,7 +601,6 @@ describe('OidcService', () => {
     prisma.oidcLoginAttempt.findUnique.mockResolvedValue({
       ...attempt,
       consumedAt: stored.consumedAt,
-      exchangeRefreshTokenEncrypted: stored.exchangeRefreshTokenEncrypted,
       exchangeSessionId: stored.exchangeSessionId,
       expiresAt: stored.expiresAt,
     });
@@ -476,8 +625,8 @@ describe('OidcService', () => {
     expect(recovered.refreshToken).toBe(first.refreshToken);
     expect(recovered.session).toEqual(first.session);
     expect(recovered.user).toEqual(first.user);
-    expect(stored.exchangeRefreshTokenEncrypted).toMatch(/^v1\./);
     expect(stored.exchangeSessionId).toBe(first.session.id);
+    expect(stored).not.toHaveProperty('exchangeRefreshTokenEncrypted');
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
   });
 
@@ -534,16 +683,7 @@ function createService(
   prisma: PrismaMock,
   configurationOverrides?: Record<string, string>,
 ): OidcService {
-  const configuration: Record<string, string> = configurationOverrides ?? {
-    AUTH_OIDC_ANDROID_CALLBACK_URI: ANDROID_CALLBACK,
-    AUTH_OIDC_CLIENT_ID: CLIENT_ID,
-    AUTH_OIDC_CLIENT_SECRET: 'client-secret',
-    AUTH_OIDC_DISPLAY_NAME: 'Example Identity',
-    AUTH_OIDC_FLOW_ENCRYPTION_KEY: ENCRYPTION_KEY,
-    AUTH_OIDC_ISSUER: ISSUER,
-    AUTH_OIDC_REDIRECT_URI: REDIRECT_URI,
-    AUTH_OIDC_WEB_CALLBACK_URI: WEB_CALLBACK,
-  };
+  const configuration = configurationOverrides ?? configuredEnvironment();
 
   return new OidcService(
     {
@@ -558,6 +698,22 @@ function createService(
     } as unknown as ConfigService,
     prisma as unknown as PrismaService,
   );
+}
+
+function configuredEnvironment(
+  overrides: Record<string, string> = {},
+): Record<string, string> {
+  return {
+    AUTH_OIDC_ANDROID_CALLBACK_URI: ANDROID_CALLBACK,
+    AUTH_OIDC_CLIENT_ID: CLIENT_ID,
+    AUTH_OIDC_CLIENT_SECRET: 'client-secret',
+    AUTH_OIDC_DISPLAY_NAME: 'Example Identity',
+    AUTH_OIDC_FLOW_ENCRYPTION_KEY: ENCRYPTION_KEY,
+    AUTH_OIDC_ISSUER: ISSUER,
+    AUTH_OIDC_REDIRECT_URI: REDIRECT_URI,
+    AUTH_OIDC_WEB_CALLBACK_URI: WEB_CALLBACK,
+    ...overrides,
+  };
 }
 
 function createPrismaMock() {
@@ -584,7 +740,7 @@ function createPrismaMock() {
     federatedIdentity: { findUnique: jest.fn() },
     oidcLoginAttempt: {
       findUnique: jest.fn(),
-      updateMany: jest.fn(),
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
     },
     session: {
       findUnique: jest.fn(),
@@ -598,21 +754,25 @@ function createPrismaMock() {
 
 function mockDiscovery(
   options: {
+    authorizationEndpoint?: string;
     codeChallengeMethods?: string[];
+    issuer?: string;
     tokenAuthMethods?: string[];
+    tokenEndpoint?: string;
   } = {},
 ): void {
   jest.spyOn(global, 'fetch').mockResolvedValueOnce(
     jsonResponse({
-      authorization_endpoint: `${ISSUER}/authorize`,
+      authorization_endpoint:
+        options.authorizationEndpoint ?? `${ISSUER}/authorize`,
       ...(options.codeChallengeMethods == null
         ? {}
         : {
             code_challenge_methods_supported: options.codeChallengeMethods,
           }),
-      issuer: ISSUER,
+      issuer: options.issuer ?? ISSUER,
       jwks_uri: `${ISSUER}/.well-known/jwks.json`,
-      token_endpoint: `${ISSUER}/api/oidc/token`,
+      token_endpoint: options.tokenEndpoint ?? `${ISSUER}/api/oidc/token`,
       ...(options.tokenAuthMethods == null
         ? {}
         : {
@@ -682,7 +842,6 @@ function completedAttempt() {
     clientType: 'web',
     consumedAt: null,
     createdAt: now,
-    exchangeRefreshTokenEncrypted: null,
     exchangeSessionId: null,
     exchangeTicketHash: sha256('exchange-ticket-value-1234567890123456'),
     expiresAt: new Date(now.getTime() + 60_000),

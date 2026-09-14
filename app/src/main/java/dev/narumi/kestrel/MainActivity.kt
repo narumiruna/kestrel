@@ -97,8 +97,10 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun consumeOidcCallbackIntent() {
+    private fun consumeOidcCallbackIntent(consumedUri: String) {
+        if (pendingOidcCallback != consumedUri) return
         pendingOidcCallback = null
+        if (intent?.action != Intent.ACTION_VIEW || intent?.dataString != consumedUri) return
         setIntent(
             Intent(intent).apply {
                 action = null
@@ -130,7 +132,7 @@ fun KestrelApp(
     pendingOidcCallback: String? = null,
     skipCloudSyncOnForeground: Boolean = false,
     onMapLinkPointConsumed: () -> Unit = {},
-    onOidcCallbackConsumed: () -> Unit = {},
+    onOidcCallbackConsumed: (String) -> Unit = {},
 ) {
     var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.HOME) }
     var pendingFavoriteApply by remember { mutableStateOf<LibraryItemWithContent?>(null) }
@@ -285,7 +287,7 @@ private fun AppDestinationContent(
     pendingOidcCallback: String?,
     onFavoriteApplyConsumed: () -> Unit,
     onMapLinkPointConsumed: () -> Unit,
-    onOidcCallbackConsumed: () -> Unit,
+    onOidcCallbackConsumed: (String) -> Unit,
     onApplyFavorite: (LibraryItemWithContent) -> Unit,
     onShowMap: () -> Unit,
     onShowFavorites: () -> Unit,
