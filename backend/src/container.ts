@@ -56,6 +56,13 @@ export function createContainer(
     sessionRevocationService,
     totpService,
   );
+  const oidcService = new OidcService(
+    accessTokenService,
+    authAuditService,
+    configService,
+    prismaService,
+    totpService,
+  );
 
   return {
     accessTokenService,
@@ -64,17 +71,12 @@ export function createContainer(
       authAuditService,
       prismaService,
       sessionRevocationService,
+      oidcService,
     ),
     appService: new AppService(configService, prismaService),
     authService,
     libraryService: new LibraryService(prismaService),
-    oidcService: new OidcService(
-      accessTokenService,
-      authAuditService,
-      configService,
-      prismaService,
-      totpService,
-    ),
+    oidcService,
     prismaService,
     remoteControlService: new RemoteControlService(prismaService),
     sessionAuth: createSessionAuth(accessTokenService, prismaService),
