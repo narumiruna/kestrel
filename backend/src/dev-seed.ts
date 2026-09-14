@@ -87,9 +87,7 @@ export function buildSeedRoutePayload(route: (typeof SAMPLE_ROUTES)[number]) {
   };
 }
 
-export async function seedDevData(
-  prisma = new PrismaClient({ adapter: createPrismaAdapter() }),
-) {
+export async function seedDevData(prisma: PrismaClient) {
   if (!isDevSeedEnabled()) {
     return;
   }
