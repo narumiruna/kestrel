@@ -509,6 +509,30 @@ describe('OidcService', () => {
     expect(jest.mocked(global.fetch)).toHaveBeenCalledTimes(3);
   });
 
+  it('refreshes signing keys after provider key rotation', async () => {
+    const prisma = createPrismaMock();
+    mockDiscovery();
+    const service = createService(prisma);
+    const { authorizationUrl } = await service.start({
+      clientNonce: CLIENT_NONCE,
+      clientType: 'web',
+    });
+    const state = new URL(authorizationUrl).searchParams.get('state')!;
+    await mockTokenAndJwks(state, { rotateSigningKey: true });
+
+    const redirect = new URL(
+      await service.callback({ code: 'authorization-code', state }),
+    );
+
+    expect(
+      new URLSearchParams(redirect.hash.slice(1)).get('ticket'),
+    ).toHaveLength(43);
+    expect(jest.mocked(global.fetch)).toHaveBeenCalledTimes(4);
+    expect(jest.mocked(global.fetch).mock.calls[3][0]).toBe(
+      `${ISSUER}/.well-known/jwks.json`,
+    );
+  });
+
   it('releases a callback claim after transient discovery failure', async () => {
     const prisma = createPrismaMock();
     mockDiscovery();
@@ -1125,12 +1149,15 @@ async function mockTokenAndJwks(
     issuer?: string;
     nonce?: string;
     preferredUsername?: string | null;
+    rotateSigningKey?: boolean;
     tokenStatus?: number;
   } = {},
 ): Promise<void> {
-  const { privateKey, publicKey } = generateKeyPairSync('rsa', {
-    modulusLength: 2048,
-  });
+  const initialKeyPair = generateKeyPairSync('rsa', { modulusLength: 2048 });
+  const signingKeyPair = overrides.rotateSigningKey
+    ? generateKeyPairSync('rsa', { modulusLength: 2048 })
+    : initialKeyPair;
+  const signingKeyId = overrides.rotateSigningKey ? 'rotated-key' : 'test-key';
   const idToken = await new SignJWT({
     azp: overrides.azp,
     nonce: overrides.nonce ?? expectedNonce,
@@ -1139,18 +1166,20 @@ async function mockTokenAndJwks(
         ? 'oidc-user'
         : overrides.preferredUsername,
   })
-    .setProtectedHeader({ alg: 'RS256', kid: 'test-key' })
+    .setProtectedHeader({ alg: 'RS256', kid: signingKeyId })
     .setIssuer(overrides.issuer ?? ISSUER)
     .setAudience(overrides.audience ?? CLIENT_ID)
     .setSubject('oidc-subject')
     .setIssuedAt()
     .setExpirationTime(overrides.expiresAt ?? '5m')
-    .sign(privateKey);
-  const publicJwk = publicKey.export({ format: 'jwk' });
+    .sign(signingKeyPair.privateKey);
+  const initialPublicJwk = initialKeyPair.publicKey.export({ format: 'jwk' });
 
   const fetchMock = jest.mocked(global.fetch);
   fetchMock.mockResolvedValueOnce(
-    jsonResponse({ keys: [{ ...publicJwk, alg: 'RS256', kid: 'test-key' }] }),
+    jsonResponse({
+      keys: [{ ...initialPublicJwk, alg: 'RS256', kid: 'test-key' }],
+    }),
   );
   fetchMock.mockResolvedValueOnce(
     overrides.tokenStatus == null
@@ -1160,6 +1189,14 @@ async function mockTokenAndJwks(
         })
       : new Response(null, { status: overrides.tokenStatus }),
   );
+  if (overrides.rotateSigningKey) {
+    const rotatedPublicJwk = signingKeyPair.publicKey.export({ format: 'jwk' });
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        keys: [{ ...rotatedPublicJwk, alg: 'RS256', kid: signingKeyId }],
+      }),
+    );
+  }
 }
 
 function jsonResponse(body: unknown): Response {

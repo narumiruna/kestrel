@@ -55,9 +55,9 @@ sequenceDiagram
 
 ## Plan
 
-- [x] Rename Backend service, routes, wire types, provider key, configuration, logs, and tests from Pocket ID to generic OIDC; 170 unit tests and 9 e2e tests pass.
+- [x] Rename Backend service, routes, wire types, provider key, configuration, logs, and tests from Pocket ID to generic OIDC; 171 unit tests and 9 e2e tests pass.
 - [x] Add a forward Prisma migration for the provider-key rename and removal of persisted raw recovery credentials; validate generated Prisma artifacts without rewriting prior migrations.
-- [x] Atomically claim code callbacks before provider requests, bound claims to 120 new rows per minute and 1,000 active rows, use a bounded processing lease, fetch signing keys before code redemption, retry safe signing-key and UserInfo failures, retain claims after ambiguous token requests, recover completed callbacks after authorization-state expiry, and audit recovered exchanges.
+- [x] Atomically claim code callbacks before provider requests, bound claims to 120 new rows per minute and 1,000 active rows, use a bounded processing lease, fetch signing keys before code redemption, retry safe signing-key and UserInfo failures, refresh unknown signing keys after redemption, retain claims after ambiguous token requests, recover completed callbacks after authorization-state expiry, and audit recovered exchanges.
 - [x] Derive reproducible callback/session retry secrets, preserve exact issuer, redirect, credential, and endpoint values, support form-correct client authentication, and persist Web and Android callback tickets across ambiguous or retryable exchange failures.
 - [x] Rename Web API helpers, callback route/component, storage keys, UI state, and labels; make duplicate recovered sessions idempotent, and display the configured provider name while local login remains available.
 - [x] Rename Android models, API helpers, attempt store, callback parser, repository methods, UI state, and messages; isolate the verified callback host from third-party candidate links, and retain callback binding and retry semantics.
@@ -66,7 +66,7 @@ sequenceDiagram
 
 ## Completion Checklist
 
-- [x] Backend lint, 170 unit tests, 9 e2e tests, typecheck, build, Prisma generation, and schema validation pass.
+- [x] Backend lint, 171 unit tests, 9 e2e tests, typecheck, build, Prisma generation, and schema validation pass.
 - [x] Web Biome CI, typecheck, and production build pass.
 - [x] Android formatting, Detekt, JVM tests, and debug build pass without changing a connected device.
 - [x] Production Compose validates with OIDC unset and with a complete generic OIDC configuration; Backend tests confirm incomplete or invalid configuration reports the method disabled.

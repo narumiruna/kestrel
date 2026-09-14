@@ -227,6 +227,7 @@ internal class CloudAuthRepository private constructor(
     }
 
     private fun clearSession() {
+        oidcAttemptStore.clear()
         sessionStore.clear()
         _hasSession.value = false
     }

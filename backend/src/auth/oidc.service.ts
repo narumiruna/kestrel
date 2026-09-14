@@ -1,6 +1,11 @@
 import { Prisma, type OidcLoginAttempt } from '@prisma/client';
 import { argon2id, hash } from 'argon2';
-import { createLocalJWKSet, type JSONWebKeySet, jwtVerify } from 'jose';
+import {
+  createLocalJWKSet,
+  errors as joseErrors,
+  type JSONWebKeySet,
+  jwtVerify,
+} from 'jose';
 import {
   createCipheriv,
   createDecipheriv,
@@ -888,11 +893,33 @@ export class OidcService {
       throw new ServiceUnavailableException('OIDC returned no ID token');
     }
 
-    const { payload } = await jwtVerify(tokenPayload.id_token, signingKeys, {
-      audience: configuration.clientId,
-      issuer: configuration.issuer,
-      requiredClaims: ['exp', 'iat', 'nonce', 'sub'],
-    });
+    let verifiedToken;
+    try {
+      verifiedToken = await this.verifyIdToken(
+        tokenPayload.id_token,
+        signingKeys,
+        configuration,
+      );
+    } catch (error) {
+      if (!(error instanceof joseErrors.JWKSNoMatchingKey)) throw error;
+      let refreshedSigningKeys;
+      try {
+        refreshedSigningKeys = await this.fetchJwks(discovery.jwks_uri);
+      } catch (refreshError) {
+        if (refreshError instanceof RetryableOidcCallbackError) {
+          throw new OidcUnsafeToRetryError(
+            'OIDC signing-key refresh unavailable after code redemption',
+          );
+        }
+        throw refreshError;
+      }
+      verifiedToken = await this.verifyIdToken(
+        tokenPayload.id_token,
+        refreshedSigningKeys,
+        configuration,
+      );
+    }
+    const { payload } = verifiedToken;
     if (
       (Array.isArray(payload.aud) &&
         payload.aud.length > 1 &&
@@ -936,6 +963,18 @@ export class OidcService {
       preferredUsername: normalizeOidcUsernameClaim(preferredUsername),
       subject: payload.sub,
     };
+  }
+
+  private verifyIdToken(
+    idToken: string,
+    signingKeys: ReturnType<typeof createLocalJWKSet>,
+    configuration: OidcConfiguration,
+  ) {
+    return jwtVerify(idToken, signingKeys, {
+      audience: configuration.clientId,
+      issuer: configuration.issuer,
+      requiredClaims: ['exp', 'iat', 'nonce', 'sub'],
+    });
   }
 
   private async fetchJwks(endpoint: string) {
