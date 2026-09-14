@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { type FormEvent, useCallback, useEffect, useState } from 'react';
+import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { UserMark } from '@/components/cartographer/UserMark';
 import {
   clearOidcLinkState,
@@ -48,12 +48,16 @@ export default function AccountSecurityPage() {
   const [isSignOutOpen, setIsSignOutOpen] = useState(false);
   const [isOidcLinkOpen, setIsOidcLinkOpen] = useState(false);
   const [oidcCurrentPassword, setOidcCurrentPassword] = useState('');
+  const loadGenerationRef = useRef(0);
 
   const loadSecurityData = useCallback(() => {
     if (!auth.isAuthenticated) {
       return;
     }
 
+    const loadGeneration = loadGenerationRef.current + 1;
+    loadGenerationRef.current = loadGeneration;
+    const isCurrentLoad = () => loadGenerationRef.current === loadGeneration;
     setAreSessionsLoading(true);
     setAreDevicesLoading(true);
     setIsOidcLinkStatusLoading(true);
@@ -61,21 +65,55 @@ export default function AccountSecurityPage() {
 
     void auth
       .apiRequest<AuthSessionsResponse>('/auth/sessions')
-      .then((response) => setSessions(response.sessions))
-      .catch((nextError) => setError(formatError(nextError)))
-      .finally(() => setAreSessionsLoading(false));
+      .then((response) => {
+        if (isCurrentLoad()) {
+          setSessions(response.sessions);
+        }
+      })
+      .catch((nextError) => {
+        if (isCurrentLoad()) {
+          setError(formatError(nextError));
+        }
+      })
+      .finally(() => {
+        if (isCurrentLoad()) {
+          setAreSessionsLoading(false);
+        }
+      });
     void auth
       .apiRequest<RemoteDevicesResponse>('/devices')
-      .then((response) => setDevices(response.devices))
-      .catch((nextError) => setError(formatError(nextError)))
-      .finally(() => setAreDevicesLoading(false));
+      .then((response) => {
+        if (isCurrentLoad()) {
+          setDevices(response.devices);
+        }
+      })
+      .catch((nextError) => {
+        if (isCurrentLoad()) {
+          setError(formatError(nextError));
+        }
+      })
+      .finally(() => {
+        if (isCurrentLoad()) {
+          setAreDevicesLoading(false);
+        }
+      });
     void auth
       .apiRequest<OidcLinkStatus>('/auth/oidc/link')
-      .then(setOidcLinkStatus)
-      .catch(() =>
-        setOidcLinkStatus((currentStatus) => currentStatus ?? UNAVAILABLE_OIDC_LINK_STATUS),
-      )
-      .finally(() => setIsOidcLinkStatusLoading(false));
+      .then((linkStatus) => {
+        if (isCurrentLoad()) {
+          setOidcLinkStatus(linkStatus);
+        }
+      })
+      .catch(() => {
+        if (isCurrentLoad()) {
+          setOidcLinkStatus((currentStatus) => currentStatus ?? UNAVAILABLE_OIDC_LINK_STATUS);
+        }
+      })
+      .finally(() => {
+        if (isCurrentLoad()) {
+          setIsOidcLinkStatusLoading(false);
+        }
+      });
   }, [auth]);
 
   useEffect(() => {
