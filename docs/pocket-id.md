@@ -44,7 +44,7 @@ AUTH_POCKET_ID_REDIRECT_URI=https://kestrel.narumi.dev/api/backend/auth/oidc/poc
 AUTH_POCKET_ID_WEB_CALLBACK_URI=https://kestrel.narumi.dev/login/pocket-id
 ```
 
-Only the client secret and independently generated flow-encryption key must be supplied as production secrets to enable this configured client.
+Only the client secret and independently generated flow-encryption key must be supplied as production secrets to enable this configured client. The deploy workflow writes the production client ID explicitly and accepts the optional GitHub Actions repository variable `AUTH_POCKET_ID_CLIENT_ID` to override it.
 
 ## Account behavior
 

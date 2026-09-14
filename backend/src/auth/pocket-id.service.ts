@@ -142,7 +142,9 @@ export class PocketIdService {
       return buildClientRedirect(
         attempt.clientType,
         configuration.webCallbackUri,
-        'access_denied',
+        input.error === 'access_denied'
+          ? 'access_denied'
+          : 'authentication_failed',
       );
     }
 

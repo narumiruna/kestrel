@@ -129,6 +129,49 @@ describe('PocketIdService', () => {
   });
 
   it.each([
+    ['access_denied', 'access_denied'],
+    ['server_error', 'authentication_failed'],
+  ])(
+    'maps provider error %s to client error %s',
+    async (providerError, expectedClientError) => {
+      const prisma = createPrismaMock();
+      mockDiscovery();
+      const service = createService(prisma);
+      const { authorizationUrl } = await service.start({
+        clientNonce: CLIENT_NONCE,
+        clientType: 'web',
+      });
+      const state = new URL(authorizationUrl).searchParams.get('state')!;
+      const stored = prisma.oidcLoginAttempt.create.mock.calls[0][0].data;
+      prisma.oidcLoginAttempt.findUnique.mockResolvedValue({
+        ...stored,
+        callbackCompletedAt: null,
+        consumedAt: null,
+        createdAt: new Date(),
+        exchangeTicketHash: null,
+        id: 'attempt-1',
+        issuer: null,
+        issuerHash: null,
+        preferredUsername: null,
+        subject: null,
+      });
+      prisma.oidcLoginAttempt.updateMany.mockResolvedValue({ count: 1 });
+
+      const redirect = new URL(
+        await service.callback({ error: providerError, state }),
+      );
+
+      expect(new URLSearchParams(redirect.hash.slice(1)).get('error')).toBe(
+        expectedClientError,
+      );
+      expect(prisma.oidcLoginAttempt.updateMany).toHaveBeenCalledWith({
+        data: expect.objectContaining({ consumedAt: expect.any(Date) }),
+        where: { consumedAt: null, id: 'attempt-1' },
+      });
+    },
+  );
+
+  it.each([
     ['nonce', { nonce: 'wrong-nonce' }],
     ['issuer', { issuer: 'https://attacker.example.test' }],
     ['audience', { audience: 'another-client' }],

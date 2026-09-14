@@ -16,7 +16,7 @@ Required GitHub Actions secrets (`AUTH_OIDC_FLOW_ENCRYPTION_KEY` and `AUTH_POCKE
 | `AUTH_TOTP_ENCRYPTION_KEY` | Encrypts stored TOTP secrets | Do not replace directly. Re-encrypt every stored TOTP secret during a maintenance migration, then update the secret. |
 | `PAT_TOKEN` | Allows version/tag workflows to trigger follow-up workflows | Replace with a token that can write repository contents and workflows. |
 
-`POSTGRES_DB` is optional and defaults to `kestrel`. Production Compose contains the public Pocket ID issuer, client ID, and callback URLs documented in [`pocket-id.md`](pocket-id.md); Pocket ID remains disabled until both `AUTH_POCKET_ID_CLIENT_SECRET` and `AUTH_OIDC_FLOW_ENCRYPTION_KEY` are set. The workflow writes a mode-`0600` temporary `.env`, validates the Compose model, deploys production images, and removes the file even after failure.
+`POSTGRES_DB` is optional and defaults to `kestrel`. The public Pocket ID client ID can be overridden with the GitHub Actions repository variable `AUTH_POCKET_ID_CLIENT_ID`; the workflow writes its production default when the variable is absent. Production Compose contains the public Pocket ID issuer and callback URLs documented in [`pocket-id.md`](pocket-id.md). Pocket ID remains disabled until both `AUTH_POCKET_ID_CLIENT_SECRET` and `AUTH_OIDC_FLOW_ENCRYPTION_KEY` are set. The workflow writes a mode-`0600` temporary `.env`, validates the Compose model, deploys production images, and removes the file even after failure.
 
 After deployment, verify readiness and request correlation:
 
