@@ -397,7 +397,12 @@ export class OidcService {
             callbackStartedAt,
             clientNonceHash: authorizationState.clientNonceHash,
             clientType: authorizationState.clientType,
-            expiresAt: new Date(authorizationState.expiresAt),
+            expiresAt: new Date(
+              Math.max(
+                authorizationState.expiresAt,
+                callbackStartedAt.getTime() + CALLBACK_PROCESSING_LIFETIME_MS,
+              ),
+            ),
             id: attemptId,
             pkceVerifierEncrypted: '',
             provider: PROVIDER,
@@ -1136,7 +1141,7 @@ export class OidcService {
     );
     validateConfiguredUrl(values.issuer!, 'OIDC issuer');
     validateConfiguredUrl(values.redirectUri!, 'OIDC redirect URI');
-    validateConfiguredUrl(values.webCallbackUri!, 'OIDC Web callback URI');
+    validateWebCallbackUrl(values.webCallbackUri!);
     const encryptionKey = decodeEncryptionKey(values.encryptionKey!);
     const displayName = validateDisplayName(
       this.configService.get('AUTH_OIDC_DISPLAY_NAME')?.trim() ||
@@ -1407,6 +1412,18 @@ function validateConfiguredUrl(value: string, label: string): URL {
     return url;
   } catch {
     throw new InternalServerErrorException(`${label} is invalid`);
+  }
+}
+
+function validateWebCallbackUrl(value: string): void {
+  const url = validateConfiguredUrl(value, 'OIDC Web callback URI');
+  if (
+    url.protocol !== 'https:' &&
+    !['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)
+  ) {
+    throw new InternalServerErrorException(
+      'OIDC Web callback URI must use HTTPS or a loopback host',
+    );
   }
 }
 

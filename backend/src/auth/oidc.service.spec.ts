@@ -100,6 +100,35 @@ describe('OidcService', () => {
     ).rejects.toThrow('OIDC Android callback URI is invalid');
   });
 
+  it('rejects insecure non-loopback Web callbacks outside production', async () => {
+    const service = createService(
+      createPrismaMock(),
+      configuredEnvironment({
+        AUTH_OIDC_WEB_CALLBACK_URI: 'http://kestrel.example.test/login/oidc',
+      }),
+    );
+
+    expect(service.getMethods().oidc.enabled).toBe(false);
+    await expect(
+      service.start({ clientNonce: CLIENT_NONCE, clientType: 'web' }),
+    ).rejects.toThrow(
+      'OIDC Web callback URI must use HTTPS or a loopback host',
+    );
+  });
+
+  it.each([
+    'http://localhost:3301/login/oidc',
+    'http://127.0.0.1:3301/login/oidc',
+    'http://[::1]:3301/login/oidc',
+  ])('allows an HTTP Web callback on loopback host %s', (webCallbackUri) => {
+    const service = createService(
+      createPrismaMock(),
+      configuredEnvironment({ AUTH_OIDC_WEB_CALLBACK_URI: webCallbackUri }),
+    );
+
+    expect(service.getMethods().oidc.enabled).toBe(true);
+  });
+
   it('creates a server-bound authorization request with PKCE, state, and nonce', async () => {
     const prisma = createPrismaMock();
     mockDiscovery();
@@ -329,6 +358,32 @@ describe('OidcService', () => {
     expect(
       completion.expiresAt.getTime() - completion.callbackCompletedAt.getTime(),
     ).toBe(10 * 60 * 1000);
+  });
+
+  it('keeps a near-expiry callback claim through its processing lease', async () => {
+    jest.useFakeTimers({ now: new Date('2026-09-14T00:00:00.000Z') });
+    const prisma = createPrismaMock();
+    mockDiscovery();
+    const service = createService(prisma);
+    const { authorizationUrl } = await service.start({
+      clientNonce: CLIENT_NONCE,
+      clientType: 'web',
+    });
+    const state = new URL(authorizationUrl).searchParams.get('state')!;
+    jest.advanceTimersByTime(9 * 60 * 1000 + 30 * 1000);
+    jest
+      .mocked(global.fetch)
+      .mockResolvedValueOnce(new Response(null, { status: 503 }));
+
+    await expect(
+      service.callback({ code: 'authorization-code', state }),
+    ).rejects.toThrow('OIDC callback is temporarily unavailable');
+
+    const claim = prisma.transaction.oidcLoginAttempt.create.mock.calls[0][0]
+      .data as { callbackStartedAt: Date; expiresAt: Date };
+    expect(claim.expiresAt.getTime() - claim.callbackStartedAt.getTime()).toBe(
+      2 * 60 * 1000,
+    );
   });
 
   it('form-encodes special characters for client_secret_basic', async () => {

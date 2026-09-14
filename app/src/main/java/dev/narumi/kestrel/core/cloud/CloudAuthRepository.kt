@@ -98,12 +98,13 @@ internal class CloudAuthRepository private constructor(
         totpCode: String,
     ): CloudSession =
         refreshMutex.withLock {
+            oidcAttemptStore.clear()
             apiClient
                 .loginWithTotp(username = username, password = password, totpCode = totpCode)
                 .let {
                     saveNewSessionOrRevoke(
                         it.copy(refreshRequestId = UUID.randomUUID().toString()),
-                    ).also { runCatching { oidcAttemptStore.clear() } }
+                    )
                 }
         }
 
@@ -113,6 +114,7 @@ internal class CloudAuthRepository private constructor(
         recoveryCode: String,
     ): CloudSession =
         refreshMutex.withLock {
+            oidcAttemptStore.clear()
             apiClient
                 .loginWithRecoveryCode(
                     username = username,
@@ -121,7 +123,7 @@ internal class CloudAuthRepository private constructor(
                 ).let {
                     saveNewSessionOrRevoke(
                         it.copy(refreshRequestId = UUID.randomUUID().toString()),
-                    ).also { runCatching { oidcAttemptStore.clear() } }
+                    )
                 }
         }
 
