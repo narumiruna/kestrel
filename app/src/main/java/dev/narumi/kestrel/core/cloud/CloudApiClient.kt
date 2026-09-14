@@ -27,7 +27,7 @@ internal class CloudApiClient(
     ): StartOidcResponse =
         postJson<StartOidcRequest, StartOidcResponse>(
             path = "/auth/oidc/start",
-            body = StartOidcRequest(clientNonce = clientNonce),
+            body = StartOidcRequest(clientType = "android", clientNonce = clientNonce),
             apiBaseUrl = apiBaseUrl,
         )
 

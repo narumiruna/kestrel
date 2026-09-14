@@ -26,7 +26,7 @@ internal data class OidcMethod(
 
 @Serializable
 internal data class StartOidcRequest(
-    val clientType: String = "android",
+    val clientType: String,
     val clientNonce: String,
 )
 
