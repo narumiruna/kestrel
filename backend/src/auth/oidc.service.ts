@@ -141,7 +141,17 @@ export class OidcService {
   async start(input: unknown): Promise<{ authorizationUrl: string }> {
     const configuration = this.requireConfiguration();
     const { clientNonce, clientType } = parseStartRequest(input);
-    const discovery = await this.getDiscovery(configuration);
+    let discovery: OidcDiscovery;
+    try {
+      discovery = await this.getDiscovery(configuration);
+    } catch (error) {
+      if (error instanceof RetryableOidcCallbackError) {
+        throw new ServiceUnavailableException(
+          'OIDC sign-in is temporarily unavailable',
+        );
+      }
+      throw error;
+    }
     const codeVerifier = createRandomSecret();
     const state = createAuthorizationState(
       {

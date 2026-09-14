@@ -3,7 +3,11 @@ import { Prisma } from '@prisma/client';
 import { createHash, generateKeyPairSync } from 'node:crypto';
 import { SignJWT } from 'jose';
 import { ConfigService } from '../config.service';
-import { ConflictException, GoneException } from '../http/errors';
+import {
+  ConflictException,
+  GoneException,
+  ServiceUnavailableException,
+} from '../http/errors';
 import { PrismaService } from '../prisma/prisma.service';
 import { AccessTokenService } from './access-token.service';
 import { AuthAuditService } from './auth-audit.service';
@@ -128,6 +132,17 @@ describe('OidcService', () => {
     );
 
     expect(service.getMethods().oidc.enabled).toBe(true);
+  });
+
+  it('reports discovery outages as service unavailable when starting', async () => {
+    const service = createService(createPrismaMock());
+    jest
+      .spyOn(global, 'fetch')
+      .mockRejectedValueOnce(new TypeError('provider unavailable'));
+
+    await expect(
+      service.start({ clientNonce: CLIENT_NONCE, clientType: 'web' }),
+    ).rejects.toBeInstanceOf(ServiceUnavailableException);
   });
 
   it('creates a server-bound authorization request with PKCE, state, and nonce', async () => {
