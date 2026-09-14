@@ -94,7 +94,7 @@ type OidcExchangeResponse = {
 type ExchangeSession = OidcExchangeResponse['session'];
 type ExchangeUser = OidcExchangeResponse['user'];
 class RetryableOidcCallbackError extends Error {}
-class OidcCompletionStorageError extends Error {}
+class OidcPostRedemptionError extends Error {}
 
 type RecoverableExchangeAttempt = {
   clientNonceHash: string;
@@ -176,11 +176,10 @@ export class OidcService {
       configuration.encryptionKey,
     );
     const callbackStartedAt = new Date();
-    if (authorizationState.expiresAt <= callbackStartedAt.getTime()) {
-      throw new GoneException('OIDC sign-in attempt is invalid or expired');
-    }
-
     if (input.error != null) {
+      if (authorizationState.expiresAt <= callbackStartedAt.getTime()) {
+        throw new GoneException('OIDC sign-in attempt is invalid or expired');
+      }
       return buildClientRedirect(
         authorizationState.clientType,
         configuration,
@@ -213,6 +212,7 @@ export class OidcService {
         authorizationState.codeVerifier,
         configuration,
         discovery,
+        callbackStartedAt.getTime() + CALLBACK_PROCESSING_LIFETIME_MS,
       );
       const exchangeTicket = deriveSecret(
         configuration.encryptionKey,
@@ -236,9 +236,9 @@ export class OidcService {
         authorizationState.clientNonceHash,
       );
     } catch (error) {
-      if (error instanceof OidcCompletionStorageError) {
+      if (error instanceof OidcPostRedemptionError) {
         throw new InternalServerErrorException(
-          'OIDC callback completion could not be persisted',
+          'OIDC callback could not be completed after code redemption',
         );
       }
       if (error instanceof RetryableOidcCallbackError) {
@@ -293,6 +293,9 @@ export class OidcService {
           id: existing.id,
         },
       });
+    }
+    if (authorizationState.expiresAt <= callbackStartedAt.getTime()) {
+      throw new GoneException('OIDC sign-in attempt is invalid or expired');
     }
 
     for (
@@ -487,7 +490,7 @@ export class OidcService {
           Date.now() + CALLBACK_COMPLETION_RETRY_DELAY_MS >=
           completionDeadline
         ) {
-          throw new OidcCompletionStorageError(
+          throw new OidcPostRedemptionError(
             'OIDC callback storage unavailable after code redemption',
           );
         }
@@ -496,7 +499,7 @@ export class OidcService {
         }
       }
     }
-    throw new OidcCompletionStorageError(
+    throw new OidcPostRedemptionError(
       'OIDC callback storage unavailable after code redemption',
     );
   }
@@ -829,6 +832,7 @@ export class OidcService {
     codeVerifier: string,
     configuration: OidcConfiguration,
     discovery: OidcDiscovery,
+    processingDeadline: number,
   ): Promise<VerifiedIdentity> {
     const signingKeys = await this.fetchJwks(discovery.jwks_uri);
     const tokenAuthMethod = selectTokenAuthMethod(discovery);
@@ -863,7 +867,7 @@ export class OidcService {
       throw new RetryableOidcCallbackError('OIDC token exchange unavailable');
     }
     if (!tokenResponse.ok) {
-      if (tokenResponse.status >= 500) {
+      if (isRetryableProviderStatus(tokenResponse.status)) {
         throw new RetryableOidcCallbackError('OIDC token exchange unavailable');
       }
       throw new BadRequestException('OIDC token exchange rejected');
@@ -909,6 +913,7 @@ export class OidcService {
       const userInfo = await this.fetchUserInfo(
         discovery.userinfo_endpoint,
         tokenPayload.access_token,
+        processingDeadline,
       );
       if (userInfo != null) {
         if (userInfo.sub !== payload.sub) {
@@ -936,7 +941,7 @@ export class OidcService {
       throw new RetryableOidcCallbackError('OIDC signing keys unavailable');
     }
     if (!response.ok) {
-      if (response.status >= 500) {
+      if (isRetryableProviderStatus(response.status)) {
         throw new RetryableOidcCallbackError('OIDC signing keys unavailable');
       }
       throw new ServiceUnavailableException('OIDC signing keys failed');
@@ -956,25 +961,46 @@ export class OidcService {
   private async fetchUserInfo(
     endpoint: string,
     accessToken: string,
+    processingDeadline: number,
   ): Promise<Record<string, unknown> | null> {
-    try {
-      const response = await fetch(endpoint, {
-        headers: {
-          accept: 'application/json',
-          authorization: `Bearer ${accessToken}`,
-        },
-        signal: AbortSignal.timeout(10_000),
-      });
-      if (!response.ok) {
-        return null;
+    let attempt = 0;
+    while (Date.now() < processingDeadline) {
+      attempt += 1;
+      try {
+        const response = await fetch(endpoint, {
+          headers: {
+            accept: 'application/json',
+            authorization: `Bearer ${accessToken}`,
+          },
+          signal: AbortSignal.timeout(10_000),
+        });
+        if (!response.ok && !isRetryableProviderStatus(response.status)) {
+          return null;
+        }
+        if (response.ok) {
+          const body = (await response.json()) as unknown;
+          return body != null &&
+            typeof body === 'object' &&
+            !Array.isArray(body)
+            ? (body as Record<string, unknown>)
+            : null;
+        }
+      } catch {
+        // Retry while the access token and callback processing lease are live.
       }
-      const body = (await response.json()) as unknown;
-      return body != null && typeof body === 'object' && !Array.isArray(body)
-        ? (body as Record<string, unknown>)
-        : null;
-    } catch {
-      return null;
+      if (
+        Date.now() + CALLBACK_COMPLETION_RETRY_DELAY_MS >=
+        processingDeadline
+      ) {
+        break;
+      }
+      if (attempt >= 3) {
+        await delay(CALLBACK_COMPLETION_RETRY_DELAY_MS);
+      }
     }
+    throw new OidcPostRedemptionError(
+      'OIDC user info unavailable after code redemption',
+    );
   }
 
   private async getDiscovery(
@@ -1339,6 +1365,10 @@ function validateConfiguredUrl(value: string, label: string): URL {
   } catch {
     throw new InternalServerErrorException(`${label} is invalid`);
   }
+}
+
+function isRetryableProviderStatus(status: number): boolean {
+  return status === 408 || status === 425 || status === 429 || status >= 500;
 }
 
 function isRetryablePrismaError(error: unknown): boolean {

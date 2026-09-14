@@ -211,9 +211,9 @@ describe('OidcService', () => {
     ).rejects.toThrow('OIDC sign-in state is invalid');
 
     jest.advanceTimersByTime(11 * 60 * 1000);
-    await expect(service.callback({ state })).rejects.toThrow(
-      'OIDC sign-in attempt is invalid or expired',
-    );
+    await expect(
+      service.callback({ code: 'authorization-code', state }),
+    ).rejects.toThrow('OIDC sign-in attempt is invalid or expired');
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
@@ -343,13 +343,7 @@ describe('OidcService', () => {
       clientType: 'web',
     });
     const state = new URL(authorizationUrl).searchParams.get('state')!;
-    await mockTokenAndJwks(state, {
-      accessToken: 'provider-access-token',
-      preferredUsername: null,
-    });
-    jest
-      .mocked(global.fetch)
-      .mockResolvedValueOnce(new Response(null, { status: 503 }));
+    await mockTokenAndJwks(state, { preferredUsername: null });
 
     const redirect = new URL(
       await service.callback({ code: 'authorization-code', state }),
@@ -365,6 +359,38 @@ describe('OidcService', () => {
     ).toHaveLength(43);
     expect(prisma.oidcLoginAttempt.updateMany).toHaveBeenCalledWith({
       data: expect.objectContaining({ preferredUsername: null }),
+      where: expect.objectContaining({ id: expect.any(String) }),
+    });
+  });
+
+  it('retries transient user-info failures before completing the callback', async () => {
+    const prisma = createPrismaMock();
+    mockDiscovery();
+    const service = createService(prisma);
+    const { authorizationUrl } = await service.start({
+      clientNonce: CLIENT_NONCE,
+      clientType: 'web',
+    });
+    const state = new URL(authorizationUrl).searchParams.get('state')!;
+    await mockTokenAndJwks(state, {
+      accessToken: 'provider-access-token',
+      preferredUsername: null,
+    });
+    jest
+      .mocked(global.fetch)
+      .mockResolvedValueOnce(new Response(null, { status: 503 }))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          preferred_username: 'retried-user',
+          sub: 'oidc-subject',
+        }),
+      );
+
+    await service.callback({ code: 'authorization-code', state });
+
+    expect(jest.mocked(global.fetch)).toHaveBeenCalledTimes(5);
+    expect(prisma.oidcLoginAttempt.updateMany).toHaveBeenCalledWith({
+      data: expect.objectContaining({ preferredUsername: 'retried-user' }),
       where: expect.objectContaining({ id: expect.any(String) }),
     });
   });
@@ -413,6 +439,29 @@ describe('OidcService', () => {
     expect(prisma.oidcLoginAttempt.deleteMany).toHaveBeenCalledTimes(1);
     expect(jest.mocked(global.fetch)).toHaveBeenCalledTimes(2);
   });
+
+  it.each([408, 429])(
+    'releases a callback claim after retryable signing-key status %i',
+    async (status) => {
+      const prisma = createPrismaMock();
+      mockDiscovery();
+      const service = createService(prisma);
+      const { authorizationUrl } = await service.start({
+        clientNonce: CLIENT_NONCE,
+        clientType: 'web',
+      });
+      const state = new URL(authorizationUrl).searchParams.get('state')!;
+      jest
+        .mocked(global.fetch)
+        .mockResolvedValueOnce(new Response(null, { status }));
+
+      await expect(
+        service.callback({ code: 'authorization-code', state }),
+      ).rejects.toThrow('OIDC callback is temporarily unavailable');
+      expect(prisma.oidcLoginAttempt.deleteMany).toHaveBeenCalledTimes(1);
+      expect(jest.mocked(global.fetch)).toHaveBeenCalledTimes(2);
+    },
+  );
 
   it('releases a callback claim after transient discovery failure', async () => {
     const prisma = createPrismaMock();
@@ -571,7 +620,8 @@ describe('OidcService', () => {
     expect(prisma.$transaction).toHaveBeenCalledTimes(2);
   });
 
-  it('returns the same ticket when a completed provider callback is retried', async () => {
+  it('returns the same ticket when a completed provider callback is retried after state expiry', async () => {
+    jest.useFakeTimers({ now: new Date('2026-09-14T00:00:00.000Z') });
     const prisma = createPrismaMock();
     mockDiscovery();
     const service = createService(prisma);
@@ -580,6 +630,7 @@ describe('OidcService', () => {
       clientType: 'web',
     });
     const state = new URL(authorizationUrl).searchParams.get('state')!;
+    jest.advanceTimersByTime(4 * 60 * 1000);
     await mockTokenAndJwks(state);
 
     const firstRedirect = await service.callback({
@@ -589,11 +640,23 @@ describe('OidcService', () => {
     const claim =
       prisma.transaction.oidcLoginAttempt.create.mock.calls[0][0].data;
     const completion = prisma.oidcLoginAttempt.updateMany.mock.calls[0][0].data;
-    prisma.oidcLoginAttempt.findUnique.mockResolvedValue({
+    const storedAttempt = {
       ...completedAttempt(),
       ...claim,
       ...completion,
-    });
+    };
+    const firstFragment = new URLSearchParams(
+      new URL(firstRedirect).hash.slice(1),
+    );
+    expect(firstFragment.get('error')).toBeNull();
+    const firstTicket = firstFragment.get('ticket');
+    expect(firstTicket).toHaveLength(43);
+    expect(storedAttempt.exchangeTicketHash).toBe(sha256(firstTicket!));
+    expect(storedAttempt.expiresAt).toEqual(
+      new Date(Date.now() + 10 * 60 * 1000),
+    );
+    prisma.oidcLoginAttempt.findUnique.mockResolvedValue(storedAttempt);
+    jest.advanceTimersByTime(7 * 60 * 1000);
 
     const retriedRedirect = await service.callback({
       code: 'authorization-code',

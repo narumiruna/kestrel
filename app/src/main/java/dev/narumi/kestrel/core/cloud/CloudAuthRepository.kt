@@ -67,7 +67,9 @@ internal class CloudAuthRepository private constructor(
 
         return when (callback) {
             is OidcCallback.Error -> {
-                oidcAttemptStore.clear()
+                check(oidcAttemptStore.compareAndClear(attempt)) {
+                    "OIDC sign-in is no longer pending"
+                }
                 if (callback.errorCode == "access_denied") {
                     error("OIDC sign-in was cancelled")
                 }
@@ -231,11 +233,11 @@ internal class CloudAuthRepository private constructor(
 
     private suspend fun completeOidcExchange(attempt: OidcAuthAttempt): CloudSession =
         try {
-            refreshMutex
-                .withLock {
-                    check(oidcAttemptStore.load() == attempt) {
-                        "OIDC sign-in is no longer pending"
-                    }
+            refreshMutex.withLock {
+                check(oidcAttemptStore.load() == attempt) {
+                    "OIDC sign-in is no longer pending"
+                }
+                val session =
                     exchangeOidcWithRetry(
                         exchangeTicket = checkNotNull(attempt.exchangeTicket),
                         clientNonce = attempt.clientNonce,
@@ -244,10 +246,14 @@ internal class CloudAuthRepository private constructor(
                             it.copy(refreshRequestId = UUID.randomUUID().toString()),
                         )
                     }
-                }.also { oidcAttemptStore.clear() }
+                check(oidcAttemptStore.compareAndClear(attempt)) {
+                    "OIDC sign-in is no longer pending"
+                }
+                session
+            }
         } catch (failure: CloudApiException) {
             if (failure.statusCode in HTTP_CLIENT_ERROR_RANGE) {
-                oidcAttemptStore.clear()
+                runCatching { oidcAttemptStore.compareAndClear(attempt) }
             }
             throw failure
         }
@@ -317,7 +323,7 @@ private suspend fun validateOidcAttemptServer(
 ) {
     val currentBaseUrl = normalizeCloudApiBaseUrl(prefs.cloudSettingsValue().apiBaseUrl)
     if (currentBaseUrl != attempt.apiBaseUrl) {
-        attemptStore.clear()
+        attemptStore.compareAndClear(attempt)
         error("Cloud server changed during OIDC sign-in")
     }
 }
