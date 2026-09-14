@@ -18,10 +18,10 @@ const ISSUER = 'https://oidc.example.test';
 const CLIENT_ID = 'client-id';
 const CLIENT_NONCE = 'browser-attempt:1234567890abcdef';
 const ENCRYPTION_KEY = Buffer.alloc(32, 7).toString('base64');
-const ANDROID_CALLBACK = 'https://kestrel.example.test/login/oidc/android';
-const WEB_CALLBACK = 'https://kestrel.example.test/login/oidc';
-const REDIRECT_URI =
-  'https://kestrel.example.test/api/backend/auth/oidc/callback';
+const PUBLIC_URL = 'https://kestrel.example.test';
+const ANDROID_CALLBACK = `${PUBLIC_URL}/login/oidc/android`;
+const WEB_CALLBACK = `${PUBLIC_URL}/login/oidc`;
+const REDIRECT_URI = `${PUBLIC_URL}/api/backend/auth/oidc/callback`;
 const ORIGINAL_NODE_ENV = process.env.NODE_ENV;
 
 type PrismaMock = ReturnType<typeof createPrismaMock>;
@@ -55,13 +55,11 @@ describe('OidcService', () => {
     ).rejects.toThrow('OIDC configuration is incomplete');
 
     const invalid = createService(prisma, {
-      AUTH_OIDC_ANDROID_CALLBACK_URI: ANDROID_CALLBACK,
       AUTH_OIDC_CLIENT_ID: CLIENT_ID,
       AUTH_OIDC_CLIENT_SECRET: 'client-secret',
       AUTH_OIDC_FLOW_ENCRYPTION_KEY: 'invalid',
       AUTH_OIDC_ISSUER: ISSUER,
-      AUTH_OIDC_REDIRECT_URI: REDIRECT_URI,
-      AUTH_OIDC_WEB_CALLBACK_URI: WEB_CALLBACK,
+      KESTREL_PUBLIC_URL: PUBLIC_URL,
     });
     expect(invalid.getMethods()).toEqual({
       oidc: { displayName: 'OpenID Connect', enabled: false },
@@ -84,51 +82,61 @@ describe('OidcService', () => {
     });
   });
 
-  it('rejects HTTP OIDC URLs in production', async () => {
+  it.each([
+    [
+      'Kestrel public URL',
+      { KESTREL_PUBLIC_URL: 'http://kestrel.example.test' },
+    ],
+    ['OIDC issuer', { AUTH_OIDC_ISSUER: 'http://oidc.example.test' }],
+  ])('rejects an HTTP %s in production', async (label, overrides) => {
     process.env.NODE_ENV = 'production';
-    const httpIssuer = 'http://oidc.example.test';
     const service = createService(
       createPrismaMock(),
-      configuredEnvironment({
-        AUTH_OIDC_ANDROID_CALLBACK_URI:
-          'http://kestrel.example.test/login/oidc/android',
-        AUTH_OIDC_ISSUER: httpIssuer,
-        AUTH_OIDC_REDIRECT_URI:
-          'http://kestrel.example.test/auth/oidc/callback',
-        AUTH_OIDC_WEB_CALLBACK_URI: 'http://kestrel.example.test/login/oidc',
-      }),
+      configuredEnvironment(overrides),
     );
 
     expect(service.getMethods().oidc.enabled).toBe(false);
     await expect(
       service.start({ clientNonce: CLIENT_NONCE, clientType: 'web' }),
-    ).rejects.toThrow('OIDC Android callback URI is invalid');
+    ).rejects.toThrow(`${label} is invalid`);
   });
 
-  it('rejects insecure non-loopback Web callbacks outside production', async () => {
+  it('rejects an insecure non-loopback public URL outside production', async () => {
     const service = createService(
       createPrismaMock(),
       configuredEnvironment({
-        AUTH_OIDC_WEB_CALLBACK_URI: 'http://kestrel.example.test/login/oidc',
+        KESTREL_PUBLIC_URL: 'http://kestrel.example.test',
       }),
     );
 
     expect(service.getMethods().oidc.enabled).toBe(false);
     await expect(
       service.start({ clientNonce: CLIENT_NONCE, clientType: 'web' }),
-    ).rejects.toThrow(
-      'OIDC Web callback URI must use HTTPS or a loopback host',
+    ).rejects.toThrow('Kestrel public URL must use HTTPS or a loopback host');
+  });
+
+  it('rejects a public URL containing a path', async () => {
+    const service = createService(
+      createPrismaMock(),
+      configuredEnvironment({
+        KESTREL_PUBLIC_URL: 'https://kestrel.example.test/prefix',
+      }),
     );
+
+    expect(service.getMethods().oidc.enabled).toBe(false);
+    await expect(
+      service.start({ clientNonce: CLIENT_NONCE, clientType: 'web' }),
+    ).rejects.toThrow('Kestrel public URL must contain only an origin');
   });
 
   it.each([
-    'http://localhost:3301/login/oidc',
-    'http://127.0.0.1:3301/login/oidc',
-    'http://[::1]:3301/login/oidc',
-  ])('allows an HTTP Web callback on loopback host %s', (webCallbackUri) => {
+    'http://localhost:3301',
+    'http://127.0.0.1:3301',
+    'http://[::1]:3301',
+  ])('allows an HTTP public URL on loopback host %s', (publicUrl) => {
     const service = createService(
       createPrismaMock(),
-      configuredEnvironment({ AUTH_OIDC_WEB_CALLBACK_URI: webCallbackUri }),
+      configuredEnvironment({ KESTREL_PUBLIC_URL: publicUrl }),
     );
 
     expect(service.getMethods().oidc.enabled).toBe(true);
@@ -199,14 +207,14 @@ describe('OidcService', () => {
     );
   });
 
-  it('preserves the exact configured redirect URI', async () => {
-    const redirectUri =
-      'https://kestrel.example.test:443/api/../api/backend/auth/oidc/callback';
+  it('derives the fixed redirect URI from the public URL', async () => {
+    const publicUrl = 'https://kestrel.example.test:8443';
+    const redirectUri = `${publicUrl}/api/backend/auth/oidc/callback`;
     const prisma = createPrismaMock();
     mockDiscovery();
     const service = createService(
       prisma,
-      configuredEnvironment({ AUTH_OIDC_REDIRECT_URI: redirectUri }),
+      configuredEnvironment({ KESTREL_PUBLIC_URL: `${publicUrl}/` }),
     );
     const { authorizationUrl } = await service.start({
       clientNonce: CLIENT_NONCE,
@@ -1225,14 +1233,12 @@ function configuredEnvironment(
   overrides: Record<string, string> = {},
 ): Record<string, string> {
   return {
-    AUTH_OIDC_ANDROID_CALLBACK_URI: ANDROID_CALLBACK,
     AUTH_OIDC_CLIENT_ID: CLIENT_ID,
     AUTH_OIDC_CLIENT_SECRET: 'client-secret',
     AUTH_OIDC_DISPLAY_NAME: 'Example Identity',
     AUTH_OIDC_FLOW_ENCRYPTION_KEY: ENCRYPTION_KEY,
     AUTH_OIDC_ISSUER: ISSUER,
-    AUTH_OIDC_REDIRECT_URI: REDIRECT_URI,
-    AUTH_OIDC_WEB_CALLBACK_URI: WEB_CALLBACK,
+    KESTREL_PUBLIC_URL: PUBLIC_URL,
     ...overrides,
   };
 }
