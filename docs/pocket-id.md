@@ -35,16 +35,7 @@ openssl rand -base64 32
 
 Production requires HTTPS. HTTP issuer and callback URLs are accepted only outside `NODE_ENV=production` for local integration testing.
 
-Kestrel's production Compose defaults are:
-
-```dotenv
-AUTH_POCKET_ID_ISSUER=https://pocket-id.narumi.dev
-AUTH_POCKET_ID_CLIENT_ID=98905546-789c-49c6-b7e5-dcc184c2fbbb
-AUTH_POCKET_ID_REDIRECT_URI=https://kestrel.narumi.dev/api/backend/auth/oidc/pocket-id/callback
-AUTH_POCKET_ID_WEB_CALLBACK_URI=https://kestrel.narumi.dev/login/pocket-id
-```
-
-Only the client secret and independently generated flow-encryption key must be supplied as production secrets to enable this configured client. The deploy workflow writes the production client ID explicitly and accepts the optional GitHub Actions repository variable `AUTH_POCKET_ID_CLIENT_ID` to override it.
+Kestrel's production Compose supplies the Pocket ID issuer and callback URLs for `kestrel.narumi.dev`. Set the public client ID in the GitHub Actions repository variable `AUTH_POCKET_ID_CLIENT_ID`; do not commit its deployment value. Set the client secret and independently generated flow-encryption key as GitHub Actions secrets. Pocket ID remains disabled when this configuration is incomplete.
 
 ## Account behavior
 
@@ -58,4 +49,4 @@ Pocket ID-only accounts can sign out and revoke their current session. Existing 
 
 ## Security flow
 
-The backend uses Authorization Code flow with PKCE, verifies discovery issuer, ID-token signature, audience, authorized party, expiry, OIDC nonce, and subject, and then redirects clients with a short-lived one-time Kestrel exchange ticket in the URL fragment so Web servers do not receive it. The ticket is bound to a secret retained by the initiating Web tab or Android app and consumed atomically. Web keeps the pending ticket in tab-scoped storage, while Android keeps it in app-private storage, until session persistence succeeds or a terminal response occurs. The encrypted exchange result remains recoverable by that same ticket and client nonce for 20 minutes so an ambiguous network response can be retried without creating another session. Expired attempts are pruned before new attempts. Unexpired starts are capped per hashed transport source, with a larger provider-wide cap retained as a distributed storage backstop. Pocket ID tokens and Kestrel session tokens never appear in callback URLs.
+The backend uses Authorization Code flow with PKCE, verifies discovery issuer, ID-token signature, audience, authorized party, expiry, OIDC nonce, and subject, and then redirects clients with a short-lived one-time Kestrel exchange ticket in the URL fragment so Web servers do not receive it. Authorization start is stateless: the PKCE verifier, client binding, client type, and expiry travel only in authenticated AES-256-GCM-encrypted OIDC state, so unauthenticated starts do not write database rows. A durable attempt is created only after Pocket ID verification. The ticket is bound to a secret retained by the initiating Web tab or Android app and consumed atomically. Web keeps the pending ticket in tab-scoped storage, while Android uses the verified `https://kestrel.narumi.dev/login/pocket-id/android` App Link and keeps the ticket in app-private storage, until session persistence succeeds or a terminal response occurs. The encrypted exchange result remains recoverable by that same ticket and client nonce for 20 minutes so an ambiguous network response can be retried without creating another session. Pocket ID tokens and Kestrel session tokens never appear in callback URLs.

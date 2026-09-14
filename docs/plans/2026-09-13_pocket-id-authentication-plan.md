@@ -31,9 +31,9 @@ sequenceDiagram
     K-->>C: Existing Kestrel access + refresh session response
 ```
 
-- Persist hashed authorization state, encrypted PKCE verifier, verified identity claims, hashed one-time exchange ticket, expiry, consumption state, and a short-lived encrypted Kestrel exchange result for response-loss recovery. Raw Pocket ID tokens are not persisted.
+- Carry authorization state and the PKCE verifier in authenticated-encrypted state so unauthenticated starts remain stateless. After provider verification, persist the hashed state, verified identity claims, hashed one-time exchange ticket, expiry, consumption state, and a short-lived encrypted Kestrel exchange result for response-loss recovery. Raw Pocket ID tokens are not persisted.
 - Bind the final exchange to a client-generated nonce. Web stores it through the existing authentication-attempt mechanism; Android stores the nonce and returned exchange ticket in app-private preferences until completion so process recreation or an ambiguous network failure does not break the browser return.
-- Redirect Web to a fixed configured HTTPS callback page and Android to the fixed `dev.narumi.kestrel://auth/pocket-id` deep link. Do not accept caller-controlled redirect URIs.
+- Redirect Web to a fixed configured HTTPS callback page and Android to the verified `https://kestrel.narumi.dev/login/pocket-id/android` App Link. Do not accept caller-controlled redirect URIs.
 - Provision a Pocket ID-only user with an unusable random local password hash so existing non-null database and password-auth contracts remain compatible. Password login and username/email account merging remain unavailable for that user.
 
 ## Non-Goals
@@ -45,7 +45,7 @@ sequenceDiagram
 
 ## Risks
 
-- OAuth login CSRF or intercepted Android deep links: mitigate with high-entropy state, provider nonce, PKCE, a separate one-time exchange ticket, client-nonce binding, short expiry, atomic consumption, and same-client retry recovery.
+- OAuth login CSRF or intercepted Android callbacks: mitigate with authenticated-encrypted state, provider nonce, PKCE, a verified HTTPS App Link, a separate one-time exchange ticket, client-nonce binding, short expiry, atomic consumption, and same-client retry recovery.
 - Account takeover through mutable claims: use only verified `issuer + sub` for identity and reject username collisions without linking.
 - Open redirect or token leakage: use fixed callback destinations, put no Kestrel access/refresh or Pocket ID tokens in URLs, and redact OIDC secrets/tickets from logs.
 - Provider outage or malformed discovery/JWKS data: fail closed without changing existing local authentication.

@@ -14,8 +14,6 @@ import {
   BadRequestException,
   ConflictException,
   GoneException,
-  HttpException,
-  HttpStatus,
   InternalServerErrorException,
   ServiceUnavailableException,
 } from '../http/errors';
@@ -28,9 +26,6 @@ const PROVIDER = 'pocket_id';
 const AUTHORIZATION_LIFETIME_MS = 10 * 60 * 1000;
 const EXCHANGE_TICKET_LIFETIME_MS = 10 * 60 * 1000;
 const EXCHANGE_RETRY_LIFETIME_MS = 20 * 60 * 1000;
-const MAX_UNEXPIRED_LOGIN_ATTEMPTS = 1_000;
-const MAX_UNEXPIRED_LOGIN_ATTEMPTS_PER_SOURCE = 100;
-const LOGIN_ATTEMPT_TRANSACTION_ATTEMPTS = 3;
 const SESSION_DURATION_DAYS = 30;
 const SECRET_BYTES = 32;
 const ENCRYPTION_KEY_BYTES = 32;
@@ -39,7 +34,8 @@ const CLIENT_NONCE_PATTERN = /^[A-Za-z0-9:._-]+$/;
 const USERNAME_PATTERN = /^[A-Za-z0-9._-]+$/;
 const MIN_USERNAME_LENGTH = 3;
 const MAX_USERNAME_LENGTH = 64;
-const ANDROID_CALLBACK_URI = 'dev.narumi.kestrel://auth/pocket-id';
+const ANDROID_CALLBACK_URI =
+  'https://kestrel.narumi.dev/login/pocket-id/android';
 
 export type PocketIdClientType = 'android' | 'web';
 
@@ -58,6 +54,13 @@ type OidcDiscovery = {
   jwks_uri: string;
   token_endpoint: string;
   userinfo_endpoint?: string;
+};
+
+type AuthorizationState = {
+  clientNonceHash: string;
+  clientType: PocketIdClientType;
+  codeVerifier: string;
+  expiresAt: number;
 };
 
 type VerifiedIdentity = {
@@ -101,80 +104,26 @@ export class PocketIdService {
     return { pocketId: { enabled: this.getConfiguration(false) != null } };
   }
 
-  async start(
-    input: unknown,
-    metadata: AuthAuditMetadata = {},
-  ): Promise<{ authorizationUrl: string }> {
+  async start(input: unknown): Promise<{ authorizationUrl: string }> {
     const configuration = this.requireConfiguration();
     const { clientNonce, clientType } = parseStartRequest(input);
     const discovery = await this.getDiscovery(configuration);
-    const state = createRandomSecret();
     const codeVerifier = createRandomSecret();
-    const codeChallenge = createPkceChallenge(codeVerifier);
-    const now = new Date();
-    const sourceHash = hashValue(metadata.ipAddress ?? 'unknown');
-
-    for (
-      let transactionAttempt = 1;
-      transactionAttempt <= LOGIN_ATTEMPT_TRANSACTION_ATTEMPTS;
-      transactionAttempt += 1
-    ) {
-      try {
-        await this.prismaService.$transaction(
-          async (transaction) => {
-            await transaction.oidcLoginAttempt.deleteMany({
-              where: { expiresAt: { lte: now } },
-            });
-            const sourceAttempts = await transaction.oidcLoginAttempt.count({
-              where: {
-                expiresAt: { gt: now },
-                provider: PROVIDER,
-                sourceHash,
-              },
-            });
-            if (sourceAttempts >= MAX_UNEXPIRED_LOGIN_ATTEMPTS_PER_SOURCE) {
-              throwTooManyPocketIdAttempts();
-            }
-            const currentAttempts = await transaction.oidcLoginAttempt.count({
-              where: {
-                expiresAt: { gt: now },
-                provider: PROVIDER,
-              },
-            });
-            if (currentAttempts >= MAX_UNEXPIRED_LOGIN_ATTEMPTS) {
-              throwTooManyPocketIdAttempts();
-            }
-            await transaction.oidcLoginAttempt.create({
-              data: {
-                clientNonceHash: hashValue(clientNonce),
-                clientType,
-                expiresAt: new Date(now.getTime() + AUTHORIZATION_LIFETIME_MS),
-                pkceVerifierEncrypted: encryptValue(
-                  codeVerifier,
-                  configuration.encryptionKey,
-                ),
-                provider: PROVIDER,
-                sourceHash,
-                stateHash: hashValue(state),
-              },
-            });
-          },
-          { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
-        );
-        break;
-      } catch (error) {
-        if (
-          !isPrismaSerializationConflict(error) ||
-          transactionAttempt === LOGIN_ATTEMPT_TRANSACTION_ATTEMPTS
-        ) {
-          throw error;
-        }
-      }
-    }
-
+    const state = createAuthorizationState(
+      {
+        clientNonceHash: hashValue(clientNonce),
+        clientType,
+        codeVerifier,
+        expiresAt: Date.now() + AUTHORIZATION_LIFETIME_MS,
+      },
+      configuration.encryptionKey,
+    );
     const authorizationUrl = new URL(discovery.authorization_endpoint);
     authorizationUrl.searchParams.set('client_id', configuration.clientId);
-    authorizationUrl.searchParams.set('code_challenge', codeChallenge);
+    authorizationUrl.searchParams.set(
+      'code_challenge',
+      createPkceChallenge(codeVerifier),
+    );
     authorizationUrl.searchParams.set('code_challenge_method', 'S256');
     authorizationUrl.searchParams.set('nonce', state);
     authorizationUrl.searchParams.set(
@@ -194,49 +143,26 @@ export class PocketIdService {
     state?: string;
   }): Promise<string> {
     const configuration = this.requireConfiguration();
-    const state = validateCallbackState(input.state);
-    const attempt = await this.prismaService.oidcLoginAttempt.findUnique({
-      where: { stateHash: hashValue(state) },
-    });
-    const now = new Date();
-
-    if (
-      attempt == null ||
-      attempt.provider !== PROVIDER ||
-      attempt.consumedAt != null ||
-      attempt.callbackStartedAt != null ||
-      attempt.callbackCompletedAt != null ||
-      attempt.expiresAt <= now
-    ) {
-      throw new GoneException(
-        'Pocket ID sign-in attempt is invalid or expired',
-      );
-    }
-
-    const claimed = await this.prismaService.oidcLoginAttempt.updateMany({
-      data: { callbackStartedAt: now },
-      where: {
-        callbackCompletedAt: null,
-        callbackStartedAt: null,
-        consumedAt: null,
-        expiresAt: { gt: now },
-        id: attempt.id,
-      },
-    });
-    if (claimed.count !== 1) {
+    const rawState = validateCallbackState(input.state);
+    const authorizationState = parseAuthorizationState(
+      rawState,
+      configuration.encryptionKey,
+    );
+    if (authorizationState.expiresAt <= Date.now()) {
       throw new GoneException(
         'Pocket ID sign-in attempt is invalid or expired',
       );
     }
 
     if (input.error != null) {
-      await this.consumeFailedAttempt(attempt.id, now);
       return buildClientRedirect(
-        attempt.clientType,
+        authorizationState.clientType,
         configuration.webCallbackUri,
         input.error === 'access_denied'
           ? 'access_denied'
           : 'authentication_failed',
+        undefined,
+        authorizationState.clientNonceHash,
       );
     }
 
@@ -249,62 +175,56 @@ export class PocketIdService {
       const discovery = await this.getDiscovery(configuration);
       const identity = await this.exchangeAndVerify(
         input.code,
-        state,
-        decryptValue(
-          attempt.pkceVerifierEncrypted,
-          configuration.encryptionKey,
-        ),
+        rawState,
+        authorizationState.codeVerifier,
         configuration,
         discovery,
       );
       const exchangeTicket = createRandomSecret();
       const callbackCompletedAt = new Date();
-      const updated = await this.prismaService.oidcLoginAttempt.updateMany({
-        data: {
-          callbackCompletedAt,
-          exchangeTicketHash: hashValue(exchangeTicket),
-          expiresAt: new Date(
-            callbackCompletedAt.getTime() + EXCHANGE_TICKET_LIFETIME_MS,
-          ),
-          issuer: identity.issuer,
-          issuerHash: hashValue(identity.issuer),
-          pkceVerifierEncrypted: '',
-          preferredUsername: identity.preferredUsername,
-          subject: identity.subject,
-        },
-        where: {
-          callbackCompletedAt: null,
-          callbackStartedAt: now,
-          consumedAt: null,
-          expiresAt: { gt: now },
-          id: attempt.id,
-        },
+      await this.prismaService.$transaction(async (transaction) => {
+        await transaction.oidcLoginAttempt.deleteMany({
+          where: { expiresAt: { lte: callbackCompletedAt } },
+        });
+        await transaction.oidcLoginAttempt.create({
+          data: {
+            callbackCompletedAt,
+            callbackStartedAt: callbackCompletedAt,
+            clientNonceHash: authorizationState.clientNonceHash,
+            clientType: authorizationState.clientType,
+            exchangeTicketHash: hashValue(exchangeTicket),
+            expiresAt: new Date(
+              callbackCompletedAt.getTime() + EXCHANGE_TICKET_LIFETIME_MS,
+            ),
+            issuer: identity.issuer,
+            issuerHash: hashValue(identity.issuer),
+            pkceVerifierEncrypted: '',
+            preferredUsername: identity.preferredUsername,
+            provider: PROVIDER,
+            stateHash: hashValue(rawState),
+            subject: identity.subject,
+          },
+        });
       });
-      if (updated.count !== 1) {
-        throw new GoneException(
-          'Pocket ID sign-in attempt is invalid or expired',
-        );
-      }
 
       return buildClientRedirect(
-        attempt.clientType,
+        authorizationState.clientType,
         configuration.webCallbackUri,
         undefined,
         exchangeTicket,
+        authorizationState.clientNonceHash,
       );
     } catch (error) {
-      await this.consumeFailedAttempt(attempt.id, now);
       this.logger.warn(
-        {
-          attemptId: attempt.id,
-          reason: error instanceof Error ? error.name : 'UnknownError',
-        },
+        { reason: error instanceof Error ? error.name : 'UnknownError' },
         'Pocket ID callback failed',
       );
       return buildClientRedirect(
-        attempt.clientType,
+        authorizationState.clientType,
         configuration.webCallbackUri,
         'authentication_failed',
+        undefined,
+        authorizationState.clientNonceHash,
       );
     }
   }
@@ -807,18 +727,6 @@ export class PocketIdService {
     };
   }
 
-  private async consumeFailedAttempt(id: string, now: Date): Promise<void> {
-    await this.prismaService.oidcLoginAttempt.updateMany({
-      data: { consumedAt: now, pkceVerifierEncrypted: '' },
-      where: {
-        callbackCompletedAt: null,
-        callbackStartedAt: now,
-        consumedAt: null,
-        id,
-      },
-    });
-  }
-
   private async safeAuditLog(
     entry: Parameters<AuthAuditService['log']>[0],
   ): Promise<void> {
@@ -831,24 +739,6 @@ export class PocketIdService {
       );
     }
   }
-}
-
-function throwTooManyPocketIdAttempts(): never {
-  throw new HttpException(
-    {
-      error: 'Too Many Requests',
-      message: 'too many Pocket ID sign-in attempts',
-      statusCode: HttpStatus.TOO_MANY_REQUESTS,
-    },
-    HttpStatus.TOO_MANY_REQUESTS,
-  );
-}
-
-function isPrismaSerializationConflict(error: unknown): boolean {
-  return (
-    error instanceof Prisma.PrismaClientKnownRequestError &&
-    error.code === 'P2034'
-  );
 }
 
 function parseStartRequest(input: unknown): {
@@ -905,13 +795,44 @@ function validateClientNonce(value: unknown): string {
 function validateCallbackState(value: unknown): string {
   if (
     typeof value !== 'string' ||
-    value.length < 32 ||
-    value.length > 128 ||
-    !/^[A-Za-z0-9_-]+$/.test(value)
+    value.length < 128 ||
+    value.length > 1024 ||
+    !/^v1(?:\.[A-Za-z0-9_-]+){3}$/.test(value)
   ) {
     throw new BadRequestException('Pocket ID sign-in state is invalid');
   }
   return value;
+}
+
+function createAuthorizationState(
+  value: AuthorizationState,
+  key: Buffer,
+): string {
+  return encryptValue(JSON.stringify(value), key);
+}
+
+function parseAuthorizationState(
+  value: string,
+  key: Buffer,
+): AuthorizationState {
+  try {
+    const parsed = JSON.parse(
+      decryptValue(value, key),
+    ) as Partial<AuthorizationState>;
+    if (
+      !/^[a-f0-9]{64}$/.test(parsed.clientNonceHash ?? '') ||
+      (parsed.clientType !== 'android' && parsed.clientType !== 'web') ||
+      typeof parsed.codeVerifier !== 'string' ||
+      !/^[A-Za-z0-9_-]{43}$/.test(parsed.codeVerifier) ||
+      typeof parsed.expiresAt !== 'number' ||
+      !Number.isSafeInteger(parsed.expiresAt)
+    ) {
+      throw new Error('invalid authorization state');
+    }
+    return parsed as AuthorizationState;
+  } catch {
+    throw new BadRequestException('Pocket ID sign-in state is invalid');
+  }
 }
 
 function normalizePocketIdUsernameClaim(value: unknown): string | null {
@@ -995,16 +916,19 @@ function buildClientRedirect(
   webCallbackUri: string,
   error?: string,
   exchangeTicket?: string,
+  clientNonceHash?: string,
 ): string {
-  const url = new URL(
-    clientType === 'android' ? ANDROID_CALLBACK_URI : webCallbackUri,
-  );
+  const isAndroid = clientType === 'android';
+  const url = new URL(isAndroid ? ANDROID_CALLBACK_URI : webCallbackUri);
   const fragment = new URLSearchParams();
   if (error != null) {
     fragment.set('error', error);
   }
   if (exchangeTicket != null) {
     fragment.set('ticket', exchangeTicket);
+  }
+  if (isAndroid && clientNonceHash != null) {
+    fragment.set('attempt', clientNonceHash);
   }
   url.hash = fragment.toString();
   return url.toString();

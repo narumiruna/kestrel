@@ -3,11 +3,7 @@ import { Prisma } from '@prisma/client';
 import { createHash, generateKeyPairSync } from 'node:crypto';
 import { SignJWT } from 'jose';
 import { ConfigService } from '../config.service';
-import {
-  ConflictException,
-  GoneException,
-  HttpException,
-} from '../http/errors';
+import { ConflictException, GoneException } from '../http/errors';
 import { PrismaService } from '../prisma/prisma.service';
 import { AccessTokenService } from './access-token.service';
 import { AuthAuditService } from './auth-audit.service';
@@ -26,6 +22,7 @@ type PrismaMock = ReturnType<typeof createPrismaMock>;
 describe('PocketIdService', () => {
   afterEach(() => {
     jest.restoreAllMocks();
+    jest.useRealTimers();
   });
 
   it('reports disabled without configuration and rejects partial configuration', async () => {
@@ -70,136 +67,36 @@ describe('PocketIdService', () => {
     expect(authorizationUrl.searchParams.get('code_challenge')).toHaveLength(
       43,
     );
-    expect(state).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(state).toMatch(/^v1(?:\.[A-Za-z0-9_-]+){3}$/);
     expect(state).not.toContain(CLIENT_NONCE);
     expect(providerNonce).toBe(state);
-    expect(prisma.transaction.oidcLoginAttempt.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        clientType: 'web',
-        provider: 'pocket_id',
-        pkceVerifierEncrypted: expect.stringMatching(/^v1\./),
-        sourceHash: sha256('unknown'),
-        stateHash: expect.stringMatching(/^[a-f0-9]{64}$/),
-      }),
-    });
-    expect(
-      prisma.transaction.oidcLoginAttempt.create.mock.calls[0][0].data,
-    ).not.toEqual(expect.objectContaining({ state }));
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(prisma.transaction.oidcLoginAttempt.create).not.toHaveBeenCalled();
   });
 
-  it('prunes expired attempts and applies source-aware and global caps', async () => {
+  it('rejects tampered and expired encrypted authorization state', async () => {
+    jest.useFakeTimers({ now: new Date('2026-09-14T00:00:00.000Z') });
     const prisma = createPrismaMock();
     mockDiscovery();
-    prisma.transaction.oidcLoginAttempt.count
-      .mockResolvedValueOnce(0)
-      .mockResolvedValueOnce(1_000);
     const service = createService(prisma);
-
-    let rejected: unknown;
-    try {
-      await service.start(
-        {
-          clientNonce: CLIENT_NONCE,
-          clientType: 'web',
-        },
-        { ipAddress: '203.0.113.7' },
-      );
-    } catch (error) {
-      rejected = error;
-    }
-
-    expect(rejected).toBeInstanceOf(HttpException);
-    expect((rejected as HttpException).getStatus()).toBe(429);
-    expect(prisma.transaction.oidcLoginAttempt.deleteMany).toHaveBeenCalledWith(
-      {
-        where: { expiresAt: { lte: expect.any(Date) } },
-      },
-    );
-    expect(prisma.transaction.oidcLoginAttempt.count).toHaveBeenNthCalledWith(
-      1,
-      {
-        where: {
-          expiresAt: { gt: expect.any(Date) },
-          provider: 'pocket_id',
-          sourceHash: sha256('203.0.113.7'),
-        },
-      },
-    );
-    expect(prisma.transaction.oidcLoginAttempt.count).toHaveBeenNthCalledWith(
-      2,
-      {
-        where: {
-          expiresAt: { gt: expect.any(Date) },
-          provider: 'pocket_id',
-        },
-      },
-    );
-    expect(prisma.transaction.oidcLoginAttempt.create).not.toHaveBeenCalled();
-  });
-
-  it('rejects only the source that reaches its attempt cap', async () => {
-    const prisma = createPrismaMock();
-    mockDiscovery();
-    prisma.transaction.oidcLoginAttempt.count.mockResolvedValueOnce(100);
-
-    await expect(
-      createService(prisma).start(
-        {
-          clientNonce: CLIENT_NONCE,
-          clientType: 'android',
-        },
-        { ipAddress: '203.0.113.8' },
-      ),
-    ).rejects.toThrow('too many Pocket ID sign-in attempts');
-
-    expect(prisma.transaction.oidcLoginAttempt.count).toHaveBeenCalledTimes(1);
-    expect(prisma.transaction.oidcLoginAttempt.create).not.toHaveBeenCalled();
-  });
-
-  it('retries serializable attempt-creation conflicts', async () => {
-    const prisma = createPrismaMock();
-    mockDiscovery();
-    let transactionAttempts = 0;
-    prisma.$transaction.mockImplementation(
-      (operation: (value: PrismaMock['transaction']) => unknown) => {
-        transactionAttempts += 1;
-        if (transactionAttempts < 3) {
-          throw new Prisma.PrismaClientKnownRequestError(
-            'serialization conflict',
-            { clientVersion: '6.19.3', code: 'P2034' },
-          );
-        }
-        return Promise.resolve(operation(prisma.transaction));
-      },
-    );
-
-    await createService(prisma).start({
+    const { authorizationUrl } = await service.start({
       clientNonce: CLIENT_NONCE,
       clientType: 'web',
     });
-
-    expect(prisma.$transaction).toHaveBeenCalledTimes(3);
-    expect(prisma.transaction.oidcLoginAttempt.create).toHaveBeenCalledTimes(1);
-  });
-
-  it('bounds serializable attempt-creation retries', async () => {
-    const prisma = createPrismaMock();
-    mockDiscovery();
-    prisma.$transaction.mockRejectedValue(
-      new Prisma.PrismaClientKnownRequestError('serialization conflict', {
-        clientVersion: '6.19.3',
-        code: 'P2034',
-      }),
-    );
+    const state = new URL(authorizationUrl).searchParams.get('state')!;
+    const stateParts = state.split('.');
+    const replacement = stateParts[2].startsWith('a') ? 'b' : 'a';
+    stateParts[2] = `${replacement}${stateParts[2].slice(1)}`;
 
     await expect(
-      createService(prisma).start({
-        clientNonce: CLIENT_NONCE,
-        clientType: 'web',
-      }),
-    ).rejects.toMatchObject({ code: 'P2034' });
+      service.callback({ state: stateParts.join('.') }),
+    ).rejects.toThrow('Pocket ID sign-in state is invalid');
 
-    expect(prisma.$transaction).toHaveBeenCalledTimes(3);
+    jest.advanceTimersByTime(11 * 60 * 1000);
+    await expect(service.callback({ state })).rejects.toThrow(
+      'Pocket ID sign-in attempt is invalid or expired',
+    );
+    expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
   it('verifies a Pocket ID callback and redirects with only a one-time ticket', async () => {
@@ -211,21 +108,6 @@ describe('PocketIdService', () => {
       clientType: 'web',
     });
     const state = new URL(authorizationUrl).searchParams.get('state')!;
-    const stored =
-      prisma.transaction.oidcLoginAttempt.create.mock.calls[0][0].data;
-    prisma.oidcLoginAttempt.findUnique.mockResolvedValue({
-      ...stored,
-      callbackCompletedAt: null,
-      consumedAt: null,
-      createdAt: new Date(),
-      exchangeTicketHash: null,
-      id: 'attempt-1',
-      issuer: null,
-      issuerHash: null,
-      preferredUsername: null,
-      subject: null,
-    });
-    prisma.oidcLoginAttempt.updateMany.mockResolvedValue({ count: 1 });
     await mockTokenAndJwks(state);
 
     const redirect = new URL(
@@ -238,19 +120,26 @@ describe('PocketIdService', () => {
     expect(fragment.has('client_nonce')).toBe(false);
     expect(fragment.get('ticket')).toHaveLength(43);
     expect(fragment.has('access_token')).toBe(false);
-    expect(prisma.oidcLoginAttempt.updateMany).toHaveBeenCalledWith({
+    expect(prisma.transaction.oidcLoginAttempt.deleteMany).toHaveBeenCalledWith(
+      {
+        where: { expiresAt: { lte: expect.any(Date) } },
+      },
+    );
+    expect(prisma.transaction.oidcLoginAttempt.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         callbackCompletedAt: expect.any(Date),
+        clientNonceHash: sha256(CLIENT_NONCE),
+        clientType: 'web',
         exchangeTicketHash: expect.stringMatching(/^[a-f0-9]{64}$/),
         expiresAt: expect.any(Date),
         issuer: ISSUER,
         preferredUsername: 'pocket-user',
+        stateHash: sha256(state),
         subject: 'pocket-subject',
       }),
-      where: expect.objectContaining({ id: 'attempt-1' }),
     });
-    const completion = prisma.oidcLoginAttempt.updateMany.mock.calls[1][0]
-      .data as { callbackCompletedAt: Date; expiresAt: Date };
+    const completion = prisma.transaction.oidcLoginAttempt.create.mock
+      .calls[0][0].data as { callbackCompletedAt: Date; expiresAt: Date };
     expect(
       completion.expiresAt.getTime() - completion.callbackCompletedAt.getTime(),
     ).toBe(10 * 60 * 1000);
@@ -265,22 +154,6 @@ describe('PocketIdService', () => {
       clientType: 'web',
     });
     const state = new URL(authorizationUrl).searchParams.get('state')!;
-    const stored =
-      prisma.transaction.oidcLoginAttempt.create.mock.calls[0][0].data;
-    prisma.oidcLoginAttempt.findUnique.mockResolvedValue({
-      ...stored,
-      callbackCompletedAt: null,
-      callbackStartedAt: null,
-      consumedAt: null,
-      createdAt: new Date(),
-      exchangeTicketHash: null,
-      id: 'attempt-1',
-      issuer: null,
-      issuerHash: null,
-      preferredUsername: null,
-      subject: null,
-    });
-    prisma.oidcLoginAttempt.updateMany.mockResolvedValue({ count: 1 });
     await mockTokenAndJwks(state, {
       accessToken: 'provider-access-token',
       preferredUsername: null,
@@ -296,13 +169,12 @@ describe('PocketIdService', () => {
     expect(
       new URLSearchParams(redirect.hash.slice(1)).get('ticket'),
     ).toHaveLength(43);
-    expect(prisma.oidcLoginAttempt.updateMany).toHaveBeenCalledWith({
+    expect(prisma.transaction.oidcLoginAttempt.create).toHaveBeenCalledWith({
       data: expect.objectContaining({ preferredUsername: null }),
-      where: expect.objectContaining({ id: 'attempt-1' }),
     });
   });
 
-  it('rejects a duplicate callback before redeeming the authorization code', async () => {
+  it('does not consume a successful attempt when duplicate callback storage loses', async () => {
     const prisma = createPrismaMock();
     mockDiscovery();
     const service = createService(prisma);
@@ -311,38 +183,22 @@ describe('PocketIdService', () => {
       clientType: 'web',
     });
     const state = new URL(authorizationUrl).searchParams.get('state')!;
-    const stored =
-      prisma.transaction.oidcLoginAttempt.create.mock.calls[0][0].data;
-    prisma.oidcLoginAttempt.findUnique.mockResolvedValue({
-      ...stored,
-      callbackCompletedAt: null,
-      callbackStartedAt: null,
-      consumedAt: null,
-      createdAt: new Date(),
-      exchangeTicketHash: null,
-      id: 'attempt-1',
-      issuer: null,
-      issuerHash: null,
-      preferredUsername: null,
-      subject: null,
-    });
-    prisma.oidcLoginAttempt.updateMany.mockResolvedValue({ count: 0 });
+    await mockTokenAndJwks(state);
+    prisma.transaction.oidcLoginAttempt.create.mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError('duplicate state', {
+        clientVersion: '6.19.3',
+        code: 'P2002',
+      }),
+    );
 
-    await expect(
-      service.callback({ code: 'authorization-code', state }),
-    ).rejects.toThrow(GoneException);
+    const redirect = new URL(
+      await service.callback({ code: 'authorization-code', state }),
+    );
 
-    expect(prisma.oidcLoginAttempt.updateMany).toHaveBeenCalledTimes(1);
-    expect(prisma.oidcLoginAttempt.updateMany).toHaveBeenCalledWith({
-      data: { callbackStartedAt: expect.any(Date) },
-      where: {
-        callbackCompletedAt: null,
-        callbackStartedAt: null,
-        consumedAt: null,
-        expiresAt: { gt: expect.any(Date) },
-        id: 'attempt-1',
-      },
-    });
+    expect(new URLSearchParams(redirect.hash.slice(1)).get('error')).toBe(
+      'authentication_failed',
+    );
+    expect(prisma.oidcLoginAttempt.updateMany).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -359,21 +215,6 @@ describe('PocketIdService', () => {
         clientType: 'web',
       });
       const state = new URL(authorizationUrl).searchParams.get('state')!;
-      const stored =
-        prisma.transaction.oidcLoginAttempt.create.mock.calls[0][0].data;
-      prisma.oidcLoginAttempt.findUnique.mockResolvedValue({
-        ...stored,
-        callbackCompletedAt: null,
-        consumedAt: null,
-        createdAt: new Date(),
-        exchangeTicketHash: null,
-        id: 'attempt-1',
-        issuer: null,
-        issuerHash: null,
-        preferredUsername: null,
-        subject: null,
-      });
-      prisma.oidcLoginAttempt.updateMany.mockResolvedValue({ count: 1 });
 
       const redirect = new URL(
         await service.callback({ error: providerError, state }),
@@ -382,15 +223,7 @@ describe('PocketIdService', () => {
       expect(new URLSearchParams(redirect.hash.slice(1)).get('error')).toBe(
         expectedClientError,
       );
-      expect(prisma.oidcLoginAttempt.updateMany).toHaveBeenCalledWith({
-        data: expect.objectContaining({ consumedAt: expect.any(Date) }),
-        where: {
-          callbackCompletedAt: null,
-          callbackStartedAt: expect.any(Date),
-          consumedAt: null,
-          id: 'attempt-1',
-        },
-      });
+      expect(prisma.$transaction).not.toHaveBeenCalled();
     },
   );
 
@@ -411,21 +244,6 @@ describe('PocketIdService', () => {
         clientType: 'android',
       });
       const state = new URL(authorizationUrl).searchParams.get('state')!;
-      const stored =
-        prisma.transaction.oidcLoginAttempt.create.mock.calls[0][0].data;
-      prisma.oidcLoginAttempt.findUnique.mockResolvedValue({
-        ...stored,
-        callbackCompletedAt: null,
-        consumedAt: null,
-        createdAt: new Date(),
-        exchangeTicketHash: null,
-        id: 'attempt-1',
-        issuer: null,
-        issuerHash: null,
-        preferredUsername: null,
-        subject: null,
-      });
-      prisma.oidcLoginAttempt.updateMany.mockResolvedValue({ count: 1 });
       await mockTokenAndJwks(state, overrides);
 
       const redirect = new URL(
@@ -433,18 +251,13 @@ describe('PocketIdService', () => {
       );
 
       const fragment = new URLSearchParams(redirect.hash.slice(1));
-      expect(redirect.protocol).toBe('dev.narumi.kestrel:');
+      expect(redirect.origin + redirect.pathname).toBe(
+        'https://kestrel.narumi.dev/login/pocket-id/android',
+      );
+      expect(fragment.get('attempt')).toBe(sha256(CLIENT_NONCE));
       expect(fragment.get('error')).toBe('authentication_failed');
       expect(fragment.has('ticket')).toBe(false);
-      expect(prisma.oidcLoginAttempt.updateMany).toHaveBeenCalledWith({
-        data: expect.objectContaining({ consumedAt: expect.any(Date) }),
-        where: {
-          callbackCompletedAt: null,
-          callbackStartedAt: expect.any(Date),
-          consumedAt: null,
-          id: 'attempt-1',
-        },
-      });
+      expect(prisma.$transaction).not.toHaveBeenCalled();
     },
   );
 

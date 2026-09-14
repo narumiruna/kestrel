@@ -58,15 +58,11 @@ internal class CloudAuthRepository private constructor(
     }
 
     suspend fun completePocketIdLogin(rawCallbackUri: String): CloudSession {
-        val callback =
-            try {
-                parsePocketIdCallback(rawCallbackUri)
-            } catch (failure: IllegalArgumentException) {
-                clearPocketIdAttemptAfterFailure(failure)
-            } catch (failure: IllegalStateException) {
-                clearPocketIdAttemptAfterFailure(failure)
-            }
+        val callback = parsePocketIdCallback(rawCallbackUri)
         val attempt = pocketIdAttemptStore.load() ?: error("No Pocket ID sign-in is pending")
+        require(callback.matchesClientNonce(attempt.clientNonce)) {
+            "Pocket ID callback does not match the pending sign-in"
+        }
         validatePocketIdAttemptServer(attempt, prefs, pocketIdAttemptStore)
 
         return when (callback) {

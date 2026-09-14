@@ -11,12 +11,12 @@ Required GitHub Actions secrets (`AUTH_OIDC_FLOW_ENCRYPTION_KEY` and `AUTH_POCKE
 | `POSTGRES_USER` | PostgreSQL application/backup role | Update PostgreSQL and deploy configuration together. |
 | `POSTGRES_PASSWORD` | PostgreSQL role password | Rotate in PostgreSQL first, then update the secret and redeploy. |
 | `AUTH_ACCESS_TOKEN_SECRET` | HMAC access-token signing | Existing short-lived access tokens stop working; refresh sessions can obtain replacements. |
-| `AUTH_OIDC_FLOW_ENCRYPTION_KEY` | Encrypts short-lived Pocket ID PKCE verifiers | In-flight Pocket ID logins fail; existing sessions are unaffected. Configure only with all Pocket ID values. |
+| `AUTH_OIDC_FLOW_ENCRYPTION_KEY` | Encrypts short-lived Pocket ID authorization state and exchange recovery | In-flight Pocket ID logins fail; existing sessions are unaffected. Configure only with all Pocket ID values. |
 | `AUTH_POCKET_ID_CLIENT_SECRET` | Pocket ID confidential-client secret | In-flight/new Pocket ID logins fail until both sides use the new secret. |
 | `AUTH_TOTP_ENCRYPTION_KEY` | Encrypts stored TOTP secrets | Do not replace directly. Re-encrypt every stored TOTP secret during a maintenance migration, then update the secret. |
 | `PAT_TOKEN` | Allows version/tag workflows to trigger follow-up workflows | Replace with a token that can write repository contents and workflows. |
 
-`POSTGRES_DB` is optional and defaults to `kestrel`. The public Pocket ID client ID can be overridden with the GitHub Actions repository variable `AUTH_POCKET_ID_CLIENT_ID`; the workflow writes its production default when the variable is absent. Production Compose contains the public Pocket ID issuer and callback URLs documented in [`pocket-id.md`](pocket-id.md). Pocket ID remains disabled until both `AUTH_POCKET_ID_CLIENT_SECRET` and `AUTH_OIDC_FLOW_ENCRYPTION_KEY` are set. The workflow writes a mode-`0600` temporary `.env`, validates the Compose model, deploys production images, and removes the file even after failure.
+`POSTGRES_DB` is optional and defaults to `kestrel`. Set the public Pocket ID client ID in the GitHub Actions repository variable `AUTH_POCKET_ID_CLIENT_ID`; its deployment value is not stored in this repository. Production Compose contains the public Pocket ID issuer and callback URLs documented in [`pocket-id.md`](pocket-id.md). Pocket ID remains disabled until the client ID, `AUTH_POCKET_ID_CLIENT_SECRET`, and `AUTH_OIDC_FLOW_ENCRYPTION_KEY` are set. The workflow writes a mode-`0600` temporary `.env`, validates the Compose model, deploys production images, and removes the file even after failure.
 
 After deployment, verify readiness and request correlation:
 

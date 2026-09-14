@@ -45,16 +45,16 @@
 
                 <data android:scheme="geo" />
             </intent-filter>
-            <intent-filter>
+            <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
 
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
 
                 <data
-                    android:host="auth"
-                    android:path="/pocket-id"
-                    android:scheme="dev.narumi.kestrel" />
+                    android:host="kestrel.narumi.dev"
+                    android:path="/login/pocket-id/android"
+                    android:scheme="https" />
             </intent-filter>
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />

@@ -74,7 +74,7 @@ class MainActivity : ComponentActivity() {
                     pendingPocketIdCallback = pendingPocketIdCallback,
                     skipCloudSyncOnForeground = skipCloudSyncOnForeground,
                     onMapLinkPointConsumed = { pendingMapLinkPoint = null },
-                    onPocketIdCallbackConsumed = { pendingPocketIdCallback = null },
+                    onPocketIdCallbackConsumed = ::consumePocketIdCallbackIntent,
                 )
             }
         }
@@ -95,6 +95,16 @@ class MainActivity : ComponentActivity() {
         } else {
             consumeMapLinkIntent(intent)
         }
+    }
+
+    private fun consumePocketIdCallbackIntent() {
+        pendingPocketIdCallback = null
+        setIntent(
+            Intent(intent).apply {
+                action = null
+                data = null
+            },
+        )
     }
 
     private fun consumeMapLinkIntent(intent: Intent?) {
