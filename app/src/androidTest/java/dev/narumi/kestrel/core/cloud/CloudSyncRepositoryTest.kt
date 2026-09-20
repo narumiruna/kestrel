@@ -7,8 +7,11 @@ import dev.narumi.kestrel.core.library.LibraryItemKind
 import dev.narumi.kestrel.core.library.PendingPlaceSyncPayload
 import dev.narumi.kestrel.core.library.db.KestrelDatabase
 import dev.narumi.kestrel.core.library.db.LibraryItemEntity
+import dev.narumi.kestrel.core.library.db.LibraryItemRecord
 import dev.narumi.kestrel.core.library.db.PendingSyncChangeEntity
 import dev.narumi.kestrel.core.library.db.PlaceEntity
+import dev.narumi.kestrel.core.library.db.RouteEntity
+import dev.narumi.kestrel.core.library.db.RouteRevisionEntity
 import dev.narumi.kestrel.core.library.db.SyncStateEntity
 import dev.narumi.kestrel.core.library.db.SyncStatus
 import junit.framework.TestCase.assertNull
@@ -31,6 +34,7 @@ class CloudSyncRepositoryTest {
     private lateinit var authProvider: FakeCloudSyncSessionProvider
     private lateinit var api: FakeCloudSyncApi
     private val json = Json { ignoreUnknownKeys = true }
+    private var nextId = 0
 
     @Before
     fun setUp() {
@@ -57,7 +61,7 @@ class CloudSyncRepositoryTest {
                 database = database,
                 authRepository = authProvider,
                 apiClient = api,
-                uuidFactory = { "generated-id" },
+                uuidFactory = { "generated-${++nextId}" },
             )
     }
 
@@ -434,6 +438,199 @@ class CloudSyncRepositoryTest {
             assertEquals("remote-place-1", uploadedChange.remotePlaceId)
         }
 
+    @Test
+    fun syncNow_bootstrapAndChangesImportEquivalentRows() =
+        runBlocking {
+            val bootstrapRows = importFixture(bootstrap = true)
+            database.clearAllTables() // This test owns an in-memory database only.
+            nextId = 0
+            val changesRows = importFixture(bootstrap = false)
+            assertEquals(bootstrapRows, changesRows)
+            assertEquals("local-place-1", database.libraryDao().findPlaceIdByRemoteId("remote-place-1"))
+            assertEquals("local-route-1", database.libraryDao().findRouteIdByRemoteId("remote-route-1"))
+            assertEquals("generated-2", database.libraryDao().findRouteRevisionIdByRemoteId("revision-2"))
+            assertNull(database.libraryDao().findRouteRevisionIdByRemoteId("revision-1"))
+            assertNull(database.libraryDao().findRouteIdByRemoteId("incomplete-route"))
+            val route = changesRows.single { it.item.kind == LibraryItemKind.Route }.route!!
+            assertEquals(listOf(0, 1), route.waypoints.map { it.sequence })
+            assertEquals(listOf("generated-3", "generated-4"), route.waypoints.map { it.id })
+            assertEquals(7.0, route.waypoints.first().speedKmh)
+            assertEquals(2.0, route.waypoints.last().pauseSeconds)
+            assertEquals(4, changesRows.single { it.item.remoteId == "remote-item-1" }.item.remoteVersion)
+            assertEquals("7", repository.syncState.first().cursor)
+        }
+
+    @Test
+    fun syncNow_changesImportsEmbeddedOnlyLibraryItems() =
+        runBlocking {
+            seedSyncCursor()
+            val item = cloudLibraryItem("embedded-item", "embedded-place", 1)
+            api.changeResponses +=
+                CloudChangesResponse(
+                    places = listOf(cloudPlace("embedded-place", "Embedded").copy(libraryItem = item)),
+                    nextCursor = "6",
+                    serverTime = SERVER_TIME,
+                )
+            api.changeResponses += emptyChangesResponse("7")
+            repository.syncNow()
+            assertNotNull(database.libraryDao().findLibraryItemIdByRemoteId("embedded-item"))
+        }
+
+    @Test
+    fun syncNow_bootstrapRetainsItsExplicitItemPruningBoundary() =
+        runBlocking {
+            val item = cloudLibraryItem("embedded-item", "embedded-place", 1)
+            api.bootstrapResponse =
+                CloudBootstrapResponse(
+                    places = listOf(cloudPlace("embedded-place", "Embedded").copy(libraryItem = item)),
+                    syncCursor = "6",
+                    serverTime = SERVER_TIME,
+                )
+            api.changeResponses += emptyChangesResponse("7")
+            repository.syncNow()
+            // Bootstrap currently prunes against explicit libraryItems, unlike a delta.
+            assertNull(database.libraryDao().findLibraryItemIdByRemoteId("embedded-item"))
+            assertNotNull(database.libraryDao().findPlaceIdByRemoteId("embedded-place"))
+        }
+
+    @Test
+    fun syncNow_importFailureRollsBackRowsAndDoesNotAdvanceCursor() =
+        runBlocking {
+            for (bootstrap in listOf(true, false)) {
+                database.clearAllTables()
+                seedExistingImportRows()
+                seedSyncCursor()
+                if (bootstrap) database.libraryDao().deleteSyncState("cloud_sync_cursor")
+                val response =
+                    importResponse().copy(
+                        routes = listOf(importResponse().routes.first().copy(createdAt = "invalid timestamp")),
+                    )
+                enqueueImport(response, bootstrap)
+                val before = librarySnapshot()
+                assertTrue(runCatching { repository.syncNow() }.isFailure)
+                assertEquals(before, librarySnapshot())
+                assertEquals(if (bootstrap) null else "5", repository.syncState.first().cursor)
+                assertNull(database.libraryDao().findPlaceIdByRemoteId("remote-place-2"))
+                api.changeResponses.clear()
+            }
+        }
+
+    @Test
+    fun syncNow_bootstrapClearsOldAccountSyncedRowsButKeepsLocalRows() =
+        runBlocking {
+            seedExistingImportRows()
+            seedPlace(
+                PlaceEntity(id = "local-only", name = "Local", lat = 25.0, lng = 121.0, createdAt = NOW, updatedAt = NOW),
+                LibraryItemEntity(id = "local-only-item", kind = LibraryItemKind.Place, placeId = "local-only", sortOrder = 9, createdAt = NOW, updatedAt = NOW),
+            )
+            database.libraryDao().upsertSyncStates(listOf(SyncStateEntity("cloud_user_id", "previous-user")))
+            enqueueImport(CloudBootstrapResponse(syncCursor = "6", serverTime = SERVER_TIME), bootstrap = true)
+            repository.syncNow()
+            assertEquals(listOf("local-only-item"), librarySnapshot().map { it.item.id })
+            assertNull(database.libraryDao().findRouteIdByRemoteId("remote-route-1"))
+            assertEquals("user-1", repository.syncState.first().userId)
+        }
+
+    @Test
+    fun syncNow_changesApplyDeletionAfterUpserts() =
+        runBlocking {
+            seedSyncCursor()
+            api.changeResponses +=
+                CloudChangesResponse(
+                    places = listOf(cloudPlace("deleted-place", "Deleted")),
+                    libraryItems = listOf(cloudLibraryItem("deleted-item", "deleted-place", 1)),
+                    deletions = listOf(CloudDeletionPayload(entityId = "deleted-place", entityType = CloudSyncEntityType.PLACE)),
+                    nextCursor = "6",
+                    serverTime = SERVER_TIME,
+                )
+            api.changeResponses += emptyChangesResponse("7")
+            repository.syncNow()
+            assertTrue(librarySnapshot().isEmpty())
+            assertNull(database.libraryDao().findPlaceIdByRemoteId("deleted-place"))
+            assertEquals("7", repository.syncState.first().cursor)
+        }
+
+    private suspend fun importFixture(bootstrap: Boolean): List<LibraryItemRecord> {
+        seedExistingImportRows()
+        if (!bootstrap) seedSyncCursor()
+        enqueueImport(importResponse(), bootstrap)
+        repository.syncNow()
+        return librarySnapshot()
+    }
+
+    private fun enqueueImport(
+        response: CloudBootstrapResponse,
+        bootstrap: Boolean,
+    ) {
+        if (bootstrap) {
+            api.bootstrapResponse = response
+        } else {
+            api.changeResponses +=
+                CloudChangesResponse(
+                    places = response.places,
+                    routes = response.routes,
+                    libraryItems = response.libraryItems,
+                    nextCursor = response.syncCursor,
+                    serverTime = response.serverTime,
+                )
+        }
+        api.changeResponses += emptyChangesResponse("7")
+    }
+
+    private suspend fun librarySnapshot(): List<LibraryItemRecord> =
+        database.libraryDao().getLibraryItemsSnapshot().sortedBy { it.remoteId ?: it.id }.map {
+            checkNotNull(database.libraryDao().getLibraryItem(it.id))
+        }
+
+    private suspend fun seedExistingImportRows() {
+        seedPlace(
+            cloudPlace("remote-place-1", "Before").toPlaceEntity("local-place-1"),
+            cloudLibraryItem("remote-item-1", "remote-place-1", 1).toLibraryItemEntity("local-item-1", "local-place-1", null),
+        )
+        database.libraryDao().insertRouteWithLibraryItem(
+            route = RouteEntity(id = "local-route-1", remoteId = "remote-route-1", name = "Before", defaultSpeedKmh = 5.0, mode = "Once", currentRevisionId = "local-revision-1", syncStatus = SyncStatus.Synced, createdAt = NOW, updatedAt = NOW),
+            revision = RouteRevisionEntity(id = "local-revision-1", remoteId = "revision-1", routeId = "local-route-1", revisionNumber = 1, createdAt = NOW),
+            waypoints = emptyList(),
+            item = LibraryItemEntity(id = "local-route-item", remoteId = "remote-route-item", kind = LibraryItemKind.Route, routeId = "local-route-1", sortOrder = 2, syncStatus = SyncStatus.Synced, createdAt = NOW, updatedAt = NOW),
+        )
+    }
+
+    private fun importResponse(): CloudBootstrapResponse {
+        val placeItem = cloudLibraryItem("remote-item-1", "remote-place-1", 4)
+        val routeItem = CloudLibraryItemPayload(createdAt = SERVER_TIME, id = "remote-route-item", kind = CloudLibraryItemKind.ROUTE, routeId = "remote-route-1", sortOrder = 2, updatedAt = SERVER_TIME)
+        val route =
+            CloudRoutePayload(
+                createdAt = SERVER_TIME,
+                id = "remote-route-1",
+                name = "Route",
+                defaultSpeedKmh = 5.0,
+                mode = CloudRouteMode.ONCE,
+                updatedAt = SERVER_TIME,
+                libraryItem = routeItem,
+                currentRevision =
+                    CloudRouteRevisionPayload(
+                        createdAt = SERVER_TIME,
+                        createdBy = "user-1",
+                        defaultSpeedKmh = 8.0,
+                        id = "revision-2",
+                        mode = CloudRouteMode.LOOP,
+                        revisionNumber = 2,
+                        waypoints =
+                            listOf(
+                                CloudWaypointPayload(latitude = 26.0, longitude = 122.0, sequence = 1, pauseSeconds = 2.0),
+                                CloudWaypointPayload(latitude = 25.0, longitude = 121.0, sequence = 0, speedKmh = 7.0),
+                            ),
+                    ),
+            )
+        return CloudBootstrapResponse(
+            places = listOf(cloudPlace("remote-place-1", "After").copy(libraryItem = placeItem.copy(version = 99)), cloudPlace("remote-place-2", "New")),
+            routes = listOf(route, route.copy(id = "incomplete-route", currentRevision = null, libraryItem = routeItem.copy(id = "incomplete-item", routeId = "incomplete-route"))),
+            libraryItems = listOf(placeItem, cloudLibraryItem("remote-item-2", "remote-place-2", 1), routeItem),
+            syncCursor = "6",
+            serverTime = SERVER_TIME,
+        )
+    }
+
     private suspend fun seedSyncCursor() {
         database.libraryDao().upsertSyncStates(
             listOf(
@@ -467,10 +664,9 @@ private class FakeCloudSyncApi : CloudSyncApi {
     val changeResponses = ArrayDeque<CloudChangesResponse>()
     val uploadRequests = mutableListOf<CloudSyncUploadRequest>()
     var uploadResponse: CloudSyncUploadResponse = CloudSyncUploadResponse(serverTime = SERVER_TIME)
+    var bootstrapResponse: CloudBootstrapResponse? = null
 
-    override suspend fun bootstrap(accessToken: String): CloudBootstrapResponse {
-        error("bootstrap should not be called in these tests")
-    }
+    override suspend fun bootstrap(accessToken: String): CloudBootstrapResponse = checkNotNull(bootstrapResponse) { "unexpected bootstrap" }
 
     override suspend fun getChanges(
         accessToken: String,
