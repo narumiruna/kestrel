@@ -3,6 +3,7 @@ package dev.narumi.kestrel.feature.options
 import dev.narumi.kestrel.core.data.MockPlaybackSettings
 import dev.narumi.kestrel.core.data.StartupPreference
 import dev.narumi.kestrel.core.library.LibraryItemKind
+import dev.narumi.kestrel.ui.components.formatMeters
 
 internal enum class OptionsSection(
     val title: String,
@@ -48,7 +49,7 @@ internal fun randomRouteSummary(
     usesLastSettings: Boolean,
 ): String =
     "${if (usesLastSettings) "Last used" else "Default"}: $pointCount points · " +
-        "${spacingMeters.toOptionMeters()} spacing"
+        "${formatMeters(spacingMeters)} m spacing"
 
 internal fun cloudSummary(
     sessionLoaded: Boolean,
@@ -74,5 +75,3 @@ internal fun remoteControlSummary(
         enabled -> "On · ${deviceName ?: "Registering device"}"
         else -> "Off"
     }
-
-private fun Double.toOptionMeters(): String = if (this % 1.0 == 0.0) "${toInt()} m" else "$this m"

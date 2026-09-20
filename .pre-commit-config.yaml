@@ -17,13 +17,13 @@ repos:
     hooks:
       - id: spotless
         name: spotless apply (ktlint + format)
-        entry: bash -c 'export JAVA_HOME="${JAVA_HOME:-/Applications/Android Studio.app/Contents/jbr/Contents/Home}"; export PATH="$JAVA_HOME/bin:$PATH"; ./gradlew --quiet spotlessApply'
+        entry: just android-format
         language: system
         pass_filenames: false
         files: \.(kt|kts|xml|md|toml|yaml)$|^justfile$
       - id: biome
         name: biome ci (web)
-        entry: bash -c 'cd web && npm exec -- biome ci .'
+        entry: just web-check
         language: system
         pass_filenames: false
         files: ^web/.*\.(ts|tsx|js|jsx|json|jsonc|css)$

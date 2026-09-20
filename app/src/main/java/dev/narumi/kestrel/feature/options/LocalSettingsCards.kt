@@ -20,8 +20,13 @@ import androidx.compose.ui.tooling.preview.Preview
 import dev.narumi.kestrel.core.data.MockPlaybackSettings
 import dev.narumi.kestrel.core.data.RandomRoutePreference
 import dev.narumi.kestrel.core.data.StartupPreference
+import dev.narumi.kestrel.core.data.isValidPointCount
+import dev.narumi.kestrel.core.data.isValidRandomRoute
+import dev.narumi.kestrel.core.data.isValidSpacing
 import dev.narumi.kestrel.core.library.LibraryItemWithContent
 import dev.narumi.kestrel.ui.components.KestrelActionRow
+import dev.narumi.kestrel.ui.components.estimatedRouteDistance
+import dev.narumi.kestrel.ui.components.formatMeters
 
 @Composable
 internal fun StartupPreferenceCard(
@@ -331,7 +336,7 @@ private fun RandomRouteEditor(
         modifier = Modifier.fillMaxWidth(),
     )
     Text(
-        text = "Estimated distance: ${estimatedDistance(parsedPointCount, parsedSpacing)}",
+        text = "Estimated distance: ${estimatedRouteDistance(parsedPointCount, parsedSpacing)}",
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
@@ -348,32 +353,6 @@ private fun RandomRouteEditor(
         ) { Text(if (saving) "Saving…" else "Save changes") }
     }
 }
-
-private fun estimatedDistance(
-    pointCount: Int?,
-    spacingMeters: Double?,
-): String =
-    if (pointCount != null && spacingMeters != null) {
-        formatDistance((pointCount - 1).coerceAtLeast(0) * spacingMeters)
-    } else {
-        "—"
-    }
-
-internal fun isValidPointCount(value: Int?): Boolean = value != null && value in RandomRoutePreference.MIN_POINT_COUNT..RandomRoutePreference.MAX_POINT_COUNT
-
-internal fun isValidSpacing(value: Double?): Boolean =
-    value != null &&
-        value >= RandomRoutePreference.MIN_SPACING_METERS &&
-        value <= RandomRoutePreference.MAX_SPACING_METERS
-
-internal fun isValidRandomRoute(
-    pointCount: Int?,
-    spacingMeters: Double?,
-): Boolean = isValidPointCount(pointCount) && isValidSpacing(spacingMeters)
-
-internal fun formatMeters(value: Double): String = if (value % 1.0 == 0.0) value.toInt().toString() else value.toString()
-
-private fun formatDistance(meters: Double): String = if (meters >= 1000.0) "%.1f km".format(meters / 1000.0) else "${formatMeters(meters)} m"
 
 @Composable
 private fun StartupRadioRow(

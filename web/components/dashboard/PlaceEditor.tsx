@@ -1,8 +1,8 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useAuth } from '@/components/AuthProvider';
+import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { useShareLink } from '@/components/dashboard/useShareLink';
 import {
   formatError,
   normalizeNullable,
@@ -18,7 +18,7 @@ import {
   TextArea,
   TextInput,
 } from '@/components/ui/radix-ui';
-import { ApiError, type Place, type PlaceInput, type PlaceShareLink } from '@/lib/api';
+import type { Place, PlaceInput } from '@/lib/api';
 
 const PlaceMapEditor = dynamic(() => import('@/components/PlaceMapEditor'), {
   ssr: false,
@@ -411,104 +411,22 @@ function normalizeTagsInput(value: string): string {
 }
 
 function PlaceSharePanel({ place }: { place: Place | null }) {
-  const auth = useAuth();
-  const [shareLink, setShareLink] = useState<PlaceShareLink | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isMutating, setIsMutating] = useState(false);
-
-  const loadShareLink = useCallback(async () => {
-    if (place == null) {
-      setShareLink(null);
-      setError(null);
-      return;
-    }
-
-    setError(null);
-    setIsLoading(true);
-
-    try {
-      const nextShareLink = await auth.apiRequest<PlaceShareLink>(`/places/${place.id}/share-link`);
-      setShareLink(nextShareLink);
-    } catch (nextError) {
-      if (nextError instanceof ApiError && nextError.status === 404) {
-        setShareLink(null);
-        return;
-      }
-
-      setError(formatError(nextError));
-    } finally {
-      setIsLoading(false);
-    }
-  }, [auth, place]);
+  const {
+    shareLink,
+    error,
+    notice,
+    isLoading,
+    isMutating,
+    loadShareLink,
+    createShareLink,
+    setDisabled,
+    copyPublicUrl,
+  } = useShareLink('places', place?.id ?? null);
 
   useEffect(() => {
-    setNotice(null);
+    void place; // Reload when the saved snapshot changes, not just its ID.
     void loadShareLink();
-  }, [loadShareLink]);
-
-  async function createShareLink() {
-    if (place == null) {
-      return;
-    }
-
-    setNotice(null);
-    setError(null);
-    setIsMutating(true);
-
-    try {
-      const nextShareLink = await auth.apiRequest<PlaceShareLink>(
-        `/places/${place.id}/share-link`,
-        {
-          method: 'POST',
-        },
-      );
-      setShareLink(nextShareLink);
-    } catch (nextError) {
-      setError(formatError(nextError));
-    } finally {
-      setIsMutating(false);
-    }
-  }
-
-  async function setDisabled(disabled: boolean) {
-    if (place == null) {
-      return;
-    }
-
-    setNotice(null);
-    setError(null);
-    setIsMutating(true);
-
-    try {
-      const nextShareLink = await auth.apiRequest<PlaceShareLink>(
-        `/places/${place.id}/share-link`,
-        {
-          body: JSON.stringify({ disabled }),
-          method: 'PATCH',
-        },
-      );
-      setShareLink(nextShareLink);
-    } catch (nextError) {
-      setError(formatError(nextError));
-    } finally {
-      setIsMutating(false);
-    }
-  }
-
-  async function copyPublicUrl() {
-    if (shareLink == null) {
-      return;
-    }
-
-    try {
-      await navigator.clipboard.writeText(toAbsolutePublicUrl(shareLink.publicUrl));
-      setNotice('Share URL copied.');
-    } catch {
-      setNotice('Copy failed; select the URL manually.');
-    }
-  }
+  }, [loadShareLink, place]);
 
   if (place == null) {
     return <p className="muted no-margin">Save this place before creating a public place link.</p>;

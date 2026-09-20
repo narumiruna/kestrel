@@ -76,6 +76,9 @@ import dev.narumi.kestrel.core.data.FavoritesSortMode
 import dev.narumi.kestrel.core.data.KestrelPrefs
 import dev.narumi.kestrel.core.data.RandomRoutePreference
 import dev.narumi.kestrel.core.data.StartupPreference
+import dev.narumi.kestrel.core.data.isValidPointCount
+import dev.narumi.kestrel.core.data.isValidRandomRoute
+import dev.narumi.kestrel.core.data.isValidSpacing
 import dev.narumi.kestrel.core.library.LibraryItemKind
 import dev.narumi.kestrel.core.library.LibraryItemWithContent
 import dev.narumi.kestrel.core.library.LibraryRepository
@@ -94,6 +97,11 @@ import dev.narumi.kestrel.core.location.rememberCurrentLocation
 import dev.narumi.kestrel.ui.components.KestrelActionRow
 import dev.narumi.kestrel.ui.components.KestrelCard
 import dev.narumi.kestrel.ui.components.PersistedActionResult
+import dev.narumi.kestrel.ui.components.estimatedRouteDistance
+import dev.narumi.kestrel.ui.components.formatDistance
+import dev.narumi.kestrel.ui.components.formatMeters
+import dev.narumi.kestrel.ui.components.formatRouteStatusSpeedKmh
+import dev.narumi.kestrel.ui.components.label
 import dev.narumi.kestrel.ui.components.runPersistedAction
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
@@ -201,50 +209,13 @@ private sealed interface PendingFavorite {
 
 internal val SPEED_PRESETS = listOf(5.0, 10.0, 15.0, 20.0)
 
-private fun isValidPointCount(value: Int?): Boolean =
-    value != null &&
-        value in RandomRoutePreference.MIN_POINT_COUNT..RandomRoutePreference.MAX_POINT_COUNT
-
-private fun isValidSpacing(value: Double?): Boolean =
-    value != null &&
-        value >= RandomRoutePreference.MIN_SPACING_METERS &&
-        value <= RandomRoutePreference.MAX_SPACING_METERS
-
-private fun isValidRandomRoute(
-    pointCount: Int?,
-    spacingMeters: Double?,
-): Boolean = isValidPointCount(pointCount) && isValidSpacing(spacingMeters)
-
-private fun formatMeters(value: Double): String = if (value % 1.0 == 0.0) value.toInt().toString() else value.toString()
-
-private fun formatDistance(meters: Double): String =
-    if (meters >= 1000.0) {
-        "%.1f km".format(meters / 1000.0)
-    } else {
-        "${formatMeters(meters)} m"
-    }
-
 private fun formatWaypointCount(count: Int): String = if (count == 1) "1 waypoint" else "$count waypoints"
-
-private fun formatSpeedKmh(value: Double): String =
-    if (value % 1.0 == 0.0) {
-        "${value.toInt()} km/h"
-    } else {
-        "%.1f km/h".format(Locale.US, value)
-    }
 
 internal fun formatRouteStatusDetails(
     waypointCount: Int,
     speedKmh: Double,
     routeMode: MovementEngine.Mode,
-): String = "${formatWaypointCount(waypointCount)} · ${formatSpeedKmh(speedKmh)} · ${routeMode.label()}"
-
-internal fun MovementEngine.Mode.label(): String =
-    when (this) {
-        MovementEngine.Mode.Once -> "Once"
-        MovementEngine.Mode.Loop -> "Loop"
-        MovementEngine.Mode.PingPong -> "Ping-pong"
-    }
+): String = "${formatWaypointCount(waypointCount)} · ${formatRouteStatusSpeedKmh(speedKmh)} · ${routeMode.label()}"
 
 @OptIn(ExperimentalPermissionsApi::class, ExperimentalMaterial3Api::class)
 @Suppress("CyclomaticComplexMethod", "LongMethod")
@@ -444,9 +415,7 @@ fun MapScreen(
             val routeWaypoints = item.routeWaypoints()
             waypoints = routeWaypoints
             speedKmh = route.defaultSpeedKmh
-            routeMode =
-                runCatching { MovementEngine.Mode.valueOf(route.mode) }
-                    .getOrDefault(MovementEngine.Mode.Once)
+            routeMode = route.mode
             routeWaypoints.firstOrNull()?.let { cameraTarget = CameraSnapshot(it.lat, it.lng, 15.0) }
         }
         showGoToSheet = false
@@ -553,7 +522,7 @@ fun MapScreen(
                                                 name = name,
                                                 waypoints = pending.waypoints,
                                                 defaultSpeedKmh = pending.speedKmh,
-                                                mode = pending.mode.name,
+                                                mode = pending.mode,
                                             )
                                     }
                                 }
@@ -874,10 +843,7 @@ private fun applyStartupItem(
     val route = item.route ?: return null
     setWaypoints(item.routeWaypoints())
     setSpeedKmh(route.defaultSpeedKmh)
-    setRouteMode(
-        runCatching { MovementEngine.Mode.valueOf(route.mode) }
-            .getOrDefault(MovementEngine.Mode.Once),
-    )
+    setRouteMode(route.mode)
     return null
 }
 
@@ -1335,16 +1301,6 @@ private fun GenerateRouteDialogContent(
         )
     }
 }
-
-private fun estimatedRouteDistance(
-    pointCount: Int?,
-    spacingMeters: Double?,
-): String =
-    if (pointCount != null && spacingMeters != null) {
-        formatDistance((pointCount - 1).coerceAtLeast(0) * spacingMeters)
-    } else {
-        "—"
-    }
 
 @Composable
 private fun SaveFavoriteDialog(

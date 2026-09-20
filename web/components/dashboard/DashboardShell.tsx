@@ -1,11 +1,11 @@
 'use client';
 
-import { type FormEvent, type ReactNode, useEffect, useState } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import { BrandMark } from '@/components/BrandMark';
-import { formatError } from '@/components/dashboard/utils';
+import { ChangePasswordForm, usePasswordChange } from '@/components/ChangePasswordForm';
 import { useTheme } from '@/components/ThemeProvider';
-import { Button, PopoverFrame, TextInput } from '@/components/ui/radix-ui';
+import { Button, PopoverFrame } from '@/components/ui/radix-ui';
 import { type WorkspaceSection, WorkspaceTabs } from '@/components/WorkspaceTabs';
 
 type Props = {
@@ -91,32 +91,12 @@ export default function DashboardShell({
 function AccountMenu({ onLogout, username }: { onLogout: () => void; username: string }) {
   const auth = useAuth();
   const { isHydrated, theme, toggleTheme } = useTheme();
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [notice, setNotice] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
-
-  async function submitPasswordChange(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setNotice(null);
-    setError(null);
-    setIsSaving(true);
-
-    try {
-      await auth.apiRequest('/auth/password/change', {
-        body: JSON.stringify({ currentPassword, newPassword }),
-        method: 'POST',
-      });
-      setCurrentPassword('');
-      setNewPassword('');
-      setNotice('Password updated.');
-    } catch (nextError) {
-      setError(formatError(nextError));
-    } finally {
-      setIsSaving(false);
-    }
-  }
+  const passwordChange = usePasswordChange(async (input) => {
+    await auth.apiRequest('/auth/password/change', {
+      body: JSON.stringify(input),
+      method: 'POST',
+    });
+  });
 
   return (
     <div className="stack">
@@ -124,61 +104,21 @@ function AccountMenu({ onLogout, username }: { onLogout: () => void; username: s
         <strong>Account</strong>
         <p className="muted no-margin">Change your password or sign out.</p>
       </div>
-      {error == null ? null : (
-        <div className="error" role="alert">
-          {error}
-        </div>
-      )}
-      {notice == null ? null : (
-        <div className="success" role="status">
-          {notice}
-        </div>
-      )}
-      <Button
-        className="secondary kc-theme-toggle"
-        disabled={!isHydrated}
-        type="button"
-        onClick={toggleTheme}
+      <ChangePasswordForm
+        fieldIdPrefix="radix-field-components-dashboard-dashboardshell-tsx"
+        username={username}
+        passwordChange={passwordChange}
       >
-        {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
-        {theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-      </Button>
-      <form className="stack" onSubmit={submitPasswordChange}>
-        <input
-          aria-hidden="true"
-          autoComplete="username"
-          className="sr-only"
-          readOnly
-          tabIndex={-1}
-          value={username}
-        />
-        <label htmlFor="radix-field-components-dashboard-dashboardshell-tsx-1">
-          Current password
-          <TextInput
-            id="radix-field-components-dashboard-dashboardshell-tsx-1"
-            autoComplete="current-password"
-            required
-            type="password"
-            value={currentPassword}
-            onChange={(event) => setCurrentPassword(event.target.value)}
-          />
-        </label>
-        <label htmlFor="radix-field-components-dashboard-dashboardshell-tsx-2">
-          New password
-          <TextInput
-            id="radix-field-components-dashboard-dashboardshell-tsx-2"
-            autoComplete="new-password"
-            minLength={12}
-            required
-            type="password"
-            value={newPassword}
-            onChange={(event) => setNewPassword(event.target.value)}
-          />
-        </label>
-        <Button disabled={isSaving} type="submit">
-          {isSaving ? 'Saving…' : 'Change password'}
+        <Button
+          className="secondary kc-theme-toggle"
+          disabled={!isHydrated}
+          type="button"
+          onClick={toggleTheme}
+        >
+          {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
+          {theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
         </Button>
-      </form>
+      </ChangePasswordForm>
       <Button className="secondary" type="button" onClick={onLogout}>
         Logout
       </Button>

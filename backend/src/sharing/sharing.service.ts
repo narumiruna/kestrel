@@ -19,6 +19,11 @@ import {
   routeRevisionSelect,
   routeSelect,
 } from '../library/library.models';
+import {
+  getNextLibrarySortOrder,
+  recordSyncEvent,
+} from '../library/library.persistence';
+import { createRouteRevisionPayload } from '../library/route-revision.codec';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   mapPublicShareLink,
@@ -258,10 +263,6 @@ export class SharingService {
     return mapShareLink(updatedShareLink);
   }
 
-  async getSharedRoute(token: string) {
-    return this.getSharedItem(token);
-  }
-
   async getSharedItem(token: string) {
     const shareLink = await this.getActiveShareLinkByToken(
       this.prismaService,
@@ -290,10 +291,6 @@ export class SharingService {
     };
   }
 
-  async copySharedRoute(userId: string, token: string, input: unknown) {
-    return this.copySharedItem(userId, token, input);
-  }
-
   async copySharedItem(userId: string, token: string, input: unknown) {
     const copyInput = parseCopySharedItemInput(input);
 
@@ -310,7 +307,12 @@ export class SharingService {
         );
       }
 
-      return copySharedRoute(tx, userId, shareLink, copyInput.routeRevisionId);
+      return copySharedRouteIntoLibrary(
+        tx,
+        userId,
+        shareLink,
+        copyInput.routeRevisionId,
+      );
     });
   }
 
@@ -429,7 +431,7 @@ async function copySharedPlace(
   shareLink: PublicShareRecord,
 ) {
   const sharedPlace = sanitizePublicPlace(selectVisiblePlace(shareLink));
-  const sortOrder = await getNextSortOrder(tx, userId);
+  const sortOrder = await getNextLibrarySortOrder(tx, userId);
   const createdPlace = await tx.place.create({
     data: {
       description: sharedPlace.description,
@@ -478,7 +480,7 @@ async function copySharedPlace(
   return mapPlace(copiedPlace);
 }
 
-async function copySharedRoute(
+async function copySharedRouteIntoLibrary(
   tx: Prisma.TransactionClient,
   userId: string,
   shareLink: PublicShareRecord,
@@ -490,7 +492,7 @@ async function copySharedRoute(
     routeRevisionId,
   );
   const route = selectVisibleRoute(shareLink);
-  const sortOrder = await getNextSortOrder(tx, userId);
+  const sortOrder = await getNextLibrarySortOrder(tx, userId);
   const createdRoute = await tx.route.create({
     data: {
       defaultSpeedKmh: revision.defaultSpeedKmh,
@@ -731,61 +733,6 @@ function parseStoredTags(tags: Prisma.JsonValue): string[] {
   }
 
   return tags;
-}
-
-async function getNextSortOrder(
-  prisma: Prisma.TransactionClient,
-  userId: string,
-): Promise<number> {
-  const latestItem = await prisma.libraryItem.findFirst({
-    orderBy: [{ sortOrder: 'desc' }],
-    select: {
-      sortOrder: true,
-    },
-    where: {
-      deletedAt: null,
-      userId,
-    },
-  });
-
-  return latestItem == null ? 0 : latestItem.sortOrder + 1;
-}
-
-function createRouteRevisionPayload(
-  input: SharedRouteRevision,
-): Prisma.InputJsonObject {
-  return {
-    defaultSpeedKmh: input.defaultSpeedKmh,
-    mode: input.mode,
-    waypoints: input.waypoints.map((waypoint) => ({
-      latitude: waypoint.latitude,
-      longitude: waypoint.longitude,
-      pauseSeconds: waypoint.pauseSeconds,
-      sequence: waypoint.sequence,
-      speedKmh: waypoint.speedKmh,
-    })),
-  };
-}
-
-async function recordSyncEvent(
-  prisma: Prisma.TransactionClient,
-  input: {
-    entityId: string;
-    entityType: SyncEntityType;
-    operation: SyncOperation;
-    payload?: Prisma.InputJsonObject;
-    userId: string;
-  },
-) {
-  await prisma.syncEvent.create({
-    data: {
-      entityId: input.entityId,
-      entityType: input.entityType,
-      operation: input.operation,
-      payload: input.payload,
-      userId: input.userId,
-    },
-  });
 }
 
 function createShareToken(): string {

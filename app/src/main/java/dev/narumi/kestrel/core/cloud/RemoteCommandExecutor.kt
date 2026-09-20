@@ -82,13 +82,6 @@ internal class RemoteCommandExecutor(
 
     private fun List<LatLng>.hasPositiveDistanceSegment(): Boolean = zipWithNext().any { (a, b) -> haversineMeters(a, b) > 0.0 }
 
-    private fun CloudRouteMode.toMovementMode(): MovementEngine.Mode =
-        when (this) {
-            CloudRouteMode.ONCE -> MovementEngine.Mode.Once
-            CloudRouteMode.LOOP -> MovementEngine.Mode.Loop
-            CloudRouteMode.PING_PONG -> MovementEngine.Mode.PingPong
-        }
-
     private companion object {
         const val MIN_ROUTE_WAYPOINTS = 2
     }

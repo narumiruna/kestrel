@@ -2,6 +2,7 @@ package dev.narumi.kestrel.core.cloud
 
 import dev.narumi.kestrel.core.library.LibraryItemKind
 import dev.narumi.kestrel.core.library.db.SyncStatus
+import dev.narumi.kestrel.core.location.MovementEngine
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -81,7 +82,7 @@ class CloudSyncMappersTest {
 
         assertEquals("route-1", rows.route.remoteId)
         assertEquals("local-revision-3", rows.route.currentRevisionId)
-        assertEquals("PingPong", rows.route.mode)
+        assertEquals(MovementEngine.Mode.PingPong, rows.route.mode)
         assertEquals(32.5, rows.route.defaultSpeedKmh, 0.0)
         assertEquals("revision-3", rows.revision.remoteId)
         assertEquals(3, rows.revision.revisionNumber)

@@ -1,6 +1,7 @@
 package dev.narumi.kestrel.core.library
 
 import dev.narumi.kestrel.core.library.db.SyncStatus
+import dev.narumi.kestrel.core.location.MovementEngine
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -26,7 +27,7 @@ class LibraryMapperTest {
                 name = "Route A",
                 description = "route desc",
                 defaultSpeedKmh = 12.5,
-                mode = "Loop",
+                mode = MovementEngine.Mode.Loop,
                 currentRevisionId = "rev-1",
                 createdAt = 3L,
                 updatedAt = 4L,

@@ -10,6 +10,7 @@ import dev.narumi.kestrel.core.library.db.RouteWithContent
 import dev.narumi.kestrel.core.library.db.SyncStatus
 import dev.narumi.kestrel.core.library.db.WaypointEntity
 import dev.narumi.kestrel.core.location.LatLng
+import dev.narumi.kestrel.core.location.MovementEngine
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -75,7 +76,7 @@ class LibraryRepositoryTest {
                 name = "Morning route",
                 waypoints = listOf(LatLng(25.0, 121.5), LatLng(25.1, 121.6)),
                 defaultSpeedKmh = 18.0,
-                mode = "Loop",
+                mode = MovementEngine.Mode.Loop,
                 description = null,
                 sortOrder = 4,
                 now = 100L,
@@ -215,7 +216,7 @@ class LibraryRepositoryTest {
                                 id = "route-1",
                                 name = "Route A",
                                 defaultSpeedKmh = 20.0,
-                                mode = "PingPong",
+                                mode = MovementEngine.Mode.PingPong,
                                 currentRevisionId = "rev-1",
                                 createdAt = 20L,
                                 updatedAt = 21L,
@@ -241,7 +242,7 @@ class LibraryRepositoryTest {
         assertEquals(listOf(0, 1), domain.waypoints.map { it.sequence })
         assertEquals(listOf(25.0, 25.1), domain.waypoints.map { it.lat })
         assertEquals(20.0, domain.route?.defaultSpeedKmh)
-        assertEquals("PingPong", domain.route?.mode)
+        assertEquals(MovementEngine.Mode.PingPong, domain.route?.mode)
     }
 
     @Test

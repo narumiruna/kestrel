@@ -2,6 +2,7 @@ package dev.narumi.kestrel.core.library
 
 import dev.narumi.kestrel.core.data.FavoritesSortMode
 import dev.narumi.kestrel.core.location.LatLng
+import dev.narumi.kestrel.core.location.MovementEngine
 
 @Suppress("MagicNumber")
 data class Place(
@@ -22,7 +23,7 @@ data class Route(
     val name: String,
     val description: String? = null,
     val defaultSpeedKmh: Double,
-    val mode: String,
+    val mode: MovementEngine.Mode,
     val currentRevisionId: String,
     val createdAt: Long,
     val updatedAt: Long,

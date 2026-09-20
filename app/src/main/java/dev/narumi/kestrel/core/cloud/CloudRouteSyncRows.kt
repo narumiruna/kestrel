@@ -7,6 +7,7 @@ import dev.narumi.kestrel.core.library.db.RouteEntity
 import dev.narumi.kestrel.core.library.db.RouteRevisionEntity
 import dev.narumi.kestrel.core.library.db.SyncStatus
 import dev.narumi.kestrel.core.library.db.WaypointEntity
+import dev.narumi.kestrel.core.location.MovementEngine
 import java.time.Instant
 
 internal data class CloudRouteSyncRows(
@@ -43,7 +44,7 @@ internal fun CloudRoutePayload.toRouteSyncRows(
                 name = name,
                 description = description,
                 defaultSpeedKmh = currentRevision.defaultSpeedKmh,
-                mode = currentRevision.mode.toLocalMode(),
+                mode = currentRevision.mode.toMovementMode(),
                 currentRevisionId = revisionId,
                 syncStatus = SyncStatus.Synced,
                 createdAt = createdAt.toEpochMillis(),
@@ -93,11 +94,11 @@ internal fun CloudLibraryItemPayload.toLibraryItemEntity(
         updatedAt = updatedAt.toEpochMillis(),
     )
 
-internal fun CloudRouteMode.toLocalMode(): String =
+internal fun CloudRouteMode.toMovementMode(): MovementEngine.Mode =
     when (this) {
-        CloudRouteMode.ONCE -> "Once"
-        CloudRouteMode.LOOP -> "Loop"
-        CloudRouteMode.PING_PONG -> "PingPong"
+        CloudRouteMode.ONCE -> MovementEngine.Mode.Once
+        CloudRouteMode.LOOP -> MovementEngine.Mode.Loop
+        CloudRouteMode.PING_PONG -> MovementEngine.Mode.PingPong
     }
 
 internal fun CloudLibraryItemKind.toLocalKind(): LibraryItemKind =

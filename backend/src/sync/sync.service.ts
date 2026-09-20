@@ -14,6 +14,10 @@ import {
   placeSelect,
   routeSelect,
 } from '../library/library.models';
+import {
+  getNextLibrarySortOrder,
+  recordSyncEvent,
+} from '../library/library.persistence';
 import { PrismaService } from '../prisma/prisma.service';
 import { throwSyncCursorExpired } from './sync.validation';
 
@@ -309,7 +313,7 @@ export class SyncService {
   ): Promise<SyncUploadItemResult> {
     const placeInput = requireUploadPlace(change);
     return this.prismaService.$transaction(async (tx) => {
-      const sortOrder = await getNextSortOrder(tx, userId);
+      const sortOrder = await getNextLibrarySortOrder(tx, userId);
       const place = await tx.place.create({
         data: {
           description: placeInput.description,
@@ -334,20 +338,18 @@ export class SyncService {
           id: true,
         },
       });
-      await recordSyncEvent(
-        tx,
+      await recordSyncEvent(tx, {
+        entityId: place.id,
+        entityType: SyncEntityType.PLACE,
+        operation: SyncOperation.UPSERT,
         userId,
-        SyncEntityType.PLACE,
-        place.id,
-        SyncOperation.UPSERT,
-      );
-      await recordSyncEvent(
-        tx,
+      });
+      await recordSyncEvent(tx, {
+        entityId: libraryItem.id,
+        entityType: SyncEntityType.LIBRARY_ITEM,
+        operation: SyncOperation.UPSERT,
         userId,
-        SyncEntityType.LIBRARY_ITEM,
-        libraryItem.id,
-        SyncOperation.UPSERT,
-      );
+      });
       return uploadedResult(
         change.clientMutationId,
         await loadPlaceSnapshot(tx, userId, place.id),
@@ -398,20 +400,18 @@ export class SyncService {
           id: snapshot.libraryItem.id,
         },
       });
-      await recordSyncEvent(
-        tx,
+      await recordSyncEvent(tx, {
+        entityId: snapshot.place.id,
+        entityType: SyncEntityType.PLACE,
+        operation: SyncOperation.UPSERT,
         userId,
-        SyncEntityType.PLACE,
-        snapshot.place.id,
-        SyncOperation.UPSERT,
-      );
-      await recordSyncEvent(
-        tx,
+      });
+      await recordSyncEvent(tx, {
+        entityId: snapshot.libraryItem.id,
+        entityType: SyncEntityType.LIBRARY_ITEM,
+        operation: SyncOperation.UPSERT,
         userId,
-        SyncEntityType.LIBRARY_ITEM,
-        snapshot.libraryItem.id,
-        SyncOperation.UPSERT,
-      );
+      });
       return uploadedResult(
         change.clientMutationId,
         await loadPlaceSnapshot(tx, userId, snapshot.place.id),
@@ -459,26 +459,24 @@ export class SyncService {
           id: snapshot.libraryItem.id,
         },
       });
-      await recordSyncEvent(
-        tx,
-        userId,
-        SyncEntityType.PLACE,
-        snapshot.place.id,
-        SyncOperation.DELETE,
-        {
+      await recordSyncEvent(tx, {
+        entityId: snapshot.place.id,
+        entityType: SyncEntityType.PLACE,
+        operation: SyncOperation.DELETE,
+        payload: {
           deletedAt: deletedAt.toISOString(),
         },
-      );
-      await recordSyncEvent(
-        tx,
         userId,
-        SyncEntityType.LIBRARY_ITEM,
-        snapshot.libraryItem.id,
-        SyncOperation.DELETE,
-        {
+      });
+      await recordSyncEvent(tx, {
+        entityId: snapshot.libraryItem.id,
+        entityType: SyncEntityType.LIBRARY_ITEM,
+        operation: SyncOperation.DELETE,
+        payload: {
           deletedAt: deletedAt.toISOString(),
         },
-      );
+        userId,
+      });
       return {
         clientMutationId: change.clientMutationId,
         status: 'uploaded',
@@ -630,24 +628,6 @@ function requireRemotePlaceId(change: UploadChange): string {
   return change.remotePlaceId;
 }
 
-async function getNextSortOrder(
-  prisma: Prisma.TransactionClient,
-  userId: string,
-): Promise<number> {
-  const latestItem = await prisma.libraryItem.findFirst({
-    orderBy: [{ sortOrder: 'desc' }],
-    select: {
-      sortOrder: true,
-    },
-    where: {
-      deletedAt: null,
-      userId,
-    },
-  });
-
-  return latestItem == null ? 0 : latestItem.sortOrder + 1;
-}
-
 async function loadPlaceSnapshot(
   prisma: Prisma.TransactionClient,
   userId: string,
@@ -696,25 +676,6 @@ function conflictResult(
     reason,
     status: 'conflict',
   };
-}
-
-async function recordSyncEvent(
-  prisma: Prisma.TransactionClient,
-  userId: string,
-  entityType: SyncEntityType,
-  entityId: string,
-  operation: SyncOperation,
-  payload?: Prisma.InputJsonObject,
-) {
-  await prisma.syncEvent.create({
-    data: {
-      entityId,
-      entityType,
-      operation,
-      payload,
-      userId,
-    },
-  });
 }
 
 function hashUploadChange(change: UploadChange): string {

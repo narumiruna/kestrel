@@ -1,9 +1,6 @@
 import { InternalServerErrorException } from '../http/errors';
-import {
-  type Prisma,
-  RouteMode,
-  type RouteRevision as PrismaRouteRevision,
-} from '@prisma/client';
+import type { Prisma } from '@prisma/client';
+import { parseStoredRouteRevisionPayload } from './route-revision.codec';
 
 export const libraryItemSelect = {
   createdAt: true,
@@ -72,20 +69,6 @@ type RouteRecord = Prisma.RouteGetPayload<{
   select: typeof routeSelect;
 }>;
 
-type RouteRevisionPayload = {
-  defaultSpeedKmh: number;
-  mode: RouteMode;
-  waypoints: RouteRevisionWaypoint[];
-};
-
-type RouteRevisionWaypoint = {
-  latitude: number;
-  longitude: number;
-  pauseSeconds: number | null;
-  sequence: number;
-  speedKmh: number | null;
-};
-
 export function mapPlace(place: PlaceRecord) {
   return {
     createdAt: place.createdAt,
@@ -145,7 +128,7 @@ export function mapRouteRevision(revision: {
   payload: Prisma.JsonValue;
   revisionNumber: number;
 }) {
-  const payload = parseStoredRouteRevisionPayload(revision);
+  const payload = parseStoredRouteRevisionPayload(revision.payload);
 
   return {
     createdAt: revision.createdAt,
@@ -164,97 +147,4 @@ function parseStoredTags(tags: Prisma.JsonValue): string[] {
   }
 
   return tags;
-}
-
-function parseStoredRouteRevisionPayload(
-  revision: Pick<PrismaRouteRevision, 'payload'>,
-): RouteRevisionPayload {
-  const payload = revision.payload;
-
-  if (
-    payload == null ||
-    typeof payload !== 'object' ||
-    Array.isArray(payload)
-  ) {
-    throw new InternalServerErrorException(
-      'stored route revision payload is invalid',
-    );
-  }
-
-  const payloadRecord = payload as Record<string, unknown>;
-  const defaultSpeedKmh = payloadRecord.defaultSpeedKmh;
-  const mode = payloadRecord.mode;
-  const waypoints = payloadRecord.waypoints;
-
-  if (
-    typeof defaultSpeedKmh !== 'number' ||
-    !Number.isFinite(defaultSpeedKmh) ||
-    !Object.values(RouteMode).includes(mode as RouteMode) ||
-    !Array.isArray(waypoints)
-  ) {
-    throw new InternalServerErrorException(
-      'stored route revision payload is invalid',
-    );
-  }
-
-  const parsedWaypoints = waypoints.map((waypoint, index) =>
-    parseStoredRouteWaypoint(waypoint, index),
-  );
-
-  parsedWaypoints.sort((left, right) => left.sequence - right.sequence);
-
-  return {
-    defaultSpeedKmh,
-    mode: mode as RouteMode,
-    waypoints: parsedWaypoints,
-  };
-}
-
-function parseStoredRouteWaypoint(
-  waypoint: unknown,
-  index: number,
-): RouteRevisionWaypoint {
-  if (
-    waypoint == null ||
-    typeof waypoint !== 'object' ||
-    Array.isArray(waypoint)
-  ) {
-    throw new InternalServerErrorException(
-      `stored route waypoint ${index} is invalid`,
-    );
-  }
-
-  const waypointRecord = waypoint as Record<string, unknown>;
-  const latitude = waypointRecord.latitude;
-  const longitude = waypointRecord.longitude;
-  const sequence = waypointRecord.sequence;
-  const pauseSeconds = waypointRecord.pauseSeconds;
-  const speedKmh = waypointRecord.speedKmh;
-
-  if (
-    typeof latitude !== 'number' ||
-    !Number.isFinite(latitude) ||
-    typeof longitude !== 'number' ||
-    !Number.isFinite(longitude) ||
-    typeof sequence !== 'number' ||
-    !Number.isInteger(sequence) ||
-    !isNullableFiniteNumber(pauseSeconds) ||
-    !isNullableFiniteNumber(speedKmh)
-  ) {
-    throw new InternalServerErrorException(
-      `stored route waypoint ${index} is invalid`,
-    );
-  }
-
-  return {
-    latitude,
-    longitude,
-    pauseSeconds,
-    sequence,
-    speedKmh,
-  };
-}
-
-function isNullableFiniteNumber(value: unknown): value is number | null {
-  return value == null || (typeof value === 'number' && Number.isFinite(value));
 }

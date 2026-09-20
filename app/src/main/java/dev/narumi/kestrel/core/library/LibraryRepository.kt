@@ -16,6 +16,7 @@ import dev.narumi.kestrel.core.library.db.RouteRevisionEntity
 import dev.narumi.kestrel.core.library.db.SyncStatus
 import dev.narumi.kestrel.core.library.db.WaypointEntity
 import dev.narumi.kestrel.core.location.LatLng
+import dev.narumi.kestrel.core.location.MovementEngine
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -40,7 +41,7 @@ interface LibraryRepository {
         name: String,
         waypoints: List<LatLng>,
         defaultSpeedKmh: Double,
-        mode: String,
+        mode: MovementEngine.Mode,
         description: String? = null,
     ): String
 
@@ -60,7 +61,7 @@ interface LibraryRepository {
     suspend fun updateRouteParams(
         routeId: String,
         speedKmh: Double,
-        mode: String,
+        mode: MovementEngine.Mode,
     )
 
     suspend fun removeItem(itemId: String)
@@ -133,7 +134,7 @@ private class RoomLibraryRepository(
         name: String,
         waypoints: List<LatLng>,
         defaultSpeedKmh: Double,
-        mode: String,
+        mode: MovementEngine.Mode,
         description: String?,
     ): String {
         val rows =
@@ -195,7 +196,7 @@ private class RoomLibraryRepository(
     override suspend fun updateRouteParams(
         routeId: String,
         speedKmh: Double,
-        mode: String,
+        mode: MovementEngine.Mode,
     ) {
         dao.updateRoute(routeId, speedKmh, mode, System.currentTimeMillis())
     }
@@ -394,7 +395,7 @@ internal fun buildRouteLibraryRows(
     name: String,
     waypoints: List<LatLng>,
     defaultSpeedKmh: Double,
-    mode: String,
+    mode: MovementEngine.Mode,
     description: String?,
     sortOrder: Int,
     now: Long,

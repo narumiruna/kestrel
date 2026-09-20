@@ -5,6 +5,7 @@ Top-level `*-plan.md` files are active. Closed or superseded plans live in `arch
 ## Active files
 
 - `2026-08-09_android-app-workflow-redesign-plan.md` — redesign the Android app around previewable, confirmable mock-location workflows while preserving runtime, stored-data, cloud, remote-control, responsive, and accessibility behavior.
+- `2026-09-21_repository-simplification-plan.md` — consolidate duplicated Backend, Web, Android, and validation behavior without changing public contracts, persisted data, or user-visible behavior.
 
 The Justfile workflow refinement, Web UI/UX optimization loop, Web Map workspace/route-inspector plans, 2026-08-10 Web Route editor redesign, and the 2026-07-15 Options, Favorites, Web Library, and cross-platform UI regression plans are complete and archived in `archived/`.
 

@@ -260,9 +260,9 @@ describe('SharingService', () => {
       }),
     );
 
-    await expect(
-      sharingService.getSharedRoute('share-token-1'),
-    ).rejects.toThrow(NotFoundException);
+    await expect(sharingService.getSharedItem('share-token-1')).rejects.toThrow(
+      NotFoundException,
+    );
   });
 
   it('rejects expired public links', async () => {
@@ -272,9 +272,9 @@ describe('SharingService', () => {
       }),
     );
 
-    await expect(
-      sharingService.getSharedRoute('share-token-1'),
-    ).rejects.toThrow(NotFoundException);
+    await expect(sharingService.getSharedItem('share-token-1')).rejects.toThrow(
+      NotFoundException,
+    );
   });
 
   it('returns a sanitized public place snapshot without owner metadata', async () => {
@@ -312,7 +312,7 @@ describe('SharingService', () => {
       createPublicShareRecord({}),
     );
 
-    const result = await sharingService.getSharedRoute('share-token-1');
+    const result = await sharingService.getSharedItem('share-token-1');
 
     expect(result).toMatchObject({
       route: {
@@ -458,7 +458,7 @@ describe('SharingService', () => {
       }),
     );
 
-    const copiedRoute = await sharingService.copySharedRoute(
+    const copiedRoute = await sharingService.copySharedItem(
       'user-2',
       'share-token-1',
       {
@@ -616,7 +616,7 @@ describe('SharingService', () => {
       }),
     );
 
-    await sharingService.copySharedRoute('user-2', 'share-token-1', {
+    await sharingService.copySharedItem('user-2', 'share-token-1', {
       routeRevisionId: 'revision-3',
     });
 
@@ -642,7 +642,7 @@ describe('SharingService', () => {
     prismaService.routeRevision.findFirst.mockResolvedValue(null);
 
     await expect(
-      sharingService.copySharedRoute('user-2', 'share-token-1', {
+      sharingService.copySharedItem('user-2', 'share-token-1', {
         routeRevisionId: 'revision-other-route',
       }),
     ).rejects.toThrow(

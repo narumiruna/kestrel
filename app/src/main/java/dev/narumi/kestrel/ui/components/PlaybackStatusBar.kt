@@ -15,7 +15,6 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import dev.narumi.kestrel.core.location.MovementEngine
 import dev.narumi.kestrel.core.location.RuntimeState
 
 internal data class PlaybackBarPresentation(
@@ -39,8 +38,8 @@ internal fun playbackBarPresentation(runtime: RuntimeState): PlaybackBarPresenta
             PlaybackBarPresentation(
                 title = if (runtime.paused) "Route paused" else "Route playing",
                 details =
-                    "${runtime.waypoints.size} waypoints · ${runtime.speedKmh.toBarSpeed()} · " +
-                        runtime.mode.toBarLabel(),
+                    "${runtime.waypoints.size} waypoints · ${runtime.speedKmh.toDisplaySpeed()} · " +
+                        runtime.mode.label(),
                 primaryAction = if (runtime.paused) PlaybackBarAction.Resume else PlaybackBarAction.Pause,
             )
     }
@@ -101,12 +100,3 @@ fun PlaybackStatusBar(
         }
     }
 }
-
-private fun Double.toBarSpeed(): String = if (this % 1.0 == 0.0) "${toInt()} km/h" else "$this km/h"
-
-private fun MovementEngine.Mode.toBarLabel(): String =
-    when (this) {
-        MovementEngine.Mode.Once -> "Once"
-        MovementEngine.Mode.Loop -> "Loop"
-        MovementEngine.Mode.PingPong -> "Ping-pong"
-    }

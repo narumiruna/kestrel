@@ -25,7 +25,9 @@ import androidx.compose.ui.unit.dp
 import dev.narumi.kestrel.core.location.MovementEngine
 import dev.narumi.kestrel.ui.components.KestrelActionRow
 import dev.narumi.kestrel.ui.components.KestrelCard
+import dev.narumi.kestrel.ui.components.label
 import dev.narumi.kestrel.ui.components.onKeyboardActivate
+import dev.narumi.kestrel.ui.components.toDisplaySpeed
 
 @Composable
 internal fun MapHintPill(modifier: Modifier = Modifier) {
@@ -217,5 +219,3 @@ internal fun RouteSettingsCard(
         }
     }
 }
-
-private fun Double.toDisplaySpeed(): String = if (this % 1.0 == 0.0) "${toInt()} km/h" else "$this km/h"

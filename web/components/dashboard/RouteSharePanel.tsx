@@ -1,110 +1,28 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
-import { useAuth } from '@/components/AuthProvider';
-import { formatError, toAbsolutePublicUrl } from '@/components/dashboard/utils';
+import { useEffect } from 'react';
+import { useShareLink } from '@/components/dashboard/useShareLink';
+import { toAbsolutePublicUrl } from '@/components/dashboard/utils';
 import { Button, TextInput } from '@/components/ui/radix-ui';
-import { ApiError, type Route, type RouteShareLink } from '@/lib/api';
+import type { Route } from '@/lib/api';
 
 export function RouteSharePanel({ route }: { route: Route | null }) {
-  const auth = useAuth();
-  const [shareLink, setShareLink] = useState<RouteShareLink | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isMutating, setIsMutating] = useState(false);
-
-  const loadShareLink = useCallback(async () => {
-    if (route == null) {
-      setShareLink(null);
-      setError(null);
-      return;
-    }
-
-    setError(null);
-    setIsLoading(true);
-
-    try {
-      const nextShareLink = await auth.apiRequest<RouteShareLink>(`/routes/${route.id}/share-link`);
-      setShareLink(nextShareLink);
-    } catch (nextError) {
-      if (nextError instanceof ApiError && nextError.status === 404) {
-        setShareLink(null);
-        return;
-      }
-
-      setError(formatError(nextError));
-    } finally {
-      setIsLoading(false);
-    }
-  }, [auth, route]);
+  const {
+    shareLink,
+    error,
+    notice,
+    isLoading,
+    isMutating,
+    loadShareLink,
+    createShareLink,
+    setDisabled,
+    copyPublicUrl,
+  } = useShareLink('routes', route?.id ?? null);
 
   useEffect(() => {
-    setNotice(null);
+    void route; // Reload when the saved snapshot changes, not just its ID.
     void loadShareLink();
-  }, [loadShareLink]);
-
-  async function createShareLink() {
-    if (route == null) {
-      return;
-    }
-
-    setNotice(null);
-    setError(null);
-    setIsMutating(true);
-
-    try {
-      const nextShareLink = await auth.apiRequest<RouteShareLink>(
-        `/routes/${route.id}/share-link`,
-        {
-          method: 'POST',
-        },
-      );
-      setShareLink(nextShareLink);
-    } catch (nextError) {
-      setError(formatError(nextError));
-    } finally {
-      setIsMutating(false);
-    }
-  }
-
-  async function setDisabled(disabled: boolean) {
-    if (route == null) {
-      return;
-    }
-
-    setNotice(null);
-    setError(null);
-    setIsMutating(true);
-
-    try {
-      const nextShareLink = await auth.apiRequest<RouteShareLink>(
-        `/routes/${route.id}/share-link`,
-        {
-          body: JSON.stringify({ disabled }),
-          method: 'PATCH',
-        },
-      );
-      setShareLink(nextShareLink);
-    } catch (nextError) {
-      setError(formatError(nextError));
-    } finally {
-      setIsMutating(false);
-    }
-  }
-
-  async function copyPublicUrl() {
-    if (shareLink == null) {
-      return;
-    }
-
-    try {
-      await navigator.clipboard.writeText(toAbsolutePublicUrl(shareLink.publicUrl));
-      setNotice('Share URL copied.');
-    } catch {
-      setNotice('Copy failed; select the URL manually.');
-    }
-  }
+  }, [loadShareLink, route]);
 
   if (route == null) {
     return (

@@ -2,6 +2,7 @@ package dev.narumi.kestrel.core.library.db
 
 import androidx.room.TypeConverter
 import dev.narumi.kestrel.core.library.LibraryItemKind
+import dev.narumi.kestrel.core.location.MovementEngine
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
@@ -17,6 +18,14 @@ class LibraryConverters {
     fun toLibraryItemKind(value: String): LibraryItemKind =
         runCatching { LibraryItemKind.valueOf(value) }
             .getOrDefault(LibraryItemKind.Place)
+
+    @TypeConverter
+    fun fromRouteMode(value: MovementEngine.Mode): String = value.name
+
+    @TypeConverter
+    fun toRouteMode(value: String): MovementEngine.Mode =
+        runCatching { MovementEngine.Mode.valueOf(value) }
+            .getOrDefault(MovementEngine.Mode.Once)
 
     @TypeConverter
     fun fromSyncStatus(value: SyncStatus): String = value.name

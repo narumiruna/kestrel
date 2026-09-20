@@ -59,6 +59,7 @@ import dev.narumi.kestrel.ui.components.KestrelCard
 import dev.narumi.kestrel.ui.components.KestrelEmptyState
 import dev.narumi.kestrel.ui.components.KestrelScreenHeader
 import dev.narumi.kestrel.ui.components.PersistedActionResult
+import dev.narumi.kestrel.ui.components.label
 import dev.narumi.kestrel.ui.components.runPersistedAction
 import kotlinx.coroutines.launch
 
@@ -195,7 +196,7 @@ fun FavoritesScreen(
                     routeSpeedText = ""
                 },
             ) {
-                libraryRepository.updateRouteParams(routeId, speed, mode.name)
+                libraryRepository.updateRouteParams(routeId, speed, mode)
             }
         },
         onRenameDismiss = {
@@ -255,9 +256,7 @@ fun FavoritesScreen(
                 item.route?.let { route ->
                     editingRoute = item
                     routeSpeedText = route.defaultSpeedKmh.toString()
-                    routeMode =
-                        runCatching { MovementEngine.Mode.valueOf(route.mode) }
-                            .getOrDefault(MovementEngine.Mode.Once)
+                    routeMode = route.mode
                 }
             }
         },
@@ -769,10 +768,3 @@ private fun EditRouteDialog(
         dismissButton = { TextButton(onClick = onDismiss, enabled = !saving) { Text("Cancel") } },
     )
 }
-
-private fun MovementEngine.Mode.label(): String =
-    when (this) {
-        MovementEngine.Mode.Once -> "Once"
-        MovementEngine.Mode.Loop -> "Loop"
-        MovementEngine.Mode.PingPong -> "Ping-pong"
-    }

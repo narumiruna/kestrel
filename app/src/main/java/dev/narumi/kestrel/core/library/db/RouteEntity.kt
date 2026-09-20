@@ -4,6 +4,7 @@ import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import dev.narumi.kestrel.core.location.MovementEngine
 
 @Entity(
     tableName = "routes",
@@ -18,7 +19,7 @@ data class RouteEntity(
     val name: String,
     val description: String? = null,
     @ColumnInfo(name = "default_speed_kmh") val defaultSpeedKmh: Double,
-    val mode: String,
+    val mode: MovementEngine.Mode,
     @ColumnInfo(name = "current_revision_id") val currentRevisionId: String,
     @ColumnInfo(name = "sync_status") val syncStatus: SyncStatus = SyncStatus.LocalOnly,
     @ColumnInfo(name = "created_at") val createdAt: Long,

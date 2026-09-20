@@ -5,6 +5,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
+import dev.narumi.kestrel.core.location.MovementEngine
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -160,7 +161,7 @@ abstract class LibraryDao {
     abstract suspend fun updateRoute(
         routeId: String,
         speedKmh: Double,
-        mode: String,
+        mode: MovementEngine.Mode,
         updatedAt: Long,
     )
 
