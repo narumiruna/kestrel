@@ -355,6 +355,88 @@ describe('SyncService', () => {
     ]);
   });
 
+  it.each([undefined, null])(
+    'preserves upload-only input semantics and write order (description=%s)',
+    async (description) => {
+      prismaService.syncUploadMutation.findUnique.mockResolvedValue(null);
+      prismaService.libraryItem.findFirst.mockResolvedValue({ sortOrder: 4 });
+      prismaService.place.create.mockResolvedValue({ id: 'place-1' });
+      prismaService.libraryItem.create.mockResolvedValue({
+        id: 'library-item-1',
+      });
+      prismaService.place.findFirst.mockResolvedValue(
+        createPlaceRecord({
+          id: 'place-1',
+          libraryItemId: 'library-item-1',
+          sortOrder: 5,
+        }),
+      );
+      const result = await syncService.upload('user-1', {
+        changes: [
+          {
+            clientMutationId: 'mutation-1',
+            type: 'PLACE_CREATE',
+            place: {
+              name: '  untrimmed  ',
+              latitude: 100,
+              longitude: 200,
+              description,
+            },
+          },
+        ],
+      });
+      expect(result.failed).toEqual([]);
+      expect(prismaService.place.create).toHaveBeenCalledWith({
+        data: {
+          name: '  untrimmed  ',
+          latitude: 100,
+          longitude: 200,
+          description,
+          tags: [],
+          userId: 'user-1',
+        },
+        select: { id: true },
+      });
+      expect(prismaService.libraryItem.findFirst).toHaveBeenCalledWith({
+        orderBy: [{ sortOrder: 'desc' }],
+        select: { sortOrder: true },
+        where: { deletedAt: null, userId: 'user-1' },
+      });
+      expect(prismaService.libraryItem.create).toHaveBeenCalledWith({
+        data: {
+          kind: LibraryItemKind.PLACE,
+          placeId: 'place-1',
+          sortOrder: 5,
+          userId: 'user-1',
+        },
+        select: { id: true },
+      });
+      expectSyncEvents(prismaService.syncEvent.create, [
+        {
+          entityId: 'place-1',
+          entityType: SyncEntityType.PLACE,
+          operation: SyncOperation.UPSERT,
+          userId: 'user-1',
+        },
+        {
+          entityId: 'library-item-1',
+          entityType: SyncEntityType.LIBRARY_ITEM,
+          operation: SyncOperation.UPSERT,
+          userId: 'user-1',
+        },
+      ]);
+      const calls = [
+        prismaService.libraryItem.findFirst.mock.invocationCallOrder[0],
+        prismaService.place.create.mock.invocationCallOrder[0],
+        prismaService.libraryItem.create.mock.invocationCallOrder[0],
+        ...prismaService.syncEvent.create.mock.invocationCallOrder,
+        prismaService.place.findFirst.mock.invocationCallOrder[0],
+        prismaService.syncUploadMutation.create.mock.invocationCallOrder[0],
+      ];
+      expect(calls).toEqual([...calls].sort((a, b) => a - b));
+    },
+  );
+
   it('reuses the stored upload result when clientMutationId and payload match', async () => {
     const reusedResult = {
       clientMutationId: 'mutation-1',

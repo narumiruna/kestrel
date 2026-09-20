@@ -15,6 +15,7 @@ import {
   mapLibraryItem,
   mapPlace,
   mapRoute,
+  parseStoredRouteRevisionPayload,
   placeSelect,
   routeRevisionSelect,
   routeSelect,
@@ -28,17 +29,7 @@ import {
   type RouteWaypointInput,
 } from './library.validation';
 
-type StoredRouteRevisionSnapshot = {
-  defaultSpeedKmh: number;
-  mode: RouteMode;
-  waypoints: Array<{
-    latitude: number;
-    longitude: number;
-    pauseSeconds: number | null;
-    sequence: number;
-    speedKmh: number | null;
-  }>;
-};
+import { createPlaceWithLibraryItem, getNextSortOrder } from './library-writes';
 
 export class LibraryService {
   constructor(private readonly prismaService: PrismaService) {}
@@ -76,49 +67,15 @@ export class LibraryService {
   async createPlace(userId: string, input: unknown) {
     const createInput = parseCreatePlaceInput(input);
     const createdPlace = await this.prismaService.$transaction(async (tx) => {
-      const sortOrder = await getNextSortOrder(tx, userId);
-      const place = await tx.place.create({
-        data: {
-          description: createInput.description,
-          latitude: createInput.latitude,
-          longitude: createInput.longitude,
-          name: createInput.name,
-          tags: createInput.tags,
-          userId,
-        },
-        select: {
-          id: true,
-        },
-      });
-
-      const libraryItem = await tx.libraryItem.create({
-        data: {
-          kind: LibraryItemKind.PLACE,
-          placeId: place.id,
-          sortOrder,
-          userId,
-        },
-        select: {
-          id: true,
-        },
-      });
-      await recordSyncEvent(tx, {
-        entityId: place.id,
-        entityType: SyncEntityType.PLACE,
-        operation: SyncOperation.UPSERT,
+      const { placeId } = await createPlaceWithLibraryItem(
+        tx,
         userId,
-      });
-      await recordSyncEvent(tx, {
-        entityId: libraryItem.id,
-        entityType: SyncEntityType.LIBRARY_ITEM,
-        operation: SyncOperation.UPSERT,
-        userId,
-      });
-
+        createInput,
+      );
       return tx.place.findUniqueOrThrow({
         select: placeSelect,
         where: {
-          id: place.id,
+          id: placeId,
         },
       });
     });
@@ -606,24 +563,6 @@ export class LibraryService {
   }
 }
 
-async function getNextSortOrder(
-  prisma: Prisma.TransactionClient,
-  userId: string,
-): Promise<number> {
-  const latestItem = await prisma.libraryItem.findFirst({
-    orderBy: [{ sortOrder: 'desc' }],
-    select: {
-      sortOrder: true,
-    },
-    where: {
-      deletedAt: null,
-      userId,
-    },
-  });
-
-  return latestItem == null ? 0 : latestItem.sortOrder + 1;
-}
-
 function createRouteRevisionPayload(input: {
   defaultSpeedKmh: number;
   mode: RouteMode;
@@ -640,105 +579,6 @@ function createRouteRevisionPayload(input: {
       speedKmh: waypoint.speedKmh,
     })),
   };
-}
-
-function parseStoredRouteRevisionPayload(revision: {
-  payload: Prisma.JsonValue;
-}): StoredRouteRevisionSnapshot {
-  const payload = revision.payload;
-
-  if (
-    payload == null ||
-    typeof payload !== 'object' ||
-    Array.isArray(payload)
-  ) {
-    throw new InternalServerErrorException(
-      'stored route revision payload is invalid',
-    );
-  }
-
-  const payloadRecord = payload as Record<string, unknown>;
-  const defaultSpeedKmh = payloadRecord.defaultSpeedKmh;
-  const mode = payloadRecord.mode;
-  const waypoints = payloadRecord.waypoints;
-
-  if (
-    typeof defaultSpeedKmh !== 'number' ||
-    !Number.isFinite(defaultSpeedKmh) ||
-    !Object.values(RouteMode).includes(mode as RouteMode) ||
-    !Array.isArray(waypoints)
-  ) {
-    throw new InternalServerErrorException(
-      'stored route revision payload is invalid',
-    );
-  }
-
-  const parsedWaypoints = waypoints.map((waypoint, index) =>
-    parseStoredRouteWaypoint(waypoint, index),
-  );
-
-  parsedWaypoints.sort((left, right) => left.sequence - right.sequence);
-
-  return {
-    defaultSpeedKmh,
-    mode: mode as RouteMode,
-    waypoints: parsedWaypoints,
-  };
-}
-
-function parseStoredRouteWaypoint(
-  waypoint: unknown,
-  index: number,
-): {
-  latitude: number;
-  longitude: number;
-  pauseSeconds: number | null;
-  sequence: number;
-  speedKmh: number | null;
-} {
-  if (
-    waypoint == null ||
-    typeof waypoint !== 'object' ||
-    Array.isArray(waypoint)
-  ) {
-    throw new InternalServerErrorException(
-      `stored route waypoint ${index} is invalid`,
-    );
-  }
-
-  const waypointRecord = waypoint as Record<string, unknown>;
-  const latitude = waypointRecord.latitude;
-  const longitude = waypointRecord.longitude;
-  const pauseSeconds = waypointRecord.pauseSeconds;
-  const sequence = waypointRecord.sequence;
-  const speedKmh = waypointRecord.speedKmh;
-
-  if (
-    typeof latitude !== 'number' ||
-    !Number.isFinite(latitude) ||
-    typeof longitude !== 'number' ||
-    !Number.isFinite(longitude) ||
-    !isNullableFiniteNumber(pauseSeconds) ||
-    typeof sequence !== 'number' ||
-    !Number.isInteger(sequence) ||
-    !isNullableFiniteNumber(speedKmh)
-  ) {
-    throw new InternalServerErrorException(
-      `stored route waypoint ${index} is invalid`,
-    );
-  }
-
-  return {
-    latitude,
-    longitude,
-    pauseSeconds,
-    sequence,
-    speedKmh,
-  };
-}
-
-function isNullableFiniteNumber(value: unknown): value is number | null {
-  return value == null || (typeof value === 'number' && Number.isFinite(value));
 }
 
 async function recordSyncEvent(

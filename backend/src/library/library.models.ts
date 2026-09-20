@@ -166,7 +166,7 @@ function parseStoredTags(tags: Prisma.JsonValue): string[] {
   return tags;
 }
 
-function parseStoredRouteRevisionPayload(
+export function parseStoredRouteRevisionPayload(
   revision: Pick<PrismaRouteRevision, 'payload'>,
 ): RouteRevisionPayload {
   const payload = revision.payload;

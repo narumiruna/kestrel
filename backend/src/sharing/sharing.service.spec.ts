@@ -411,12 +411,54 @@ describe('SharingService', () => {
         userId: 'user-2',
       },
     ]);
+    expect(prismaService.libraryItem.findFirst).toHaveBeenCalledWith({
+      orderBy: [{ sortOrder: 'desc' }],
+      select: { sortOrder: true },
+      where: { deletedAt: null, userId: 'user-2' },
+    });
+    const calls = [
+      prismaService.shareLink.findUnique.mock.invocationCallOrder[0],
+      prismaService.libraryItem.findFirst.mock.invocationCallOrder[0],
+      prismaService.place.create.mock.invocationCallOrder[0],
+      prismaService.libraryItem.create.mock.invocationCallOrder[0],
+      ...prismaService.syncEvent.create.mock.invocationCallOrder,
+      prismaService.place.findUniqueOrThrow.mock.invocationCallOrder[0],
+    ];
+    expect(calls).toEqual([...calls].sort((a, b) => a - b));
     expect(copiedPlace).toMatchObject({
       id: 'copied-place-1',
       libraryItem: {
         id: 'library-item-place-9',
       },
       name: 'Taipei 101',
+    });
+  });
+
+  it('copies stored place values without applying create-request normalization', async () => {
+    const share = createPublicPlaceShareRecord({});
+    Object.assign(share.place, {
+      name: '  Stored name  ',
+      description: null,
+      tags: [],
+    });
+    prismaService.shareLink.findUnique.mockResolvedValue(share);
+    prismaService.libraryItem.findFirst.mockResolvedValue(null);
+    prismaService.place.create.mockResolvedValue({ id: 'copy' });
+    prismaService.libraryItem.create.mockResolvedValue({ id: 'item' });
+    prismaService.place.findUniqueOrThrow.mockResolvedValue(
+      createPlaceRecord({ id: 'copy', libraryItemId: 'item' }),
+    );
+    await sharingService.copySharedItem('user-2', 'share-token-place', {});
+    expect(prismaService.place.create).toHaveBeenCalledWith({
+      data: {
+        name: '  Stored name  ',
+        description: null,
+        tags: [],
+        latitude: 25.033,
+        longitude: 121.5654,
+        userId: 'user-2',
+      },
+      select: { id: true },
     });
   });
 
