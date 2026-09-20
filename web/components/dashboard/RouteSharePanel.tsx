@@ -1,97 +1,21 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
-import { useAuth } from '@/components/AuthProvider';
-import { formatError, toAbsolutePublicUrl } from '@/components/dashboard/utils';
+import { useEffect, useState } from 'react';
+import { useShareLink } from '@/components/dashboard/useShareLink';
+import { toAbsolutePublicUrl } from '@/components/dashboard/utils';
 import { Button, TextInput } from '@/components/ui/radix-ui';
-import { ApiError, type Route, type RouteShareLink } from '@/lib/api';
+import type { Route } from '@/lib/api';
 
 export function RouteSharePanel({ route }: { route: Route | null }) {
-  const auth = useAuth();
-  const [shareLink, setShareLink] = useState<RouteShareLink | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const { createShareLink, error, isLoading, isMutating, loadShareLink, setDisabled, shareLink } =
+    useShareLink('routes', route?.id ?? null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isMutating, setIsMutating] = useState(false);
 
-  const loadShareLink = useCallback(async () => {
-    if (route == null) {
-      setShareLink(null);
-      setError(null);
-      return;
-    }
-
-    setError(null);
-    setIsLoading(true);
-
-    try {
-      const nextShareLink = await auth.apiRequest<RouteShareLink>(`/routes/${route.id}/share-link`);
-      setShareLink(nextShareLink);
-    } catch (nextError) {
-      if (nextError instanceof ApiError && nextError.status === 404) {
-        setShareLink(null);
-        return;
-      }
-
-      setError(formatError(nextError));
-    } finally {
-      setIsLoading(false);
-    }
-  }, [auth, route]);
-
+  // biome-ignore lint/correctness/useExhaustiveDependencies: Reload for refreshed saved objects, even when their ID is unchanged.
   useEffect(() => {
     setNotice(null);
     void loadShareLink();
-  }, [loadShareLink]);
-
-  async function createShareLink() {
-    if (route == null) {
-      return;
-    }
-
-    setNotice(null);
-    setError(null);
-    setIsMutating(true);
-
-    try {
-      const nextShareLink = await auth.apiRequest<RouteShareLink>(
-        `/routes/${route.id}/share-link`,
-        {
-          method: 'POST',
-        },
-      );
-      setShareLink(nextShareLink);
-    } catch (nextError) {
-      setError(formatError(nextError));
-    } finally {
-      setIsMutating(false);
-    }
-  }
-
-  async function setDisabled(disabled: boolean) {
-    if (route == null) {
-      return;
-    }
-
-    setNotice(null);
-    setError(null);
-    setIsMutating(true);
-
-    try {
-      const nextShareLink = await auth.apiRequest<RouteShareLink>(
-        `/routes/${route.id}/share-link`,
-        {
-          body: JSON.stringify({ disabled }),
-          method: 'PATCH',
-        },
-      );
-      setShareLink(nextShareLink);
-    } catch (nextError) {
-      setError(formatError(nextError));
-    } finally {
-      setIsMutating(false);
-    }
-  }
+  }, [loadShareLink, route]);
 
   async function copyPublicUrl() {
     if (shareLink == null) {
@@ -138,7 +62,14 @@ export function RouteSharePanel({ route }: { route: Route | null }) {
       )}
       {shareLink == null ? (
         <div className="row">
-          <Button disabled={isMutating} type="button" onClick={() => void createShareLink()}>
+          <Button
+            disabled={isMutating}
+            type="button"
+            onClick={() => {
+              setNotice(null);
+              void createShareLink();
+            }}
+          >
             {isMutating ? 'Creating…' : 'Create public link'}
           </Button>
         </div>
@@ -171,7 +102,10 @@ export function RouteSharePanel({ route }: { route: Route | null }) {
               className={shareLink.disabledAt == null ? 'danger' : 'secondary'}
               disabled={isMutating}
               type="button"
-              onClick={() => void setDisabled(shareLink.disabledAt == null)}
+              onClick={() => {
+                setNotice(null);
+                void setDisabled(shareLink.disabledAt == null);
+              }}
             >
               {isMutating
                 ? 'Saving…'

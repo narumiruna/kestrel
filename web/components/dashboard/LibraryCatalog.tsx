@@ -172,11 +172,11 @@ export default function LibraryCatalog({
           <ToggleGroup
             aria-label="Library item type"
             className="library-filter-tabs"
-            value={[filter]}
-            onValueChange={(values) => {
-              const nextFilter = values.at(-1) as LibraryFilter | undefined;
-              if (nextFilter != null) {
-                setFilter(nextFilter);
+            type="single"
+            value={filter}
+            onValueChange={(nextFilter) => {
+              if (nextFilter !== '') {
+                setFilter(nextFilter as LibraryFilter);
               }
             }}
           >

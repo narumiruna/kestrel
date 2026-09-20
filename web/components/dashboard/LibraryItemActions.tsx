@@ -4,6 +4,7 @@ import { DotsHorizontalIcon, Share2Icon, TrashIcon } from '@radix-ui/react-icons
 import { IconButton } from '@radix-ui/themes';
 import { useEffect, useId, useRef, useState } from 'react';
 import { useAuth } from '@/components/AuthProvider';
+import { useShareLink } from '@/components/dashboard/useShareLink';
 import { formatError, toAbsolutePublicUrl } from '@/components/dashboard/utils';
 import {
   Button,
@@ -13,7 +14,7 @@ import {
   MenuSurface,
   TextInput,
 } from '@/components/ui/radix-ui';
-import { ApiError, type ShareLink } from '@/lib/api';
+import type { ShareLink } from '@/lib/api';
 
 type ItemKind = 'places' | 'routes';
 
@@ -28,11 +29,19 @@ export function LibraryItemActions({ itemId, itemKind, itemName, onDeleted }: Pr
   const auth = useAuth();
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
-  const [shareLink, setShareLink] = useState<ShareLink | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const {
+    createShareLink,
+    error,
+    isLoading: isLoadingShare,
+    isMutating,
+    loadShareLink,
+    setDisabled,
+    setError,
+    setIsMutating,
+    setShareLink,
+    shareLink,
+  } = useShareLink(itemKind, itemId);
   const [notice, setNotice] = useState<string | null>(null);
-  const [isLoadingShare, setIsLoadingShare] = useState(false);
-  const [isMutating, setIsMutating] = useState(false);
   const moreButtonRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
@@ -40,57 +49,10 @@ export function LibraryItemActions({ itemId, itemKind, itemName, onDeleted }: Pr
       return;
     }
 
-    setError(null);
     setNotice(null);
     setShareLink(null);
-    setIsLoadingShare(true);
-    void auth
-      .apiRequest<ShareLink>(`/${itemKind}/${itemId}/share-link`)
-      .then(setShareLink)
-      .catch((nextError: unknown) => {
-        if (nextError instanceof ApiError && nextError.status === 404) {
-          setShareLink(null);
-        } else {
-          setError(formatError(nextError));
-        }
-      })
-      .finally(() => setIsLoadingShare(false));
-  }, [auth, isShareOpen, itemId, itemKind]);
-
-  async function createShareLink() {
-    setError(null);
-    setNotice(null);
-    setIsMutating(true);
-
-    try {
-      setShareLink(
-        await auth.apiRequest<ShareLink>(`/${itemKind}/${itemId}/share-link`, { method: 'POST' }),
-      );
-    } catch (nextError) {
-      setError(formatError(nextError));
-    } finally {
-      setIsMutating(false);
-    }
-  }
-
-  async function setShareDisabled(disabled: boolean) {
-    setError(null);
-    setNotice(null);
-    setIsMutating(true);
-
-    try {
-      setShareLink(
-        await auth.apiRequest<ShareLink>(`/${itemKind}/${itemId}/share-link`, {
-          body: JSON.stringify({ disabled }),
-          method: 'PATCH',
-        }),
-      );
-    } catch (nextError) {
-      setError(formatError(nextError));
-    } finally {
-      setIsMutating(false);
-    }
-  }
+    void loadShareLink();
+  }, [isShareOpen, loadShareLink, setShareLink]);
 
   async function copyShareUrl() {
     if (shareLink == null) {
@@ -144,8 +106,14 @@ export function LibraryItemActions({ itemId, itemKind, itemName, onDeleted }: Pr
           notice={notice}
           shareLink={shareLink}
           onCopyShareUrl={copyShareUrl}
-          onCreateShareLink={createShareLink}
-          onSetShareDisabled={setShareDisabled}
+          onCreateShareLink={() => {
+            setNotice(null);
+            void createShareLink();
+          }}
+          onSetShareDisabled={(disabled) => {
+            setNotice(null);
+            void setDisabled(disabled);
+          }}
         />
       </DialogFrame>
       <MenuSurface

@@ -634,11 +634,11 @@ function MapLibraryPanel({
       <ToggleGroup
         aria-label="Map item type"
         className="sidebar-tabs"
-        value={[activeKind]}
-        onValueChange={(values) => {
-          const nextKind = values.at(-1) as MapKind | undefined;
-          if (nextKind != null) {
-            onSelectKind(nextKind);
+        type="single"
+        value={activeKind}
+        onValueChange={(nextKind) => {
+          if (nextKind !== '') {
+            onSelectKind(nextKind as MapKind);
           }
         }}
       >
