@@ -4,7 +4,7 @@
 
 Reduce independent implementations of the same behavior across Android, Backend, and Web while preserving current API responses, persisted data, sync semantics, and user interactions. Implement only the six confirmed opportunities from the repository review.
 
-Status: all six implementations, focused acceptance checks, required workspace checks, and final diff review pass on `narumi/refactor/behavior-preserving-simplifications`, based on `origin/main` at `ec4984e`; PR delivery is in progress. The user authorized implementation, signed commits, push, and a pull request. Nothing has been pushed and no PR has been opened. Production operations and unapproved device/data operations remain excluded.
+Status: completed and delivered as [PR #312](https://github.com/narumiruna/kestrel/pull/312), from `narumi/refactor/behavior-preserving-simplifications` into `main` (base `ec4984e`). All six implementations, focused acceptance checks, required local workspace checks, and final diff review pass. Signed commits and the focused branch were pushed with explicit authorization. No production, release, or unapproved device/data operation occurred.
 
 ## Context
 
@@ -98,17 +98,17 @@ Evidence: `web/components/ui/radix-ui.tsx:33` wraps a scalar Radix `type="single
 ### Diff review and local commits
 
 - Reviewed all 21 changed source/test files against `ec4984e`, including the two new helpers. Parser inputs/errors, caller-specific normalization, transaction/event order, sync orchestration, dialog triggers, delete coordination, and selected-option guards remain at their original boundaries. No authentication, refresh, foreground-service, schema, migration, dependency, CSS, or image changes were introduced. `git diff origin/main --check` passed. The generated `web/tsconfig.tsbuildinfo` change was restored; unrelated files were not changed.
-- Signed source commits: `671333a` (Backend), `fea217c` (Android), `3f2b794` (Web). SSH signatures were verified with the configured signing public key using a temporary allowed-signers file, without changing Git identity or persistent verification configuration.
+- Signed source/test commits: `671333a` (Backend), `fea217c` (Android), `3f2b794` (Web), `080baaa` (Room cursor recovery and verification evidence). SSH signatures were verified with the configured signing public key using a temporary allowed-signers file, without changing Git identity or persistent verification configuration.
 - Isolated browser/API/Next process groups were stopped after verification. Existing local cloud services and Chrome profiles were not changed.
-- The user explicitly approved downloading/creating a new disposable emulator after being informed that instrumentation can reinstall the app and clear target data. The 11 before/after Room cases passed without a production-code fix, including an added cursor-recovery regression. The emulator was stopped and the temporary baseline worktree removed. No existing device was touched, and no acceptance criterion was removed or moved elsewhere.
-- After the final test addition, Android format/lint/JVM/build checks passed again, using verified up-to-date outputs for unchanged tasks. Backend generation/lint/218 unit tests/9 mocked e2e tests/typecheck/build and Web check/18 tests/typecheck/build also passed again under Node 22. Final diff review found no additional correctness, security, lifecycle, compatibility, or scope issues. Remaining delivery work is the authorized branch push and PR; release/deploy/tag workflows will not be dispatched.
+- The user explicitly approved downloading/creating a new disposable emulator after being informed that instrumentation can reinstall the app and clear target data. The 11 before/after Room cases passed without a production-code fix, including an added cursor-recovery regression. The emulator was stopped; its downloaded SDK/image archives, isolated AVD/home directories, and temporary baseline worktree were removed. No existing device was touched, and no acceptance criterion was removed or moved elsewhere.
+- After the final test addition, Android format/lint/JVM/build checks passed again, using verified up-to-date outputs for unchanged tasks. Backend generation/lint/218 unit tests/9 mocked e2e tests/typecheck/build and Web check/18 tests/typecheck/build also passed again under Node 22. Final diff review found no additional correctness, security, lifecycle, compatibility, or scope issues. The focused branch was pushed and PR #312 opened against `main`; release/deploy/tag workflows were not dispatched.
 
 Changed source/test files:
 
 - Android: `app/src/main/java/dev/narumi/kestrel/core/cloud/CloudSyncRepository.kt`; `app/src/androidTest/java/dev/narumi/kestrel/core/cloud/CloudSyncRepositoryTest.kt`.
 - Backend: `backend/src/library/library-writes.ts`, `backend/src/library/library.models.ts`, `backend/src/library/library.models.spec.ts`, `backend/src/library/library.service.ts`, `backend/src/library/library.service.spec.ts`, `backend/src/sharing/sharing.service.ts`, `backend/src/sharing/sharing.service.spec.ts`, `backend/src/sync/sync.service.ts`, `backend/src/sync/sync.service.spec.ts`.
 - Web: `web/app/dashboard/map/page.tsx`, `web/components/cartographer/Stage.tsx`, `web/components/dashboard/LibraryCatalog.tsx`, `web/components/dashboard/LibraryItemActions.tsx`, `web/components/dashboard/PlaceEditor.tsx`, `web/components/dashboard/RouteEditor.tsx`, `web/components/dashboard/RouteSharePanel.tsx`, `web/components/dashboard/routeEditorUtils.ts`, `web/components/dashboard/useShareLink.ts`, `web/components/ui/radix-ui.tsx`.
-- Documentation: this plan remains active until Room verification and PR delivery are complete.
+- Documentation: this completed plan is archived at `docs/plans/archived/2026-09-21_behavior-preserving-simplifications-plan.md` after Room verification and PR delivery.
 
 ## Risks
 
@@ -130,4 +130,4 @@ Keep each proposal independently reviewable. If characterization or regression c
 - [x] Web validation passes under Node.js 22: `just web-check`, `cd web && npm test`, `just web-typecheck`, and `just web-build`, plus the recorded Chrome DevTools checks above. `just web-verify` alone does not run the Web tests.
 - [x] The final diff preserves API response/error shapes, stored values, identity/transaction/event ordering, sync retries/cursors, and UI behavior; manifests, lockfiles, schemas, migrations, unrelated files, and image binaries are unchanged.
 - [x] Baseline failures and unavailable checks are resolved, or any proposed scope/acceptance change is explicitly accepted by the user; leave unverified tasks open rather than silently narrowing scope.
-- [ ] Record the final changed-file list and check outcomes, create signed commits, push only the focused branch, and open the requested pull request with verification evidence and remaining risks. No deploy, release, or unapproved device/data operation occurs.
+- [x] Record the final changed-file list and check outcomes, create signed commits, push only the focused branch, and open the requested pull request with verification evidence and remaining risks. No deploy, release, or unapproved device/data operation occurs.
