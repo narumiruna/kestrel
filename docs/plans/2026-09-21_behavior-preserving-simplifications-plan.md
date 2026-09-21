@@ -4,7 +4,7 @@
 
 Reduce independent implementations of the same behavior across Android, Backend, and Web while preserving current API responses, persisted data, sync semantics, and user interactions. Implement only the six confirmed opportunities from the repository review.
 
-Status: implementation committed locally on `narumi/refactor/behavior-preserving-simplifications`, based on `origin/main` at `ec4984e`; blocked on approval of a disposable Android target for required Room execution. The user authorized implementation, signed commits, push, and a pull request. Nothing has been pushed and no PR has been opened. Production operations and unapproved device/data operations remain excluded.
+Status: all six implementations, focused acceptance checks, required workspace checks, and final diff review pass on `narumi/refactor/behavior-preserving-simplifications`, based on `origin/main` at `ec4984e`; PR delivery is in progress. The user authorized implementation, signed commits, push, and a pull request. Nothing has been pushed and no PR has been opened. Production operations and unapproved device/data operations remain excluded.
 
 ## Context
 
@@ -34,7 +34,7 @@ Review-session baseline, not completion evidence for future edits:
 - [x] Recheck the cited implementations and callers against the current worktree; confirm that all six opportunities still hold and preserve unrelated changes.
 - [x] Prepare Node.js 22 and Java 26, restore JavaScript dependencies from the existing lockfiles with `npm ci`, and generate Prisma. Node 22.23.2, Java 26.0.2, both installs, Prisma 7.10.0 generation, and Backend typechecking passed without manifest/lockfile/schema/migration changes. SDK found at `/opt/homebrew/share/android-commandlinetools`.
 - [x] Rerun the focused Backend suites and Web tests/typechecks under Node 22: 68 Backend tests, 18 Web tests, and both typechecks passed. The stale-dependency failure is resolved.
-- [ ] Establish a safe validation target for the Room and browser cases below; confirm Chrome DevTools availability and an approved disposable Android target before connected instrumentation. Existing Android sync instrumentation covers uploads but its fake explicitly rejects bootstrap, so it does not yet prove import equivalence.
+- [x] Establish a safe validation target for the Room and browser cases below. Chrome DevTools checks passed against an isolated fixture. The user approved a new disposable Android target; AOSP API 36 arm64 revision 2 boots on emulator 37.1.11 as `emulator-5580`, with SDK/AVD files outside the repository and no existing device touched. Both archives passed their published checksums. Existing instrumentation lacked bootstrap fixtures; the extended cases are ready for before/after execution.
 
 ### 2. High: use one stored-route parser
 
@@ -48,10 +48,10 @@ Evidence: `backend/src/library/library.models.ts:169` and `backend/src/library/l
 
 Evidence: `app/src/main/java/dev/narumi/kestrel/core/cloud/CloudSyncRepository.kt:172` and `:231` repeat place/local-ID resolution, route/revision import, and library-item import. Both already use `CloudRouteSyncRows.kt` mappers.
 
-- [ ] Extend `app/src/androidTest/java/dev/narumi/kestrel/core/cloud/CloudSyncRepositoryTest.kt` with equivalent bootstrap/incremental import fixtures and a deterministic unique-ID factory; verify existing-ID reuse, new-ID allocation, missing revisions, embedded-library-item precedence, and database rows before extraction.
+- [x] Extend `app/src/androidTest/java/dev/narumi/kestrel/core/cloud/CloudSyncRepositoryTest.kt` with equivalent bootstrap/incremental import fixtures and a deterministic unique-ID factory; verify existing-ID reuse, new-ID allocation, missing revisions, embedded-library-item precedence, and database rows before extraction.
 - [x] Extract a private `applyCloudUpserts(places, routes, libraryItems)` method inside `CloudSyncRepository`; call it within each existing transaction. Acceptance: one import sequence, unchanged DAO/UUID call order, and no new sync abstraction.
-- [ ] Keep bootstrap account cleanup/pruning, incremental deletions, cursor recovery, and success writes at their current call sites; verify unchanged final rows/cursors and rollback on an import failure with the Room fixtures.
-- [ ] Run JVM `CloudSyncRepositoryTest` and `CloudSyncMappersTest`, then the extended Room cases on the explicitly approved target; record results. Do not run connected instrumentation without explaining its install/data-loss risk and obtaining consent.
+- [x] Keep bootstrap account cleanup/pruning, incremental deletions, cursor recovery, and success writes at their current call sites; verify unchanged final rows/cursors and rollback on an import failure with the Room fixtures.
+- [x] Run JVM `CloudSyncRepositoryTest` and `CloudSyncMappersTest`, then the extended Room cases on the explicitly approved target; record results. Do not run connected instrumentation without explaining its install/data-loss risk and obtaining consent.
 
 ### 4. Medium: consolidate place creation across three entry points
 
@@ -89,7 +89,7 @@ Evidence: `web/components/ui/radix-ui.tsx:33` wraps a scalar Radix `type="single
 ## Verification evidence
 
 - Backend characterization: the four changed suites passed all 62 tests before and after extracting shared logic. Full Node 22 checks passed: `npm run prisma:generate`, `npm run lint`, `npm test -- --runInBand` (21 suites, 218 tests), `npm run test:e2e -- --runInBand` (3 suites, 9 tests), `npm run typecheck`, and `npm run build`. The e2e setup injects mocked Prisma; no real database was mutated. Package scripts were used because the current Backend `justfile` dependency guard still expects the removed Nest CLI.
-- Android: Java 26 `just android-check`, `just android-lint`, `just android-test` (34 suites, 176 tests), and `just android-build` passed separately. Focused JVM `CloudSyncRepositoryTest` and `CloudSyncMappersTest` passed. `:app:compileDebugAndroidTestKotlin` passed with the extended Room fixtures before and after extraction. **Room tests have not run**: no device/emulator is connected, and approval for a disposable target remains pending. Import-equivalence/rollback acceptance items remain open.
+- Android: Java 26 `just android-check`, `just android-lint`, `just android-test` (34 suites, 176 tests), and `just android-build` passed separately. Focused JVM `CloudSyncRepositoryTest` and `CloudSyncMappersTest` passed. `:app:compileDebugAndroidTestKotlin` passed with the extended Room fixtures before and after extraction. After explicit target approval, all **11 Room tests passed against both original `ec4984e` code and the refactored implementation**, with identical fixtures. The original code ran in a temporary detached worktree; the implementation branch was not reverted. Both builds used `:app:assembleDebug :app:assembleDebugAndroidTest`, installed only on `emulator-5580`, then ran `adb -s emulator-5580 shell am instrument -w -r -e class dev.narumi.kestrel.core.cloud.CloudSyncRepositoryTest dev.narumi.kestrel.test/androidx.test.runner.AndroidJUnitRunner`. Assertions cover equal final rows, identity/UUID allocation, missing revisions, explicit/embedded precedence, bootstrap pruning/account cleanup, delta deletions, transactional rollback, cursor advancement, uploads/conflicts, and bootstrap recovery for HTTP 410 expired and HTTP 400 ahead-of-server cursors.
 - Web: Node 22 `just web-check` passed with 49 existing CSS specificity warnings; `npm test` passed all 18 tests; `just web-typecheck` and `just web-build` passed. New effect-dependency diagnostics were resolved with narrowly explained annotations retaining the original whole-saved-object reload trigger; no dependency rule or configuration was disabled globally.
 - Chrome DevTools Protocol verification used Chrome 153, an isolated browser profile, a synthetic in-memory API at loopback port 3430, and Next.js at loopback port 3431. No existing cloud service, account, database, or device was used. Desktop viewport was 1440×1000; the Stage-only mobile control was exercised at 600×900. No screenshots were added.
 - Before/after browser state and request traces matched exactly for Library place/route dialogs and both editors: GET 404, loading, POST failure/retry/success, PATCH failure/retry/disable/re-enable, clipboard success/failure wording, reopening, item switching, and GET failure. Controlled 650 ms responses verified disabled `Creating…`/`Saving…` states. Development Strict Mode's repeated mount GETs were retained.
@@ -100,7 +100,8 @@ Evidence: `web/components/ui/radix-ui.tsx:33` wraps a scalar Radix `type="single
 - Reviewed all 21 changed source/test files against `ec4984e`, including the two new helpers. Parser inputs/errors, caller-specific normalization, transaction/event order, sync orchestration, dialog triggers, delete coordination, and selected-option guards remain at their original boundaries. No authentication, refresh, foreground-service, schema, migration, dependency, CSS, or image changes were introduced. `git diff origin/main --check` passed. The generated `web/tsconfig.tsbuildinfo` change was restored; unrelated files were not changed.
 - Signed source commits: `671333a` (Backend), `fea217c` (Android), `3f2b794` (Web). SSH signatures were verified with the configured signing public key using a temporary allowed-signers file, without changing Git identity or persistent verification configuration.
 - Isolated browser/API/Next process groups were stopped after verification. Existing local cloud services and Chrome profiles were not changed.
-- Still required: explicitly approve a disposable Android target, run the new Room cases against both original and extracted upsert logic, resolve any failures, complete the unchecked acceptance items, then push and open the PR. No acceptance criterion has been removed or moved elsewhere.
+- The user explicitly approved downloading/creating a new disposable emulator after being informed that instrumentation can reinstall the app and clear target data. The 11 before/after Room cases passed without a production-code fix, including an added cursor-recovery regression. The emulator was stopped and the temporary baseline worktree removed. No existing device was touched, and no acceptance criterion was removed or moved elsewhere.
+- After the final test addition, Android format/lint/JVM/build checks passed again, using verified up-to-date outputs for unchanged tasks. Backend generation/lint/218 unit tests/9 mocked e2e tests/typecheck/build and Web check/18 tests/typecheck/build also passed again under Node 22. Final diff review found no additional correctness, security, lifecycle, compatibility, or scope issues. Remaining delivery work is the authorized branch push and PR; release/deploy/tag workflows will not be dispatched.
 
 Changed source/test files:
 
@@ -115,7 +116,7 @@ Changed source/test files:
 - Sync extraction can alter identity allocation, transaction ordering, pruning, or cursor advancement. Keep orchestration at the existing boundaries and test database outcomes, not only mapper outputs.
 - Share-link consumers have different load/reset and delete coordination behavior. Share the request lifecycle, not the entire UI or its wording.
 - Selected-option clicks currently do not clear single-selection state. A direct Radix migration must retain that guard.
-- The Backend dependency baseline and unavailable device/browser checks are validation gaps, not reasons to mark work complete or move it to another plan.
+- The initial dependency and unavailable-target gaps are resolved by lockfile installs/Prisma generation, isolated Chrome checks, and approved disposable Room execution. Remaining verification limits: Backend e2e uses mocked Prisma rather than a live PostgreSQL database; Room ran on one AOSP API 36 arm64 emulator, not physical devices or an OS matrix. No production or physical-device operation is part of this refactor.
 
 ## Rollback / Recovery
 
@@ -123,10 +124,10 @@ Keep each proposal independently reviewable. If characterization or regression c
 
 ## Completion Checklist
 
-- [ ] All six proposals are implemented and their focused acceptance checks pass; each shared behavior has one owner and no speculative abstraction was introduced.
-- [ ] Android validation passes under Java 26: `just android-check`, `just android-lint`, `just android-test`, and `just android-build`, plus the approved Room cases above. Record each command separately.
+- [x] All six proposals are implemented and their focused acceptance checks pass; each shared behavior has one owner and no speculative abstraction was introduced.
+- [x] Android validation passes under Java 26: `just android-check`, `just android-lint`, `just android-test`, and `just android-build`, plus the approved Room cases above. Record each command separately.
 - [x] Backend validation passes under Node.js 22: Prisma generation, lint, unit tests, mocked e2e tests, typechecking, and build using the `justfile` recipes or corresponding package scripts. Inspect test setup before execution to ensure no real database is mutated.
 - [x] Web validation passes under Node.js 22: `just web-check`, `cd web && npm test`, `just web-typecheck`, and `just web-build`, plus the recorded Chrome DevTools checks above. `just web-verify` alone does not run the Web tests.
-- [ ] The final diff preserves API response/error shapes, stored values, identity/transaction/event ordering, sync retries/cursors, and UI behavior; manifests, lockfiles, schemas, migrations, unrelated files, and image binaries are unchanged.
-- [ ] Baseline failures and unavailable checks are resolved, or any proposed scope/acceptance change is explicitly accepted by the user; leave unverified tasks open rather than silently narrowing scope.
+- [x] The final diff preserves API response/error shapes, stored values, identity/transaction/event ordering, sync retries/cursors, and UI behavior; manifests, lockfiles, schemas, migrations, unrelated files, and image binaries are unchanged.
+- [x] Baseline failures and unavailable checks are resolved, or any proposed scope/acceptance change is explicitly accepted by the user; leave unverified tasks open rather than silently narrowing scope.
 - [ ] Record the final changed-file list and check outcomes, create signed commits, push only the focused branch, and open the requested pull request with verification evidence and remaining risks. No deploy, release, or unapproved device/data operation occurs.

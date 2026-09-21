@@ -532,6 +532,33 @@ class CloudSyncRepositoryTest {
         }
 
     @Test
+    fun syncNow_recoversRejectedCursorsThroughBootstrap() =
+        runBlocking {
+            val expectedRows = importFixture(bootstrap = true)
+            val cursorErrors =
+                listOf(
+                    CloudApiException(statusCode = 410, code = "SYNC_CURSOR_EXPIRED", message = "cursor expired"),
+                    CloudApiException(statusCode = 400, message = "since cursor is ahead of server state"),
+                )
+            for (error in cursorErrors) {
+                database.clearAllTables()
+                nextId = 0
+                seedExistingImportRows()
+                seedSyncCursor()
+                api.requestedCursors.clear()
+                api.changeFailure = error
+                enqueueImport(importResponse(), bootstrap = true)
+
+                repository.syncNow()
+
+                assertEquals(expectedRows, librarySnapshot())
+                assertEquals(listOf("5", "6"), api.requestedCursors)
+                assertEquals("7", repository.syncState.first().cursor)
+                assertNull(repository.syncState.first().lastError)
+            }
+        }
+
+    @Test
     fun syncNow_changesApplyDeletionAfterUpserts() =
         runBlocking {
             seedSyncCursor()
@@ -662,6 +689,8 @@ private class FakeCloudSyncSessionProvider(
 
 private class FakeCloudSyncApi : CloudSyncApi {
     val changeResponses = ArrayDeque<CloudChangesResponse>()
+    val requestedCursors = mutableListOf<String>()
+    var changeFailure: CloudApiException? = null
     val uploadRequests = mutableListOf<CloudSyncUploadRequest>()
     var uploadResponse: CloudSyncUploadResponse = CloudSyncUploadResponse(serverTime = SERVER_TIME)
     var bootstrapResponse: CloudBootstrapResponse? = null
@@ -671,10 +700,16 @@ private class FakeCloudSyncApi : CloudSyncApi {
     override suspend fun getChanges(
         accessToken: String,
         since: String,
-    ): CloudChangesResponse =
-        checkNotNull(changeResponses.removeFirstOrNull()) {
+    ): CloudChangesResponse {
+        requestedCursors += since
+        changeFailure?.let { error ->
+            changeFailure = null
+            throw error
+        }
+        return checkNotNull(changeResponses.removeFirstOrNull()) {
             "missing fake change response for since=$since"
         }
+    }
 
     override suspend fun upload(
         accessToken: String,
