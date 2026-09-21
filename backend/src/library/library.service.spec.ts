@@ -1,4 +1,8 @@
-import { BadRequestException, NotFoundException } from '../http/errors';
+import {
+  BadRequestException,
+  InternalServerErrorException,
+  NotFoundException,
+} from '../http/errors';
 import {
   LibraryItemKind,
   RouteMode,
@@ -180,6 +184,92 @@ describe('LibraryService', () => {
       name: 'Taipei',
       tags: ['city'],
     });
+  });
+
+  it('keeps direct-create normalization and appends after active items', async () => {
+    prismaService.libraryItem.findFirst.mockResolvedValue({ sortOrder: 7 });
+    prismaService.place.create.mockResolvedValue({ id: 'place-1' });
+    prismaService.libraryItem.create.mockResolvedValue({
+      id: 'library-item-1',
+    });
+    prismaService.place.findUniqueOrThrow.mockResolvedValue(
+      createPlaceRecord({
+        id: 'place-1',
+        libraryItemId: 'library-item-1',
+        sortOrder: 8,
+      }),
+    );
+
+    await libraryService.createPlace('user-1', {
+      name: '  Taipei  ',
+      latitude: 25,
+      longitude: 121,
+    });
+
+    expect(prismaService.libraryItem.findFirst).toHaveBeenCalledWith({
+      orderBy: [{ sortOrder: 'desc' }],
+      select: { sortOrder: true },
+      where: { deletedAt: null, userId: 'user-1' },
+    });
+    expect(prismaService.place.create).toHaveBeenCalledWith({
+      data: {
+        name: 'Taipei',
+        description: null,
+        latitude: 25,
+        longitude: 121,
+        tags: [],
+        userId: 'user-1',
+      },
+      select: { id: true },
+    });
+    expect(prismaService.libraryItem.create).toHaveBeenCalledWith({
+      data: {
+        kind: LibraryItemKind.PLACE,
+        placeId: 'place-1',
+        sortOrder: 8,
+        userId: 'user-1',
+      },
+      select: { id: true },
+    });
+    const calls = [
+      prismaService.libraryItem.findFirst.mock.invocationCallOrder[0],
+      prismaService.place.create.mock.invocationCallOrder[0],
+      prismaService.libraryItem.create.mock.invocationCallOrder[0],
+      ...prismaService.syncEvent.create.mock.invocationCallOrder,
+      prismaService.place.findUniqueOrThrow.mock.invocationCallOrder[0],
+    ];
+    expect(calls).toEqual([...calls].sort((a, b) => a - b));
+    expectSyncEvents(prismaService.syncEvent.create, [
+      {
+        entityId: 'place-1',
+        entityType: SyncEntityType.PLACE,
+        operation: SyncOperation.UPSERT,
+        userId: 'user-1',
+      },
+      {
+        entityId: 'library-item-1',
+        entityType: SyncEntityType.LIBRARY_ITEM,
+        operation: SyncOperation.UPSERT,
+        userId: 'user-1',
+      },
+    ]);
+  });
+
+  it('propagates place-creation transaction failures without loading a response', async () => {
+    prismaService.libraryItem.findFirst.mockResolvedValue(null);
+    prismaService.place.create.mockResolvedValue({ id: 'place-1' });
+    prismaService.libraryItem.create.mockRejectedValue(
+      new Error('insertion failed'),
+    );
+    await expect(
+      libraryService.createPlace('user-1', {
+        name: 'Taipei',
+        latitude: 25,
+        longitude: 121,
+      }),
+    ).rejects.toThrow('insertion failed');
+    expect(prismaService.syncEvent.create).not.toHaveBeenCalled();
+    expect(prismaService.place.findUniqueOrThrow).not.toHaveBeenCalled();
   });
 
   it('increments the library item version when updating a place', async () => {
@@ -521,6 +611,119 @@ describe('LibraryService', () => {
       },
     ]);
   });
+
+  it('sorts stored waypoints before reindexing an update and preserves missing metadata', async () => {
+    const existingRoute = createRouteRecord({
+      defaultSpeedKmh: 0,
+      id: 'route-1',
+      libraryItemId: 'item-1',
+      mode: RouteMode.ONCE,
+      revisionId: 'revision-1',
+      revisionNumber: 4,
+    });
+    existingRoute.currentRevision.payload.waypoints = [
+      {
+        latitude: 25,
+        longitude: 121,
+        sequence: 9,
+        pauseSeconds: null,
+        speedKmh: null,
+      },
+      { latitude: 100, longitude: 121, sequence: -1 },
+    ] as never;
+    prismaService.route.findFirst.mockResolvedValue(existingRoute);
+    prismaService.routeRevision.create.mockResolvedValue({ id: 'revision-2' });
+    prismaService.route.findUniqueOrThrow.mockResolvedValue(existingRoute);
+
+    await libraryService.updateRoute('user-1', 'route-1', { name: 'Renamed' });
+
+    expect(prismaService.routeRevision.create).toHaveBeenCalledWith({
+      data: {
+        createdBy: 'user-1',
+        revisionNumber: 5,
+        routeId: 'route-1',
+        payload: {
+          defaultSpeedKmh: 0,
+          mode: RouteMode.ONCE,
+          waypoints: [
+            {
+              latitude: 100,
+              longitude: 121,
+              sequence: 0,
+              pauseSeconds: undefined,
+              speedKmh: undefined,
+            },
+            {
+              latitude: 25,
+              longitude: 121,
+              sequence: 1,
+              pauseSeconds: null,
+              speedKmh: null,
+            },
+          ],
+        },
+      },
+      select: { id: true },
+    });
+  });
+
+  it.each([
+    [null, 'stored route revision payload is invalid'],
+    [[], 'stored route revision payload is invalid'],
+    [
+      { defaultSpeedKmh: 5, mode: 'once', waypoints: [] },
+      'stored route revision payload is invalid',
+    ],
+    [
+      { defaultSpeedKmh: Infinity, mode: 'ONCE', waypoints: [] },
+      'stored route revision payload is invalid',
+    ],
+    [
+      { defaultSpeedKmh: 5, mode: 'ONCE', waypoints: [null] },
+      'stored route waypoint 0 is invalid',
+    ],
+    [
+      {
+        defaultSpeedKmh: 5,
+        mode: 'ONCE',
+        waypoints: [{ latitude: 25, longitude: 121, sequence: 0.5 }],
+      },
+      'stored route waypoint 0 is invalid',
+    ],
+    [
+      {
+        defaultSpeedKmh: 5,
+        mode: 'ONCE',
+        waypoints: [
+          { latitude: 25, longitude: 121, sequence: 0, speedKmh: '5' },
+        ],
+      },
+      'stored route waypoint 0 is invalid',
+    ],
+  ])(
+    'rejects malformed stored data before creating a revision (%j)',
+    async (payload, message) => {
+      const existingRoute = createRouteRecord({
+        defaultSpeedKmh: 5,
+        id: 'route-1',
+        libraryItemId: 'item-1',
+        mode: RouteMode.ONCE,
+        revisionId: 'revision-1',
+        revisionNumber: 1,
+      });
+      existingRoute.currentRevision.payload = payload as never;
+      prismaService.route.findFirst.mockResolvedValue(existingRoute);
+      await expect(
+        libraryService.updateRoute('user-1', 'route-1', { name: 'Renamed' }),
+      ).rejects.toThrow(InternalServerErrorException);
+      await expect(
+        libraryService.updateRoute('user-1', 'route-1', { name: 'Renamed' }),
+      ).rejects.toThrow(message);
+      expect(prismaService.routeRevision.create).not.toHaveBeenCalled();
+      expect(prismaService.route.update).not.toHaveBeenCalled();
+      expect(prismaService.syncEvent.create).not.toHaveBeenCalled();
+    },
+  );
 
   it('soft deletes a route and its library item', async () => {
     prismaService.route.findFirst.mockResolvedValue({

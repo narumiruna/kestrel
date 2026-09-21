@@ -513,11 +513,11 @@ export default function RouteEditor({
             <span>Playback mode</span>
             <ToggleGroup
               aria-label="Playback mode"
-              value={[draft.mode]}
-              onValueChange={(values) => {
-                const mode = values.at(-1) as RouteMode | undefined;
-                if (mode != null) {
-                  updateState((state) => setRouteDraftField(state, 'mode', mode));
+              type="single"
+              value={draft.mode}
+              onValueChange={(mode) => {
+                if (mode !== '') {
+                  updateState((state) => setRouteDraftField(state, 'mode', mode as RouteMode));
                 }
               }}
             >

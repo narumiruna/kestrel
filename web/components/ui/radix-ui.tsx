@@ -30,34 +30,7 @@ export const TextArea = RadixTextArea;
 export const TextInput = TextField.Root;
 export const Toggle = RadixToggleGroup.Item;
 
-export function ToggleGroup({
-  'aria-label': ariaLabel,
-  children,
-  className,
-  disabled,
-  onValueChange,
-  value,
-}: {
-  'aria-label': string;
-  children: ReactNode;
-  className?: string;
-  disabled?: boolean;
-  onValueChange: (value: string[]) => void;
-  value: string[];
-}) {
-  return (
-    <RadixToggleGroup.Root
-      aria-label={ariaLabel}
-      className={className}
-      disabled={disabled}
-      type="single"
-      value={value.at(-1)}
-      onValueChange={(nextValue) => onValueChange(nextValue.length === 0 ? [] : [nextValue])}
-    >
-      {children}
-    </RadixToggleGroup.Root>
-  );
-}
+export const ToggleGroup = RadixToggleGroup.Root;
 
 function TabsIndicator(_props: { className?: string }) {
   return null;

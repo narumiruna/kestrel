@@ -1,11 +1,6 @@
 import { BadRequestException, ConflictException } from '../http/errors';
 import { createHash } from 'node:crypto';
-import {
-  LibraryItemKind,
-  SyncEntityType,
-  SyncOperation,
-  type Prisma,
-} from '@prisma/client';
+import { SyncEntityType, SyncOperation, type Prisma } from '@prisma/client';
 import {
   libraryItemSelect,
   mapLibraryItem,
@@ -14,6 +9,7 @@ import {
   placeSelect,
   routeSelect,
 } from '../library/library.models';
+import { createPlaceWithLibraryItem } from '../library/library-writes';
 import { PrismaService } from '../prisma/prisma.service';
 import { throwSyncCursorExpired } from './sync.validation';
 
@@ -309,48 +305,13 @@ export class SyncService {
   ): Promise<SyncUploadItemResult> {
     const placeInput = requireUploadPlace(change);
     return this.prismaService.$transaction(async (tx) => {
-      const sortOrder = await getNextSortOrder(tx, userId);
-      const place = await tx.place.create({
-        data: {
-          description: placeInput.description,
-          latitude: placeInput.latitude,
-          longitude: placeInput.longitude,
-          name: placeInput.name,
-          tags: placeInput.tags ?? [],
-          userId,
-        },
-        select: {
-          id: true,
-        },
+      const { placeId } = await createPlaceWithLibraryItem(tx, userId, {
+        ...placeInput,
+        tags: placeInput.tags ?? [],
       });
-      const libraryItem = await tx.libraryItem.create({
-        data: {
-          kind: LibraryItemKind.PLACE,
-          placeId: place.id,
-          sortOrder,
-          userId,
-        },
-        select: {
-          id: true,
-        },
-      });
-      await recordSyncEvent(
-        tx,
-        userId,
-        SyncEntityType.PLACE,
-        place.id,
-        SyncOperation.UPSERT,
-      );
-      await recordSyncEvent(
-        tx,
-        userId,
-        SyncEntityType.LIBRARY_ITEM,
-        libraryItem.id,
-        SyncOperation.UPSERT,
-      );
       return uploadedResult(
         change.clientMutationId,
-        await loadPlaceSnapshot(tx, userId, place.id),
+        await loadPlaceSnapshot(tx, userId, placeId),
       );
     });
   }
@@ -628,24 +589,6 @@ function requireRemotePlaceId(change: UploadChange): string {
     throw new BadRequestException('remotePlaceId is required');
   }
   return change.remotePlaceId;
-}
-
-async function getNextSortOrder(
-  prisma: Prisma.TransactionClient,
-  userId: string,
-): Promise<number> {
-  const latestItem = await prisma.libraryItem.findFirst({
-    orderBy: [{ sortOrder: 'desc' }],
-    select: {
-      sortOrder: true,
-    },
-    where: {
-      deletedAt: null,
-      userId,
-    },
-  });
-
-  return latestItem == null ? 0 : latestItem.sortOrder + 1;
 }
 
 async function loadPlaceSnapshot(

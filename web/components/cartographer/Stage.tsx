@@ -58,11 +58,11 @@ export function Stage({
           <ToggleGroup
             aria-label="Map panel view"
             className="mobile-workspace-actions"
-            value={[mobilePanel]}
-            onValueChange={(values) => {
-              const nextPanel = values.at(-1) as MobileWorkspacePanel | undefined;
-              if (nextPanel != null) {
-                onMobilePanelChange(nextPanel);
+            type="single"
+            value={mobilePanel}
+            onValueChange={(nextPanel) => {
+              if (nextPanel !== '') {
+                onMobilePanelChange(nextPanel as MobileWorkspacePanel);
               }
             }}
           >

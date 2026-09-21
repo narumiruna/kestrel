@@ -169,45 +169,7 @@ class CloudSyncRepository internal constructor(
                 clearAllSyncedRows()
             }
 
-            val resolvedPlaceIds = mutableMapOf<String, String>()
-            val resolvedRouteIds = mutableMapOf<String, String>()
-            val routeRows = mutableListOf<CloudRouteSyncRows>()
-
-            val placeEntities =
-                response.places.map { place ->
-                    val localId = dao.findPlaceIdByRemoteId(place.id) ?: uuidFactory()
-                    resolvedPlaceIds[place.id] = localId
-                    place.toPlaceEntity(localId)
-                }
-            if (placeEntities.isNotEmpty()) {
-                dao.upsertPlaces(placeEntities)
-            }
-
-            response.routes.forEach { route ->
-                val currentRevision = route.currentRevision ?: return@forEach
-                val localRouteId = dao.findRouteIdByRemoteId(route.id) ?: uuidFactory()
-                val localRevisionId = dao.findRouteRevisionIdByRemoteId(currentRevision.id) ?: uuidFactory()
-                resolvedRouteIds[route.id] = localRouteId
-                routeRows +=
-                    route.toRouteSyncRows(
-                        routeId = localRouteId,
-                        revisionId = localRevisionId,
-                        waypointIdFactory = uuidFactory,
-                    )
-            }
-            upsertRouteRows(routeRows)
-
-            val libraryItemEntities =
-                buildLibraryItemEntities(
-                    places = response.places,
-                    routes = response.routes,
-                    libraryItems = response.libraryItems,
-                    resolvedPlaceIds = resolvedPlaceIds,
-                    resolvedRouteIds = resolvedRouteIds,
-                )
-            if (libraryItemEntities.isNotEmpty()) {
-                dao.upsertLibraryItems(libraryItemEntities)
-            }
+            applyCloudUpserts(response.places, response.routes, response.libraryItems)
 
             pruneMissingSyncedRows(
                 placeRemoteIds = response.places.map(CloudPlacePayload::id),
@@ -228,45 +190,7 @@ class CloudSyncRepository internal constructor(
         try {
             val response = withAuthorizedSession { apiClient.getChanges(it.accessToken, cursor) }
             database.withTransaction {
-                val resolvedPlaceIds = mutableMapOf<String, String>()
-                val resolvedRouteIds = mutableMapOf<String, String>()
-
-                val placeEntities =
-                    response.places.map { place ->
-                        val localId = dao.findPlaceIdByRemoteId(place.id) ?: uuidFactory()
-                        resolvedPlaceIds[place.id] = localId
-                        place.toPlaceEntity(localId)
-                    }
-                if (placeEntities.isNotEmpty()) {
-                    dao.upsertPlaces(placeEntities)
-                }
-
-                val routeRows = mutableListOf<CloudRouteSyncRows>()
-                response.routes.forEach { route ->
-                    val currentRevision = route.currentRevision ?: return@forEach
-                    val localRouteId = dao.findRouteIdByRemoteId(route.id) ?: uuidFactory()
-                    val localRevisionId = dao.findRouteRevisionIdByRemoteId(currentRevision.id) ?: uuidFactory()
-                    resolvedRouteIds[route.id] = localRouteId
-                    routeRows +=
-                        route.toRouteSyncRows(
-                            routeId = localRouteId,
-                            revisionId = localRevisionId,
-                            waypointIdFactory = uuidFactory,
-                        )
-                }
-                upsertRouteRows(routeRows)
-
-                val libraryItemEntities =
-                    buildLibraryItemEntities(
-                        places = response.places,
-                        routes = response.routes,
-                        libraryItems = response.libraryItems,
-                        resolvedPlaceIds = resolvedPlaceIds,
-                        resolvedRouteIds = resolvedRouteIds,
-                    )
-                if (libraryItemEntities.isNotEmpty()) {
-                    dao.upsertLibraryItems(libraryItemEntities)
-                }
+                applyCloudUpserts(response.places, response.routes, response.libraryItems)
 
                 response.deletions.forEach { deletion ->
                     when (deletion.entityType) {
@@ -293,6 +217,52 @@ class CloudSyncRepository internal constructor(
                 return
             }
             throw error
+        }
+    }
+
+    // Runs inside the caller's transaction; bootstrap pruning and delta deletions stay separate.
+    private suspend fun applyCloudUpserts(
+        places: List<CloudPlacePayload>,
+        routes: List<CloudRoutePayload>,
+        libraryItems: List<CloudLibraryItemPayload>,
+    ) {
+        val resolvedPlaceIds = mutableMapOf<String, String>()
+        val resolvedRouteIds = mutableMapOf<String, String>()
+        val placeEntities =
+            places.map { place ->
+                val localId = dao.findPlaceIdByRemoteId(place.id) ?: uuidFactory()
+                resolvedPlaceIds[place.id] = localId
+                place.toPlaceEntity(localId)
+            }
+        if (placeEntities.isNotEmpty()) {
+            dao.upsertPlaces(placeEntities)
+        }
+
+        val routeRows = mutableListOf<CloudRouteSyncRows>()
+        routes.forEach { route ->
+            val currentRevision = route.currentRevision ?: return@forEach
+            val localRouteId = dao.findRouteIdByRemoteId(route.id) ?: uuidFactory()
+            val localRevisionId = dao.findRouteRevisionIdByRemoteId(currentRevision.id) ?: uuidFactory()
+            resolvedRouteIds[route.id] = localRouteId
+            routeRows +=
+                route.toRouteSyncRows(
+                    routeId = localRouteId,
+                    revisionId = localRevisionId,
+                    waypointIdFactory = uuidFactory,
+                )
+        }
+        upsertRouteRows(routeRows)
+
+        val libraryItemEntities =
+            buildLibraryItemEntities(
+                places = places,
+                routes = routes,
+                libraryItems = libraryItems,
+                resolvedPlaceIds = resolvedPlaceIds,
+                resolvedRouteIds = resolvedRouteIds,
+            )
+        if (libraryItemEntities.isNotEmpty()) {
+            dao.upsertLibraryItems(libraryItemEntities)
         }
     }
 

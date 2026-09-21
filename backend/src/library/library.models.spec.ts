@@ -1,5 +1,84 @@
 import { RouteMode } from '@prisma/client';
-import { mapRoute } from './library.models';
+import { InternalServerErrorException } from '../http/errors';
+import { mapRoute, mapRouteRevision } from './library.models';
+
+describe('mapRouteRevision stored payload contract', () => {
+  const waypoint = { latitude: 25, longitude: 121, sequence: 0 };
+  const payload = {
+    defaultSpeedKmh: 0,
+    mode: RouteMode.ONCE,
+    waypoints: [waypoint],
+  };
+  const revision = {
+    createdAt: new Date('2026-06-27T00:00:00.000Z'),
+    createdBy: 'user-1',
+    id: 'revision-1',
+    revisionNumber: 1,
+  };
+
+  it('retains missing versus null metadata without applying request limits', () => {
+    const result = mapRouteRevision({
+      ...revision,
+      payload: {
+        ...payload,
+        waypoints: [
+          { ...waypoint, sequence: 9, pauseSeconds: null, speedKmh: null },
+          { ...waypoint, latitude: 100, sequence: -1 },
+        ],
+      },
+    });
+
+    expect(result.defaultSpeedKmh).toBe(0);
+    expect(result.waypoints).toStrictEqual([
+      {
+        ...waypoint,
+        latitude: 100,
+        sequence: -1,
+        pauseSeconds: undefined,
+        speedKmh: undefined,
+      },
+      { ...waypoint, sequence: 9, pauseSeconds: null, speedKmh: null },
+    ]);
+  });
+
+  it.each([
+    [null, 'stored route revision payload is invalid'],
+    [[], 'stored route revision payload is invalid'],
+    [{ ...payload, mode: 'once' }, 'stored route revision payload is invalid'],
+    [
+      { ...payload, defaultSpeedKmh: Infinity },
+      'stored route revision payload is invalid',
+    ],
+    [
+      { ...payload, waypoints: null },
+      'stored route revision payload is invalid',
+    ],
+    [{ ...payload, waypoints: [null] }, 'stored route waypoint 0 is invalid'],
+    [
+      { ...payload, waypoints: [{ ...waypoint, sequence: 0.5 }] },
+      'stored route waypoint 0 is invalid',
+    ],
+    [
+      { ...payload, waypoints: [{ ...waypoint, latitude: NaN }] },
+      'stored route waypoint 0 is invalid',
+    ],
+    [
+      { ...payload, waypoints: [{ ...waypoint, pauseSeconds: '1' }] },
+      'stored route waypoint 0 is invalid',
+    ],
+    [
+      { ...payload, waypoints: [{ ...waypoint, speedKmh: Infinity }] },
+      'stored route waypoint 0 is invalid',
+    ],
+  ])(
+    'rejects malformed stored data without changing its error (%j)',
+    (value, message) => {
+      const parse = () => mapRouteRevision({ ...revision, payload: value });
+      expect(parse).toThrow(InternalServerErrorException);
+      expect(parse).toThrow(message);
+    },
+  );
+});
 
 describe('mapRoute', () => {
   it('orders stored waypoints by sequence', () => {

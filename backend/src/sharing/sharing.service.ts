@@ -19,6 +19,10 @@ import {
   routeRevisionSelect,
   routeSelect,
 } from '../library/library.models';
+import {
+  createPlaceWithLibraryItem,
+  getNextSortOrder,
+} from '../library/library-writes';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   mapPublicShareLink,
@@ -429,49 +433,11 @@ async function copySharedPlace(
   shareLink: PublicShareRecord,
 ) {
   const sharedPlace = sanitizePublicPlace(selectVisiblePlace(shareLink));
-  const sortOrder = await getNextSortOrder(tx, userId);
-  const createdPlace = await tx.place.create({
-    data: {
-      description: sharedPlace.description,
-      latitude: sharedPlace.latitude,
-      longitude: sharedPlace.longitude,
-      name: sharedPlace.name,
-      tags: sharedPlace.tags,
-      userId,
-    },
-    select: {
-      id: true,
-    },
-  });
-  const libraryItem = await tx.libraryItem.create({
-    data: {
-      kind: LibraryItemKind.PLACE,
-      placeId: createdPlace.id,
-      sortOrder,
-      userId,
-    },
-    select: {
-      id: true,
-    },
-  });
-
-  await recordSyncEvent(tx, {
-    entityId: createdPlace.id,
-    entityType: SyncEntityType.PLACE,
-    operation: SyncOperation.UPSERT,
-    userId,
-  });
-  await recordSyncEvent(tx, {
-    entityId: libraryItem.id,
-    entityType: SyncEntityType.LIBRARY_ITEM,
-    operation: SyncOperation.UPSERT,
-    userId,
-  });
-
+  const { placeId } = await createPlaceWithLibraryItem(tx, userId, sharedPlace);
   const copiedPlace = await tx.place.findUniqueOrThrow({
     select: placeSelect,
     where: {
-      id: createdPlace.id,
+      id: placeId,
     },
   });
 
@@ -731,24 +697,6 @@ function parseStoredTags(tags: Prisma.JsonValue): string[] {
   }
 
   return tags;
-}
-
-async function getNextSortOrder(
-  prisma: Prisma.TransactionClient,
-  userId: string,
-): Promise<number> {
-  const latestItem = await prisma.libraryItem.findFirst({
-    orderBy: [{ sortOrder: 'desc' }],
-    select: {
-      sortOrder: true,
-    },
-    where: {
-      deletedAt: null,
-      userId,
-    },
-  });
-
-  return latestItem == null ? 0 : latestItem.sortOrder + 1;
 }
 
 function createRouteRevisionPayload(
