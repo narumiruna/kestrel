@@ -438,11 +438,14 @@
   padding: 11px 12px;
 }
 
-.route-save-panel.is-sticky {
-  bottom: 0;
-  box-shadow: 0 -10px 24px rgb(34 24 15 / 10%);
-  position: sticky;
+.route-save-footer {
+  flex: 0 0 auto;
+  padding: 12px 2px 2px;
   z-index: 12;
+}
+
+.route-save-footer .route-save-panel {
+  box-shadow: 0 -10px 24px rgb(34 24 15 / 10%);
 }
 
 .route-save-status {
@@ -716,6 +719,13 @@
 @media (max-width: 1023px) {
   .route-editor-redesign .route-editor-content {
     overflow: visible;
+  }
+
+  .route-save-footer {
+    background: var(--bg-surface);
+    bottom: 0;
+    padding-bottom: max(2px, env(safe-area-inset-bottom));
+    position: sticky;
   }
 
   .route-editor-save-buttons button,

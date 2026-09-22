@@ -153,6 +153,43 @@ export default function RouteEditor({
     saveNotice,
     validationReason: validation.saveDisabledReason,
   });
+  const savePanel = (
+    <div className="route-save-panel">
+      <div
+        className={`route-save-status route-save-status-${savePresentation.status}`}
+        aria-live="polite"
+        role={savePresentation.status === 'error' ? 'alert' : 'status'}
+      >
+        <strong>{savePresentation.title}</strong>
+        {savePresentation.detail == null ? null : <span>{savePresentation.detail}</span>}
+      </div>
+      {savePresentation.showDiscard || savePresentation.showSaveButton ? (
+        <div className="route-editor-save-buttons">
+          {savePresentation.showDiscard ? (
+            <Button
+              className="secondary"
+              disabled={isSaving}
+              type="button"
+              onClick={() => {
+                setDraftState(resetRouteDraft);
+                onSelectedWaypointIndexChange?.(null);
+                onFocusTargetChange?.(null);
+                setError(null);
+                setSaveNotice(null);
+              }}
+            >
+              Discard
+            </Button>
+          ) : null}
+          {savePresentation.showSaveButton ? (
+            <Button disabled={isSaving || !validation.isValid || !isDirty} type="submit">
+              {isSaving ? 'Saving…' : 'Save route'}
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
 
   useEffect(() => {
     if (selectedWaypointIndex != null && selectedWaypointIndex >= draft.waypoints.length) {
@@ -555,41 +592,7 @@ export default function RouteEditor({
               Save manually, then share or play the intended snapshot.
             </p>
           </div>
-          <div className={`route-save-panel${savePresentation.showStickyBar ? ' is-sticky' : ''}`}>
-            <div
-              className={`route-save-status route-save-status-${savePresentation.status}`}
-              aria-live="polite"
-              role={savePresentation.status === 'error' ? 'alert' : 'status'}
-            >
-              <strong>{savePresentation.title}</strong>
-              {savePresentation.detail == null ? null : <span>{savePresentation.detail}</span>}
-            </div>
-            {savePresentation.showDiscard || savePresentation.showSaveButton ? (
-              <div className="route-editor-save-buttons">
-                {savePresentation.showDiscard ? (
-                  <Button
-                    className="secondary"
-                    disabled={isSaving}
-                    type="button"
-                    onClick={() => {
-                      setDraftState(resetRouteDraft);
-                      onSelectedWaypointIndexChange?.(null);
-                      onFocusTargetChange?.(null);
-                      setError(null);
-                      setSaveNotice(null);
-                    }}
-                  >
-                    Discard
-                  </Button>
-                ) : null}
-                {savePresentation.showSaveButton ? (
-                  <Button disabled={isSaving || !validation.isValid || !isDirty} type="submit">
-                    {isSaving ? 'Saving…' : 'Save route'}
-                  </Button>
-                ) : null}
-              </div>
-            ) : null}
-          </div>
+          {savePresentation.showStickyBar ? null : savePanel}
           {route == null ? (
             <p className="route-use-note no-margin">
               Save this route once to enable device playback and sharing.
@@ -623,6 +626,10 @@ export default function RouteEditor({
           )}
         </section>
       </div>
+
+      {savePresentation.showStickyBar ? (
+        <footer className="route-save-footer">{savePanel}</footer>
+      ) : null}
 
       <DialogFrame
         className="place-action-dialog-card"
