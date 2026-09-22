@@ -152,6 +152,7 @@ replay_pid*
 # Scalable Vector Graphics
 *.svg
 *.svgz
+!web/app/icon.svg
 
 # Portable Document Format
 *.pdf
