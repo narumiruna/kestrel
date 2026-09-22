@@ -27,7 +27,8 @@ import {
   formatRouteDistanceFromWaypoints,
 } from '@/components/dashboard/utils';
 import { DEFAULT_MAP_CENTER } from '@/components/mapStyle';
-import { Cross2Icon, MagnifyingGlassIcon } from '@/components/ui/icons';
+import type { RouteMapCapability } from '@/components/routeMapCapability';
+import { CheckIcon, Cross2Icon, MagnifyingGlassIcon, PlusIcon } from '@/components/ui/icons';
 import { Button, ConfirmDialog, TextInput, Toggle, ToggleGroup } from '@/components/ui/radix-ui';
 import { WorkspaceHeader } from '@/components/WorkspaceHeader';
 import type { Place, PlaceInput, Route, RouteInput, RouteWaypoint } from '@/lib/api';
@@ -90,6 +91,7 @@ export default function DashboardMapPage() {
   const [focusTarget, setFocusTarget] = useState<RouteWaypoint | null>(null);
   const [fitRequest, setFitRequest] = useState(0);
   const [isNewRoute, setIsNewRoute] = useState(false);
+  const [routeMapCapability, setRouteMapCapability] = useState<RouteMapCapability>('loading');
   const [draftPlaceCoords, setDraftPlaceCoords] = useState<Coordinates | null>(null);
   const [isPlaceDirty, setIsPlaceDirty] = useState(false);
   const [isNewPlace, setIsNewPlace] = useState(false);
@@ -405,6 +407,7 @@ export default function DashboardMapPage() {
         hoveredWaypointIndex={hoveredWaypointIndex}
         selectedWaypointIndex={selectedWaypointIndex}
         waypoints={draftWaypoints}
+        onCapabilityChange={setRouteMapCapability}
         onChange={(waypoints) => setRouteDraftState((state) => replaceRoutePath(state, waypoints))}
         onHoverWaypoint={setHoveredWaypointIndex}
         onReady={setViewportControls}
@@ -431,11 +434,6 @@ export default function DashboardMapPage() {
       workspace="map"
       onMobilePanelChange={setMobilePanel}
       onToggleLeftPanel={() => setIsLibraryCollapsed((current) => !current)}
-      onToggleMapFocus={() => {
-        const shouldRestorePanels = isLibraryCollapsed && isInspectorCollapsed;
-        setIsLibraryCollapsed(!shouldRestorePanels);
-        setIsInspectorCollapsed(!shouldRestorePanels);
-      }}
       onToggleRightPanel={() => setIsInspectorCollapsed((current) => !current)}
     >
       <WorkspaceHeader
@@ -488,6 +486,7 @@ export default function DashboardMapPage() {
               places={places}
               placesError={placesError}
               route={isNewRoute ? null : selectedRoute}
+              routeMapCapability={routeMapCapability}
               selectedWaypointIndex={selectedWaypointIndex}
               setDraftState={setRouteDraftState}
               onBeforeNavigateAway={() => {
@@ -559,11 +558,18 @@ export default function DashboardMapPage() {
         </IndexCard>
       )}
       <ZoomStack
+        disabled={activeKind === 'routes' && routeMapCapability !== 'ready'}
+        isMapFocused={isLibraryCollapsed && isInspectorCollapsed}
         onFit={() => viewportControls?.fit()}
+        onToggleMapFocus={() => {
+          const shouldRestorePanels = isLibraryCollapsed && isInspectorCollapsed;
+          setIsLibraryCollapsed(!shouldRestorePanels);
+          setIsInspectorCollapsed(!shouldRestorePanels);
+        }}
         onZoomIn={() => viewportControls?.zoomIn()}
         onZoomOut={() => viewportControls?.zoomOut()}
       />
-      <ScaleBar />
+      <ScaleBar hidden={activeKind === 'routes' && routeMapCapability !== 'ready'} />
       <KeyboardCheatsheet isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
       <ConfirmDialog
         cancelLabel="Keep editing"
@@ -678,11 +684,11 @@ function MapLibraryPanel({
         </label>
         <Button
           aria-label={`New ${activeKind === 'places' ? 'place' : 'route'}`}
-          className="secondary map-picker-new"
+          className="map-picker-new"
           type="button"
           onClick={onNew}
         >
-          New
+          <PlusIcon aria-hidden /> New {activeKind === 'places' ? 'place' : 'route'}
         </Button>
       </div>
       <div className="notebook-list" aria-busy={isLoading}>
@@ -698,7 +704,7 @@ function MapLibraryPanel({
               >
                 {selectedPlaceId === place.id ? (
                   <span aria-hidden className="notebook-entry-selected-mark">
-                    ✓
+                    <CheckIcon />
                   </span>
                 ) : null}
                 <strong>{place.name}</strong>
@@ -717,7 +723,7 @@ function MapLibraryPanel({
               >
                 {selectedRouteId === route.id ? (
                   <span aria-hidden className="notebook-entry-selected-mark">
-                    ✓
+                    <CheckIcon />
                   </span>
                 ) : null}
                 <strong className="route-card-title">{route.name}</strong>

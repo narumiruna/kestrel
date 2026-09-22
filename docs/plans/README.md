@@ -7,7 +7,7 @@ Top-level `*-plan.md` files are active. Closed or superseded plans live in `arch
 - `2026-09-12_android-favorites-preview-polish-plan.md` — searchable, scrollable Favorites and direct preview saving are implemented; retained for development on another computer, with Emulator verification pending and screenshot comparison awaiting approved reference images.
 - `2026-08-09_android-app-workflow-redesign-plan.md` — redesign the Android app around previewable, confirmable mock-location workflows while preserving runtime, stored-data, cloud, remote-control, responsive, and accessibility behavior.
 
-The Justfile workflow refinement, Web UI/UX optimization loop, Web Map workspace/route-inspector plans, 2026-08-10 Web Route editor redesign, and the 2026-07-15 Options, Favorites, Web Library, and cross-platform UI regression plans are complete and archived in `archived/`.
+The Justfile workflow refinement, Web UI/UX optimization loop, Web Map workspace/route-inspector plans, 2026-08-10 Web Route editor redesign, 2026-09-22 Route workspace UI review, and the 2026-07-15 Options, Favorites, Web Library, and cross-platform UI regression plans are complete and archived in `archived/`.
 
 ## Security references
 

@@ -9,24 +9,25 @@ Kestrel Cloud uses two workspaces:
 
 Open **Map → Routes**, then select a saved route or choose **New**.
 
-A route draft has four parts:
+A route draft follows one task sequence:
 
-1. **Route name and status** — waypoint count, distance, speed, mode, and saved revision.
-2. **Path** — the ordered waypoints shown on the map.
-3. **Playback** — default speed and Once, Loop, or Ping-pong behavior.
-4. **More details** — description and the compatibility visibility flag.
+1. **Path** — add, select, and manage the ordered waypoints shown on the map.
+2. **Playback** — choose the default speed and Once, Loop, or Ping-pong behavior.
+3. **Save & use** — save manually, then play the intended snapshot on Android or share the saved revision.
 
-The map is a live preview of the draft. Nothing is written to the cloud until **Save route** succeeds.
+Route name and compact status stay above the sequence. Optional description and compatibility visibility remain under **More details**.
+
+The map is a live preview of the draft. Kestrel does not auto-save routes: nothing is written to the cloud until **Save route** succeeds. A new route says **Not saved yet**, a changed route says **Unsaved changes** or **Not ready to save**, and a clean existing route shows its saved cloud revision without a disabled Save button.
 
 ## Add and edit waypoints
 
 You can build the same path with pointer, touch, or keyboard:
 
-- Click the map to append a waypoint.
-- Choose **Saved place** to append a Place from the cloud library.
+- Click the map to append a waypoint when the route preview is ready.
+- Choose **Saved place** to open a searchable dialog and append a Place from the cloud library.
 - Choose **Coordinates** to add an exact latitude and longitude without using the map.
 - Drag a numbered map marker to move it.
-- Select a marker to move, edit, or remove that waypoint precisely.
+- Select a marker to move, edit, or remove that waypoint precisely. Every editable marker keeps its number visible; Start is circular and End has a squared flag-like shape in addition to their color difference.
 - Open **Manage all waypoints** to reorder, duplicate, edit, or remove any row.
 
 Routes require 2–1000 waypoints. Latitude must be from −90 to 90 and longitude from −180 to 180.
@@ -61,9 +62,9 @@ Default speed must be a finite number greater than zero.
 
 These actions intentionally use different snapshots:
 
-- **Save route** writes the current draft as the next cloud revision.
-- **Share** exposes the latest successfully saved revision. The dialog warns when unsaved changes are excluded.
-- **Device** previews the current route command before sending it, including whether it uses an unsaved draft, waypoint count, distance, speed, mode, target device, and whether it replaces an active mock.
+- **Save route** writes the current draft as the next cloud revision. The Save action appears for new, changed, saving, or failed states; a clean saved route uses a compact status instead.
+- **Share saved revision** exposes the latest successfully saved revision. The dialog warns when unsaved changes are excluded.
+- **Play current draft on device** previews the current unsaved route command before sending it. For a clean route, the action is **Play saved route on device**. The dialog includes waypoint count, distance, speed, mode, target device, and whether it replaces an active mock.
 
 The **Mark route as public** compatibility flag does not create a public link. Use **Share** after saving to create, copy, disable, or re-enable the actual public link.
 
@@ -74,6 +75,8 @@ The **Mark route as public** compatibility flag does not create a public link. U
 - **Discard** restores the latest saved route and clears path history.
 - A failed Save keeps the complete draft and shows an actionable error near Save.
 - If Saved places fail to load, route editing remains available and that section offers Retry.
-- If the map cannot load, exact waypoint editing remains available in the inspector and **Retry map** remounts MapLibre.
+- **Map unavailable** means MapLibre or its style did not initialize. The map is dimmed and blocked, viewport controls are disabled, and saved places, exact coordinates, and **Manage all waypoints** remain available.
+- **Route preview unavailable** means the basemap loaded but the route line or markers could not be synchronized. Map-based route gestures are disabled, precise inspector editing remains available, and **Retry map** remounts MapLibre.
+- Ordinary recoverable tile errors do not replace the workspace with a fatal alert.
 
 Keyboard focus returns to the originating control after dialogs close. Route status, selection, errors, and success are communicated with text and semantics rather than color alone.

@@ -4,6 +4,7 @@ import {
   ArrowUpIcon as RadixArrowUpIcon,
   BorderLeftIcon as RadixBorderLeftIcon,
   BorderRightIcon as RadixBorderRightIcon,
+  CheckIcon as RadixCheckIcon,
   ChevronDownIcon as RadixChevronDownIcon,
   Cross2Icon as RadixCross2Icon,
   DotsHorizontalIcon as RadixDotsHorizontalIcon,
@@ -14,6 +15,7 @@ import {
   MinusIcon as RadixMinusIcon,
   MoonIcon as RadixMoonIcon,
   Pencil1Icon as RadixPencil1Icon,
+  PlayIcon as RadixPlayIcon,
   PlusIcon as RadixPlusIcon,
   ReloadIcon as RadixReloadIcon,
   ResetIcon as RadixResetIcon,
@@ -41,6 +43,7 @@ export const ArrowRightIcon = createIcon(RadixArrowRightIcon);
 export const ArrowUpIcon = createIcon(RadixArrowUpIcon);
 export const BorderLeftIcon = createIcon(RadixBorderLeftIcon);
 export const BorderRightIcon = createIcon(RadixBorderRightIcon);
+export const CheckIcon = createIcon(RadixCheckIcon);
 export const ChevronDownIcon = createIcon(RadixChevronDownIcon);
 export const Cross2Icon = createIcon(RadixCross2Icon);
 export const DotsHorizontalIcon = createIcon(RadixDotsHorizontalIcon);
@@ -51,6 +54,7 @@ export const MagnifyingGlassIcon = createIcon(RadixMagnifyingGlassIcon);
 export const MinusIcon = createIcon(RadixMinusIcon);
 export const MoonIcon = createIcon(RadixMoonIcon);
 export const Pencil1Icon = createIcon(RadixPencil1Icon);
+export const PlayIcon = createIcon(RadixPlayIcon);
 export const PlusIcon = createIcon(RadixPlusIcon);
 export const ReloadIcon = createIcon(RadixReloadIcon);
 export const ResetIcon = createIcon(RadixResetIcon);

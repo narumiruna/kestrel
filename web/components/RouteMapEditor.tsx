@@ -5,6 +5,7 @@ import type { GeoJSONSource, Map as MapLibreMap, Marker } from 'maplibre-gl';
 import * as maplibregl from 'maplibre-gl';
 import { useEffect, useRef, useState } from 'react';
 import { getStyleByName } from '@/components/mapStyle';
+import type { RouteMapCapability } from '@/components/routeMapCapability';
 import { Button } from '@/components/ui/radix-ui';
 import { useMapStyle } from '@/hooks/useMapStyle';
 import type { RouteWaypoint } from '@/lib/api';
@@ -20,6 +21,7 @@ type Props = {
   fitRequest?: number;
   focusTarget?: RouteWaypoint | null;
   hoveredWaypointIndex?: number | null;
+  onCapabilityChange?: (capability: RouteMapCapability) => void;
   onChange: (waypoints: RouteWaypoint[]) => void;
   onHoverWaypoint?: (index: number | null) => void;
   onReady?: (controls: RouteMapControls) => void;
@@ -28,7 +30,6 @@ type Props = {
   waypoints: RouteWaypoint[];
 };
 
-const COMPACT_MARKER_COUNT = 8;
 const LINE_SOURCE_ID = 'route-line';
 const LINE_LAYER_ID = 'route-line';
 
@@ -37,6 +38,7 @@ export default function RouteMapEditor({
   fitRequest = 0,
   focusTarget = null,
   hoveredWaypointIndex = null,
+  onCapabilityChange,
   onChange,
   onHoverWaypoint,
   onReady,
@@ -46,9 +48,14 @@ export default function RouteMapEditor({
 }: Props) {
   const { styleName } = useMapStyle();
   const [mapAttempt, setMapAttempt] = useState(0);
-  const [mapStatus, setMapStatus] = useState<'error' | 'loading' | 'ready'>('loading');
+  const [mapStatus, setMapStatus] = useState<RouteMapCapability>('loading');
+  const canEditRouteRef = useRef(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const hasLoadedRef = useRef(false);
+  const isMapClickAttachedRef = useRef(false);
+  const mapClickHandlerRef = useRef<((event: maplibregl.MapMouseEvent) => void) | null>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
+  const mapStatusRef = useRef<RouteMapCapability>('loading');
   const markersRef = useRef<Marker[]>([]);
   const onChangeRef = useRef(onChange);
   const onHoverWaypointRef = useRef(onHoverWaypoint);
@@ -58,6 +65,10 @@ export default function RouteMapEditor({
   const selectedWaypointIndexRef = useRef(selectedWaypointIndex);
   const waypointsRef = useRef(waypoints);
   const currentStyleNameRef = useRef(styleName);
+
+  useEffect(() => {
+    onCapabilityChange?.(mapStatus);
+  }, [mapStatus, onCapabilityChange]);
 
   useEffect(() => {
     hoveredWaypointIndexRef.current = hoveredWaypointIndex;
@@ -83,8 +94,18 @@ export default function RouteMapEditor({
       return;
     }
 
+    mapStatusRef.current = 'loading';
     setMapStatus('loading');
+    canEditRouteRef.current = false;
+    hasLoadedRef.current = false;
     const firstWaypoint = waypointsRef.current[0];
+    if (!isWebGlAvailable()) {
+      mapStatusRef.current = 'unavailable';
+      setMapStatus('unavailable');
+      onReadyRef.current?.(createEmptyRouteMapControls());
+      return;
+    }
+
     let map: MapLibreMap;
     try {
       map = new maplibregl.Map({
@@ -96,45 +117,19 @@ export default function RouteMapEditor({
         style: getStyleByName(currentStyleNameRef.current),
         zoom: firstWaypoint == null ? 11 : 14,
       });
+      setMapCanvasAvailable(map, false);
     } catch {
-      setMapStatus('error');
+      containerRef.current.replaceChildren();
+      mapStatusRef.current = 'unavailable';
+      setMapStatus('unavailable');
       onReadyRef.current?.(createEmptyRouteMapControls());
       return;
     }
 
-    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
-    const styleReadyTimeout = window.setTimeout(() => {
-      if (!map.loaded() && !map.isStyleLoaded()) {
-        setMapStatus('error');
-        onReadyRef.current?.(createEmptyRouteMapControls());
+    const handleMapClick = (event: maplibregl.MapMouseEvent) => {
+      if (!canEditRouteRef.current) {
+        return;
       }
-    }, 12_000);
-    map.on('load', () => {
-      window.clearTimeout(styleReadyTimeout);
-      setMapStatus('ready');
-      syncLineLayer(map, waypointsRef.current);
-      syncMarkers({
-        existingMarkers: markersRef.current,
-        map,
-        onChange: onChangeRef.current,
-        onHoverWaypoint: onHoverWaypointRef.current,
-        onSelectWaypoint: onSelectWaypointRef.current,
-        waypoints: waypointsRef.current,
-      });
-      updateMarkerDisplay(
-        markersRef.current,
-        selectedWaypointIndexRef.current,
-        hoveredWaypointIndexRef.current,
-        waypointsRef.current.length,
-      );
-      fitWaypoints(map, waypointsRef.current);
-      onReadyRef.current?.({
-        fit: () => fitWaypoints(map, waypointsRef.current),
-        zoomIn: () => map.zoomIn({ duration: 180 }),
-        zoomOut: () => map.zoomOut({ duration: 180 }),
-      });
-    });
-    map.on('click', (event) => {
       onChangeRef.current([
         ...waypointsRef.current,
         {
@@ -143,15 +138,64 @@ export default function RouteMapEditor({
         },
       ]);
       onSelectWaypointRef.current?.(waypointsRef.current.length);
-    });
+    };
+    mapClickHandlerRef.current = handleMapClick;
+    const styleReadyTimeout = window.setTimeout(() => {
+      if (!map.loaded() && !map.isStyleLoaded()) {
+        canEditRouteRef.current = false;
+        setMapCanvasAvailable(map, false);
+        mapStatusRef.current = 'unavailable';
+        setMapStatus('unavailable');
+        onReadyRef.current?.(createEmptyRouteMapControls());
+      }
+    }, 12_000);
+    const handleLoad = () => {
+      window.clearTimeout(styleReadyTimeout);
+      hasLoadedRef.current = true;
+      try {
+        syncRoutePreview({
+          existingMarkers: markersRef.current,
+          hoveredWaypointIndex: hoveredWaypointIndexRef.current,
+          map,
+          onChange: onChangeRef.current,
+          onHoverWaypoint: onHoverWaypointRef.current,
+          onSelectWaypoint: onSelectWaypointRef.current,
+          selectedWaypointIndex: selectedWaypointIndexRef.current,
+          waypoints: waypointsRef.current,
+        });
+        canEditRouteRef.current = true;
+        setMapCanvasAvailable(map, true);
+        mapStatusRef.current = 'ready';
+        setMapStatus('ready');
+        if (!isMapClickAttachedRef.current) {
+          map.on('click', handleMapClick);
+          isMapClickAttachedRef.current = true;
+        }
+        fitWaypoints(map, waypointsRef.current);
+        onReadyRef.current?.(createRouteMapControls(map, waypointsRef));
+      } catch {
+        clearMarkers(markersRef.current);
+        canEditRouteRef.current = false;
+        setMapCanvasAvailable(map, true);
+        mapStatusRef.current = 'route-preview-error';
+        setMapStatus('route-preview-error');
+        onReadyRef.current?.(createEmptyRouteMapControls());
+      }
+    };
+    map.on('load', handleLoad);
     mapRef.current = map;
 
     return () => {
-      markersRef.current.forEach((marker) => {
-        marker.remove();
-      });
-      markersRef.current = [];
+      clearMarkers(markersRef.current);
       window.clearTimeout(styleReadyTimeout);
+      map.off('click', handleMapClick);
+      map.off('load', handleLoad);
+      canEditRouteRef.current = false;
+      hasLoadedRef.current = false;
+      isMapClickAttachedRef.current = false;
+      if (mapClickHandlerRef.current === handleMapClick) {
+        mapClickHandlerRef.current = null;
+      }
       onReadyRef.current?.(createEmptyRouteMapControls());
       map.remove();
       mapRef.current = null;
@@ -159,36 +203,47 @@ export default function RouteMapEditor({
   }, [mapAttempt]);
 
   useEffect(() => {
-    // Dependencies trigger resync; deferred style.load uses refs to avoid stale route data.
-    void onChange;
-    void onHoverWaypoint;
-    void onSelectWaypoint;
+    // Resync when the waypoint array changes; refs keep deferred style callbacks current.
     void waypoints;
-
     const map = mapRef.current;
 
-    if (map == null) {
+    if (map == null || !hasLoadedRef.current) {
       return;
     }
 
     const update = () => {
-      const currentWaypoints = waypointsRef.current;
-
-      syncLineLayer(map, currentWaypoints);
-      syncMarkers({
-        existingMarkers: markersRef.current,
-        map,
-        onChange: onChangeRef.current,
-        onHoverWaypoint: onHoverWaypointRef.current,
-        onSelectWaypoint: onSelectWaypointRef.current,
-        waypoints: currentWaypoints,
-      });
-      updateMarkerDisplay(
-        markersRef.current,
-        selectedWaypointIndexRef.current,
-        hoveredWaypointIndexRef.current,
-        currentWaypoints.length,
-      );
+      try {
+        syncRoutePreview({
+          existingMarkers: markersRef.current,
+          hoveredWaypointIndex: hoveredWaypointIndexRef.current,
+          map,
+          onChange: onChangeRef.current,
+          onHoverWaypoint: onHoverWaypointRef.current,
+          onSelectWaypoint: onSelectWaypointRef.current,
+          selectedWaypointIndex: selectedWaypointIndexRef.current,
+          waypoints: waypointsRef.current,
+        });
+        canEditRouteRef.current = true;
+        const mapClickHandler = mapClickHandlerRef.current;
+        if (!isMapClickAttachedRef.current && mapClickHandler != null) {
+          map.on('click', mapClickHandler);
+          isMapClickAttachedRef.current = true;
+        }
+        if (mapStatusRef.current !== 'ready') {
+          setMapCanvasAvailable(map, true);
+          mapStatusRef.current = 'ready';
+          setMapStatus('ready');
+          onReadyRef.current?.(createRouteMapControls(map, waypointsRef));
+        }
+      } catch {
+        clearMarkers(markersRef.current);
+        canEditRouteRef.current = false;
+        if (mapStatusRef.current !== 'route-preview-error') {
+          mapStatusRef.current = 'route-preview-error';
+          setMapStatus('route-preview-error');
+          onReadyRef.current?.(createEmptyRouteMapControls());
+        }
+      }
     };
 
     if (canSyncRouteLayer(map)) {
@@ -201,7 +256,7 @@ export default function RouteMapEditor({
     return () => {
       map.off('style.load', update);
     };
-  }, [onChange, onHoverWaypoint, onSelectWaypoint, waypoints]);
+  }, [waypoints]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -221,7 +276,7 @@ export default function RouteMapEditor({
   useEffect(() => {
     const map = mapRef.current;
 
-    if (map == null || focusTarget == null) {
+    if (map == null || focusTarget == null || !canEditRouteRef.current) {
       return;
     }
 
@@ -235,7 +290,7 @@ export default function RouteMapEditor({
   useEffect(() => {
     const map = mapRef.current;
 
-    if (map == null || fitRequest === 0) {
+    if (map == null || fitRequest === 0 || !canEditRouteRef.current) {
       return;
     }
 
@@ -260,48 +315,87 @@ export default function RouteMapEditor({
     const zoom = map.getZoom();
     const bearing = map.getBearing();
     const pitch = map.getPitch();
+    canEditRouteRef.current = false;
+    setMapCanvasAvailable(map, false);
+    mapStatusRef.current = 'loading';
+    setMapStatus('loading');
+    onReadyRef.current?.(createEmptyRouteMapControls());
 
+    const styleReadyTimeout = window.setTimeout(() => {
+      canEditRouteRef.current = false;
+      setMapCanvasAvailable(map, false);
+      mapStatusRef.current = 'unavailable';
+      setMapStatus('unavailable');
+      onReadyRef.current?.(createEmptyRouteMapControls());
+    }, 12_000);
     const update = () => {
-      syncLineLayer(map, waypointsRef.current);
-      syncMarkers({
-        existingMarkers: markersRef.current,
-        map,
-        onChange: onChangeRef.current,
-        onHoverWaypoint: onHoverWaypointRef.current,
-        onSelectWaypoint: onSelectWaypointRef.current,
-        waypoints: waypointsRef.current,
-      });
-      updateMarkerDisplay(
-        markersRef.current,
-        selectedWaypointIndexRef.current,
-        hoveredWaypointIndexRef.current,
-        waypointsRef.current.length,
-      );
-      map.jumpTo({ bearing, center, pitch, zoom });
+      window.clearTimeout(styleReadyTimeout);
+      try {
+        syncRoutePreview({
+          existingMarkers: markersRef.current,
+          hoveredWaypointIndex: hoveredWaypointIndexRef.current,
+          map,
+          onChange: onChangeRef.current,
+          onHoverWaypoint: onHoverWaypointRef.current,
+          onSelectWaypoint: onSelectWaypointRef.current,
+          selectedWaypointIndex: selectedWaypointIndexRef.current,
+          waypoints: waypointsRef.current,
+        });
+        map.jumpTo({ bearing, center, pitch, zoom });
+        canEditRouteRef.current = true;
+        setMapCanvasAvailable(map, true);
+        mapStatusRef.current = 'ready';
+        setMapStatus('ready');
+        onReadyRef.current?.(createRouteMapControls(map, waypointsRef));
+      } catch {
+        clearMarkers(markersRef.current);
+        canEditRouteRef.current = false;
+        setMapCanvasAvailable(map, true);
+        mapStatusRef.current = 'route-preview-error';
+        setMapStatus('route-preview-error');
+        onReadyRef.current?.(createEmptyRouteMapControls());
+      }
     };
 
-    map.setStyle(getStyleByName(styleName));
     map.once('style.load', update);
+    try {
+      map.setStyle(getStyleByName(styleName));
+    } catch {
+      window.clearTimeout(styleReadyTimeout);
+      map.off('style.load', update);
+      canEditRouteRef.current = false;
+      setMapCanvasAvailable(map, false);
+      mapStatusRef.current = 'unavailable';
+      setMapStatus('unavailable');
+      onReadyRef.current?.(createEmptyRouteMapControls());
+    }
 
     return () => {
+      window.clearTimeout(styleReadyTimeout);
       map.off('style.load', update);
     };
   }, [styleName]);
 
   return (
-    <div className={`${className} route-map-shell`}>
+    <div className={`${className} route-map-shell route-map-capability-${mapStatus}`}>
       <div className="route-map-canvas" ref={containerRef} />
       {mapStatus === 'ready' ? null : (
         <div
           className={`route-map-status route-map-status-${mapStatus}`}
-          role={mapStatus === 'error' ? 'alert' : 'status'}
+          role={mapStatus === 'loading' ? 'status' : 'alert'}
         >
           {mapStatus === 'loading' ? (
             <span>Loading map…</span>
           ) : (
             <>
-              <strong>Map unavailable</strong>
-              <span>Exact waypoint editing is still available in the Route editor.</span>
+              <strong>
+                {mapStatus === 'unavailable' ? 'Map unavailable' : 'Route preview unavailable'}
+              </strong>
+              <span>
+                {mapStatus === 'unavailable'
+                  ? 'Use saved places or exact coordinates while the map is unavailable.'
+                  : 'The basemap loaded, but the route line and markers could not be shown. Use the Route editor for precise changes.'}
+              </span>
               <Button
                 className="secondary"
                 type="button"
@@ -314,6 +408,42 @@ export default function RouteMapEditor({
         </div>
       )}
     </div>
+  );
+}
+
+function syncRoutePreview({
+  existingMarkers,
+  hoveredWaypointIndex,
+  map,
+  onChange,
+  onHoverWaypoint,
+  onSelectWaypoint,
+  selectedWaypointIndex,
+  waypoints,
+}: {
+  existingMarkers: Marker[];
+  hoveredWaypointIndex: number | null;
+  map: MapLibreMap;
+  onChange: (waypoints: RouteWaypoint[]) => void;
+  onHoverWaypoint?: (index: number | null) => void;
+  onSelectWaypoint?: (index: number) => void;
+  selectedWaypointIndex: number | null;
+  waypoints: RouteWaypoint[];
+}) {
+  syncLineLayer(map, waypoints);
+  syncMarkers({
+    existingMarkers,
+    map,
+    onChange,
+    onHoverWaypoint,
+    onSelectWaypoint,
+    waypoints,
+  });
+  updateMarkerDisplay(
+    existingMarkers,
+    selectedWaypointIndex,
+    hoveredWaypointIndex,
+    waypoints.length,
   );
 }
 
@@ -332,10 +462,7 @@ function syncMarkers({
   onSelectWaypoint?: (index: number) => void;
   waypoints: RouteWaypoint[];
 }) {
-  existingMarkers.forEach((marker) => {
-    marker.remove();
-  });
-  existingMarkers.length = 0;
+  clearMarkers(existingMarkers);
 
   waypoints.forEach((waypoint, index) => {
     const marker = new maplibregl.Marker({
@@ -382,7 +509,7 @@ function createMarkerElement({ index, waypointCount }: { index: number; waypoint
   const element = document.createElement('button');
   const label = getWaypointShortLabel(index);
   const positionClass = getWaypointMarkerPositionClass(index, waypointCount);
-  element.className = `route-marker ${positionClass}`;
+  element.className = `route-marker ${positionClass}${label.length >= 3 ? ' route-marker-wide' : ''}`;
   element.dataset.label = label;
   element.textContent = label;
   element.type = 'button';
@@ -397,17 +524,13 @@ function updateMarkerDisplay(
   hoveredWaypointIndex: number | null,
   waypointCount: number,
 ) {
-  const useCompactMarkers = waypointCount >= COMPACT_MARKER_COUNT;
-
   markers.forEach((marker, index) => {
     const element = marker.getElement();
     const isHovered = hoveredWaypointIndex === index;
     const isSelected = selectedWaypointIndex === index;
-    const isTerminal = index === 0 || index === waypointCount - 1;
 
     element.classList.toggle('hovered', isHovered);
     element.classList.toggle('selected', isSelected);
-    element.classList.toggle('route-marker-compact', useCompactMarkers && !isTerminal);
     element.setAttribute(
       'aria-label',
       [
@@ -553,12 +676,54 @@ function toLineFeature(waypoints: RouteWaypoint[]): Feature<LineString> {
   };
 }
 
+function isWebGlAvailable(): boolean {
+  const canvas = document.createElement('canvas');
+  try {
+    const context = canvas.getContext('webgl2') ?? canvas.getContext('webgl');
+    if (context == null) {
+      return false;
+    }
+    context.getExtension('WEBGL_lose_context')?.loseContext();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function createRouteMapControls(
+  map: MapLibreMap,
+  waypointsRef: { current: RouteWaypoint[] },
+): RouteMapControls {
+  return {
+    fit: () => fitWaypoints(map, waypointsRef.current),
+    zoomIn: () => map.zoomIn({ duration: 180 }),
+    zoomOut: () => map.zoomOut({ duration: 180 }),
+  };
+}
+
 function createEmptyRouteMapControls(): RouteMapControls {
   return {
     fit: () => undefined,
     zoomIn: () => undefined,
     zoomOut: () => undefined,
   };
+}
+
+function setMapCanvasAvailable(map: MapLibreMap, available: boolean) {
+  const canvas = map.getCanvas();
+  canvas.tabIndex = available ? 0 : -1;
+  if (available) {
+    canvas.removeAttribute('aria-hidden');
+  } else {
+    canvas.setAttribute('aria-hidden', 'true');
+  }
+}
+
+function clearMarkers(markers: Marker[]) {
+  markers.forEach((marker) => {
+    marker.remove();
+  });
+  markers.length = 0;
 }
 
 function roundCoord(value: number): number {
