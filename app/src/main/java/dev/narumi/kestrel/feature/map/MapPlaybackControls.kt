@@ -6,11 +6,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.MyLocation
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Route
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -22,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import dev.narumi.kestrel.core.location.LatLng
 import dev.narumi.kestrel.core.location.MovementEngine
 import dev.narumi.kestrel.ui.components.KestrelIconBadge
+import dev.narumi.kestrel.ui.components.KestrelIcons
 
 @Composable
 internal fun MapPlaybackControls(
@@ -57,7 +53,7 @@ private fun StatusRow(
         when (runState) {
             RunState.Idle ->
                 Triple(
-                    if (waypointCount > 1) Icons.Filled.Route else Icons.Filled.MyLocation,
+                    if (waypointCount > 1) KestrelIcons.RouteFilled else KestrelIcons.MyLocation,
                     when (waypointCount) {
                         0 -> "Choose a location"
                         1 -> "Point preview"
@@ -71,19 +67,19 @@ private fun StatusRow(
                 )
             RunState.Single ->
                 Triple(
-                    Icons.Filled.MyLocation,
+                    KestrelIcons.MyLocation,
                     "Mocking single point",
                     mockNow?.let { "%.5f, %.5f".format(it.lat, it.lng) } ?: "—",
                 )
             RunState.RoutePlaying ->
                 Triple(
-                    Icons.Filled.PlayArrow,
+                    KestrelIcons.Play,
                     "Route playing",
                     formatRouteStatusDetails(waypointCount, speedKmh, routeMode),
                 )
             RunState.RoutePaused ->
                 Triple(
-                    Icons.Filled.Pause,
+                    KestrelIcons.Pause,
                     "Route paused",
                     formatRouteStatusDetails(waypointCount, speedKmh, routeMode),
                 )

@@ -10,10 +10,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.CloudQueue
-import androidx.compose.material.icons.outlined.Devices
-import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
@@ -66,6 +62,7 @@ import dev.narumi.kestrel.core.data.StartupPreference
 import dev.narumi.kestrel.core.library.LibraryRepository
 import dev.narumi.kestrel.ui.components.KestrelActionRow
 import dev.narumi.kestrel.ui.components.KestrelCard
+import dev.narumi.kestrel.ui.components.KestrelIcons
 import dev.narumi.kestrel.ui.components.KestrelScreenHeader
 import dev.narumi.kestrel.ui.components.KestrelSectionHeader
 import dev.narumi.kestrel.ui.components.PersistedActionResult
@@ -191,7 +188,7 @@ fun OptionsScreen(
         KestrelScreenHeader(
             title = "Settings",
             subtitle = "Make Kestrel work your way.",
-            icon = Icons.Outlined.Settings,
+            icon = KestrelIcons.SettingsOutlined,
         )
 
         (settingsError ?: settingsMessage)?.let {
@@ -618,7 +615,7 @@ private fun CloudSettingsCard(
 ) {
     OptionsDisclosureCard(
         title = OptionsSection.Cloud.title,
-        icon = Icons.Outlined.CloudQueue,
+        icon = KestrelIcons.Cloud,
         subtitle = "Connect to Kestrel cloud and keep favorites synced.",
         summary =
             if (uiState.loading) {
@@ -710,7 +707,7 @@ private fun RemoteControlSettingsCard(
 ) {
     OptionsDisclosureCard(
         title = OptionsSection.RemoteControl.title,
-        icon = Icons.Outlined.Devices,
+        icon = KestrelIcons.Devices,
         subtitle = "Let the web dashboard send mock commands to this Android device.",
         summary =
             if (loading) {

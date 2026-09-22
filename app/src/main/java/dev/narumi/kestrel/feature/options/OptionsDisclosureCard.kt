@@ -4,8 +4,6 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -27,6 +25,7 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import dev.narumi.kestrel.ui.components.KestrelCard
 import dev.narumi.kestrel.ui.components.KestrelIconBadge
+import dev.narumi.kestrel.ui.components.KestrelIcons
 
 @Composable
 internal fun OptionsDisclosureCard(
@@ -35,7 +34,7 @@ internal fun OptionsDisclosureCard(
     summary: String,
     expanded: Boolean,
     onExpandedChange: (Boolean) -> Unit,
-    icon: ImageVector = Icons.Outlined.Settings,
+    icon: ImageVector = KestrelIcons.SettingsOutlined,
     content: @Composable () -> Unit,
 ) {
     val changeFocusRequester = remember { FocusRequester() }

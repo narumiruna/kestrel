@@ -10,9 +10,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Snackbar
@@ -32,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import dev.narumi.kestrel.core.data.FavoritesSortMode
 import dev.narumi.kestrel.core.library.LibraryItemWithContent
 import dev.narumi.kestrel.ui.components.KestrelEmptyState
+import dev.narumi.kestrel.ui.components.KestrelIcons
 import dev.narumi.kestrel.ui.components.KestrelScreenHeader
 
 @Suppress("LongParameterList", "LongMethod")
@@ -70,7 +68,7 @@ internal fun FavoritesContent(
                     KestrelScreenHeader(
                         title = "Favorites",
                         subtitle = "Your places. Your next route.",
-                        icon = Icons.Outlined.StarBorder,
+                        icon = KestrelIcons.FavoriteOutlined,
                     )
                 }
                 if (!loading && items.isNotEmpty()) {
@@ -184,7 +182,7 @@ private fun FavoritesEmptyResults(
 ) {
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
         KestrelEmptyState(
-            icon = if (emptyLibrary) Icons.Outlined.StarBorder else Icons.Filled.Search,
+            icon = if (emptyLibrary) KestrelIcons.FavoriteOutlined else KestrelIcons.Search,
             title = if (emptyLibrary) "No favorites yet" else "No matching Favorites",
             message =
                 if (emptyLibrary) {

@@ -1,16 +1,6 @@
 'use client';
 
 import {
-  ArrowDownIcon,
-  ArrowUpIcon,
-  Cross2Icon,
-  DotsHorizontalIcon,
-  Pencil1Icon,
-  PlusIcon,
-  ResetIcon,
-  ResumeIcon,
-} from '@radix-ui/react-icons';
-import {
   type Dispatch,
   type FormEvent,
   type SetStateAction,
@@ -51,6 +41,16 @@ import {
   formatMode,
   formatRouteDistanceFromWaypoints,
 } from '@/components/dashboard/utils';
+import {
+  ArrowDownIcon,
+  ArrowUpIcon,
+  Cross2Icon,
+  DotsHorizontalIcon,
+  Pencil1Icon,
+  PlusIcon,
+  ResetIcon,
+  ResumeIcon,
+} from '@/components/ui/icons';
 import {
   Button,
   CheckboxField,

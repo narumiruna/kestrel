@@ -1,6 +1,5 @@
 'use client';
 
-import { Cross2Icon, MagnifyingGlassIcon } from '@radix-ui/react-icons';
 import { IconButton, TextField } from '@radix-ui/themes';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
@@ -28,6 +27,7 @@ import {
   formatRouteDistanceFromWaypoints,
 } from '@/components/dashboard/utils';
 import { DEFAULT_MAP_CENTER } from '@/components/mapStyle';
+import { Cross2Icon, MagnifyingGlassIcon } from '@/components/ui/icons';
 import { Button, ConfirmDialog, TextInput, Toggle, ToggleGroup } from '@/components/ui/radix-ui';
 import { WorkspaceHeader } from '@/components/WorkspaceHeader';
 import type { Place, PlaceInput, Route, RouteInput, RouteWaypoint } from '@/lib/api';

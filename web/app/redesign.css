@@ -14,16 +14,9 @@
 }
 
 .auth-brand .kc-logo {
-  background: var(--accent-soft);
-  border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--border));
   border-radius: 14px;
   height: 52px;
   width: 52px;
-}
-
-.auth-brand .kc-logo svg {
-  height: 40px;
-  width: 40px;
 }
 
 .status-strip .status-brand {
@@ -32,17 +25,9 @@
 }
 
 .status-strip .status-brand .kc-logo {
-  background: var(--paper-card-warm);
-  border: 1px solid var(--workspace-border, var(--border));
   border-radius: 10px;
-  color: var(--accent);
   height: 40px;
   width: 40px;
-}
-
-.status-strip .status-brand .kc-logo svg {
-  height: 32px;
-  width: 32px;
 }
 
 .status-strip .status-brand .kc-signed-in {
@@ -482,12 +467,8 @@
   display: none;
 }
 
-.map-panel-control .lucide-icon {
+.map-panel-control .ui-icon {
   height: 18px;
-  stroke: currentColor;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 1.8;
   width: 18px;
 }
 

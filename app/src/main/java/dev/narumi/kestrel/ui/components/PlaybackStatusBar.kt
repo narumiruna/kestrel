@@ -7,11 +7,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -127,14 +122,14 @@ private fun PlaybackActions(
     if (primaryAction != null) {
         val paused = primaryAction == PlaybackBarAction.Resume
         IconButton(onClick = if (paused) onResume else onPause, enabled = !busy) {
-            Icon(
-                imageVector = if (paused) Icons.Filled.PlayArrow else Icons.Filled.Pause,
+            KestrelIcon(
+                imageVector = if (paused) KestrelIcons.Play else KestrelIcons.Pause,
                 contentDescription = if (paused) "Resume" else "Pause",
             )
         }
     }
     IconButton(onClick = onStop, enabled = !busy) {
-        Icon(Icons.Filled.Stop, contentDescription = "Stop")
+        KestrelIcon(KestrelIcons.Stop, contentDescription = "Stop")
     }
 }
 

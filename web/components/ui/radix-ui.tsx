@@ -24,6 +24,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { ChevronDownIcon } from '@/components/ui/icons';
 
 export const Button = RadixButton;
 export const TextArea = RadixTextArea;
@@ -199,7 +200,7 @@ export function Disclosure({
     >
       <Collapsible.Trigger className="ui-disclosure-trigger">
         <span className="ui-disclosure-summary">{summary}</span>
-        <ChevronIcon />
+        <ChevronDownIcon className="ui-disclosure-icon" />
       </Collapsible.Trigger>
       <Collapsible.Content className="ui-disclosure-panel">{children}</Collapsible.Content>
     </Collapsible.Root>
@@ -438,12 +439,4 @@ type HintProps = {
 
 export function Hint({ children, label }: HintProps) {
   return <Tooltip content={label}>{children}</Tooltip>;
-}
-
-function ChevronIcon() {
-  return (
-    <svg aria-hidden="true" className="ui-disclosure-icon" fill="none" viewBox="0 0 16 16">
-      <path d="m4 6 4 4 4-4" />
-    </svg>
-  );
 }

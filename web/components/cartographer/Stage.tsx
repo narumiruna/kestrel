@@ -1,6 +1,12 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import {
+  BorderLeftIcon,
+  BorderRightIcon,
+  EnterFullScreenIcon,
+  ExitFullScreenIcon,
+} from '@/components/ui/icons';
 import { Button, Toggle, ToggleGroup } from '@/components/ui/radix-ui';
 
 export type MobileWorkspacePanel = 'inspector' | 'map' | 'picker';
@@ -89,7 +95,7 @@ export function Stage({
               type="button"
               onClick={onToggleLeftPanel}
             >
-              <PanelLeftIcon collapsed={isLeftPanelCollapsed} />
+              <BorderLeftIcon />
             </Button>
           )}
           {onToggleRightPanel == null ? null : (
@@ -104,7 +110,7 @@ export function Stage({
               type="button"
               onClick={onToggleRightPanel}
             >
-              <PanelRightIcon collapsed={isRightPanelCollapsed} />
+              <BorderRightIcon />
             </Button>
           )}
           {onToggleMapFocus == null ? null : (
@@ -117,54 +123,12 @@ export function Stage({
               type="button"
               onClick={onToggleMapFocus}
             >
-              <FocusIcon compressed={isMapFocused} />
+              {isMapFocused ? <ExitFullScreenIcon /> : <EnterFullScreenIcon />}
             </Button>
           )}
         </fieldset>
       )}
       {children}
     </main>
-  );
-}
-
-function PanelLeftIcon({ collapsed }: { collapsed: boolean }) {
-  return (
-    <svg aria-hidden="true" className="lucide-icon" fill="none" viewBox="0 0 24 24">
-      <rect height="18" rx="2" width="18" x="3" y="3" />
-      <path d="M9 3v18" />
-      <path d={collapsed ? 'm13 9 3 3-3 3' : 'm16 9-3 3 3 3'} />
-    </svg>
-  );
-}
-
-function PanelRightIcon({ collapsed }: { collapsed: boolean }) {
-  return (
-    <svg aria-hidden="true" className="lucide-icon" fill="none" viewBox="0 0 24 24">
-      <rect height="18" rx="2" width="18" x="3" y="3" />
-      <path d="M15 3v18" />
-      <path d={collapsed ? 'm11 9-3 3 3 3' : 'm8 9 3 3-3 3'} />
-    </svg>
-  );
-}
-
-function FocusIcon({ compressed }: { compressed: boolean }) {
-  return (
-    <svg aria-hidden="true" className="lucide-icon" fill="none" viewBox="0 0 24 24">
-      {compressed ? (
-        <>
-          <path d="M9 3v6H3" />
-          <path d="M15 3v6h6" />
-          <path d="M9 21v-6H3" />
-          <path d="M15 21v-6h6" />
-        </>
-      ) : (
-        <>
-          <path d="M8 3H3v5" />
-          <path d="M16 3h5v5" />
-          <path d="M8 21H3v-5" />
-          <path d="M16 21h5v-5" />
-        </>
-      )}
-    </svg>
   );
 }

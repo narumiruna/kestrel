@@ -9,13 +9,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -36,6 +31,8 @@ import androidx.compose.ui.unit.dp
 import dev.narumi.kestrel.core.location.MovementEngine
 import dev.narumi.kestrel.ui.components.KestrelActionRow
 import dev.narumi.kestrel.ui.components.KestrelCard
+import dev.narumi.kestrel.ui.components.KestrelIcon
+import dev.narumi.kestrel.ui.components.KestrelIcons
 import dev.narumi.kestrel.ui.components.onKeyboardActivate
 
 @Composable
@@ -56,11 +53,10 @@ internal fun MapTargetSearchBar(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(
-                imageVector = Icons.Filled.Search,
+            KestrelIcon(
+                imageVector = KestrelIcons.Search,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(24.dp),
             )
             Text("Choose target", style = MaterialTheme.typography.titleSmall)
         }
@@ -184,7 +180,7 @@ internal fun DraftPreviewActionsCard(
             }
             Box {
                 IconButton(onClick = { menuExpanded = true }, enabled = enabled) {
-                    Icon(Icons.Filled.MoreVert, contentDescription = "More preview actions")
+                    KestrelIcon(KestrelIcons.More, contentDescription = "More preview actions")
                 }
                 DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
                     DropdownMenuItem(

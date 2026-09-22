@@ -4,16 +4,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Place
-import androidx.compose.material.icons.filled.Route
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -44,7 +39,9 @@ import dev.narumi.kestrel.core.location.MovementEngine
 import dev.narumi.kestrel.core.location.parseCoordInput
 import dev.narumi.kestrel.ui.components.KestrelActionRow
 import dev.narumi.kestrel.ui.components.KestrelCard
+import dev.narumi.kestrel.ui.components.KestrelIcon
 import dev.narumi.kestrel.ui.components.KestrelIconBadge
+import dev.narumi.kestrel.ui.components.KestrelIcons
 import dev.narumi.kestrel.ui.components.PersistedActionResult
 import dev.narumi.kestrel.ui.components.runPersistedAction
 import kotlinx.coroutines.launch
@@ -347,7 +344,7 @@ internal fun FavoriteRow(
         ) {
             val isRoute = item.kind == LibraryItemKind.Route
             KestrelIconBadge(
-                icon = if (isRoute) Icons.Filled.Route else Icons.Filled.Place,
+                icon = if (isRoute) KestrelIcons.RouteFilled else KestrelIcons.Place,
                 containerColor =
                     if (isRoute) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.primaryContainer,
                 contentColor =
@@ -366,7 +363,10 @@ internal fun FavoriteRow(
             }
             Box {
                 IconButton(onClick = { menuExpanded = true }, enabled = enabled) {
-                    Icon(Icons.Filled.MoreVert, contentDescription = favoriteMoreActionsLabel(item.name))
+                    KestrelIcon(
+                        KestrelIcons.More,
+                        contentDescription = favoriteMoreActionsLabel(item.name),
+                    )
                 }
                 FavoriteRowMenu(
                     expanded = menuExpanded,

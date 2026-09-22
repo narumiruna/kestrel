@@ -7,15 +7,9 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -37,6 +31,8 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import dev.narumi.kestrel.core.data.FavoritesSortMode
 import dev.narumi.kestrel.core.library.label
+import dev.narumi.kestrel.ui.components.KestrelIcon
+import dev.narumi.kestrel.ui.components.KestrelIcons
 
 @Composable
 internal fun FavoritesToolbar(
@@ -64,11 +60,11 @@ internal fun FavoritesToolbar(
                     focusedContainerColor = MaterialTheme.colorScheme.surface,
                     unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
                 ),
-            leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+            leadingIcon = { KestrelIcon(KestrelIcons.Search, contentDescription = null) },
             trailingIcon = {
                 if (query.isNotEmpty()) {
                     IconButton(onClick = { onQueryChange("") }) {
-                        Icon(Icons.Filled.Close, contentDescription = "Clear search")
+                        KestrelIcon(KestrelIcons.Dismiss, contentDescription = "Clear search")
                     }
                 }
             },
@@ -83,7 +79,9 @@ internal fun FavoritesToolbar(
                     onClick = { onFilterChange(filter) },
                     label = { Text(filter.label()) },
                     leadingIcon = {
-                        if (filter == selectedFilter) Icon(Icons.Filled.Check, contentDescription = null)
+                        if (filter == selectedFilter) {
+                            KestrelIcon(KestrelIcons.Confirm, contentDescription = null)
+                        }
                     },
                     shape = MaterialTheme.shapes.medium,
                 )
@@ -115,7 +113,7 @@ private fun FavoritesSortMenu(
     Box {
         TextButton(onClick = { expanded = true }, enabled = enabled) {
             Text("Sort: ${sortMode.label()}")
-            Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
+            KestrelIcon(KestrelIcons.Sort, contentDescription = null)
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             FavoritesSortMode.Mode.entries.forEach { mode ->
@@ -127,7 +125,9 @@ private fun FavoritesSortMenu(
                             stateDescription = if (mode == sortMode) "Selected" else "Not selected"
                         },
                     trailingIcon = {
-                        if (mode == sortMode) Icon(Icons.Filled.Check, contentDescription = null)
+                        if (mode == sortMode) {
+                            KestrelIcon(KestrelIcons.Confirm, contentDescription = null)
+                        }
                     },
                     onClick = {
                         expanded = false
