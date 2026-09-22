@@ -31,8 +31,8 @@ Give Kestrel one centrally managed brand icon across Web and Android, and make U
 - [x] Generate aligned Web and Android brand assets, use the generated Web icon in `BrandMark`, and use the generated monochrome mark for Android notifications; file and reference inspection confirms all brand surfaces resolve to generated assets.
 - [x] Add the shared Web Radix icon catalog and base sizing rule, replace local SVG glyphs and direct Radix imports, and remove redundant per-component icon geometry; `rg` confirms only `web/components/ui/icons.tsx` imports `@radix-ui/react-icons` and no TSX file contains inline SVG.
 - [x] Add the shared Android Material icon catalog, renderer, and size tokens, then replace direct Material icon imports and direct `Icon` calls; `rg` confirms only `KestrelIcons.kt` imports Material icons or calls `Icon` directly.
-- [ ] Run generation drift checks, Web formatting/lint/tests/typecheck/build, and Android formatting/lint/unit tests/build; use PR CI for SDK-dependent Android checks because no local Android SDK is configured, and record pre-existing warnings without broad unrelated fixes.
-- [ ] Move this completed plan to `docs/plans/archived/` after every completion check passes.
+- [x] Run generation drift checks, Web formatting/lint/tests/typecheck/build, and Android formatting/lint/unit tests/build; local Web and available Android checks passed, and PR CI run `35739193406` passed Android, Backend, Web, and change-detection jobs.
+- [x] Move this completed plan to `docs/plans/archived/` after every completion check passes.
 
 ## Risks
 
@@ -42,9 +42,9 @@ Give Kestrel one centrally managed brand icon across Web and Android, and make U
 
 ## Completion Checklist
 
-- [ ] One manifest owns brand paths and colors, and generated Web/Android assets pass `just icons-check`.
-- [ ] Web favicon, in-product brand marks, Android launcher layers, themed icon, and notification small icon use the aligned Kestrel mark.
-- [ ] Web UI glyphs come from the central Radix catalog and share one default size/alignment rule.
-- [ ] Android UI glyphs come from the central Material catalog and renderer with named size tokens.
-- [ ] No image binary is added or staged.
-- [ ] All affected Web and Android checks pass.
+- [x] One manifest owns brand paths and colors, and generated Web/Android assets pass `just icons-check`.
+- [x] Web favicon, in-product brand marks, Android launcher layers, themed icon, and notification small icon use the aligned Kestrel mark.
+- [x] Web UI glyphs come from the central Radix catalog and share one default size/alignment rule.
+- [x] Android UI glyphs come from the central Material catalog and renderer with named size tokens.
+- [x] No image binary is added or staged; staged numstat inspection reported no binary entries.
+- [x] All affected Web and Android checks pass locally or in PR CI run `35739193406`.
