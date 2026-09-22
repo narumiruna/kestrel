@@ -14,14 +14,16 @@
 - Route inspector 已有三段任務順序且 clean route 不再顯示 disabled Save；仍有永久顯示的 route-name input、未選取 waypoint 大卡片，以及預設收合的完整 waypoint list。常見 route 需要更直接的 Path 管理，但 1000-waypoint route 不可無條件掛載昂貴列表。
 - `PlaceEditor` 仍永久顯示 Save，clean state 與 Header 的 `Updated just now` 容易被誤解為內容已保存。Header 的狀態實際表示 library data refresh，不是 draft persistence。
 - 1440×900 Library baseline 有 10 個 item、10 個重複的直接 Share 按鈕、無 preview panel，catalog 高度約 1449px。現有 API 已提供 name、description、tags、mode、waypoint count、distance source、`updatedAt` 與 `LibraryItem` metadata，可支援 client-side search、sort 與部分 filter；沒有 address、item/device assignment 或 bulk-operation contract。
+- `/dashboard/library/places` 與 `/dashboard/library/routes` 是現行頁面，Map、`FieldNotebook` 與 `FavoriteWaypointPicker` 都會導向它們；`/dashboard/places` 與 `/dashboard/routes` 也分別 redirect 至這兩個入口。Library URL state 改版必須保留 bookmark 與內部連結相容性。
 - Account menu baseline 是約 360×420px popover，內含 theme、完整 password form、Account link 與 Logout；`/dashboard/account` 已存在並管理 OIDC、sessions 與 Android devices，但頁首又使用第二套含 password form 的 `UserMark` popover。
+- OIDC account link 的 provider return URI 固定為 `/dashboard/account/oidc`；該頁負責驗證 callback、交換 link ticket 與 retry，成功後才導向 `/dashboard/account?oidc=linked` 顯示 notice。Account route 拆分不可把兩者視為同一個 callback。
 - `User` schema 只有 username 與 authentication fields，沒有 email、avatar、editable profile 或 account-deletion endpoint。這些能力不能以純 UI 假裝存在。
 
 ## Architecture
 
 - **Map** 保持唯一 canonical Place／Route editor。Map 左欄是「快速選取目前 Library item」，不承擔刪除、批次管理或完整 filter；右欄保持單一垂直 draft，不新增另一套 editor。
-- **Library** 改為 URL-addressable master-detail catalog。query、type、sort、filter 與 selected ID 由 search params 擁有，桌面顯示 list + read-only preview，窄螢幕在 list／detail 間切換；`Open on map` 才進入 canonical editor。
-- **Account** 使用共用 account layout 與獨立 routes：`/dashboard/account`（read-only overview）、`/dashboard/account/appearance`、`/dashboard/account/security`、`/dashboard/account/sessions`。Header account menu 只保留導覽、快速 Appearance 入口與 Sign out，不提交 password 或其他高風險資料。
+- **Library** 改為 URL-addressable master-detail catalog。query、type、sort、filter 與 selected ID 由 search params 擁有，桌面顯示 list + read-only preview，窄螢幕在 list／detail 間切換；`Open on map` 才進入 canonical editor。既有 `/dashboard/library/places`、`/dashboard/library/routes` 與 legacy redirects 保持相容，並正規化到同一份 canonical URL state。
+- **Account** 使用共用 account layout 與獨立 routes：`/dashboard/account`（read-only overview）、`/dashboard/account/appearance`、`/dashboard/account/security`、`/dashboard/account/sessions`。`/dashboard/account/oidc` 保留為專用 OIDC link callback／exchange boundary，`/dashboard/account?oidc=linked` 保留成功 notice 相容性；Header account menu 只保留導覽、快速 Appearance 入口與 Sign out，不提交 password 或其他高風險資料。
 - **Persistence semantics** 保持 manual Save。Route revision、Device current draft 與 Share saved revision 的既有契約不變；Header 改稱 `Library refreshed …`，Place／Route 各自呈現 `Unsaved changes`、`Saving…`、`Saved just now` 與 save error，不宣稱 auto-save 或 offline draft persistence。
 - **Panel state** 由一個可測試的 local preference model 擁有 collapsed state 與 desktop widths，輸入必須 versioned、clamped 且能在 unavailable Web Storage 下安全降級。Tablet／mobile 不套用 desktop persisted widths。
 - **Map safe area** 由目前 header、panel visibility 與 panel widths計算，再傳入 MapLibre fit/padding；panel resize 或 collapse 後呼叫 map resize，避免 marker、route 與 map controls 被面板覆蓋。
@@ -47,7 +49,7 @@
 - [ ] 更新 `WorkspaceHeader`／`DashboardShell` 的同步語意：將 `Updated …` 改為 `Library refreshed …` 或精確 error，使用 Radix `Hint` 為 Refresh 提供可見 tooltip，保持目前約 68px header 與 draft navigation guard；Chrome 驗證 refresh 不會被理解為 Save 或 Reset。
 - [ ] 將 `WorkspaceHeader` account popover 改成小型 Radix menu，只呈現 username、`View account`、`Appearance` 與 `Sign out`；移除 password form、API mutation與大型 popover state，並驗證 Escape／outside click／route navigation 的 focus return。
 - [ ] 擴充 `ThemeProvider` 為可測試的 `system | light | dark` preference，保持既有 `kestrel-theme` 相容讀取與 unavailable localStorage fallback；在 Account Appearance page 提供明確 radio selection，Header menu 只導向該頁或顯示目前 mode，不再以單一 toggle 隱藏 System 狀態。
-- [ ] 建立共用 Account layout/navigation，將現有 `/dashboard/account` 拆成 overview、Appearance、Security、Sessions & devices；overview 只顯示目前可取得的 username 與導覽，不偽造 email/avatar 編輯，OIDC／password 留在 Security，session/device revoke 留在 Sessions，並保留舊 `/dashboard/account?oidc=linked` callback 的安全 redirect/notice 相容性。
+- [ ] 建立共用 Account layout/navigation，將現有 `/dashboard/account` 拆成 overview、Appearance、Security、Sessions & devices；overview 只顯示目前可取得的 username 與導覽，不偽造 email/avatar 編輯，OIDC／password 留在 Security，session/device revoke 留在 Sessions。保留 `/dashboard/account/oidc` 的 provider return、callback validation、link-ticket exchange 與 retry 責任，以及 `/dashboard/account?oidc=linked` 的成功 notice 相容性；route-level tests 必須覆蓋 callback 完成／重試及 notice 清除，證明拆頁不會中斷 account linking。
 - [ ] 將 Account security data loading 拆成各頁需要的 bounded requests 與獨立 loading/error/retry state，移除 `UserMark` 的重複 popover，保留 current-password step-up、current-session logout、other-session/device revocation、queued-command cancellation 與 focus-return 語意；以既有 Backend tests 加 Web browser failure fixtures驗證 partial failure 不會清空其他可用區段。
 - [ ] 在 `Stage` 與 Map page 加入 desktop-only accessible panel resizing：pointer drag handle 使用 `role="separator"`、方向鍵提供 keyboard resize、double-click/reset 回復 defaults；保存 clamped left/right widths 與 collapse state，窄於 1024px 時仍使用既有 Map／Choose／Edit contextual layout而不套用 desktop positions。
 - [ ] 將 panel visibility/widths 轉成 MapLibre safe-area padding，更新 `RouteMapEditor`／Place map controls 的 fit behavior 與 external control placement；驗證初始 load、resize、collapse/restore、selected waypoint focus、route fit 與 2／50／1000 點都不落在 header、兩側 panel、scale 或 control stack 下。
@@ -55,7 +57,7 @@
 - [ ] 將 Place／Route identity 改為 compact read state + 明確 `Edit name` control；切換 edit/cancel/save-draft 時保持 form validation、dirty detection、focus return 與 draft navigation guard，避免永久大型 input，同時讓 long name、empty new item、save error 都不改變 object identity。
 - [ ] 精簡 Route inspector 而不重做 editor：加入 Path／Playback／Save & use sticky section navigation，降低 nested-card/radius 密度，將 `No waypoint selected` 改為輕量 instruction；marker/list selection 應定位地圖並將 waypoint manager 捲到對應 row，完整列表依已驗證的 dense-route rendering規則直接可達且保留 drag、Move up/down、duplicate、edit、remove、Undo/Redo 的 keyboard alternatives。
 - [ ] 將 `PlaceEditor` 對齊 Route manual-save presentation：new、clean、dirty-valid、dirty-invalid、saving、success、error 都有具體 title/reason；clean existing Place 不永久顯示大型 Save，failed save 保留完整 draft，Share 只使用成功保存的 Place snapshot。
-- [ ] 將 Library state 移到 search params，實作既有資料可支援的 search、sort 與 filters：name/notes/tags/mode search；updated/name sort；type/tag/playback-mode filters；空結果顯示 active filters 並可單獨清除或 `Clear all`。Back/Forward、reload 與分享 URL 必須恢復相同 list state 和 selected preview。
+- [ ] 將 Library state 移到 search params，實作既有資料可支援的 search、sort 與 filters：name/notes/tags/mode search；updated/name sort；type/tag/playback-mode filters；空結果顯示 active filters 並可單獨清除或 `Clear all`。Back/Forward、reload 與分享 URL 必須恢復相同 list state 和 selected preview；`/dashboard/library/places`、`/dashboard/library/routes` 必須保留為相容頁面，或將已知 search params 安全 redirect 到對應 canonical type state，同時保留 `/dashboard/places`、`/dashboard/routes` 的 legacy redirects。route-level tests 覆蓋四個既有入口、直接 bookmark／reload 與目前內部 navigation callers。
 - [ ] 將 Library desktop 改成 list + preview：row click/keyboard selection只更新 preview，preview 顯示 read-only MapLibre place marker 或 route line、name、notes、tags/mode、updated time、share status load state，以及 `Open on map` 主動作；WebGL/preview failure 退回 metadata，不阻止搜尋、選取或開啟 Map。
 - [ ] 收斂 Library row actions：移除每列重複的直接 Share button與語意不明箭頭，整列使用清楚 selection semantics；Share／Delete 放入 `⋯`，selected preview 提供可見 Share，Delete 保持高風險確認且不宣稱可 undo。驗證 menu/dialog focus return、partial share-load error 與刪除後 selection fallback。
 - [ ] 建立 Map ↔ Library return flow：`Open on map` 帶入 stable item ID、fit request 與受限的 internal return target；Map 顯示不重複主導覽的 `Back to Library` context action，並在 dirty draft 時沿用 discard guard。返回後應恢復 Library query/filter/sort/selection/scroll context。
@@ -81,9 +83,9 @@
 - [ ] Header refresh狀態與 Place／Route manual-save狀態不再共用 `Updated/Saved` 語意；clean draft無大型 disabled Save，failed save保留資料和 Retry path。
 - [ ] Desktop Map panel可收合、鍵盤/指標 resize並安全保存偏好；Fit route/place和 controls在所有 panel組合下不被遮擋，tablet/mobile不繼承無效 desktop width。
 - [ ] Route identity與 inspector比目前更緊湊，Path／Playback／Save & use可快速導覽；常見 route直接管理 waypoints，50／1000點仍符合已記錄的效能、focus與overflow門檻。
-- [ ] Library具有 URL-restorable search/sort/filter/selection、desktop preview、mobile detail flow和明確 `Open on map`；rows不再重複 Share，也不以模糊箭頭暗示行為。
+- [ ] Library具有 URL-restorable search/sort/filter/selection、desktop preview、mobile detail flow和明確 `Open on map`；rows不再重複 Share，也不以模糊箭頭暗示行為，四個既有 Places／Routes URL 入口仍以 route-level tests 證明可恢復正確 type state。
 - [ ] 從 Library進入 Map及返回時保留 selected item與 catalog context，dirty Map draft仍受 navigation guard保護。
-- [ ] Header account menu不含 password或其他敏感 form；Appearance、Security、Sessions & devices位於獨立 Account routes，現有 OIDC/session/device security契約和focus recovery皆有證據。
+- [ ] Header account menu不含 password或其他敏感 form；Appearance、Security、Sessions & devices位於獨立 Account routes，`/dashboard/account/oidc` callback／exchange 與 `/dashboard/account?oidc=linked` notice 保持相容，現有 OIDC/session/device security契約和focus recovery皆有證據。
 - [ ] 沒有虛構 email/avatar/address/device assignment/offline save/undo delete/bulk action；所有 unsupported能力都從 UI與文件排除或明確標示非功能。
 - [ ] scoped visual tokens、semantic colors、44px targets、keyboard alternatives、tooltips、non-color state cues與WCAG contrast門檻在 desktop/tablet/mobile、200% zoom及 light/dark/system下通過 Chrome evidence。
 - [ ] 所有受影響 Web checks、必要 Backend checks、unit tests、production build與 `git diff --check`通過；final diff不含 generated cache、image binary、無關檔案或 lifecycle/security regression。
