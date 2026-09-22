@@ -1,6 +1,7 @@
 package dev.narumi.kestrel.core.cloud
 
 import android.content.Context
+import android.os.Build
 import dev.narumi.kestrel.core.data.KestrelPrefs
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -14,6 +15,7 @@ import java.net.URI
 import java.security.GeneralSecurityException
 import java.util.UUID
 
+@Suppress("TooManyFunctions")
 internal class CloudAuthRepository private constructor(
     context: Context,
 ) : CloudSyncSessionProvider {
@@ -21,7 +23,15 @@ internal class CloudAuthRepository private constructor(
     private val prefs = KestrelPrefs(applicationContext)
     private val sessionStore = CloudSessionStore(applicationContext)
     private val oidcAttemptStore = OidcAuthAttemptStore(applicationContext)
+    private val androidQrAttemptStore = AndroidQrLoginAttemptStore(applicationContext)
     private val apiClient = CloudApiClient(baseUrlProvider = { prefs.cloudSettingsValue().apiBaseUrl })
+    private val androidQrCoordinator =
+        AndroidQrLoginCoordinator(
+            api = apiClient,
+            attemptStore = androidQrAttemptStore,
+            persistSession = ::saveSession,
+            setApiBaseUrl = prefs::setCloudApiBaseUrl,
+        )
     private val refreshMutex = Mutex()
     private val _hasSession = MutableStateFlow(sessionStore.hasSession())
 
@@ -32,10 +42,49 @@ internal class CloudAuthRepository private constructor(
             _hasSession.value = session != null
         }
 
-    suspend fun getOidcMethod(): OidcMethod = apiClient.getAuthMethods().oidc
+    suspend fun getAuthMethods(): AuthMethodsResponse = apiClient.getAuthMethods()
+
+    suspend fun getOidcMethod(): OidcMethod = getAuthMethods().oidc
+
+    suspend fun prepareAndroidQrLogin(rawQrValue: String): AndroidQrLoginProgress =
+        refreshMutex.withLock {
+            check(sessionStore.load() == null) { "Sign out before scanning an Android QR login" }
+            oidcAttemptStore.clear()
+            androidQrCoordinator.prepare(
+                rawQrValue = rawQrValue,
+                deviceName = androidDeviceName(),
+                appVersion = applicationVersion(),
+            )
+        }
+
+    suspend fun resumeAndroidQrLogin(): AndroidQrLoginProgress? =
+        refreshMutex.withLock {
+            if (sessionStore.load() != null) {
+                androidQrCoordinator.cancel()
+                return@withLock null
+            }
+            androidQrCoordinator.resume()
+        }
+
+    suspend fun confirmAndroidQrLogin(): AndroidQrLoginProgress =
+        refreshMutex.withLock {
+            check(sessionStore.load() == null) { "Already signed in" }
+            androidQrCoordinator.confirm()
+        }
+
+    suspend fun pollAndroidQrLogin(): AndroidQrLoginProgress =
+        refreshMutex.withLock {
+            check(sessionStore.load() == null) { "Already signed in" }
+            androidQrCoordinator.poll()
+        }
+
+    suspend fun cancelAndroidQrLogin() {
+        refreshMutex.withLock { androidQrCoordinator.cancel() }
+    }
 
     suspend fun beginOidcLogin(): String =
         refreshMutex.withLock {
+            androidQrCoordinator.cancel()
             val apiBaseUrl = normalizeCloudApiBaseUrl(prefs.cloudSettingsValue().apiBaseUrl)
             val clientNonce = UUID.randomUUID().toString()
             val attempt = OidcAuthAttempt(apiBaseUrl = apiBaseUrl, clientNonce = clientNonce)
@@ -97,6 +146,7 @@ internal class CloudAuthRepository private constructor(
         refreshMutex.withLock {
             check(sessionStore.load() == null) { "Sign out before changing the cloud server" }
             oidcAttemptStore.clear()
+            androidQrCoordinator.cancel()
             prefs.setCloudApiBaseUrl(apiBaseUrl)
         }
     }
@@ -108,6 +158,7 @@ internal class CloudAuthRepository private constructor(
     ): CloudSession =
         refreshMutex.withLock {
             oidcAttemptStore.clear()
+            androidQrCoordinator.cancel()
             apiClient
                 .loginWithTotp(username = username, password = password, totpCode = totpCode)
                 .let {
@@ -124,6 +175,7 @@ internal class CloudAuthRepository private constructor(
     ): CloudSession =
         refreshMutex.withLock {
             oidcAttemptStore.clear()
+            androidQrCoordinator.cancel()
             apiClient
                 .loginWithRecoveryCode(
                     username = username,
@@ -242,12 +294,29 @@ internal class CloudAuthRepository private constructor(
             oidcAttemptStore.clear()
         } finally {
             try {
-                sessionStore.clear()
+                androidQrCoordinator.cancel()
             } finally {
-                _hasSession.value = false
+                try {
+                    sessionStore.clear()
+                } finally {
+                    _hasSession.value = false
+                }
             }
         }
     }
+
+    private fun applicationVersion(): String? =
+        applicationContext.packageManager
+            .getPackageInfo(applicationContext.packageName, 0)
+            .versionName
+
+    private fun androidDeviceName(): String =
+        listOf(Build.MANUFACTURER, Build.MODEL)
+            .map(String::trim)
+            .filter(String::isNotBlank)
+            .distinctBy(String::lowercase)
+            .joinToString(" ")
+            .ifBlank { "Android device" }
 
     private suspend fun completeOidcExchange(attempt: OidcAuthAttempt): CloudSession =
         try {

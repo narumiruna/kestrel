@@ -32,6 +32,8 @@ Additional auth settings:
 - `AUTH_RATE_LIMIT_BLOCK_SECONDS`: optional temporary block duration in seconds after hitting the limit (defaults to 900)
 - `AUTH_TOTP_ENCRYPTION_KEY`: 32-byte key encoded as base64 (or 64-char hex) for encrypting stored TOTP secrets
 - `AUTH_TOTP_ISSUER`: optional otpauth issuer label shown in authenticator apps
+- `KESTREL_PUBLIC_URL`: public Web origin with no path, query, or fragment; OIDC callbacks and Android QR login derive fixed paths from it
+- `AUTH_ANDROID_QR_LOGIN_SECRET`: optional dedicated 32-byte base64 or 64-character hex secret; set it with `KESTREL_PUBLIC_URL` to enable Android QR login
 - `AUTH_OIDC_ISSUER`, `AUTH_OIDC_CLIENT_ID`, `AUTH_OIDC_CLIENT_SECRET`, `AUTH_OIDC_FLOW_ENCRYPTION_KEY`, `KESTREL_PUBLIC_URL`: optional generic OIDC configuration; set all values to enable it (`AUTH_OIDC_DISPLAY_NAME` is optional)
 - `AUTH_OIDC_DISPLAY_NAME`: optional provider label shown by clients (defaults to `OpenID Connect`)
 - `AUTH_OIDC_FLOW_ENCRYPTION_KEY`: separate 32-byte base64 or 64-character hex key for short-lived OIDC state and exchange recovery
@@ -87,6 +89,11 @@ The current migrations establish the core Phase 1 auth tables:
 - Immutable provider `issuer + sub` mappings to Kestrel users
 - Authenticated-encrypted stateless PKCE authorization state, one-time hashed exchange tickets, and deterministic same-client retry recovery without persisted raw session credentials
 
+### `android_login_attempts`
+
+- Short-lived owner/origin-session binding, hashed QR secret, Android verifier challenge, bounded device metadata, and monotonic approval/consumption timestamps
+- Exchange-session linkage for retry-safe recovery without storing the raw QR secret, verifier, or session credentials
+
 ### `recovery_codes`
 
 - `id`
@@ -137,5 +144,10 @@ The current migrations establish the core Phase 1 auth tables:
 - `POST /auth/oidc/start`: create a Web/Android OIDC authorization request
 - `GET /auth/oidc/callback`: verify OIDC and redirect with a one-time exchange ticket
 - `POST /auth/oidc/exchange`: consume the client-bound ticket → normal Kestrel session
+- `POST /auth/android-login-attempts`: recently authenticated Web session creates a five-minute Android QR login attempt
+- `GET /auth/android-login-attempts/:attemptId`, `POST .../approve`, `POST .../deny`: originating Web session inspects and controls its attempt
+- `POST /auth/android-login-attempts/:attemptId/claim`, `POST .../exchange`: Android binds a verifier, polls for approval, and receives a normal independent session
 - `POST /auth/refresh`: refresh token rotation + new short-lived access token; retrying the immediately previous token within 20 minutes returns the same encrypted-at-rest successor, while reuse after that window revokes the session
 - `POST /auth/session/revoke`: revoke the current session using `Authorization: Bearer <access_token>`
+
+See [`docs/android-qr-login-api.md`](../docs/android-qr-login-api.md) for the QR payload/API contract and [`docs/device-session-security.md`](../docs/device-session-security.md) for its threat model.

@@ -109,6 +109,7 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.accompanist.permissions)
     implementation(libs.maplibre.android.sdk)
+    implementation(libs.google.code.scanner)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)

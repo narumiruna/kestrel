@@ -1,5 +1,6 @@
 package dev.narumi.kestrel.feature.options
 
+import dev.narumi.kestrel.core.cloud.AndroidQrLoginDetails
 import dev.narumi.kestrel.core.data.StartupPreference
 import dev.narumi.kestrel.core.library.LibraryItemKind
 import org.junit.Assert.assertEquals
@@ -67,6 +68,30 @@ class OptionsPresentationTest {
         assertFalse(isValidCloudServerAddress("kestrel.narumi.dev"))
         assertFalse(isValidCloudServerAddress("file:///tmp/server"))
         assertFalse(isValidCloudServerAddress("https://"))
+    }
+
+    @Test
+    fun androidQrLoginStatesBlockCompetingAuthAndExposeConfirmationDetails() {
+        val details =
+            AndroidQrLoginDetails(
+                appVersion = "0.8.0",
+                deviceName = "Google Pixel",
+                expiresAt = 1_800_000_000_000L,
+                matchingCode = "123-456",
+                pollIntervalSeconds = 5,
+                publicOrigin = "https://cloud.example.test",
+                username = "admin",
+            )
+        val confirmation = AndroidQrLoginUiState.Confirmation(details)
+        assertTrue(confirmation.blocksOtherAuthentication())
+        assertEquals(
+            "Confirm admin on https://cloud.example.test",
+            confirmation.summary(),
+        )
+        assertTrue(AndroidQrLoginUiState.Confirming(details).blocksOtherAuthentication())
+        assertTrue(AndroidQrLoginUiState.Waiting(details, 5).blocksOtherAuthentication())
+        assertFalse(AndroidQrLoginUiState.Expired.blocksOtherAuthentication())
+        assertEquals("QR code expired", AndroidQrLoginUiState.Expired.summary())
     }
 
     @Test

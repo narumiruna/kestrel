@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { createAccountSecurityRoutes } from './account-security/account-security.routes';
+import { createAndroidLoginRoutes } from './android-login/android-login.routes';
 import { createAppRoutes } from './app.routes';
 import type { AuthVariables } from './auth/auth-request';
 import { createAuthRoutes } from './auth/auth.routes';
@@ -25,6 +26,14 @@ export function createApp(container: Container): Hono<{
     createAuthRoutes(
       container.authService,
       container.oidcService,
+      container.androidLoginService,
+      container.sessionAuth,
+    ),
+  );
+  app.route(
+    '/',
+    createAndroidLoginRoutes(
+      container.androidLoginService,
       container.sessionAuth,
     ),
   );

@@ -76,6 +76,9 @@ type MockPrismaService = {
     Promise<unknown>,
     [(transaction: TransactionClient) => Promise<unknown>]
   >;
+  androidLoginAttempt: {
+    updateMany: jest.Mock<Promise<{ count: number }>, [unknown]>;
+  };
   authAuditLog: {
     create: jest.Mock<
       Promise<AuthAuditLogRecord>,
@@ -212,6 +215,7 @@ type TotpVerifyResponse = {
 
 type TransactionClient = Pick<
   MockPrismaService,
+  | 'androidLoginAttempt'
   | 'device'
   | 'recoveryCode'
   | 'refreshTokenHistory'
@@ -254,6 +258,11 @@ describe('AppController (e2e)', () => {
         Promise<unknown>,
         [(transaction: TransactionClient) => Promise<unknown>]
       >(),
+      androidLoginAttempt: {
+        updateMany: jest
+          .fn<Promise<{ count: number }>, [unknown]>()
+          .mockResolvedValue({ count: 0 }),
+      },
       authAuditLog: {
         create: jest.fn((args: Prisma.AuthAuditLogCreateArgs) => {
           const record: AuthAuditLogRecord = {
@@ -669,6 +678,7 @@ describe('AppController (e2e)', () => {
     };
     prismaService.$transaction.mockImplementation(async (transaction) =>
       transaction({
+        androidLoginAttempt: prismaService.androidLoginAttempt,
         device: prismaService.device,
         recoveryCode: prismaService.recoveryCode,
         refreshTokenHistory: prismaService.refreshTokenHistory,
@@ -712,6 +722,7 @@ describe('AppController (e2e)', () => {
       .expect('cache-control', 'no-store')
       .expect(200)
       .expect({
+        androidQrLogin: { enabled: false },
         oidc: { displayName: 'OpenID Connect', enabled: false },
       });
   });

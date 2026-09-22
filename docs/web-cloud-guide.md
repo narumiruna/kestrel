@@ -5,6 +5,14 @@ Kestrel Cloud uses two workspaces:
 - **Map** is the canonical place to create and spatially edit Places and Routes.
 - **Library** is for searching, sharing, deleting, and opening saved items on the map.
 
+## Sign in to Android with a QR code
+
+When the server enables Android QR login, open **Account → Sign in with a QR code** and choose **Create Android login code**. The code lasts five minutes and requires a Web session created within the previous ten minutes; sign in again through the normal login page when prompted.
+
+Scan the code from the signed-out Android app. Before approving, compare the username, server, Android device label, and six-digit matching code on both screens. Only the same active Web session that created the attempt can approve or cancel it. The completed Android session appears under **Active sessions** and can be revoked independently. QR login starts cloud sync but does not enable Web remote control.
+
+Cancel or create a new code if the device is unexpected, any displayed value differs, or another device claimed the code. Do not send a QR screenshot to another person: it is a short-lived bearer capability even though it contains no password or session token. Password/TOTP/recovery-code and OIDC login remain available when QR login or Google Play services is unavailable.
+
 ## Create or edit a route
 
 Open **Map → Routes**, then select a saved route or choose **New**.

@@ -121,6 +121,10 @@ class FakeAccountSecurityPrisma {
     ];
   }
 
+  readonly androidLoginAttempt = {
+    updateMany: async () => ({ count: 0 }),
+  };
+
   readonly authAuditLog = {
     create: async (args: { data: Record<string, unknown> }) => ({
       createdAt: new Date(),

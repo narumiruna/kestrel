@@ -1,6 +1,7 @@
 export const HttpStatus = {
   BAD_REQUEST: 400,
   CONFLICT: 409,
+  FORBIDDEN: 403,
   GONE: 410,
   INTERNAL_SERVER_ERROR: 500,
   NOT_FOUND: 404,
@@ -50,6 +51,15 @@ export class UnauthorizedException extends HttpException {
   }
 }
 
+export class ForbiddenException extends HttpException {
+  constructor(response?: HttpExceptionResponse) {
+    super(
+      createBody(response, 'Forbidden', HttpStatus.FORBIDDEN),
+      HttpStatus.FORBIDDEN,
+    );
+  }
+}
+
 export class NotFoundException extends HttpException {
   constructor(response?: HttpExceptionResponse) {
     super(
@@ -92,6 +102,15 @@ export class InternalServerErrorException extends HttpException {
         HttpStatus.INTERNAL_SERVER_ERROR,
       ),
       HttpStatus.INTERNAL_SERVER_ERROR,
+    );
+  }
+}
+
+export class TooManyRequestsException extends HttpException {
+  constructor(response?: HttpExceptionResponse) {
+    super(
+      createBody(response, 'Too Many Requests', HttpStatus.TOO_MANY_REQUESTS),
+      HttpStatus.TOO_MANY_REQUESTS,
     );
   }
 }

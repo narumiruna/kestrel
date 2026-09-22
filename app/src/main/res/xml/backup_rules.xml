@@ -7,4 +7,5 @@
 -->
 <full-backup-content>
     <exclude domain="sharedpref" path="kestrel_oidc_auth.xml" />
+    <exclude domain="sharedpref" path="kestrel_android_qr_auth.xml" />
 </full-backup-content>

@@ -21,6 +21,7 @@ ktlint = "1.5.0"
 detekt = "2.0.0-alpha.6"
 screenshot = "0.0.1-alpha16"
 versionCatalogUpdate = "1.1.1"
+googleCodeScanner = "16.1.0"
 
 [libraries]
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "coreKtx" }
@@ -50,6 +51,7 @@ accompanist-permissions = { module = "com.google.accompanist:accompanist-permiss
 maplibre-android-sdk = { module = "org.maplibre.gl:android-sdk", version.ref = "maplibre" }
 androidx-datastore-preferences = { module = "androidx.datastore:datastore-preferences", version.ref = "datastore" }
 screenshot-validation-api = { module = "com.android.tools.screenshot:screenshot-validation-api", version.ref = "screenshot" }
+google-code-scanner = { module = "com.google.android.gms:play-services-code-scanner", version.ref = "googleCodeScanner" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

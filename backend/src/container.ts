@@ -1,4 +1,5 @@
 import { AccountSecurityService } from './account-security/account-security.service';
+import { AndroidLoginService } from './android-login/android-login.service';
 import { AppService } from './app.service';
 import { AccessTokenService } from './auth/access-token.service';
 import { AuthAuditService } from './auth/auth-audit.service';
@@ -21,6 +22,7 @@ import { SyncService } from './sync/sync.service';
 export type Container = {
   accessTokenService: AccessTokenService;
   accountSecurityService: AccountSecurityService;
+  androidLoginService: AndroidLoginService;
   appService: AppService;
   authService: AuthService;
   libraryService: LibraryService;
@@ -63,6 +65,13 @@ export function createContainer(
     prismaService,
     totpService,
   );
+  const androidLoginService = new AndroidLoginService(
+    accessTokenService,
+    authAuditService,
+    configService,
+    prismaService,
+    totpService,
+  );
 
   return {
     accessTokenService,
@@ -73,6 +82,7 @@ export function createContainer(
       sessionRevocationService,
       oidcService,
     ),
+    androidLoginService,
     appService: new AppService(configService, prismaService),
     authService,
     libraryService: new LibraryService(prismaService),

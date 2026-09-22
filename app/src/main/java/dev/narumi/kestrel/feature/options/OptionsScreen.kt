@@ -42,16 +42,21 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import dev.narumi.kestrel.core.cloud.AndroidQrLoginMethod
+import dev.narumi.kestrel.core.cloud.AndroidQrLoginProgress
 import dev.narumi.kestrel.core.cloud.CloudApiException
 import dev.narumi.kestrel.core.cloud.CloudAuthRepository
 import dev.narumi.kestrel.core.cloud.CloudPlaceConflict
 import dev.narumi.kestrel.core.cloud.CloudSession
 import dev.narumi.kestrel.core.cloud.CloudSyncRepository
 import dev.narumi.kestrel.core.cloud.CloudSyncState
+import dev.narumi.kestrel.core.cloud.GoogleQrCodeScanner
 import dev.narumi.kestrel.core.cloud.OidcMethod
+import dev.narumi.kestrel.core.cloud.QrCodeScanResult
 import dev.narumi.kestrel.core.cloud.RemoteCommandStatus
 import dev.narumi.kestrel.core.cloud.RemoteControlRepository
 import dev.narumi.kestrel.core.cloud.RemoteControlRuntimeStatus
+import dev.narumi.kestrel.core.cloud.findActivity
 import dev.narumi.kestrel.core.cloud.normalizeCloudApiBaseUrl
 import dev.narumi.kestrel.core.data.CloudSettings
 import dev.narumi.kestrel.core.data.KestrelPrefs
@@ -68,6 +73,7 @@ import dev.narumi.kestrel.ui.components.KestrelSectionHeader
 import dev.narumi.kestrel.ui.components.PersistedActionResult
 import dev.narumi.kestrel.ui.components.runPersistedAction
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.io.IOException
 import java.net.URI
@@ -272,7 +278,7 @@ fun OptionsScreen(
     }
 }
 
-@Suppress("CyclomaticComplexMethod", "LongMethod")
+@Suppress("CyclomaticComplexMethod", "LongMethod", "ThrowsCount", "TooGenericExceptionCaught")
 @Composable
 private fun CloudSettingsSection(
     pendingOidcCallback: String?,
@@ -283,6 +289,8 @@ private fun CloudSettingsSection(
     val authRepository = remember { CloudAuthRepository.getInstance(context) }
     val syncRepository = remember { CloudSyncRepository.getInstance(context) }
     val remoteControlRepository = remember { RemoteControlRepository.getInstance(context) }
+    val scannerActivity = context.findActivity()
+    val qrCodeScanner = remember(scannerActivity) { scannerActivity?.let(::GoogleQrCodeScanner) }
     val scope = rememberCoroutineScope()
 
     val cloudSettings by prefs.cloudSettings.collectAsStateWithLifecycle(CloudSettings())
@@ -300,10 +308,30 @@ private fun CloudSettingsSection(
     var cloudError by remember { mutableStateOf<String?>(null) }
     var cloudLoading by remember { mutableStateOf(false) }
     var oidcMethod by remember { mutableStateOf(OidcMethod(enabled = false)) }
+    var androidQrLoginMethod by remember { mutableStateOf(AndroidQrLoginMethod()) }
+    var androidQrLoginState by remember { mutableStateOf<AndroidQrLoginUiState>(AndroidQrLoginUiState.Idle) }
     var apiBaseUrl by remember { mutableStateOf(cloudSettings.apiBaseUrl) }
     var confirmRemoteEnable by remember { mutableStateOf(false) }
     var confirmSignOut by remember { mutableStateOf(false) }
     var pendingConflictResolution by remember { mutableStateOf<PendingConflictResolution?>(null) }
+
+    suspend fun applyAndroidQrProgress(progress: AndroidQrLoginProgress) {
+        androidQrLoginState =
+            when (progress) {
+                is AndroidQrLoginProgress.Confirmation -> AndroidQrLoginUiState.Confirmation(progress.details)
+                is AndroidQrLoginProgress.Waiting ->
+                    AndroidQrLoginUiState.Waiting(progress.details, progress.retryAfterSeconds)
+                is AndroidQrLoginProgress.Completed -> {
+                    cloudSession = progress.session
+                    loginForm = CloudLoginForm()
+                    syncRepository.syncNow()
+                    cloudMessage = "Signed in as ${progress.session.username} with a Web QR code"
+                    AndroidQrLoginUiState.Idle
+                }
+                AndroidQrLoginProgress.Denied -> AndroidQrLoginUiState.Denied
+                AndroidQrLoginProgress.Expired -> AndroidQrLoginUiState.Expired
+            }
+    }
 
     LaunchedEffect(Unit) {
         try {
@@ -319,22 +347,42 @@ private fun CloudSettingsSection(
 
     LaunchedEffect(cloudSettings.apiBaseUrl) {
         apiBaseUrl = cloudSettings.apiBaseUrl
-        oidcMethod =
-            try {
-                authRepository.getOidcMethod()
-            } catch (error: CancellationException) {
-                throw error
-            } catch (_: CloudApiException) {
-                OidcMethod(enabled = false)
-            } catch (_: IOException) {
-                OidcMethod(enabled = false)
-            } catch (_: IllegalStateException) {
-                OidcMethod(enabled = false)
-            }
+        try {
+            val methods = authRepository.getAuthMethods()
+            oidcMethod = methods.oidc
+            androidQrLoginMethod = methods.androidQrLogin
+        } catch (error: CancellationException) {
+            throw error
+        } catch (_: CloudApiException) {
+            oidcMethod = OidcMethod(enabled = false)
+            androidQrLoginMethod = AndroidQrLoginMethod()
+        } catch (_: IOException) {
+            oidcMethod = OidcMethod(enabled = false)
+            androidQrLoginMethod = AndroidQrLoginMethod()
+        } catch (_: IllegalStateException) {
+            oidcMethod = OidcMethod(enabled = false)
+            androidQrLoginMethod = AndroidQrLoginMethod()
+        }
     }
 
     LaunchedEffect(cloudSessionLoaded, pendingOidcCallback) {
         if (!cloudSessionLoaded || cloudSession != null || pendingOidcCallback != null) {
+            return@LaunchedEffect
+        }
+        try {
+            val qrProgress = authRepository.resumeAndroidQrLogin()
+            if (qrProgress != null) {
+                applyAndroidQrProgress(qrProgress)
+                return@LaunchedEffect
+            }
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            androidQrLoginState =
+                AndroidQrLoginUiState.Error(
+                    message = error.toCloudErrorMessage(),
+                    retryPendingAttempt = true,
+                )
             return@LaunchedEffect
         }
         runCloudAction(
@@ -347,6 +395,22 @@ private fun CloudSettingsSection(
             loginForm = CloudLoginForm()
             syncRepository.syncNow()
             cloudMessage = "Signed in as ${session.username} with ${oidcMethod.displayName}"
+        }
+    }
+
+    LaunchedEffect(androidQrLoginState) {
+        val waiting = androidQrLoginState as? AndroidQrLoginUiState.Waiting ?: return@LaunchedEffect
+        delay(waiting.retryAfterSeconds * 1_000L)
+        try {
+            applyAndroidQrProgress(authRepository.pollAndroidQrLogin())
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            androidQrLoginState =
+                AndroidQrLoginUiState.Error(
+                    message = error.toCloudErrorMessage(),
+                    retryPendingAttempt = true,
+                )
         }
     }
 
@@ -404,6 +468,98 @@ private fun CloudSettingsSection(
             authRepository.logout()
             cloudSession = null
             cloudMessage = "Signed out"
+        }
+    }
+
+    fun scanAndroidQrCode() {
+        if (androidQrLoginState.blocksOtherAuthentication()) return
+        androidQrLoginState = AndroidQrLoginUiState.OpeningScanner
+        cloudError = null
+        cloudMessage = null
+        scope.launch {
+            when (val result = qrCodeScanner?.scan() ?: QrCodeScanResult.Unavailable) {
+                is QrCodeScanResult.Success -> {
+                    androidQrLoginState = AndroidQrLoginUiState.Claiming
+                    try {
+                        applyAndroidQrProgress(authRepository.prepareAndroidQrLogin(result.rawValue))
+                    } catch (error: CancellationException) {
+                        throw error
+                    } catch (error: Exception) {
+                        androidQrLoginState =
+                            AndroidQrLoginUiState.Error(
+                                message = error.toCloudErrorMessage(),
+                                retryPendingAttempt = false,
+                            )
+                    }
+                }
+                QrCodeScanResult.Cancelled -> androidQrLoginState = AndroidQrLoginUiState.Idle
+                QrCodeScanResult.ScannerDownloadFailed ->
+                    androidQrLoginState = AndroidQrLoginUiState.ScannerDownloadFailed
+                QrCodeScanResult.Unavailable -> androidQrLoginState = AndroidQrLoginUiState.ScannerUnavailable
+                is QrCodeScanResult.Failure ->
+                    androidQrLoginState =
+                        AndroidQrLoginUiState.Error(
+                            message = result.message,
+                            retryPendingAttempt = false,
+                        )
+            }
+        }
+    }
+
+    fun confirmAndroidQrLogin() {
+        val confirmation = androidQrLoginState as? AndroidQrLoginUiState.Confirmation ?: return
+        androidQrLoginState = AndroidQrLoginUiState.Confirming(confirmation.details)
+        scope.launch {
+            try {
+                applyAndroidQrProgress(authRepository.confirmAndroidQrLogin())
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                androidQrLoginState =
+                    AndroidQrLoginUiState.Error(
+                        message = error.toCloudErrorMessage(),
+                        retryPendingAttempt = true,
+                    )
+            }
+        }
+    }
+
+    fun cancelAndroidQrLogin() {
+        scope.launch {
+            runCatching { authRepository.cancelAndroidQrLogin() }
+            val completedSession = authRepository.currentSession()
+            if (completedSession == null) {
+                androidQrLoginState = AndroidQrLoginUiState.Idle
+            } else {
+                cloudSession = completedSession
+                androidQrLoginState = AndroidQrLoginUiState.Idle
+                syncRepository.syncNow()
+                cloudMessage = "Signed in as ${completedSession.username}"
+            }
+        }
+    }
+
+    fun retryAndroidQrLogin() {
+        val pending = (androidQrLoginState as? AndroidQrLoginUiState.Error)?.retryPendingAttempt == true
+        if (!pending) {
+            scanAndroidQrCode()
+            return
+        }
+        androidQrLoginState = AndroidQrLoginUiState.Claiming
+        scope.launch {
+            try {
+                val progress = authRepository.resumeAndroidQrLogin()
+                androidQrLoginState = AndroidQrLoginUiState.Idle
+                if (progress != null) applyAndroidQrProgress(progress)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                androidQrLoginState =
+                    AndroidQrLoginUiState.Error(
+                        message = error.toCloudErrorMessage(),
+                        retryPendingAttempt = true,
+                    )
+            }
         }
     }
 
@@ -521,6 +677,12 @@ private fun CloudSettingsSection(
             }
         },
         oidcMethod = oidcMethod,
+        androidQrLoginMethod = androidQrLoginMethod,
+        androidQrLoginState = androidQrLoginState,
+        onAndroidQrScan = ::scanAndroidQrCode,
+        onAndroidQrConfirm = ::confirmAndroidQrLogin,
+        onAndroidQrCancel = ::cancelAndroidQrLogin,
+        onAndroidQrRetry = ::retryAndroidQrLogin,
         onOidcLogin = {
             launchCloudUiAction(
                 scope = scope,
@@ -595,6 +757,7 @@ private fun CloudSettingsSection(
     )
 }
 
+@Suppress("LongMethod")
 @Composable
 private fun CloudSettingsCard(
     uiState: CloudSettingsUiState,
@@ -608,17 +771,26 @@ private fun CloudSettingsCard(
     onSaveApiBaseUrl: () -> Unit,
     onLogin: () -> Unit,
     oidcMethod: OidcMethod,
+    androidQrLoginMethod: AndroidQrLoginMethod,
+    androidQrLoginState: AndroidQrLoginUiState,
+    onAndroidQrScan: () -> Unit,
+    onAndroidQrConfirm: () -> Unit,
+    onAndroidQrCancel: () -> Unit,
+    onAndroidQrRetry: () -> Unit,
     onOidcLogin: () -> Unit,
     onRefreshSession: () -> Unit,
     onLogout: () -> Unit,
     onSyncNow: () -> Unit,
 ) {
+    val authenticationBlocked = uiState.loading || androidQrLoginState.blocksOtherAuthentication()
     OptionsDisclosureCard(
         title = OptionsSection.Cloud.title,
         icon = KestrelIcons.Cloud,
         subtitle = "Connect to Kestrel cloud and keep favorites synced.",
         summary =
-            if (uiState.loading) {
+            if (uiState.session == null && androidQrLoginState != AndroidQrLoginUiState.Idle) {
+                androidQrLoginState.summary()
+            } else if (uiState.loading) {
                 "Working…"
             } else {
                 cloudSummary(
@@ -641,7 +813,7 @@ private fun CloudSettingsCard(
                     Text("Enter an http:// or https:// server address with a host.")
                 }
             },
-            enabled = uiState.session == null && !uiState.loading,
+            enabled = uiState.session == null && !authenticationBlocked,
             modifier = Modifier.fillMaxWidth(),
         )
         Text(
@@ -664,18 +836,24 @@ private fun CloudSettingsCard(
         KestrelActionRow {
             OutlinedButton(
                 onClick = onSaveApiBaseUrl,
-                enabled = uiState.session == null && !uiState.loading && serverValid,
+                enabled = uiState.session == null && !authenticationBlocked && serverValid,
             ) { Text("Use this server") }
         }
 
         if (uiState.session == null) {
             CloudSignedOutCardContent(
                 loginForm = loginForm,
-                loading = uiState.loading,
+                loading = authenticationBlocked,
                 onLoginFormChange = onLoginFormChange,
                 onLogin = onLogin,
                 oidcMethod = oidcMethod,
                 onOidcLogin = onOidcLogin,
+                androidQrLoginMethod = androidQrLoginMethod,
+                androidQrLoginState = androidQrLoginState,
+                onAndroidQrScan = onAndroidQrScan,
+                onAndroidQrConfirm = onAndroidQrConfirm,
+                onAndroidQrCancel = onAndroidQrCancel,
+                onAndroidQrRetry = onAndroidQrRetry,
             )
         } else {
             CloudSignedInCardContent(
@@ -763,6 +941,7 @@ private fun RemoteControlSettingsCard(
     }
 }
 
+@Suppress("LongMethod")
 @Composable
 private fun CloudSignedOutCardContent(
     loginForm: CloudLoginForm,
@@ -771,6 +950,12 @@ private fun CloudSignedOutCardContent(
     onLogin: () -> Unit,
     oidcMethod: OidcMethod,
     onOidcLogin: () -> Unit,
+    androidQrLoginMethod: AndroidQrLoginMethod,
+    androidQrLoginState: AndroidQrLoginUiState,
+    onAndroidQrScan: () -> Unit,
+    onAndroidQrConfirm: () -> Unit,
+    onAndroidQrCancel: () -> Unit,
+    onAndroidQrRetry: () -> Unit,
 ) {
     OutlinedTextField(
         value = loginForm.username,
@@ -842,6 +1027,15 @@ private fun CloudSignedOutCardContent(
             Text("Continue with ${oidcMethod.displayName}")
         }
     }
+    AndroidQrLoginContent(
+        method = androidQrLoginMethod,
+        state = androidQrLoginState,
+        enabled = !loading || androidQrLoginState.blocksOtherAuthentication(),
+        onScan = onAndroidQrScan,
+        onConfirm = onAndroidQrConfirm,
+        onCancel = onAndroidQrCancel,
+        onRetry = onAndroidQrRetry,
+    )
 }
 
 @Composable

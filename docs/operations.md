@@ -4,19 +4,28 @@
 
 Production deploys run `.github/workflows/deploy.yml` on the self-hosted runner and use `compose.yaml`. Do not deploy with `compose.dev.yaml`; its bind mounts and watch processes are development-only.
 
-Required GitHub Actions secrets (`AUTH_OIDC_FLOW_ENCRYPTION_KEY` and `AUTH_OIDC_CLIENT_SECRET` are required only when OIDC is enabled):
+Required GitHub Actions secrets (`AUTH_OIDC_FLOW_ENCRYPTION_KEY` and `AUTH_OIDC_CLIENT_SECRET` are required only when OIDC is enabled; `AUTH_ANDROID_QR_LOGIN_SECRET` is required only when Android QR login is enabled):
 
-| Secret | Purpose | Rotation impact |
-| --- | --- | --- |
-| `POSTGRES_USER` | PostgreSQL application/backup role | Update PostgreSQL and deploy configuration together. |
-| `POSTGRES_PASSWORD` | PostgreSQL role password | Rotate in PostgreSQL first, then update the secret and redeploy. |
-| `AUTH_ACCESS_TOKEN_SECRET` | HMAC access-token signing | Existing short-lived access tokens stop working; refresh sessions can obtain replacements. |
-| `AUTH_OIDC_FLOW_ENCRYPTION_KEY` | Encrypts short-lived OIDC authorization state and exchange recovery | In-flight OIDC logins fail; existing sessions are unaffected. Configure only with all OIDC values. |
-| `AUTH_OIDC_CLIENT_SECRET` | OIDC confidential-client secret | In-flight/new OIDC logins fail until both sides use the new secret. |
-| `AUTH_TOTP_ENCRYPTION_KEY` | Encrypts stored TOTP secrets | Do not replace directly. Re-encrypt every stored TOTP secret during a maintenance migration, then update the secret. |
-| `PAT_TOKEN` | Allows version/tag workflows to trigger follow-up workflows | Replace with a token that can write repository contents and workflows. |
+| Secret                          | Purpose                                                             | Rotation impact                                                                                                                                                                      |
+| ------------------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `POSTGRES_USER`                 | PostgreSQL application/backup role                                  | Update PostgreSQL and deploy configuration together.                                                                                                                                 |
+| `POSTGRES_PASSWORD`             | PostgreSQL role password                                            | Rotate in PostgreSQL first, then update the secret and redeploy.                                                                                                                     |
+| `AUTH_ACCESS_TOKEN_SECRET`      | HMAC access-token signing                                           | Existing short-lived access tokens stop working; refresh sessions can obtain replacements.                                                                                           |
+| `AUTH_ANDROID_QR_LOGIN_SECRET`  | Matching-code and retry-safe Android QR exchange derivation         | In-flight attempts and their bounded exchange recovery fail; completed sessions are unaffected. Wait at least 20 minutes after stopping new attempts before removing or rotating it. |
+| `AUTH_OIDC_FLOW_ENCRYPTION_KEY` | Encrypts short-lived OIDC authorization state and exchange recovery | In-flight OIDC logins fail; existing sessions are unaffected. Configure only with all OIDC values.                                                                                   |
+| `AUTH_OIDC_CLIENT_SECRET`       | OIDC confidential-client secret                                     | In-flight/new OIDC logins fail until both sides use the new secret.                                                                                                                  |
+| `AUTH_TOTP_ENCRYPTION_KEY`      | Encrypts stored TOTP secrets                                        | Do not replace directly. Re-encrypt every stored TOTP secret during a maintenance migration, then update the secret.                                                                 |
+| `PAT_TOKEN`                     | Allows version/tag workflows to trigger follow-up workflows         | Replace with a token that can write repository contents and workflows.                                                                                                               |
 
-`POSTGRES_DB` is optional and defaults to `kestrel`. Generic OIDC is optional and disabled unless every required value is configured. Store `AUTH_OIDC_CLIENT_SECRET` and `AUTH_OIDC_FLOW_ENCRYPTION_KEY` as GitHub Actions secrets; store `KESTREL_PUBLIC_URL`, the issuer, client ID, and optional display name as repository variables listed in [`oidc.md`](oidc.md). Kestrel derives the fixed Web, Android, and provider callback paths from the public URL. No deployment-specific OIDC value has a repository fallback. The workflow passes deployment values to Compose only through the deploy step's process environment, explicitly disables dotenv input, validates the Compose model, and then deploys production images.
+`POSTGRES_DB` is optional and defaults to `kestrel`. Generic OIDC is optional and disabled unless every required value is configured. Android QR login is independently optional and disabled unless both `AUTH_ANDROID_QR_LOGIN_SECRET` and a valid `KESTREL_PUBLIC_URL` are present. Store the QR and OIDC secrets as GitHub Actions secrets; store `KESTREL_PUBLIC_URL`, the issuer, client ID, and optional display name as repository variables listed in [`oidc.md`](oidc.md). `KESTREL_PUBLIC_URL` must be the HTTPS Web origin only; Kestrel derives the QR path at `/login/android` and Android always derives the Backend at `/api/backend`. Loopback HTTP is development-only. No deployment-specific auth value has a repository fallback. The workflow passes deployment values to Compose only through the deploy step's process environment, explicitly disables dotenv input, validates the Compose model, and then deploys production images.
+
+Generate a dedicated QR secret without reusing access-token, TOTP, or OIDC keys:
+
+```bash
+openssl rand -base64 32
+```
+
+Before enabling it, apply source-aware ingress limits to `POST /api/backend/auth/android-login-attempts/:attemptId/claim` and `/exchange`. Do not log request bodies, fragments, or query strings. The application additionally limits active attempts, enforces five-minute creation expiry and a minimum five-second exchange poll interval, and returns `Retry-After`; ingress controls remain required for volumetric abuse. Monitor `android_qr_create`, `android_qr_claim`, `android_qr_approve`, `android_qr_deny`, `android_qr_expire`, and `android_qr_exchange` audit outcomes without collecting QR secrets or exact payloads.
 
 After deployment, verify readiness and request correlation:
 
@@ -67,7 +76,16 @@ cp .env.example .env
 chmod 600 .env
 ```
 
-The defaults in `compose.dev.yaml` are only for local development. Never reuse its database password, access-token secret, or TOTP encryption key in production. Start and stop the live-reload stack with `just cloud-up` and `just cloud-down`.
+The defaults in `compose.dev.yaml` are only for local development. Never reuse its database password, access-token secret, or TOTP encryption key in production. QR login remains off by default. To test it locally, set disposable values before starting the stack, then confirm `GET /auth/methods` reports `androidQrLogin.enabled=true`:
+
+```bash
+export KESTREL_PUBLIC_URL=http://localhost:3301
+export AUTH_ANDROID_QR_LOGIN_SECRET="$(openssl rand -base64 32)"
+just cloud-up
+curl -fsS http://localhost:3300/auth/methods
+```
+
+Start and stop the live-reload stack with `just cloud-up` and `just cloud-down`.
 
 ## Database backup and bounded restore check
 
@@ -115,6 +133,8 @@ If a migration or application deploy fails:
 6. Run `/health`, login, library read, and sync smoke checks before reopening traffic.
 
 Use `prisma migrate resolve --rolled-back <migration>` only for a failed migration whose database changes were manually reversed and reviewed. It is not a substitute for restoring a backup.
+
+For an Android QR login feature rollback, first remove `AUTH_ANDROID_QR_LOGIN_SECRET` so method discovery hides new entry points and no new attempts can be created. Wait at least 20 minutes for attempt/exchange recovery to end, then roll back Web/Android entry points and Backend routes. Existing QR-created sessions are ordinary sessions and must remain refreshable and revocable. The additive `android_login_attempts` table may remain until a later reviewed migration; do not delete completed Android sessions. Restore from the verified backup rather than editing an applied migration if the schema deployment itself must be reversed.
 
 ## Android release signing
 
