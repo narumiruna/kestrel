@@ -460,7 +460,11 @@
 }
 
 .map-picker-new {
-  min-height: 36px;
+  align-items: center;
+  display: inline-flex;
+  gap: 6px;
+  min-height: var(--ui-control-height);
+  white-space: nowrap;
 }
 
 .mobile-workspace-bar {

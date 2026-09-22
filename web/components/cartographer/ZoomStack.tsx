@@ -1,16 +1,34 @@
 'use client';
 
-import { ChevronDownIcon, LayersIcon, MinusIcon, PlusIcon, SizeIcon } from '@/components/ui/icons';
+import {
+  ChevronDownIcon,
+  EnterFullScreenIcon,
+  ExitFullScreenIcon,
+  LayersIcon,
+  MinusIcon,
+  PlusIcon,
+  SizeIcon,
+} from '@/components/ui/icons';
 import { Button, Hint, Menu, MenuSurface } from '@/components/ui/radix-ui';
 import { useMapStyle } from '@/hooks/useMapStyle';
 
 type ZoomStackProps = {
+  isMapFocused?: boolean;
   onFit?: () => void;
+  onToggleMapFocus?: () => void;
   onZoomIn?: () => void;
   onZoomOut?: () => void;
+  viewportDisabled?: boolean;
 };
 
-export function ZoomStack({ onFit, onZoomIn, onZoomOut }: ZoomStackProps) {
+export function ZoomStack({
+  isMapFocused = false,
+  onFit,
+  onToggleMapFocus,
+  onZoomIn,
+  onZoomOut,
+  viewportDisabled = false,
+}: ZoomStackProps) {
   const { availableStyles, label, setStyleName, styleName } = useMapStyle();
 
   return (
@@ -19,13 +37,25 @@ export function ZoomStack({ onFit, onZoomIn, onZoomOut }: ZoomStackProps) {
       <fieldset className="map-control-bar map-viewport-controls">
         <legend className="sr-only">Map viewport</legend>
         <Hint label="Zoom in">
-          <Button aria-label="Zoom in" title="Zoom in" type="button" onClick={onZoomIn}>
+          <Button
+            aria-label="Zoom in"
+            disabled={viewportDisabled}
+            title="Zoom in"
+            type="button"
+            onClick={onZoomIn}
+          >
             <PlusIcon />
           </Button>
         </Hint>
         <span aria-hidden className="map-control-divider" />
         <Hint label="Zoom out">
-          <Button aria-label="Zoom out" title="Zoom out" type="button" onClick={onZoomOut}>
+          <Button
+            aria-label="Zoom out"
+            disabled={viewportDisabled}
+            title="Zoom out"
+            type="button"
+            onClick={onZoomOut}
+          >
             <MinusIcon />
           </Button>
         </Hint>
@@ -33,6 +63,7 @@ export function ZoomStack({ onFit, onZoomIn, onZoomOut }: ZoomStackProps) {
         <Hint label="Fit to all pins">
           <Button
             aria-label="Fit to all pins"
+            disabled={viewportDisabled}
             title="Fit to all pins"
             type="button"
             onClick={onFit}
@@ -49,17 +80,27 @@ export function ZoomStack({ onFit, onZoomIn, onZoomOut }: ZoomStackProps) {
           side="top"
           trigger={
             <Button
-              aria-label={`Map appearance: ${label}`}
+              aria-label={`Map tools, appearance: ${label}`}
               className="map-style-trigger"
-              title={`Map appearance: ${label}`}
+              title={`Map tools, appearance: ${label}`}
               type="button"
             >
               <LayersIcon />
-              <span>{label}</span>
+              <span>Map tools</span>
               <ChevronDownIcon />
             </Button>
           }
         >
+          {onToggleMapFocus == null ? null : (
+            <>
+              <Menu.Item className="ui-menu-item map-focus-menu-item" onSelect={onToggleMapFocus}>
+                {isMapFocused ? <ExitFullScreenIcon /> : <EnterFullScreenIcon />}
+                {isMapFocused ? 'Show panels' : 'Focus map'}
+              </Menu.Item>
+              <Menu.Separator className="ui-menu-separator" />
+            </>
+          )}
+          <Menu.Label className="ui-menu-label">Map appearance</Menu.Label>
           <Menu.RadioGroup
             value={styleName}
             onValueChange={(value) => setStyleName(value as typeof styleName)}

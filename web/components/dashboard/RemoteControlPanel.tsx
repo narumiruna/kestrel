@@ -11,6 +11,7 @@ import {
   formatMode,
   formatRouteDistanceFromWaypoints,
 } from '@/components/dashboard/utils';
+import { PlayIcon } from '@/components/ui/icons';
 import { Button, DialogFrame, SelectField } from '@/components/ui/radix-ui';
 import type {
   CreateRemoteCommandRequest,
@@ -118,7 +119,8 @@ export function RouteRemoteControlAction({
       title="Web remote control"
       trigger={
         <Button className="secondary device-action-button" type="button">
-          <span>Device</span>
+          <PlayIcon aria-hidden />
+          <span>{isDirty ? 'Play current draft on device' : 'Play saved route on device'}</span>
           <span className="muted">{formatDeviceSummary(remote.devices)}</span>
         </Button>
       }

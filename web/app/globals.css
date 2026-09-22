@@ -3875,24 +3875,15 @@ button.is-loading {
   transform: translateY(0);
 }
 
-.map-panel-control-editor::after,
-.map-panel-control-focus::after {
+.map-panel-control-editor::after {
   left: auto;
   right: 0;
   transform: translateY(4px);
 }
 
 .map-panel-control-editor:hover::after,
-.map-panel-control-editor:focus::after,
-.map-panel-control-focus:hover::after,
-.map-panel-control-focus:focus::after {
+.map-panel-control-editor:focus::after {
   transform: translateY(0);
-}
-
-.map-panel-control.active {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fffaf3;
 }
 
 .cartographer-stage-left-collapsed .field-notebook {
@@ -5496,87 +5487,69 @@ button.is-loading {
 }
 
 button.route-marker {
+  --route-marker-body-width: 28px;
+
   background: transparent;
   border: 0;
   box-shadow: none;
   color: transparent;
   font-size: 0;
-  height: 32px;
+  height: 44px;
   min-height: 0;
-  min-width: 32px;
+  min-width: 44px;
   overflow: visible;
   padding: 0;
-  width: 32px;
+  width: 44px;
+}
+
+button.route-marker.route-marker-wide {
+  --route-marker-body-width: 38px;
 }
 
 button.route-marker::before {
   background: var(--accent);
   border: 2px solid #fffaf3;
   border-radius: 999px;
-  box-shadow: 0 5px 14px rgb(34 24 15 / 22%);
+  box-shadow: 0 5px 14px rgb(34 24 15 / 24%);
   box-sizing: border-box;
   content: "";
-  height: 14px;
+  height: 28px;
   left: 50%;
   position: absolute;
   top: 50%;
   transform: translate(-50%, -50%);
-  width: 14px;
+  transition:
+    background var(--transition-fast),
+    box-shadow var(--transition-fast),
+    transform var(--transition-fast);
+  width: var(--route-marker-body-width);
 }
 
 button.route-marker::after {
-  background: var(--bg-surface);
-  border: 1px solid var(--accent);
-  border-radius: 999px;
-  color: var(--accent-hover);
+  color: var(--sand-1);
   content: attr(data-label);
   font-size: 11px;
-  font-weight: 800;
-  left: calc(50% + 13px);
+  font-weight: 900;
+  left: 50%;
   line-height: 1;
-  padding: 3px 6px;
   pointer-events: none;
   position: absolute;
   top: 50%;
-  transform: translateY(-50%);
-  transition: opacity var(--transition-fast);
-}
-
-.route-marker-start,
-.route-marker-end {
-  background: var(--accent);
-  color: #fffaf3;
-}
-
-.route-marker-middle {
-  background: var(--paper-card);
-  border-color: var(--accent);
-  color: var(--accent-hover);
-}
-
-.route-marker-end {
-  background: var(--accent-hover);
-}
-
-button.route-marker.route-marker-start,
-button.route-marker.route-marker-end,
-button.route-marker.route-marker-middle {
-  background: transparent;
-  color: transparent;
-}
-
-button.route-marker.route-marker-start::before,
-button.route-marker.route-marker-end::before {
-  background: var(--accent);
+  transform: translate(-50%, -50%);
 }
 
 button.route-marker.route-marker-middle::before {
-  background: var(--paper-card);
-  border-color: var(--accent);
+  background: var(--sand-1);
+  border-color: var(--accent-hover);
+}
+
+button.route-marker.route-marker-middle::after {
+  color: var(--accent-hover);
 }
 
 button.route-marker.route-marker-end::before {
   background: var(--accent-hover);
+  border-radius: 7px 7px 7px 2px;
 }
 
 button.route-marker.hovered,
@@ -5588,25 +5561,41 @@ button.route-marker.selected:focus-visible {
   background: transparent;
   box-shadow: none;
   transform: none;
-  z-index: 1;
+  z-index: 2;
 }
 
 button.route-marker.hovered::before {
   box-shadow:
-    0 0 0 4px rgb(180 95 50 / 16%),
-    0 8px 18px rgb(34 24 15 / 18%);
+    0 0 0 4px rgb(180 95 50 / 22%),
+    0 8px 18px rgb(34 24 15 / 24%);
+  transform: translate(-50%, -50%) scale(1.08);
+}
+
+button.route-marker:focus-visible::before {
+  box-shadow:
+    0 0 0 3px #fffaf3,
+    0 0 0 6px var(--accent-hover),
+    0 8px 18px rgb(34 24 15 / 24%);
+  transform: translate(-50%, -50%) scale(1.08);
 }
 
 button.route-marker.selected::before {
   background: var(--accent-hover);
   box-shadow:
-    0 0 0 4px rgb(180 95 50 / 24%),
-    0 8px 18px rgb(34 24 15 / 24%);
+    0 0 0 5px rgb(180 95 50 / 30%),
+    0 8px 18px rgb(34 24 15 / 28%);
+  transform: translate(-50%, -50%) scale(1.12);
 }
 
 button.route-marker.selected::after {
-  background: var(--accent-hover);
-  color: #fffaf3;
+  color: var(--sand-1);
+}
+
+button.route-marker.selected:focus-visible::before {
+  box-shadow:
+    0 0 0 3px #fffaf3,
+    0 0 0 6px var(--accent-hover),
+    0 8px 18px rgb(34 24 15 / 28%);
 }
 
 @media (max-width: 1023px) {
@@ -6098,15 +6087,6 @@ button.route-marker.selected::after {
     right: 16px;
     top: calc(var(--cloud-topbar-height, 56px) + 76px);
   }
-
-  .map-panel-control-focus {
-    right: calc(var(--cloud-editor-width, 440px) + 32px);
-    top: calc(var(--cloud-topbar-height, 56px) + 24px);
-  }
-
-  .cartographer-stage-right-collapsed .map-panel-control-focus {
-    right: 64px;
-  }
 }
 
 @media (min-width: 1024px) and (max-width: 1199px) {
@@ -6137,10 +6117,6 @@ button.route-marker.selected::after {
 
   .map-panel-control-editor {
     right: 60px;
-  }
-
-  .map-panel-control-focus {
-    right: 12px;
   }
 }
 
@@ -6340,23 +6316,6 @@ button.route-marker:focus-visible {
   box-shadow: none;
   transform: none;
   z-index: 1;
-}
-
-button.route-marker.route-marker-compact::after {
-  bottom: calc(50% + 13px);
-  left: 50%;
-  top: auto;
-  transform: translateX(-50%);
-}
-
-button.route-marker.route-marker-compact:not(.selected)::after {
-  opacity: 0;
-}
-
-button.route-marker.route-marker-compact.hovered::after,
-button.route-marker.route-marker-compact:not(.selected):hover::after,
-button.route-marker.route-marker-compact:not(.selected):focus-visible::after {
-  opacity: 1;
 }
 
 /* Keep place actions reachable while secondary tools live in dialogs. */

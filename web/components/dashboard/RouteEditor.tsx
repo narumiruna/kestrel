@@ -36,11 +36,17 @@ import {
   formatWaypointName,
   getWaypointBadgeClassName,
 } from '@/components/dashboard/routeEditorUtils';
+import { getRouteSavePresentation } from '@/components/dashboard/routeSavePresentation';
 import {
   formatError,
   formatMode,
   formatRouteDistanceFromWaypoints,
 } from '@/components/dashboard/utils';
+import {
+  canEditRouteOnMap,
+  getRouteMapInstruction,
+  type RouteMapCapability,
+} from '@/components/routeMapCapability';
 import {
   ArrowDownIcon,
   ArrowUpIcon,
@@ -50,6 +56,7 @@ import {
   PlusIcon,
   ResetIcon,
   ResumeIcon,
+  Share2Icon,
 } from '@/components/ui/icons';
 import {
   Button,
@@ -84,6 +91,7 @@ type Props = {
   places?: Place[];
   placesError?: string | null;
   route: Route | null;
+  routeMapCapability?: RouteMapCapability;
   selectedWaypointIndex?: number | null;
   setDraftState: Dispatch<SetStateAction<RouteDraftState>>;
 };
@@ -101,6 +109,7 @@ export default function RouteEditor({
   places = [],
   placesError = null,
   route,
+  routeMapCapability = 'ready',
   selectedWaypointIndex = null,
   setDraftState,
 }: Props) {
@@ -112,11 +121,12 @@ export default function RouteEditor({
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [isFavoritesOpen, setIsFavoritesOpen] = useState(false);
   const [isManageOpen, setIsManageOpen] = useState(false);
-  const [isMoreDetailsOpen, setIsMoreDetailsOpen] = useState(route == null);
+  const [isMoreDetailsOpen, setIsMoreDetailsOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const [saveNotice, setSaveNotice] = useState<string | null>(null);
   const moreTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const savedPlaceTriggerRef = useRef<HTMLButtonElement | null>(null);
   const shareTriggerRef = useRef<HTMLButtonElement | null>(null);
   const waypointRowRefs = useRef<Array<HTMLLIElement | null>>([]);
   const validation = useMemo(() => getRouteValidation(draft), [draft]);
@@ -131,6 +141,55 @@ export default function RouteEditor({
   const selectedIndex = selectedWaypointIndex ?? 0;
   const selectedWaypointNumber = selectedIndex + 1;
   const canCloseLoop = shouldOfferCloseLoop(draft.mode, draft.waypoints);
+  const canUseMap = canEditRouteOnMap(routeMapCapability);
+  const mapInstruction = getRouteMapInstruction(routeMapCapability);
+  const savePresentation = getRouteSavePresentation({
+    changeSummary: changes.join(' · '),
+    error,
+    isDirty,
+    isNew: route == null,
+    isSaving,
+    revisionNumber: route?.currentRevision?.revisionNumber ?? null,
+    saveNotice,
+    validationReason: validation.saveDisabledReason,
+  });
+  const savePanel = (
+    <div className="route-save-panel">
+      <div
+        className={`route-save-status route-save-status-${savePresentation.status}`}
+        aria-live="polite"
+        role={savePresentation.status === 'error' ? 'alert' : 'status'}
+      >
+        <strong>{savePresentation.title}</strong>
+        {savePresentation.detail == null ? null : <span>{savePresentation.detail}</span>}
+      </div>
+      {savePresentation.showDiscard || savePresentation.showSaveButton ? (
+        <div className="route-editor-save-buttons">
+          {savePresentation.showDiscard ? (
+            <Button
+              className="secondary"
+              disabled={isSaving}
+              type="button"
+              onClick={() => {
+                setDraftState(resetRouteDraft);
+                onSelectedWaypointIndexChange?.(null);
+                onFocusTargetChange?.(null);
+                setError(null);
+                setSaveNotice(null);
+              }}
+            >
+              Discard
+            </Button>
+          ) : null}
+          {savePresentation.showSaveButton ? (
+            <Button disabled={isSaving || !validation.isValid || !isDirty} type="submit">
+              {isSaving ? 'Saving…' : 'Save route'}
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
 
   useEffect(() => {
     if (selectedWaypointIndex != null && selectedWaypointIndex >= draft.waypoints.length) {
@@ -178,6 +237,7 @@ export default function RouteEditor({
     const index = draft.waypoints.length;
     onSelectedWaypointIndexChange?.(index);
     onFocusTargetChange?.({ latitude: place.latitude, longitude: place.longitude });
+    setIsFavoritesOpen(false);
   }
 
   function selectWaypoint(waypoint: RouteDraftWaypoint, index: number) {
@@ -208,12 +268,6 @@ export default function RouteEditor({
   return (
     <form className="panel route-editor route-editor-redesign" onSubmit={submit}>
       <div className="route-editor-content">
-        {error == null ? null : (
-          <div className="error route-editor-error" role="alert">
-            {error}
-          </div>
-        )}
-
         <section className="route-identity-section" aria-labelledby="route-identity-heading">
           <div className="route-editor-title-row">
             <label className="route-title-field" htmlFor="route-name">
@@ -270,74 +324,67 @@ export default function RouteEditor({
               <span>Revision {route.currentRevision.revisionNumber}</span>
             )}
           </section>
-          <div className="route-context-actions">
-            <RouteRemoteControlAction
-              isDirty={isDirty}
-              mode={draft.mode}
-              route={route}
-              speedKmh={Number(draft.defaultSpeedKmh)}
-              waypoints={draft.waypoints}
-            />
-            <Button
-              ref={shareTriggerRef}
-              aria-haspopup="dialog"
-              className="secondary"
-              disabled={route == null}
-              type="button"
-              onClick={() => setIsShareDialogOpen(true)}
-            >
-              Share
-            </Button>
-          </div>
         </section>
 
         <section className="route-path-section" aria-labelledby="route-path-heading">
           <div className="route-section-heading">
             <div>
-              <h3 id="route-path-heading">Path</h3>
-              <p className="muted no-margin">
-                Click the map, choose a saved place, or enter exact coordinates.
-              </p>
+              <h3 id="route-path-heading">1 Path</h3>
+              <p className="muted no-margin">{mapInstruction}</p>
             </div>
           </div>
-          <fieldset className="route-path-toolbar">
-            <legend className="sr-only">Path editing actions</legend>
-            <Button className="secondary" type="button" onClick={() => setIsFavoritesOpen(true)}>
-              <PlusIcon /> Saved place
-            </Button>
-            <Button
-              className="secondary"
-              type="button"
-              onClick={() => setCoordinateDialog({ kind: 'add' })}
-            >
-              <PlusIcon /> Coordinates
-            </Button>
-            <Button
-              aria-label="Undo last path change"
-              className="secondary"
-              disabled={draftState.pastPaths.length === 0}
-              type="button"
-              onClick={() => updateState(undoRoutePath)}
-            >
-              <ResetIcon /> Undo
-            </Button>
-            <Button
-              aria-label="Redo last path change"
-              className="secondary"
-              disabled={draftState.futurePaths.length === 0}
-              type="button"
-              onClick={() => updateState(redoRoutePath)}
-            >
-              <ResumeIcon /> Redo
-            </Button>
-          </fieldset>
+          <div className="route-path-toolbar">
+            <fieldset className="route-path-action-group route-path-add-actions">
+              <legend>Add waypoint</legend>
+              <Button
+                ref={savedPlaceTriggerRef}
+                className="secondary"
+                type="button"
+                onClick={() => setIsFavoritesOpen(true)}
+              >
+                <PlusIcon /> Saved place
+              </Button>
+              <Button
+                className="secondary"
+                type="button"
+                onClick={() => setCoordinateDialog({ kind: 'add' })}
+              >
+                <PlusIcon /> Coordinates
+              </Button>
+            </fieldset>
+            <fieldset className="route-path-action-group route-path-history-actions">
+              <legend>History</legend>
+              <Button
+                aria-label="Undo last path change"
+                className="secondary"
+                disabled={draftState.pastPaths.length === 0}
+                type="button"
+                onClick={() => updateState(undoRoutePath)}
+              >
+                <ResetIcon /> Undo
+              </Button>
+              <Button
+                aria-label="Redo last path change"
+                className="secondary"
+                disabled={draftState.futurePaths.length === 0}
+                type="button"
+                onClick={() => updateState(redoRoutePath)}
+              >
+                <ResumeIcon /> Redo
+              </Button>
+            </fieldset>
+          </div>
 
-          <RouteRail places={places} waypoints={draft.waypoints} />
+          <RoutePathGuidance canUseMap={canUseMap} places={places} waypoints={draft.waypoints} />
 
           {selectedWaypoint == null ? (
             <div className="selected-waypoint-empty">
               <strong>No waypoint selected</strong>
-              <span className="muted">Choose a numbered marker to edit one point precisely.</span>
+              <span className="muted">
+                {canUseMap
+                  ? 'Choose a numbered marker, or open Manage all waypoints.'
+                  : 'Open Manage all waypoints to select and edit one point precisely.'}
+              </span>
             </div>
           ) : (
             <section
@@ -458,41 +505,11 @@ export default function RouteEditor({
               />
             </div>
           </Disclosure>
-
-          <Disclosure
-            className="route-editor-collapsible route-saved-places-disclosure"
-            open={isFavoritesOpen}
-            summary={
-              <>
-                <span>Add from saved places</span>
-                <span className="muted">Search your cloud library</span>
-              </>
-            }
-            onOpenChange={setIsFavoritesOpen}
-          >
-            <div className="route-editor-collapsible-content">
-              {placesError == null ? null : (
-                <div className="route-partial-error" role="alert">
-                  <span>{placesError}</span>
-                  <Button className="secondary" type="button" onClick={onRetryPlaces}>
-                    Retry saved places
-                  </Button>
-                </div>
-              )}
-              <FavoriteWaypointPicker
-                mode={draft.waypoints.length === 0 ? 'start' : 'append'}
-                places={places}
-                showHeading={false}
-                onBeforeNavigate={onBeforeNavigateAway}
-                onSelect={addFavoriteWaypoint}
-              />
-            </div>
-          </Disclosure>
         </section>
 
         <section className="route-playback-section" aria-labelledby="route-playback-heading">
           <div>
-            <h3 id="route-playback-heading">Playback</h3>
+            <h3 id="route-playback-heading">2 Playback</h3>
             <p className="muted no-margin">Choose how Android moves through this path.</p>
           </div>
           <label htmlFor="route-speed">
@@ -567,46 +584,78 @@ export default function RouteEditor({
             </p>
           </div>
         </Disclosure>
+
+        <section className="route-save-use-section" aria-labelledby="route-save-use-heading">
+          <div>
+            <h3 id="route-save-use-heading">3 Save & use</h3>
+            <p className="muted no-margin">
+              Save manually, then share or play the intended snapshot.
+            </p>
+          </div>
+          {savePresentation.showStickyBar ? null : savePanel}
+          {route == null ? (
+            <p className="route-use-note no-margin">
+              Save this route once to enable device playback and sharing.
+            </p>
+          ) : (
+            <div className="route-use-panel">
+              <p className="route-use-note no-margin">
+                {isDirty
+                  ? `Device uses the current draft. Share uses saved Revision ${route.currentRevision?.revisionNumber ?? '—'}.`
+                  : `Device and Share use saved Revision ${route.currentRevision?.revisionNumber ?? '—'}.`}
+              </p>
+              <div className="route-use-actions">
+                <RouteRemoteControlAction
+                  isDirty={isDirty}
+                  mode={draft.mode}
+                  route={route}
+                  speedKmh={Number(draft.defaultSpeedKmh)}
+                  waypoints={draft.waypoints}
+                />
+                <Button
+                  ref={shareTriggerRef}
+                  aria-haspopup="dialog"
+                  className="secondary route-share-action"
+                  type="button"
+                  onClick={() => setIsShareDialogOpen(true)}
+                >
+                  <Share2Icon /> Share saved revision
+                </Button>
+              </div>
+            </div>
+          )}
+        </section>
       </div>
 
-      <footer className="route-editor-footer">
-        <div className="route-save-status" aria-live="polite">
-          {isDirty ? (
-            <>
-              <strong>Unsaved changes</strong>
-              <span>{changes.join(' · ') || 'Route changed'}</span>
-            </>
-          ) : saveNotice == null ? (
-            <span>All changes saved.</span>
-          ) : (
-            <strong>{saveNotice}</strong>
-          )}
-          {validation.saveDisabledReason == null ? null : (
-            <span>{validation.saveDisabledReason}</span>
-          )}
-        </div>
-        <div className="route-editor-save-buttons">
-          {isDirty ? (
-            <Button
-              className="secondary"
-              disabled={isSaving}
-              type="button"
-              onClick={() => {
-                setDraftState(resetRouteDraft);
-                onSelectedWaypointIndexChange?.(null);
-                onFocusTargetChange?.(null);
-                setError(null);
-                setSaveNotice(null);
-              }}
-            >
-              Discard
+      {savePresentation.showStickyBar ? (
+        <footer className="route-save-footer">{savePanel}</footer>
+      ) : null}
+
+      <DialogFrame
+        className="place-action-dialog-card"
+        description="Choose one saved place to append to the current path."
+        eyebrow="Waypoint"
+        open={isFavoritesOpen}
+        restoreFocusElement={savedPlaceTriggerRef.current}
+        title="Add from saved places"
+        onOpenChange={setIsFavoritesOpen}
+      >
+        {placesError == null ? null : (
+          <div className="route-partial-error" role="alert">
+            <span>{placesError}</span>
+            <Button className="secondary" type="button" onClick={onRetryPlaces}>
+              Retry saved places
             </Button>
-          ) : null}
-          <Button disabled={isSaving || !validation.isValid || !isDirty} type="submit">
-            {isSaving ? 'Saving…' : 'Save route'}
-          </Button>
-        </div>
-      </footer>
+          </div>
+        )}
+        <FavoriteWaypointPicker
+          mode={draft.waypoints.length === 0 ? 'start' : 'append'}
+          places={places}
+          showHeading={false}
+          onBeforeNavigate={onBeforeNavigateAway}
+          onSelect={addFavoriteWaypoint}
+        />
+      </DialogFrame>
 
       <DialogFrame
         className="place-action-dialog-card"
@@ -664,45 +713,46 @@ export default function RouteEditor({
   );
 }
 
-function RouteRail({ places, waypoints }: { places: Place[]; waypoints: RouteDraftWaypoint[] }) {
+function RoutePathGuidance({
+  canUseMap,
+  places,
+  waypoints,
+}: {
+  canUseMap: boolean;
+  places: Place[];
+  waypoints: RouteDraftWaypoint[];
+}) {
   const first = waypoints[0];
-  const last = waypoints.at(-1);
 
   if (first == null) {
     return (
-      <div className="route-rail route-rail-empty">
-        <span className="route-rail-node" />
+      <div className="route-path-guidance">
+        <span className="route-rail-node is-start" />
         <span>
-          <strong>Start on the map</strong>
-          <small>Add at least two waypoints to save a route.</small>
+          <strong>Add the first waypoint</strong>
+          <small>
+            {canUseMap
+              ? 'Use the map, a saved place, or exact coordinates.'
+              : 'Use a saved place or exact coordinates.'}
+          </small>
         </span>
       </div>
     );
   }
 
-  return (
-    <section className="route-rail" aria-label="Route path summary">
-      <span className="route-rail-node is-start" />
-      <span className="route-rail-label">
-        <small>Start</small>
-        <strong>{formatWaypointName(first, places, 'Waypoint 1')}</strong>
-      </span>
-      <span className="route-rail-line" />
-      <span className="route-rail-intermediate">
-        {waypoints.length <= 2 ? 'Direct' : `${waypoints.length - 2} intermediate`}
-      </span>
-      <span className="route-rail-line" />
-      <span className="route-rail-node is-end" />
-      <span className="route-rail-label">
-        <small>End</small>
-        <strong>
-          {last == null
-            ? 'Add another waypoint'
-            : formatWaypointName(last, places, `Waypoint ${waypoints.length}`)}
-        </strong>
-      </span>
-    </section>
-  );
+  if (waypoints.length === 1) {
+    return (
+      <div className="route-path-guidance">
+        <span className="route-rail-node is-start" />
+        <span>
+          <strong>Start: {formatWaypointName(first, places, 'Waypoint 1')}</strong>
+          <small>Add one more waypoint to complete the route.</small>
+        </span>
+      </div>
+    );
+  }
+
+  return null;
 }
 
 function WaypointList({

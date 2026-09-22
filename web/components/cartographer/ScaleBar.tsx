@@ -1,4 +1,8 @@
-export function ScaleBar() {
+export function ScaleBar({ hidden = false }: { hidden?: boolean }) {
+  if (hidden) {
+    return null;
+  }
+
   return (
     <div aria-hidden className="scale-bar">
       <span />

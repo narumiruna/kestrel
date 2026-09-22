@@ -1,12 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import {
-  BorderLeftIcon,
-  BorderRightIcon,
-  EnterFullScreenIcon,
-  ExitFullScreenIcon,
-} from '@/components/ui/icons';
+import { BorderLeftIcon, BorderRightIcon } from '@/components/ui/icons';
 import { Button, Toggle, ToggleGroup } from '@/components/ui/radix-ui';
 
 export type MobileWorkspacePanel = 'inspector' | 'map' | 'picker';
@@ -22,7 +17,6 @@ type StageProps = {
   workspace?: 'library' | 'map';
   onMobilePanelChange?: (panel: MobileWorkspacePanel) => void;
   onToggleLeftPanel?: () => void;
-  onToggleMapFocus?: () => void;
   onToggleRightPanel?: () => void;
 };
 
@@ -35,7 +29,6 @@ export function Stage({
   mode,
   onMobilePanelChange,
   onToggleLeftPanel,
-  onToggleMapFocus,
   onToggleRightPanel,
   selectedItemLabel = 'No item selected',
   workspace = 'library',
@@ -50,8 +43,6 @@ export function Stage({
   ]
     .filter(Boolean)
     .join(' ');
-  const isMapFocused = isLeftPanelCollapsed && isRightPanelCollapsed;
-
   return (
     <main className={className}>
       <div className="cartographer-map-layer">{map}</div>
@@ -78,9 +69,7 @@ export function Stage({
           </ToggleGroup>
         </nav>
       )}
-      {onToggleLeftPanel == null &&
-      onToggleRightPanel == null &&
-      onToggleMapFocus == null ? null : (
+      {onToggleLeftPanel == null && onToggleRightPanel == null ? null : (
         <fieldset className="map-panel-controls map-panel-icon-controls">
           <legend className="sr-only">Map panel controls</legend>
           {onToggleLeftPanel == null ? null : (
@@ -111,19 +100,6 @@ export function Stage({
               onClick={onToggleRightPanel}
             >
               <BorderRightIcon />
-            </Button>
-          )}
-          {onToggleMapFocus == null ? null : (
-            <Button
-              aria-label={isMapFocused ? 'Show map panels' : 'Focus map'}
-              aria-pressed={isMapFocused}
-              className={`map-panel-control map-panel-control-focus ${isMapFocused ? 'active' : ''}`}
-              data-label={isMapFocused ? 'Show panels' : 'Focus map'}
-              title={isMapFocused ? 'Show map panels' : 'Focus map'}
-              type="button"
-              onClick={onToggleMapFocus}
-            >
-              {isMapFocused ? <ExitFullScreenIcon /> : <EnterFullScreenIcon />}
             </Button>
           )}
         </fieldset>
