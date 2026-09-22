@@ -13,21 +13,21 @@ import { Button, Hint, Menu, MenuSurface } from '@/components/ui/radix-ui';
 import { useMapStyle } from '@/hooks/useMapStyle';
 
 type ZoomStackProps = {
-  disabled?: boolean;
   isMapFocused?: boolean;
   onFit?: () => void;
   onToggleMapFocus?: () => void;
   onZoomIn?: () => void;
   onZoomOut?: () => void;
+  viewportDisabled?: boolean;
 };
 
 export function ZoomStack({
-  disabled = false,
   isMapFocused = false,
   onFit,
   onToggleMapFocus,
   onZoomIn,
   onZoomOut,
+  viewportDisabled = false,
 }: ZoomStackProps) {
   const { availableStyles, label, setStyleName, styleName } = useMapStyle();
 
@@ -39,7 +39,7 @@ export function ZoomStack({
         <Hint label="Zoom in">
           <Button
             aria-label="Zoom in"
-            disabled={disabled}
+            disabled={viewportDisabled}
             title="Zoom in"
             type="button"
             onClick={onZoomIn}
@@ -51,7 +51,7 @@ export function ZoomStack({
         <Hint label="Zoom out">
           <Button
             aria-label="Zoom out"
-            disabled={disabled}
+            disabled={viewportDisabled}
             title="Zoom out"
             type="button"
             onClick={onZoomOut}
@@ -63,7 +63,7 @@ export function ZoomStack({
         <Hint label="Fit to all pins">
           <Button
             aria-label="Fit to all pins"
-            disabled={disabled}
+            disabled={viewportDisabled}
             title="Fit to all pins"
             type="button"
             onClick={onFit}
@@ -108,7 +108,6 @@ export function ZoomStack({
             {availableStyles.map((styleOption) => (
               <Menu.RadioItem
                 className="ui-menu-item"
-                disabled={disabled}
                 key={styleOption.name}
                 value={styleOption.name}
               >

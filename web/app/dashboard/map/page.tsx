@@ -558,8 +558,8 @@ export default function DashboardMapPage() {
         </IndexCard>
       )}
       <ZoomStack
-        disabled={activeKind === 'routes' && routeMapCapability !== 'ready'}
         isMapFocused={isLibraryCollapsed && isInspectorCollapsed}
+        viewportDisabled={activeKind === 'routes' && routeMapCapability !== 'ready'}
         onFit={() => viewportControls?.fit()}
         onToggleMapFocus={() => {
           const shouldRestorePanels = isLibraryCollapsed && isInspectorCollapsed;
