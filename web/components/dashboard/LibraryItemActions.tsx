@@ -1,11 +1,11 @@
 'use client';
 
-import { DotsHorizontalIcon, Share2Icon, TrashIcon } from '@radix-ui/react-icons';
 import { IconButton } from '@radix-ui/themes';
 import { useEffect, useId, useRef, useState } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import { useShareLink } from '@/components/dashboard/useShareLink';
 import { formatError, toAbsolutePublicUrl } from '@/components/dashboard/utils';
+import { DotsHorizontalIcon, Share2Icon, TrashIcon } from '@/components/ui/icons';
 import {
   Button,
   ConfirmDialog,

@@ -9,14 +9,6 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Map
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.outlined.Map
-import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material.icons.outlined.StarBorder
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -51,6 +43,8 @@ import dev.narumi.kestrel.core.location.parseCoordInput
 import dev.narumi.kestrel.feature.favorites.FavoritesScreen
 import dev.narumi.kestrel.feature.map.MapScreen
 import dev.narumi.kestrel.feature.options.OptionsScreen
+import dev.narumi.kestrel.ui.components.KestrelIcon
+import dev.narumi.kestrel.ui.components.KestrelIcons
 import dev.narumi.kestrel.ui.components.PlaybackStatusBar
 import dev.narumi.kestrel.ui.theme.KestrelTheme
 import kotlinx.coroutines.delay
@@ -189,7 +183,7 @@ fun KestrelApp(
             AppDestinations.entries.forEach { destination ->
                 item(
                     icon = {
-                        Icon(
+                        KestrelIcon(
                             imageVector = if (destination == currentDestination) destination.icon else destination.unselectedIcon,
                             contentDescription = null,
                         )
@@ -323,7 +317,7 @@ enum class AppDestinations(
     val icon: ImageVector,
     val unselectedIcon: ImageVector,
 ) {
-    HOME("Map", Icons.Filled.Map, Icons.Outlined.Map),
-    FAVORITES("Favorites", Icons.Filled.Star, Icons.Outlined.StarBorder),
-    SETTINGS("Settings", Icons.Filled.Settings, Icons.Outlined.Settings),
+    HOME("Map", KestrelIcons.MapFilled, KestrelIcons.MapOutlined),
+    FAVORITES("Favorites", KestrelIcons.FavoriteFilled, KestrelIcons.FavoriteOutlined),
+    SETTINGS("Settings", KestrelIcons.SettingsFilled, KestrelIcons.SettingsOutlined),
 }

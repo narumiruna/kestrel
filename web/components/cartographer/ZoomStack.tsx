@@ -1,5 +1,6 @@
 'use client';
 
+import { ChevronDownIcon, LayersIcon, MinusIcon, PlusIcon, SizeIcon } from '@/components/ui/icons';
 import { Button, Hint, Menu, MenuSurface } from '@/components/ui/radix-ui';
 import { useMapStyle } from '@/hooks/useMapStyle';
 
@@ -36,7 +37,7 @@ export function ZoomStack({ onFit, onZoomIn, onZoomOut }: ZoomStackProps) {
             type="button"
             onClick={onFit}
           >
-            <MaximizeIcon />
+            <SizeIcon />
           </Button>
         </Hint>
       </fieldset>
@@ -53,7 +54,7 @@ export function ZoomStack({ onFit, onZoomIn, onZoomOut }: ZoomStackProps) {
               title={`Map appearance: ${label}`}
               type="button"
             >
-              <MapIcon />
+              <LayersIcon />
               <span>{label}</span>
               <ChevronDownIcon />
             </Button>
@@ -76,51 +77,5 @@ export function ZoomStack({ onFit, onZoomIn, onZoomOut }: ZoomStackProps) {
         </MenuSurface>
       </fieldset>
     </fieldset>
-  );
-}
-
-function PlusIcon() {
-  return (
-    <svg aria-hidden="true" className="lucide-icon" fill="none" viewBox="0 0 24 24">
-      <path d="M12 5v14" />
-      <path d="M5 12h14" />
-    </svg>
-  );
-}
-
-function MinusIcon() {
-  return (
-    <svg aria-hidden="true" className="lucide-icon" fill="none" viewBox="0 0 24 24">
-      <path d="M5 12h14" />
-    </svg>
-  );
-}
-
-function MaximizeIcon() {
-  return (
-    <svg aria-hidden="true" className="lucide-icon" fill="none" viewBox="0 0 24 24">
-      <path d="M8 3H5a2 2 0 0 0-2 2v3" />
-      <path d="M16 3h3a2 2 0 0 1 2 2v3" />
-      <path d="M8 21H5a2 2 0 0 1-2-2v-3" />
-      <path d="M16 21h3a2 2 0 0 0 2-2v-3" />
-    </svg>
-  );
-}
-
-function MapIcon() {
-  return (
-    <svg aria-hidden="true" className="lucide-icon" fill="none" viewBox="0 0 24 24">
-      <path d="M14.5 4.5 9.5 2 3 5.5v16l6.5-3.5 5 2.5 6.5-3.5v-16z" />
-      <path d="M9.5 2v16" />
-      <path d="M14.5 4.5v16" />
-    </svg>
-  );
-}
-
-function ChevronDownIcon() {
-  return (
-    <svg aria-hidden="true" className="lucide-icon" fill="none" viewBox="0 0 24 24">
-      <path d="m6 9 6 6 6-6" />
-    </svg>
   );
 }

@@ -1728,14 +1728,23 @@ label {
 .kc-logo,
 .kc-avatar {
   align-items: center;
-  background: var(--bg-canvas);
-  border: 1px solid var(--border);
   border-radius: 10px;
-  color: var(--accent);
   display: inline-flex;
   height: 36px;
   justify-content: center;
   width: 36px;
+}
+
+.kc-logo {
+  background: transparent;
+  border: 0;
+  overflow: hidden;
+}
+
+.kc-logo-image {
+  display: block;
+  height: 100%;
+  width: 100%;
 }
 
 .kc-signed-in {
@@ -2061,14 +2070,10 @@ button.is-loading {
 }
 
 /* Typography, spacing, and hierarchy refinement */
-.lucide-icon {
-  flex-shrink: 0;
-  height: 16px;
-  stroke: currentColor;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 1.5;
-  width: 16px;
+.ui-icon {
+  flex: 0 0 auto;
+  height: var(--ui-icon-size, 16px);
+  width: var(--ui-icon-size, 16px);
 }
 
 .favorite-place-icon {
@@ -2234,7 +2239,7 @@ button.is-loading {
   box-shadow: none;
 }
 
-.kc-icon-button.is-rotating .lucide-icon {
+.kc-icon-button.is-rotating .ui-icon {
   animation: refresh-rotate 240ms ease-out;
 }
 
@@ -2881,10 +2886,6 @@ button.is-loading {
   justify-content: center;
 }
 
-.button-icon-label .lucide-icon {
-  stroke-width: 1.5;
-}
-
 .dashboard-sidebar .list {
   gap: 4px;
 }
@@ -3228,7 +3229,7 @@ button.is-loading {
   text-align: center;
 }
 
-.waypoint-empty-state .lucide-icon {
+.waypoint-empty-state .ui-icon {
   color: var(--accent);
   height: 28px;
   width: 28px;
@@ -3303,9 +3304,9 @@ button.is-loading {
   place-items: center;
 }
 
-.waypoint-grip .lucide-icon,
-.waypoint-menu .lucide-icon,
-.waypoint-badge .lucide-icon {
+.waypoint-grip .ui-icon,
+.waypoint-menu .ui-icon,
+.waypoint-badge .ui-icon {
   height: 16px;
   width: 16px;
 }
@@ -3542,7 +3543,7 @@ button.is-loading {
   font-weight: 500;
 }
 
-.kc-shell .kc-user-button.secondary .lucide-icon {
+.kc-shell .kc-user-button.secondary .ui-icon {
   color: var(--text-muted);
 }
 
@@ -4629,8 +4630,8 @@ button.is-loading {
   writing-mode: horizontal-tb;
 }
 
-.zoom-stack-fit .lucide-icon,
-.zoom-stack-style .lucide-icon {
+.zoom-stack-fit .ui-icon,
+.zoom-stack-style .ui-icon {
   height: 14px;
   width: 14px;
 }
@@ -4741,10 +4742,9 @@ button.is-loading {
   margin: 0 6px;
 }
 
-.map-control-group .lucide-icon,
-.map-style-control .lucide-icon {
+.map-control-group .ui-icon,
+.map-style-control .ui-icon {
   height: 16px;
-  stroke-width: 1.8;
   width: 16px;
 }
 
@@ -4987,10 +4987,9 @@ button.is-loading {
   transform: none;
 }
 
-.map-control-bar .lucide-icon,
-.map-style-control .lucide-icon {
+.map-control-bar .ui-icon,
+.map-style-control .ui-icon {
   height: 16px;
-  stroke-width: 1.8;
   width: 16px;
 }
 
@@ -6277,7 +6276,7 @@ button.route-marker.selected::after {
   padding: 9px 10px;
 }
 
-.route-mode-hint .lucide-icon {
+.route-mode-hint .ui-icon {
   flex: 0 0 auto;
 }
 

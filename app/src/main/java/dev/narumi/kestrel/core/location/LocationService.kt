@@ -594,7 +594,7 @@ class LocationService : Service() {
                 .Builder(this, CHANNEL_ID)
                 .setContentTitle(getString(R.string.location_service_title))
                 .setContentText(text)
-                .setSmallIcon(R.drawable.ic_home)
+                .setSmallIcon(R.drawable.ic_launcher_monochrome)
                 .setContentIntent(contentPI)
                 .setOngoing(true)
 

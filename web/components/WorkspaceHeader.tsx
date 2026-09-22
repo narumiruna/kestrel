@@ -1,12 +1,12 @@
 'use client';
 
-import { ChevronDownIcon, MoonIcon, ReloadIcon, SunIcon } from '@radix-ui/react-icons';
 import Link from 'next/link';
 import { type FormEvent, useState } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import { BrandMark } from '@/components/BrandMark';
 import { formatError } from '@/components/dashboard/utils';
 import { useTheme } from '@/components/ThemeProvider';
+import { ChevronDownIcon, MoonIcon, ReloadIcon, SunIcon } from '@/components/ui/icons';
 import { Button, PopoverFrame, TextInput } from '@/components/ui/radix-ui';
 import { type WorkspaceSection, WorkspaceTabs } from '@/components/WorkspaceTabs';
 

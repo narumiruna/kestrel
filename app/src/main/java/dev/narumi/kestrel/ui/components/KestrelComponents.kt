@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -65,7 +64,11 @@ fun KestrelIconBadge(
         contentColor = contentColor,
     ) {
         Box(contentAlignment = Alignment.Center) {
-            Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(22.dp))
+            KestrelIcon(
+                imageVector = icon,
+                contentDescription = null,
+                size = KestrelIconSizes.Badge,
+            )
         }
     }
 }
@@ -129,11 +132,11 @@ fun KestrelEmptyState(
                 modifier = Modifier.padding(bottom = 8.dp).size(72.dp),
             ) {
                 Box(contentAlignment = Alignment.Center) {
-                    Icon(
+                    KestrelIcon(
                         imageVector = icon,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier = Modifier.size(32.dp),
+                        size = KestrelIconSizes.EmptyState,
                     )
                 }
             }

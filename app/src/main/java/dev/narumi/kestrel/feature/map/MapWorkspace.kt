@@ -5,10 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material3.FilledIconButton
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -21,6 +18,8 @@ import com.google.accompanist.permissions.MultiplePermissionsState
 import dev.narumi.kestrel.core.data.CameraSnapshot
 import dev.narumi.kestrel.core.location.LatLng
 import dev.narumi.kestrel.core.map.KestrelMap
+import dev.narumi.kestrel.ui.components.KestrelIcon
+import dev.narumi.kestrel.ui.components.KestrelIcons
 
 @OptIn(ExperimentalPermissionsApi::class)
 @Suppress("LongParameterList")
@@ -104,8 +103,8 @@ internal fun MapCanvas(
                             if (myLocation == null) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary,
                     ),
             ) {
-                Icon(
-                    Icons.Filled.MyLocation,
+                KestrelIcon(
+                    KestrelIcons.MyLocation,
                     contentDescription =
                         if (myLocation == null) {
                             "Current location unavailable"

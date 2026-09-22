@@ -67,11 +67,6 @@
   width: 40px;
 }
 
-.workspace-header-start .kc-logo svg {
-  height: 32px;
-  width: 32px;
-}
-
 .workspace-header-start .kc-brand-title {
   font-size: 15px;
 }
@@ -239,11 +234,6 @@
   .workspace-header-start .kc-logo {
     height: 36px;
     width: 36px;
-  }
-
-  .workspace-header-start .kc-logo svg {
-    height: 30px;
-    width: 30px;
   }
 
   .workspace-header-start .kc-signed-in {

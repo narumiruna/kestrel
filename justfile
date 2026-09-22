@@ -45,6 +45,16 @@ lint:
     just android-lint
     just web-lint
 
+# regenerate Web and Android brand icon assets from the shared manifest
+[group('Branding')]
+icons:
+    node scripts/generate-kestrel-icons.mjs
+
+# verify committed brand icon assets match the shared manifest
+[group('Branding')]
+icons-check:
+    node scripts/generate-kestrel-icons.mjs --check
+
 # build the Android debug APK
 [group('Android')]
 build: android-build
@@ -73,9 +83,9 @@ android-clean:
 android-format:
     {{ gradle }} spotlessApply
 
-# check Android formatting without writing changes
+# check Android formatting and generated brand assets without writing changes
 [group('Android')]
-android-check:
+android-check: icons-check
     {{ gradle }} spotlessCheck
 
 # run Android detekt
@@ -140,10 +150,10 @@ web-install:
 web-format: _require-web-deps
     ./node_modules/.bin/biome check --write .
 
-# check Web formatting, lint, and imports without writing changes
+# check Web formatting, lint, imports, and generated brand assets without writing changes
 [group('Web')]
 [working-directory('web')]
-web-check: _require-web-deps
+web-check: _require-web-deps icons-check
     ./node_modules/.bin/biome ci .
 
 # run Web lint only

@@ -1,14 +1,5 @@
 'use client';
 
-import {
-  ArrowRightIcon,
-  ChevronDownIcon,
-  Cross2Icon,
-  MagnifyingGlassIcon,
-  PlusIcon,
-  SewingPinIcon,
-  Share1Icon,
-} from '@radix-ui/react-icons';
 import { IconButton, TextField } from '@radix-ui/themes';
 import Link from 'next/link';
 import { useMemo, useRef, useState } from 'react';
@@ -20,6 +11,15 @@ import {
   formatMode,
   formatRouteDistanceFromWaypoints,
 } from '@/components/dashboard/utils';
+import {
+  ArrowRightIcon,
+  ChevronDownIcon,
+  Cross2Icon,
+  MagnifyingGlassIcon,
+  PlusIcon,
+  SewingPinIcon,
+  Share1Icon,
+} from '@/components/ui/icons';
 import {
   Button,
   Menu,

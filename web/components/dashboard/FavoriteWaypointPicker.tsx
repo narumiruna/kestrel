@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { MagnifyingGlassIcon, PlusIcon, SewingPinIcon } from '@/components/ui/icons';
 import { Button, TextInput } from '@/components/ui/radix-ui';
 import type { Place } from '@/lib/api';
 
@@ -96,7 +97,7 @@ export function FavoriteWaypointPicker({
       >
         Search saved places
         <span className="favorite-search-box">
-          <SearchIcon />
+          <MagnifyingGlassIcon />
           <TextInput
             id="radix-field-components-dashboard-favoritewaypointpicker-tsx-1"
             placeholder="Search saved places..."
@@ -110,7 +111,7 @@ export function FavoriteWaypointPicker({
         {filteredPlaces.map((place) => (
           <div className="favorite-place-option" key={place.id}>
             <span className="favorite-place-main">
-              <MapPinIcon />
+              <SewingPinIcon className="favorite-place-icon" />
               <strong>{place.name}</strong>
               <Button
                 className="favorite-add button-icon-label"
@@ -151,36 +152,4 @@ export function FavoriteWaypointPicker({
 
 function formatFavoritePlaceCoords(place: Place): string {
   return `${place.latitude.toFixed(6)}, ${place.longitude.toFixed(6)}`;
-}
-
-function SearchIcon() {
-  return (
-    <svg aria-hidden="true" className="lucide-icon" fill="none" viewBox="0 0 24 24">
-      <path d="m21 21-4.3-4.3" />
-      <circle cx="11" cy="11" r="8" />
-    </svg>
-  );
-}
-
-function PlusIcon() {
-  return (
-    <svg aria-hidden="true" className="lucide-icon" fill="none" viewBox="0 0 24 24">
-      <path d="M12 5v14" />
-      <path d="M5 12h14" />
-    </svg>
-  );
-}
-
-function MapPinIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      className="lucide-icon favorite-place-icon"
-      fill="none"
-      viewBox="0 0 24 24"
-    >
-      <path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 0 1 16 0Z" />
-      <circle cx="12" cy="10" r="3" />
-    </svg>
-  );
 }
