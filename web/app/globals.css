@@ -5526,7 +5526,7 @@ button.route-marker::before {
 }
 
 button.route-marker::after {
-  color: #fffaf3;
+  color: var(--sand-1);
   content: attr(data-label);
   font-size: 11px;
   font-weight: 900;
@@ -5539,7 +5539,7 @@ button.route-marker::after {
 }
 
 button.route-marker.route-marker-middle::before {
-  background: #fffaf3;
+  background: var(--sand-1);
   border-color: var(--accent-hover);
 }
 
@@ -5588,7 +5588,7 @@ button.route-marker.selected::before {
 }
 
 button.route-marker.selected::after {
-  color: #fffaf3;
+  color: var(--sand-1);
 }
 
 button.route-marker.selected:focus-visible::before {
