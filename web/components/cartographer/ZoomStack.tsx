@@ -93,7 +93,7 @@ export function ZoomStack({
         >
           {onToggleMapFocus == null ? null : (
             <>
-              <Menu.Item className="ui-menu-item" onSelect={onToggleMapFocus}>
+              <Menu.Item className="ui-menu-item map-focus-menu-item" onSelect={onToggleMapFocus}>
                 {isMapFocused ? <ExitFullScreenIcon /> : <EnterFullScreenIcon />}
                 {isMapFocused ? 'Show panels' : 'Focus map'}
               </Menu.Item>

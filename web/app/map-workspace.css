@@ -717,6 +717,10 @@
 }
 
 @media (max-width: 1023px) {
+  .ui-menu-item.map-focus-menu-item {
+    display: none;
+  }
+
   .route-editor-redesign .route-editor-content {
     overflow: visible;
   }
