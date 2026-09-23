@@ -1,6 +1,7 @@
 package dev.narumi.kestrel.core.cloud
 
 import kotlinx.coroutines.CancellationException
+import java.io.IOException
 import java.security.MessageDigest
 import java.security.SecureRandom
 import java.time.Instant
@@ -36,7 +37,13 @@ internal class AndroidQrLoginCoordinator(
             )
         attemptStore.clear()
         attemptStore.save(attempt)
-        return claim(attempt)
+        return try {
+            claim(attempt)
+        } catch (failure: CloudApiException) {
+            throw failure.asAndroidQrLoginPreparationFailure()
+        } catch (failure: IOException) {
+            throw AndroidQrLoginRetryableException(failure)
+        }
     }
 
     suspend fun resume(): AndroidQrLoginProgress? {
@@ -207,6 +214,13 @@ internal class AndroidQrLoginCoordinator(
             else -> throw failure
         }
 }
+
+private fun CloudApiException.asAndroidQrLoginPreparationFailure(): Exception =
+    if (statusCode == HTTP_BAD_REQUEST || statusCode == HTTP_CONFLICT) {
+        this
+    } else {
+        AndroidQrLoginRetryableException(this)
+    }
 
 private fun AndroidQrLoginAttempt.isLocallyExpired(now: Long): Boolean {
     val recoveryExtension = if (confirmed) EXCHANGE_RECOVERY_LIFETIME_MILLIS else 0L

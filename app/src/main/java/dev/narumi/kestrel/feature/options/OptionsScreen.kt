@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.narumi.kestrel.core.cloud.AndroidQrLoginMethod
 import dev.narumi.kestrel.core.cloud.AndroidQrLoginProgress
+import dev.narumi.kestrel.core.cloud.AndroidQrLoginRetryableException
 import dev.narumi.kestrel.core.cloud.CloudApiException
 import dev.narumi.kestrel.core.cloud.CloudAuthRepository
 import dev.narumi.kestrel.core.cloud.CloudPlaceConflict
@@ -488,7 +489,7 @@ private fun CloudSettingsSection(
                         androidQrLoginState =
                             AndroidQrLoginUiState.Error(
                                 message = error.toCloudErrorMessage(),
-                                retryPendingAttempt = false,
+                                retryPendingAttempt = error is AndroidQrLoginRetryableException,
                             )
                     }
                 }

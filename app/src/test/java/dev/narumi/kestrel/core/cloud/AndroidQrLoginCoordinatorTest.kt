@@ -64,6 +64,42 @@ class AndroidQrLoginCoordinatorTest {
         }
 
     @Test
+    fun ambiguousClaimFailureIsRetryableWithThePersistedVerifier() =
+        runBlocking {
+            val fixture = fixture()
+            fixture.api.claimFailure = IOException("response lost")
+
+            val failure =
+                assertThrows(AndroidQrLoginRetryableException::class.java) {
+                    runBlocking { fixture.coordinator.prepare(QR_VALUE, "Google Pixel", "0.8.0") }
+                }
+            assertTrue(failure.cause is IOException)
+            val persistedVerifier = fixture.store.attempt!!.verifier
+            val originalChallenge = fixture.api.claimRequest!!.verifierChallenge
+
+            fixture.api.claimFailure = null
+            val resumed = fixture.coordinator.resume() as AndroidQrLoginProgress.Confirmation
+
+            assertEquals("123-456", resumed.details.matchingCode)
+            assertEquals(persistedVerifier, fixture.store.attempt!!.verifier)
+            assertEquals(originalChallenge, fixture.api.claimRequest!!.verifierChallenge)
+        }
+
+    @Test
+    fun transientServerClaimFailureIsRetryableWhileAttemptRemainsPersisted() {
+        val fixture = fixture()
+        fixture.api.claimFailure = CloudApiException(statusCode = 503, message = "unavailable")
+
+        val failure =
+            assertThrows(AndroidQrLoginRetryableException::class.java) {
+                runBlocking { fixture.coordinator.prepare(QR_VALUE, "Google Pixel", "0.8.0") }
+            }
+
+        assertEquals(503, (failure.cause as CloudApiException).statusCode)
+        assertNotNull(fixture.store.attempt)
+    }
+
+    @Test
     fun ambiguousExchangeFailureSurvivesProcessRestartAndRetriesSameAttempt() =
         runBlocking {
             val fixture = fixture()
@@ -267,9 +303,9 @@ class AndroidQrLoginCoordinatorTest {
             attemptId: String,
             request: ClaimAndroidLoginRequest,
         ): ClaimAndroidLoginResponse {
-            claimFailure?.let { throw it }
             claimBaseUrl = apiBaseUrl
             claimRequest = request
+            claimFailure?.let { throw it }
             return ClaimAndroidLoginResponse(
                 attemptId = attemptId,
                 expiresAt = Instant.ofEpochMilli(now + 5 * 60 * 1_000L).toString(),

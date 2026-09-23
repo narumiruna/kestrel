@@ -72,6 +72,10 @@ internal data class AndroidQrLoginDetails(
     val username: String,
 )
 
+internal class AndroidQrLoginRetryableException(
+    cause: Exception,
+) : Exception(cause.message, cause)
+
 internal sealed interface AndroidQrLoginProgress {
     data class Confirmation(
         val details: AndroidQrLoginDetails,
