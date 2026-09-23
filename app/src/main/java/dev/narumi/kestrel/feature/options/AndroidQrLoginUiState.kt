@@ -58,7 +58,8 @@ internal fun AndroidQrLoginUiState.blocksOtherAuthentication(): Boolean =
         this is AndroidQrLoginUiState.Claiming ||
         this is AndroidQrLoginUiState.Confirmation ||
         this is AndroidQrLoginUiState.Confirming ||
-        this is AndroidQrLoginUiState.Waiting
+        this is AndroidQrLoginUiState.Waiting ||
+        (this is AndroidQrLoginUiState.Error && retryPendingAttempt)
 
 internal fun shouldShowAndroidQrLoginUnavailable(
     method: AndroidQrLoginMethod,

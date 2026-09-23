@@ -92,6 +92,16 @@ class OptionsPresentationTest {
         assertTrue(AndroidQrLoginUiState.Confirming(details).blocksOtherAuthentication())
         val waiting = AndroidQrLoginUiState.Waiting(details, 5)
         assertTrue(waiting.blocksOtherAuthentication())
+        assertTrue(
+            AndroidQrLoginUiState
+                .Error("Network unavailable", retryPendingAttempt = true)
+                .blocksOtherAuthentication(),
+        )
+        assertFalse(
+            AndroidQrLoginUiState
+                .Error("Invalid QR code", retryPendingAttempt = false)
+                .blocksOtherAuthentication(),
+        )
         assertFalse(AndroidQrLoginUiState.Expired.blocksOtherAuthentication())
         assertEquals("QR code expired", AndroidQrLoginUiState.Expired.summary())
 
