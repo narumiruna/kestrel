@@ -124,7 +124,14 @@ export function ChangePasswordForm({
 
   return (
     <form className="change-password-form" onSubmit={submit}>
-      <input autoComplete="username" className="sr-only" readOnly tabIndex={-1} value={username} />
+      <input
+        aria-hidden="true"
+        autoComplete="username"
+        className="sr-only"
+        readOnly
+        tabIndex={-1}
+        value={username}
+      />
       {notice == null ? null : (
         <div className="success" role="status">
           {notice}
