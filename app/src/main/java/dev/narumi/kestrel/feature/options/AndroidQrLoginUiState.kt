@@ -20,6 +20,8 @@ import dev.narumi.kestrel.ui.components.KestrelActionRow
 import java.util.Date
 
 internal sealed interface AndroidQrLoginUiState {
+    data object Restoring : AndroidQrLoginUiState
+
     data object Idle : AndroidQrLoginUiState
 
     data object OpeningScanner : AndroidQrLoginUiState
@@ -54,7 +56,8 @@ internal sealed interface AndroidQrLoginUiState {
 }
 
 internal fun AndroidQrLoginUiState.blocksOtherAuthentication(): Boolean =
-    this is AndroidQrLoginUiState.OpeningScanner ||
+    this is AndroidQrLoginUiState.Restoring ||
+        this is AndroidQrLoginUiState.OpeningScanner ||
         this is AndroidQrLoginUiState.Claiming ||
         this is AndroidQrLoginUiState.Confirmation ||
         this is AndroidQrLoginUiState.Confirming ||
@@ -68,6 +71,7 @@ internal fun shouldShowAndroidQrLoginDiscoveryNotice(
 
 internal fun AndroidQrLoginUiState.summary(): String =
     when (this) {
+        AndroidQrLoginUiState.Restoring -> "Checking saved QR sign-in"
         AndroidQrLoginUiState.Idle -> "Ready to scan"
         AndroidQrLoginUiState.OpeningScanner -> "Opening QR scanner"
         AndroidQrLoginUiState.Claiming -> "Checking QR code"
@@ -109,6 +113,7 @@ internal fun AndroidQrLoginContent(
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         when (state) {
+            AndroidQrLoginUiState.Restoring -> StatusText("Checking for a saved QR sign-in…")
             AndroidQrLoginUiState.Idle -> IdleQrLoginContent(enabled, onScan)
             AndroidQrLoginUiState.OpeningScanner ->
                 StatusText("Opening the QR scanner. Google Play services may download the scanner module.")

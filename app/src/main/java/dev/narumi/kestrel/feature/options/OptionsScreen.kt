@@ -310,7 +310,7 @@ private fun CloudSettingsSection(
     var cloudLoading by remember { mutableStateOf(false) }
     var oidcMethod by remember { mutableStateOf(OidcMethod(enabled = false)) }
     var androidQrLoginMethod by remember { mutableStateOf(AndroidQrLoginMethod()) }
-    var androidQrLoginState by remember { mutableStateOf<AndroidQrLoginUiState>(AndroidQrLoginUiState.Idle) }
+    var androidQrLoginState by remember { mutableStateOf<AndroidQrLoginUiState>(AndroidQrLoginUiState.Restoring) }
     var apiBaseUrl by remember { mutableStateOf(cloudSettings.apiBaseUrl) }
     var confirmRemoteEnable by remember { mutableStateOf(false) }
     var confirmSignOut by remember { mutableStateOf(false) }
@@ -367,7 +367,11 @@ private fun CloudSettingsSection(
     }
 
     LaunchedEffect(cloudSessionLoaded, pendingOidcCallback) {
-        if (!cloudSessionLoaded || cloudSession != null || pendingOidcCallback != null) {
+        if (!cloudSessionLoaded || pendingOidcCallback != null) {
+            return@LaunchedEffect
+        }
+        if (cloudSession != null) {
+            androidQrLoginState = AndroidQrLoginUiState.Idle
             return@LaunchedEffect
         }
         try {
@@ -397,6 +401,7 @@ private fun CloudSettingsSection(
             syncRepository.syncNow()
             cloudMessage = "Signed in as ${session.username} with ${oidcMethod.displayName}"
         }
+        androidQrLoginState = AndroidQrLoginUiState.Idle
     }
 
     LaunchedEffect(androidQrLoginState) {

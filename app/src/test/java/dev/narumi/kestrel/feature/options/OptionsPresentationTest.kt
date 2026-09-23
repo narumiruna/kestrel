@@ -83,6 +83,8 @@ class OptionsPresentationTest {
                 publicOrigin = "https://cloud.example.test",
                 username = "admin",
             )
+        assertTrue(AndroidQrLoginUiState.Restoring.blocksOtherAuthentication())
+        assertEquals("Checking saved QR sign-in", AndroidQrLoginUiState.Restoring.summary())
         val confirmation = AndroidQrLoginUiState.Confirmation(details)
         assertTrue(confirmation.blocksOtherAuthentication())
         assertEquals(
@@ -112,6 +114,7 @@ class OptionsPresentationTest {
                 AndroidQrLoginUiState.Idle,
             ),
         )
+        assertFalse(shouldShowAndroidQrLoginDiscoveryNotice(disabledMethod, AndroidQrLoginUiState.Restoring))
         assertFalse(shouldShowAndroidQrLoginDiscoveryNotice(disabledMethod, confirmation))
         assertFalse(shouldShowAndroidQrLoginDiscoveryNotice(disabledMethod, waiting))
         assertFalse(
