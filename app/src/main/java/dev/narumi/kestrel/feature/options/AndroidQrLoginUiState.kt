@@ -61,7 +61,7 @@ internal fun AndroidQrLoginUiState.blocksOtherAuthentication(): Boolean =
         this is AndroidQrLoginUiState.Waiting ||
         (this is AndroidQrLoginUiState.Error && retryPendingAttempt)
 
-internal fun shouldShowAndroidQrLoginUnavailable(
+internal fun shouldShowAndroidQrLoginDiscoveryNotice(
     method: AndroidQrLoginMethod,
     state: AndroidQrLoginUiState,
 ): Boolean = !method.enabled && state == AndroidQrLoginUiState.Idle
@@ -96,13 +96,12 @@ internal fun AndroidQrLoginContent(
         text = "Sign in from Kestrel Web",
         style = MaterialTheme.typography.titleSmall,
     )
-    if (shouldShowAndroidQrLoginUnavailable(method, state)) {
+    if (shouldShowAndroidQrLoginDiscoveryNotice(method, state)) {
         Text(
-            text = "QR sign-in is unavailable on this server. Password and browser sign-in still work.",
+            text = "This server does not advertise QR sign-in. You can still scan a code from another Kestrel server.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        return
     }
 
     Column(

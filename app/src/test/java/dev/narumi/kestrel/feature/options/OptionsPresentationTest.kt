@@ -107,15 +107,15 @@ class OptionsPresentationTest {
 
         val disabledMethod = AndroidQrLoginMethod(enabled = false)
         assertTrue(
-            shouldShowAndroidQrLoginUnavailable(
+            shouldShowAndroidQrLoginDiscoveryNotice(
                 disabledMethod,
                 AndroidQrLoginUiState.Idle,
             ),
         )
-        assertFalse(shouldShowAndroidQrLoginUnavailable(disabledMethod, confirmation))
-        assertFalse(shouldShowAndroidQrLoginUnavailable(disabledMethod, waiting))
+        assertFalse(shouldShowAndroidQrLoginDiscoveryNotice(disabledMethod, confirmation))
+        assertFalse(shouldShowAndroidQrLoginDiscoveryNotice(disabledMethod, waiting))
         assertFalse(
-            shouldShowAndroidQrLoginUnavailable(
+            shouldShowAndroidQrLoginDiscoveryNotice(
                 disabledMethod,
                 AndroidQrLoginUiState.Error("Network unavailable", retryPendingAttempt = true),
             ),
