@@ -41,7 +41,7 @@ internal class AndroidQrLoginCoordinator(
 
     suspend fun resume(): AndroidQrLoginProgress? {
         val attempt = attemptStore.load() ?: return null
-        if (attempt.expiresAt <= nowMillis()) {
+        if (attempt.isLocallyExpired(nowMillis())) {
             attemptStore.compareAndClear(attempt)
             return AndroidQrLoginProgress.Expired
         }
@@ -61,7 +61,7 @@ internal class AndroidQrLoginCoordinator(
 
     suspend fun confirm(): AndroidQrLoginProgress {
         val attempt = attemptStore.load() ?: error("No Android QR sign-in is pending")
-        if (attempt.expiresAt <= nowMillis()) {
+        if (attempt.isLocallyExpired(nowMillis())) {
             attemptStore.compareAndClear(attempt)
             return AndroidQrLoginProgress.Expired
         }
@@ -79,7 +79,7 @@ internal class AndroidQrLoginCoordinator(
     suspend fun poll(): AndroidQrLoginProgress {
         val attempt = attemptStore.load() ?: error("No Android QR sign-in is pending")
         check(attempt.confirmed) { "Confirm the Android QR sign-in first" }
-        if (attempt.expiresAt <= nowMillis()) {
+        if (attempt.isLocallyExpired(nowMillis())) {
             attemptStore.compareAndClear(attempt)
             return AndroidQrLoginProgress.Expired
         }
@@ -208,6 +208,11 @@ internal class AndroidQrLoginCoordinator(
         }
 }
 
+private fun AndroidQrLoginAttempt.isLocallyExpired(now: Long): Boolean {
+    val recoveryExtension = if (confirmed) EXCHANGE_RECOVERY_LIFETIME_MILLIS else 0L
+    return expiresAt <= now - recoveryExtension
+}
+
 private fun AndroidQrLoginAttempt.toDetails(): AndroidQrLoginDetails =
     AndroidQrLoginDetails(
         appVersion = appVersion,
@@ -225,6 +230,7 @@ private fun sha256(value: String): ByteArray = MessageDigest.getInstance("SHA-25
 
 private fun ByteArray.toBase64Url(): String = Base64.getUrlEncoder().withoutPadding().encodeToString(this)
 
+private const val EXCHANGE_RECOVERY_LIFETIME_MILLIS = 20 * 60 * 1_000L
 private const val HTTP_BAD_REQUEST = 400
 private const val HTTP_FORBIDDEN = 403
 private const val HTTP_CONFLICT = 409

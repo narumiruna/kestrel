@@ -83,6 +83,31 @@ class AndroidQrLoginCoordinatorTest {
         }
 
     @Test
+    fun confirmedAttemptRetriesAfterOriginalExpiryDuringRecoveryWindow() =
+        runBlocking {
+            val fixture = fixture(now = NOW + 6 * 60 * 1_000L)
+            fixture.store.attempt = claimedAttempt(expiresAt = NOW)
+            fixture.api.exchangeOutcomes.add(AndroidQrExchangeResult.Complete(SESSION))
+
+            val resumed = fixture.coordinator.resume() as AndroidQrLoginProgress.Completed
+
+            assertEquals(SESSION.sessionId, resumed.session.sessionId)
+            assertEquals(1, fixture.api.exchangeCalls)
+            assertNull(fixture.store.attempt)
+        }
+
+    @Test
+    fun confirmedAttemptClearsAfterBoundedRecoveryWindow() =
+        runBlocking {
+            val fixture = fixture(now = NOW + 20 * 60 * 1_000L + 1)
+            fixture.store.attempt = claimedAttempt(expiresAt = NOW)
+
+            assertEquals(AndroidQrLoginProgress.Expired, fixture.coordinator.resume())
+            assertEquals(0, fixture.api.exchangeCalls)
+            assertNull(fixture.store.attempt)
+        }
+
+    @Test
     fun persistenceFailureRevokesCreatedSessionAndKeepsRecoveryAttempt() =
         runBlocking {
             val fixture = fixture(failSessionSave = true)
@@ -109,9 +134,18 @@ class AndroidQrLoginCoordinatorTest {
             assertNull(deniedFixture.store.attempt)
 
             val expiredFixture = fixture(now = NOW + 6 * 60 * 1_000L)
-            expiredFixture.store.attempt = claimedAttempt(expiresAt = NOW)
+            expiredFixture.store.attempt = claimedAttempt(expiresAt = NOW, confirmed = false)
             assertEquals(AndroidQrLoginProgress.Expired, expiredFixture.coordinator.resume())
             assertNull(expiredFixture.store.attempt)
+
+            val serverExpiredFixture = fixture(now = NOW + 6 * 60 * 1_000L)
+            serverExpiredFixture.store.attempt = claimedAttempt(expiresAt = NOW)
+            serverExpiredFixture.api.exchangeOutcomes.add(
+                CloudApiException(statusCode = 410, message = "expired"),
+            )
+            assertEquals(AndroidQrLoginProgress.Expired, serverExpiredFixture.coordinator.resume())
+            assertEquals(1, serverExpiredFixture.api.exchangeCalls)
+            assertNull(serverExpiredFixture.store.attempt)
         }
 
     @Test
@@ -282,20 +316,22 @@ class AndroidQrLoginCoordinatorTest {
                 username = "admin",
             )
 
-        private fun claimedAttempt(expiresAt: Long) =
-            AndroidQrLoginAttempt(
-                apiBaseUrl = "https://cloud.example.test/api/backend",
-                appVersion = "0.8.0",
-                attemptId = ATTEMPT_ID,
-                confirmed = true,
-                deviceName = "Google Pixel",
-                expiresAt = expiresAt,
-                matchingCode = "123-456",
-                pollIntervalSeconds = 5,
-                publicOrigin = "https://cloud.example.test",
-                qrSecret = SECRET,
-                username = "admin",
-                verifier = SECRET,
-            )
+        private fun claimedAttempt(
+            expiresAt: Long,
+            confirmed: Boolean = true,
+        ) = AndroidQrLoginAttempt(
+            apiBaseUrl = "https://cloud.example.test/api/backend",
+            appVersion = "0.8.0",
+            attemptId = ATTEMPT_ID,
+            confirmed = confirmed,
+            deviceName = "Google Pixel",
+            expiresAt = expiresAt,
+            matchingCode = "123-456",
+            pollIntervalSeconds = 5,
+            publicOrigin = "https://cloud.example.test",
+            qrSecret = SECRET,
+            username = "admin",
+            verifier = SECRET,
+        )
     }
 }
