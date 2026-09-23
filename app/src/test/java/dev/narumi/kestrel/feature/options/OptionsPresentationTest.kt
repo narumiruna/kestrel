@@ -1,6 +1,7 @@
 package dev.narumi.kestrel.feature.options
 
 import dev.narumi.kestrel.core.cloud.AndroidQrLoginDetails
+import dev.narumi.kestrel.core.cloud.AndroidQrLoginMethod
 import dev.narumi.kestrel.core.data.StartupPreference
 import dev.narumi.kestrel.core.library.LibraryItemKind
 import org.junit.Assert.assertEquals
@@ -89,9 +90,26 @@ class OptionsPresentationTest {
             confirmation.summary(),
         )
         assertTrue(AndroidQrLoginUiState.Confirming(details).blocksOtherAuthentication())
-        assertTrue(AndroidQrLoginUiState.Waiting(details, 5).blocksOtherAuthentication())
+        val waiting = AndroidQrLoginUiState.Waiting(details, 5)
+        assertTrue(waiting.blocksOtherAuthentication())
         assertFalse(AndroidQrLoginUiState.Expired.blocksOtherAuthentication())
         assertEquals("QR code expired", AndroidQrLoginUiState.Expired.summary())
+
+        val disabledMethod = AndroidQrLoginMethod(enabled = false)
+        assertTrue(
+            shouldShowAndroidQrLoginUnavailable(
+                disabledMethod,
+                AndroidQrLoginUiState.Idle,
+            ),
+        )
+        assertFalse(shouldShowAndroidQrLoginUnavailable(disabledMethod, confirmation))
+        assertFalse(shouldShowAndroidQrLoginUnavailable(disabledMethod, waiting))
+        assertFalse(
+            shouldShowAndroidQrLoginUnavailable(
+                disabledMethod,
+                AndroidQrLoginUiState.Error("Network unavailable", retryPendingAttempt = true),
+            ),
+        )
     }
 
     @Test

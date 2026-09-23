@@ -60,6 +60,11 @@ internal fun AndroidQrLoginUiState.blocksOtherAuthentication(): Boolean =
         this is AndroidQrLoginUiState.Confirming ||
         this is AndroidQrLoginUiState.Waiting
 
+internal fun shouldShowAndroidQrLoginUnavailable(
+    method: AndroidQrLoginMethod,
+    state: AndroidQrLoginUiState,
+): Boolean = !method.enabled && state == AndroidQrLoginUiState.Idle
+
 internal fun AndroidQrLoginUiState.summary(): String =
     when (this) {
         AndroidQrLoginUiState.Idle -> "Ready to scan"
@@ -90,7 +95,7 @@ internal fun AndroidQrLoginContent(
         text = "Sign in from Kestrel Web",
         style = MaterialTheme.typography.titleSmall,
     )
-    if (!method.enabled) {
+    if (shouldShowAndroidQrLoginUnavailable(method, state)) {
         Text(
             text = "QR sign-in is unavailable on this server. Password and browser sign-in still work.",
             style = MaterialTheme.typography.bodySmall,
