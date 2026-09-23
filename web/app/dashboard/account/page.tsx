@@ -2,8 +2,8 @@
 
 import Link from 'next/link';
 import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react';
-import { UserMark } from '@/components/cartographer/UserMark';
 import { AndroidQrLoginPanel } from '@/components/dashboard/AndroidQrLoginPanel';
+import { ChangePasswordForm } from '@/components/dashboard/ChangePasswordForm';
 import {
   clearOidcLinkState,
   createOidcLinkNonce,
@@ -251,11 +251,6 @@ export default function AccountSecurityPage() {
             Manage sign-in methods, active sessions, and remote-control devices.
           </p>
         </div>
-        <UserMark
-          username={auth.session.user.username}
-          onChangePassword={changePassword}
-          onLogout={auth.logout}
-        />
       </header>
 
       {error == null ? null : (
@@ -270,6 +265,20 @@ export default function AccountSecurityPage() {
       )}
 
       <div className="account-security-grid">
+        <section
+          className="panel account-security-panel account-password-card"
+          aria-labelledby="change-password-heading"
+        >
+          <div className="account-password-intro">
+            <p className="eyebrow">Credentials</p>
+            <h2 id="change-password-heading">Change your password</h2>
+            <p className="muted">Keep your account protected with a password only you know.</p>
+          </div>
+          <ChangePasswordForm
+            onChangePassword={changePassword}
+            username={auth.session.user.username}
+          />
+        </section>
         <section
           className="panel account-security-panel account-security-sign-in"
           aria-labelledby="sign-in-heading"
