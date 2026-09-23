@@ -6,11 +6,16 @@ import {
   BorderRightIcon as RadixBorderRightIcon,
   CheckIcon as RadixCheckIcon,
   ChevronDownIcon as RadixChevronDownIcon,
+  ChevronRightIcon as RadixChevronRightIcon,
   Cross2Icon as RadixCross2Icon,
   DotsHorizontalIcon as RadixDotsHorizontalIcon,
   EnterFullScreenIcon as RadixEnterFullScreenIcon,
   ExitFullScreenIcon as RadixExitFullScreenIcon,
+  ExitIcon as RadixExitIcon,
+  EyeClosedIcon as RadixEyeClosedIcon,
+  EyeOpenIcon as RadixEyeOpenIcon,
   LayersIcon as RadixLayersIcon,
+  LockClosedIcon as RadixLockClosedIcon,
   MagnifyingGlassIcon as RadixMagnifyingGlassIcon,
   MinusIcon as RadixMinusIcon,
   MoonIcon as RadixMoonIcon,
@@ -45,11 +50,16 @@ export const BorderLeftIcon = createIcon(RadixBorderLeftIcon);
 export const BorderRightIcon = createIcon(RadixBorderRightIcon);
 export const CheckIcon = createIcon(RadixCheckIcon);
 export const ChevronDownIcon = createIcon(RadixChevronDownIcon);
+export const ChevronRightIcon = createIcon(RadixChevronRightIcon);
 export const Cross2Icon = createIcon(RadixCross2Icon);
 export const DotsHorizontalIcon = createIcon(RadixDotsHorizontalIcon);
+export const EyeClosedIcon = createIcon(RadixEyeClosedIcon);
+export const EyeOpenIcon = createIcon(RadixEyeOpenIcon);
 export const EnterFullScreenIcon = createIcon(RadixEnterFullScreenIcon);
+export const ExitIcon = createIcon(RadixExitIcon);
 export const ExitFullScreenIcon = createIcon(RadixExitFullScreenIcon);
 export const LayersIcon = createIcon(RadixLayersIcon);
+export const LockClosedIcon = createIcon(RadixLockClosedIcon);
 export const MagnifyingGlassIcon = createIcon(RadixMagnifyingGlassIcon);
 export const MinusIcon = createIcon(RadixMinusIcon);
 export const MoonIcon = createIcon(RadixMoonIcon);

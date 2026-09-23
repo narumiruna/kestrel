@@ -1,13 +1,19 @@
 'use client';
 
 import Link from 'next/link';
-import { type FormEvent, useState } from 'react';
-import { useAuth } from '@/components/AuthProvider';
+import { useState } from 'react';
 import { BrandMark } from '@/components/BrandMark';
-import { formatError } from '@/components/dashboard/utils';
 import { useTheme } from '@/components/ThemeProvider';
-import { ChevronDownIcon, MoonIcon, ReloadIcon, SunIcon } from '@/components/ui/icons';
-import { Button, PopoverFrame, TextInput } from '@/components/ui/radix-ui';
+import {
+  ChevronDownIcon,
+  ChevronRightIcon,
+  ExitIcon,
+  LockClosedIcon,
+  MoonIcon,
+  ReloadIcon,
+  SunIcon,
+} from '@/components/ui/icons';
+import { Button, PopoverFrame } from '@/components/ui/radix-ui';
 import { type WorkspaceSection, WorkspaceTabs } from '@/components/WorkspaceTabs';
 
 type WorkspaceHeaderProps = {
@@ -97,102 +103,45 @@ function AccountMenu({
   onLogout: () => void | Promise<void>;
   username: string;
 }) {
-  const auth = useAuth();
   const { isHydrated, theme, toggleTheme } = useTheme();
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [notice, setNotice] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
-
-  async function submitPasswordChange(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setNotice(null);
-    setError(null);
-    setIsSaving(true);
-
-    try {
-      await auth.apiRequest('/auth/password/change', {
-        body: JSON.stringify({ currentPassword, newPassword }),
-        method: 'POST',
-      });
-      setCurrentPassword('');
-      setNewPassword('');
-      setNotice('Password updated.');
-    } catch (nextError) {
-      setError(formatError(nextError));
-    } finally {
-      setIsSaving(false);
-    }
-  }
 
   return (
-    <div className="stack">
-      <div>
+    <div className="account-menu">
+      <div className="account-menu-heading">
         <strong>Account</strong>
-        <p className="muted no-margin">Theme, password, and session controls.</p>
+        <span className="muted">{username}</span>
       </div>
-      {error == null ? null : (
-        <div className="error" role="alert">
-          {error}
-        </div>
-      )}
-      {notice == null ? null : (
-        <div className="success" role="status">
-          {notice}
-        </div>
-      )}
-      <Link className="secondary button-link" href="/dashboard/account">
-        Account security
-      </Link>
-      <Button
-        className="secondary kc-theme-toggle"
-        disabled={!isHydrated}
-        type="button"
-        onClick={toggleTheme}
-      >
-        {theme === 'dark' ? <SunIcon aria-hidden /> : <MoonIcon aria-hidden />}
-        {theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-      </Button>
-      <form className="stack" onSubmit={submitPasswordChange}>
-        <input
-          aria-hidden="true"
-          autoComplete="username"
-          className="sr-only"
-          readOnly
-          tabIndex={-1}
-          value={username}
-        />
-        <label htmlFor="workspace-current-password">
-          Current password
-          <TextInput
-            id="workspace-current-password"
-            autoComplete="current-password"
-            required
-            type="password"
-            value={currentPassword}
-            onChange={(event) => setCurrentPassword(event.target.value)}
-          />
-        </label>
-        <label htmlFor="workspace-new-password">
-          New password
-          <TextInput
-            id="workspace-new-password"
-            autoComplete="new-password"
-            minLength={12}
-            required
-            type="password"
-            value={newPassword}
-            onChange={(event) => setNewPassword(event.target.value)}
-          />
-        </label>
-        <Button disabled={isSaving} type="submit">
-          {isSaving ? 'Saving…' : 'Change password'}
+      <div className="account-menu-options">
+        <Button
+          aria-label={`Dark mode, ${theme === 'dark' ? 'on' : 'off'}`}
+          aria-pressed={theme === 'dark'}
+          className="secondary account-menu-row"
+          disabled={!isHydrated}
+          type="button"
+          onClick={toggleTheme}
+        >
+          {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
+          <span className="account-menu-row-label">
+            Appearance <span className="account-menu-detail">Dark mode</span>
+          </span>
+          <span className="account-menu-value">{theme === 'dark' ? 'On' : 'Off'}</span>
         </Button>
-      </form>
-      <Button className="secondary" type="button" onClick={onLogout}>
-        Logout
-      </Button>
+        <Link className="account-menu-row account-menu-link" href="/dashboard/account">
+          <LockClosedIcon />
+          <span className="account-menu-row-label">Account security</span>
+          <ChevronRightIcon className="account-menu-chevron" />
+        </Link>
+      </div>
+      <div className="account-menu-footer">
+        <Button
+          className="secondary account-menu-row account-menu-logout"
+          type="button"
+          onClick={onLogout}
+        >
+          <ExitIcon />
+          <span className="account-menu-row-label">Logout</span>
+        </Button>
+      </div>
     </div>
   );
 }
