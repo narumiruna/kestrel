@@ -6697,7 +6697,8 @@ button.route-marker:focus-visible {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-.account-security-sign-in {
+.account-security-sign-in,
+.account-security-android-login {
   grid-column: 1 / -1;
 }
 
@@ -6763,9 +6764,52 @@ button.route-marker:focus-visible {
   justify-content: flex-end;
 }
 
+.android-qr-login-layout {
+  align-items: center;
+  display: grid;
+  gap: clamp(20px, 4vw, 40px);
+  grid-template-columns: minmax(200px, 240px) minmax(0, 1fr);
+}
+
+.android-qr-login-code {
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+}
+
+.android-qr-login-code img {
+  background: #fff;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  height: auto;
+  max-width: 100%;
+  padding: 8px;
+}
+
+.android-qr-login-details {
+  display: grid;
+  gap: 10px;
+}
+
+.android-qr-login-matching-code {
+  font-size: 1.2rem;
+  letter-spacing: 0.04em;
+  margin: 4px 0;
+}
+
+.android-qr-login-feedback {
+  margin-top: 16px;
+}
+
+.android-qr-login-actions {
+  flex-wrap: wrap;
+  margin-top: 20px;
+}
+
 @media (max-width: 800px) {
   .account-security-grid,
-  .account-security-confirm {
+  .account-security-confirm,
+  .android-qr-login-layout {
     grid-template-columns: 1fr;
   }
 }

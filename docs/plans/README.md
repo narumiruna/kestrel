@@ -4,6 +4,7 @@ Top-level `*-plan.md` files are active. Closed or superseded plans live in `arch
 
 ## Active files
 
+- `2026-09-23_android-qr-login-plan.md` — add a short-lived, dual-confirmed Web-to-Android QR login flow with independent retry-safe Android sessions and no credentials embedded in the QR.
 - `2026-09-23_web-workspace-information-architecture-plan.md` — clarify Map, Library, and Account ownership; add panel-aware Map layout, Library preview/sort/filter, dedicated Account settings, and consistent manual-save/sync semantics.
 - `2026-09-12_android-favorites-preview-polish-plan.md` — searchable, scrollable Favorites and direct preview saving are implemented; retained for development on another computer, with Emulator verification pending and screenshot comparison awaiting approved reference images.
 - `2026-08-09_android-app-workflow-redesign-plan.md` — redesign the Android app around previewable, confirmable mock-location workflows while preserving runtime, stored-data, cloud, remote-control, responsive, and accessibility behavior.

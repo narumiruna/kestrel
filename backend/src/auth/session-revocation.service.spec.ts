@@ -7,6 +7,9 @@ type MockDevice = {
 };
 
 type MockStore = {
+  androidLoginAttempt: {
+    updateMany: jest.Mock<Promise<{ count: number }>, [unknown]>;
+  };
   device: {
     findMany: jest.Mock<Promise<MockDevice[]>, [unknown]>;
     updateMany: jest.Mock<Promise<{ count: number }>, [unknown]>;
@@ -25,6 +28,11 @@ describe('SessionRevocationService', () => {
 
   beforeEach(() => {
     store = {
+      androidLoginAttempt: {
+        updateMany: jest
+          .fn<Promise<{ count: number }>, [unknown]>()
+          .mockResolvedValue({ count: 0 }),
+      },
       device: {
         findMany: jest.fn<Promise<MockDevice[]>, [unknown]>(),
         updateMany: jest
@@ -63,6 +71,15 @@ describe('SessionRevocationService', () => {
 
     await service.revokeSessions('user-1', ['session-2'], revokedAt);
 
+    expect(store.androidLoginAttempt.updateMany).toHaveBeenCalledWith({
+      data: { approvedAt: null, deniedAt: revokedAt },
+      where: {
+        authorizingSessionId: { in: ['session-2'] },
+        consumedAt: null,
+        deniedAt: null,
+        userId: 'user-1',
+      },
+    });
     expect(store.session.updateMany).toHaveBeenCalledWith({
       data: { revokedAt },
       where: {
@@ -99,6 +116,15 @@ describe('SessionRevocationService', () => {
 
     await service.revokeDevice('user-1', 'device-1', revokedAt);
 
+    expect(store.androidLoginAttempt.updateMany).toHaveBeenCalledWith({
+      data: { approvedAt: null, deniedAt: revokedAt },
+      where: {
+        authorizingSessionId: { in: ['session-android'] },
+        consumedAt: null,
+        deniedAt: null,
+        userId: 'user-1',
+      },
+    });
     expect(store.session.updateMany).toHaveBeenCalledWith({
       data: { revokedAt },
       where: {

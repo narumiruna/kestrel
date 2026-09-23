@@ -1,5 +1,7 @@
 package dev.narumi.kestrel.feature.options
 
+import dev.narumi.kestrel.core.cloud.AndroidQrLoginDetails
+import dev.narumi.kestrel.core.cloud.AndroidQrLoginMethod
 import dev.narumi.kestrel.core.data.StartupPreference
 import dev.narumi.kestrel.core.library.LibraryItemKind
 import org.junit.Assert.assertEquals
@@ -67,6 +69,60 @@ class OptionsPresentationTest {
         assertFalse(isValidCloudServerAddress("kestrel.narumi.dev"))
         assertFalse(isValidCloudServerAddress("file:///tmp/server"))
         assertFalse(isValidCloudServerAddress("https://"))
+    }
+
+    @Test
+    fun androidQrLoginStatesBlockCompetingAuthAndExposeConfirmationDetails() {
+        val details =
+            AndroidQrLoginDetails(
+                appVersion = "0.8.0",
+                deviceName = "Google Pixel",
+                expiresAt = 1_800_000_000_000L,
+                matchingCode = "123-456",
+                pollIntervalSeconds = 5,
+                publicOrigin = "https://cloud.example.test",
+                username = "admin",
+            )
+        assertTrue(AndroidQrLoginUiState.Restoring.blocksOtherAuthentication())
+        assertEquals("Checking saved QR sign-in", AndroidQrLoginUiState.Restoring.summary())
+        val confirmation = AndroidQrLoginUiState.Confirmation(details)
+        assertTrue(confirmation.blocksOtherAuthentication())
+        assertEquals(
+            "Confirm admin on https://cloud.example.test",
+            confirmation.summary(),
+        )
+        assertTrue(AndroidQrLoginUiState.Confirming(details).blocksOtherAuthentication())
+        val waiting = AndroidQrLoginUiState.Waiting(details, 5)
+        assertTrue(waiting.blocksOtherAuthentication())
+        assertTrue(
+            AndroidQrLoginUiState
+                .Error("Network unavailable", retryPendingAttempt = true)
+                .blocksOtherAuthentication(),
+        )
+        assertFalse(
+            AndroidQrLoginUiState
+                .Error("Invalid QR code", retryPendingAttempt = false)
+                .blocksOtherAuthentication(),
+        )
+        assertFalse(AndroidQrLoginUiState.Expired.blocksOtherAuthentication())
+        assertEquals("QR code expired", AndroidQrLoginUiState.Expired.summary())
+
+        val disabledMethod = AndroidQrLoginMethod(enabled = false)
+        assertTrue(
+            shouldShowAndroidQrLoginDiscoveryNotice(
+                disabledMethod,
+                AndroidQrLoginUiState.Idle,
+            ),
+        )
+        assertFalse(shouldShowAndroidQrLoginDiscoveryNotice(disabledMethod, AndroidQrLoginUiState.Restoring))
+        assertFalse(shouldShowAndroidQrLoginDiscoveryNotice(disabledMethod, confirmation))
+        assertFalse(shouldShowAndroidQrLoginDiscoveryNotice(disabledMethod, waiting))
+        assertFalse(
+            shouldShowAndroidQrLoginDiscoveryNotice(
+                disabledMethod,
+                AndroidQrLoginUiState.Error("Network unavailable", retryPendingAttempt = true),
+            ),
+        )
     }
 
     @Test

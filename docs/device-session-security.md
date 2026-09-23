@@ -89,18 +89,57 @@ A `DELIVERED` command may already be executing on Android. Revocation cannot rec
 
 The Web UI must describe this boundary instead of claiming that device revocation stops an already delivered mock operation.
 
+## QR-assisted Android login
+
+QR login transfers authorization from a recently authenticated Web session to a signed-out Android app without transferring the Web session itself. It is a Kestrel cross-device protocol informed by OAuth device-flow guidance, not an implementation of RFC 8628. Exact payloads, endpoints, and status responses are documented in [Android QR login API](android-qr-login-api.md).
+
+### Configuration and compatibility
+
+- New QR attempts and method discovery are disabled unless `KESTREL_PUBLIC_URL` and the dedicated 32-byte `AUTH_ANDROID_QR_LOGIN_SECRET` are valid and `AUTH_ANDROID_QR_LOGIN_CREATION_ENABLED` is not `false`. The creation flag can drain existing attempts without removing the secret required by claim and exchange.
+- Supported deployments expose the Backend at `${KESTREL_PUBLIC_URL}/api/backend`. Android derives only this fixed path and never accepts an API URL supplied inside the QR.
+- Production origins require HTTPS. HTTP is accepted only for loopback development origins.
+- The first Android implementation uses Google Code Scanner without a camera permission. Devices without Google Play services continue to support password/TOTP/recovery-code and OIDC login.
+
+### Protocol and state
+
+1. A Web session whose `createdAt` is no more than 10 minutes old creates an attempt bound to its verified user and session IDs. A stale Web session must complete normal password or OIDC sign-in first.
+2. The Backend returns a QR image for a versioned `${KESTREL_PUBLIC_URL}/login/android` URL. Only the URL fragment contains the attempt ID and high-entropy QR secret, so browsers, proxies, referrers, and access logs do not receive the secret.
+3. The signed-out Android app parses but never opens the scanned URL, confirms the origin, creates a high-entropy verifier, and claims the attempt with the QR secret plus the verifier's S256 challenge.
+4. Android shows the server, username, and a short matching code. Web shows bounded Android metadata and the same code. Android confirmation and explicit approval from the originating still-active Web session are both required.
+5. Android exchanges the QR secret and verifier. The Backend verifies the secret hash and challenge, atomically consumes the approved attempt, and creates a new independent Android `Session`.
+6. Android stores the resulting session through `CloudSessionStore`, clears the pending attempt, and starts normal sync. QR login does not register a remote-control device or enable remote control.
+
+Attempts advance monotonically through pending, claimed, approved or denied, and consumed; expiry is terminal. The QR secret and verifier each contain at least 256 bits of randomness. Raw QR secrets, verifiers, access tokens, and refresh tokens are not stored in attempt rows. Attempts expire after a short user-interaction window, enforce a minimum polling interval, and are pruned with bounded work.
+
+Only the originating Web session may inspect, approve, deny, or cancel its attempt. Session revocation denies its unconsumed attempts. Duplicate claim is idempotent only for the same verifier challenge; competing challenges are rejected. Atomic consumption creates at most one Android session. A bounded recovery window derives the same initial refresh credential from client-held secrets and can recover the current rotated successor, so a lost exchange response does not create a second session or strand Android.
+
+### QR-specific threats and mitigations
+
+| Threat                                                   | Mitigation                                                                                                                                                                                    |
+| -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| QR screenshot or shoulder surfing                        | Short expiry, high-entropy secret, single claim, Android/Web matching-code comparison, and explicit approval.                                                                                 |
+| Attacker presents their own account QR to a victim       | Android prominently displays the confirmed server and username before exchange; the victim can cancel without creating a session.                                                             |
+| Remote phishing or attacker claims first                 | Web must compare the code shown on the Android device and review bounded device metadata; a competing claim cannot be replaced.                                                               |
+| Stolen old Web session creates persistent access         | Attempt creation requires a Web session created within the previous 10 minutes, and approval requires that same session to remain active.                                                     |
+| Originating session is revoked after approval            | Exchange rechecks the authorizing session and revocation proactively denies unconsumed attempts.                                                                                              |
+| QR payload redirects Android to an attacker server       | Android accepts only the versioned configured-origin path, derives `/api/backend`, never follows the scanned URL, and requires origin confirmation before changing signed-out cloud settings. |
+| Replay or concurrent exchange creates duplicate sessions | Secret/challenge binding, compare-and-set transitions, serializable session creation, and exchange-session recovery return at most one session.                                               |
+| Exchange response is lost                                | Bounded deterministic credential recovery returns the same session and current refresh successor.                                                                                             |
+| Public polling causes database or request pressure       | User-initiated creation, an unexpired-row cap checked before QR rendering, short expiry, minimum poll interval, application backstops, and source-aware ingress limits.                         |
+| Secrets leak through logs or caches                      | QR secret is in the URL fragment and request body only; responses use `Cache-Control: no-store`; logger redaction covers all QR credential names.                                             |
+
 ## Threats and mitigations
 
-| Threat | Mitigation |
-|---|---|
-| User enumerates another account's session/device IDs | Every lookup includes authenticated `userId`; foreign IDs return not found. |
-| Client links a device to another session | `registeredSessionId` comes only from verified access-token claims. |
-| Stolen device ID/client ID authorizes polling | Poll/state/ACK require a valid same-user bearer session plus matching server/client device IDs. |
-| Stolen Web session revokes all other access | Non-current session/device revocation requires rate-limited current-password step-up. |
-| Revoked Android silently re-enables itself | Linked session is revoked atomically; only a new explicit login session can re-register. |
-| Sensitive request metadata leaks | Values are owner-only, control-stripped, length-bounded, and contain no tokens. |
-| Revocation claims to cancel work already sent | UI/API documentation explicitly distinguishes queued cancellation from delivered-command timeout. |
-| State reporting increases background tracking | Reporting is opt-in, lease-bound, transition/heartbeat-based, and contains only coarse playback state. |
+| Threat                                               | Mitigation                                                                                             |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| User enumerates another account's session/device IDs | Every lookup includes authenticated `userId`; foreign IDs return not found.                            |
+| Client links a device to another session             | `registeredSessionId` comes only from verified access-token claims.                                    |
+| Stolen device ID/client ID authorizes polling        | Poll/state/ACK require a valid same-user bearer session plus matching server/client device IDs.        |
+| Stolen Web session revokes all other access          | Non-current session/device revocation requires rate-limited current-password step-up.                  |
+| Revoked Android silently re-enables itself           | Linked session is revoked atomically; only a new explicit login session can re-register.               |
+| Sensitive request metadata leaks                     | Values are owner-only, control-stripped, length-bounded, and contain no tokens.                        |
+| Revocation claims to cancel work already sent        | UI/API documentation explicitly distinguishes queued cancellation from delivered-command timeout.      |
+| State reporting increases background tracking        | Reporting is opt-in, lease-bound, transition/heartbeat-based, and contains only coarse playback state. |
 
 ## Explicit limitations
 

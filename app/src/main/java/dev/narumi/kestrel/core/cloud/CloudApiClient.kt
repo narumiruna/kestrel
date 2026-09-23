@@ -13,13 +13,57 @@ import java.net.URL
 import java.nio.charset.StandardCharsets
 import java.time.Instant
 
+@Suppress("TooManyFunctions")
 internal class CloudApiClient(
     private val baseUrlProvider: suspend () -> String,
 ) : CloudSyncApi,
-    CloudRemoteControlApi {
+    CloudRemoteControlApi,
+    AndroidQrLoginApi {
     private val json = Json { ignoreUnknownKeys = true }
 
     suspend fun getAuthMethods(): AuthMethodsResponse = getJson(path = "/auth/methods")
+
+    override suspend fun claimAndroidLogin(
+        apiBaseUrl: String,
+        attemptId: String,
+        request: ClaimAndroidLoginRequest,
+    ): ClaimAndroidLoginResponse =
+        postJson(
+            path = "/auth/android-login-attempts/$attemptId/claim",
+            body = request,
+            apiBaseUrl = apiBaseUrl,
+        )
+
+    override suspend fun exchangeAndroidLogin(
+        apiBaseUrl: String,
+        attemptId: String,
+        request: ExchangeAndroidLoginRequest,
+    ): AndroidQrExchangeResult {
+        val response =
+            rawRequest(
+                method = "POST",
+                path = "/auth/android-login-attempts/$attemptId/exchange",
+                body = json.encodeToString(request),
+                apiBaseUrl = apiBaseUrl,
+            )
+        return when (response.statusCode) {
+            HTTP_CREATED ->
+                AndroidQrExchangeResult.Complete(
+                    decodeResponse<AuthSessionResponse>(response).toSession(),
+                )
+            HTTP_ACCEPTED, HTTP_TOO_MANY_REQUESTS -> {
+                val pending = decodeResponse<PendingAndroidLoginResponse>(response)
+                check(pending.status == "pending" || pending.status == "slow_down") {
+                    "Cloud returned an invalid Android QR login status"
+                }
+                check(pending.retryAfterSeconds in MIN_RETRY_AFTER_SECONDS..MAX_RETRY_AFTER_SECONDS) {
+                    "Cloud returned an invalid Android QR login retry interval"
+                }
+                AndroidQrExchangeResult.Pending(pending.retryAfterSeconds)
+            }
+            else -> throw response.toApiException(json)
+        }
+    }
 
     suspend fun startOidc(
         clientNonce: String,
@@ -81,9 +125,17 @@ internal class CloudApiClient(
         ).toSession()
 
     suspend fun revokeSession(accessToken: String) {
+        revokeSession(accessToken, normalizedBaseUrl())
+    }
+
+    override suspend fun revokeSession(
+        accessToken: String,
+        apiBaseUrl: String,
+    ) {
         postWithoutBody<RevokeSessionResponse>(
             path = "/auth/session/revoke",
             accessToken = accessToken,
+            apiBaseUrl = apiBaseUrl,
         )
     }
 
@@ -175,12 +227,14 @@ internal class CloudApiClient(
     private suspend inline fun <reified Response : Any> postWithoutBody(
         path: String,
         accessToken: String? = null,
+        apiBaseUrl: String? = null,
     ): Response =
         request(
             method = "POST",
             path = path,
             body = "{}",
             accessToken = accessToken,
+            apiBaseUrl = apiBaseUrl,
         )
 
     private suspend inline fun <reified Response : Any> getJson(
@@ -199,7 +253,28 @@ internal class CloudApiClient(
         body: String? = null,
         accessToken: String? = null,
         apiBaseUrl: String? = null,
-    ): Response =
+    ): Response {
+        val response =
+            rawRequest(
+                method = method,
+                path = path,
+                body = body,
+                accessToken = accessToken,
+                apiBaseUrl = apiBaseUrl,
+            )
+        if (response.statusCode !in SUCCESS_STATUS_CODE_RANGE) {
+            throw response.toApiException(json)
+        }
+        return decodeResponse(response)
+    }
+
+    private suspend fun rawRequest(
+        method: String,
+        path: String,
+        body: String? = null,
+        accessToken: String? = null,
+        apiBaseUrl: String? = null,
+    ): CloudHttpResponse =
         withContext(Dispatchers.IO) {
             val url = URL((apiBaseUrl ?: normalizedBaseUrl()) + path)
             val connection =
@@ -222,36 +297,32 @@ internal class CloudApiClient(
                         output.write(body.toByteArray(StandardCharsets.UTF_8))
                     }
                 }
-
                 val statusCode = connection.responseCode
-                val responseBody =
-                    readStream(
-                        if (statusCode in SUCCESS_STATUS_CODE_RANGE) {
-                            connection.inputStream
-                        } else {
-                            connection.errorStream
-                        },
-                    )
-
-                if (statusCode !in SUCCESS_STATUS_CODE_RANGE) {
-                    val errorResponse = responseBody.toErrorResponse(json)
-                    throw CloudApiException(
-                        statusCode = statusCode,
-                        code = errorResponse?.code,
-                        message = errorResponse?.message ?: responseBody.ifBlank { "Cloud request failed" },
-                    )
-                }
-
-                return@withContext json.decodeFromString<Response>(responseBody)
-            } catch (error: SerializationException) {
-                throw CloudApiException(
-                    statusCode = connection.responseCode.takeIf { it > 0 } ?: 0,
-                    message = error.message ?: "Failed to parse cloud response",
-                    cause = error,
+                CloudHttpResponse(
+                    body =
+                        readStream(
+                            if (statusCode in SUCCESS_STATUS_CODE_RANGE) {
+                                connection.inputStream
+                            } else {
+                                connection.errorStream
+                            },
+                        ),
+                    statusCode = statusCode,
                 )
             } finally {
                 connection.disconnect()
             }
+        }
+
+    private inline fun <reified Response : Any> decodeResponse(response: CloudHttpResponse): Response =
+        try {
+            json.decodeFromString<Response>(response.body)
+        } catch (error: SerializationException) {
+            throw CloudApiException(
+                statusCode = response.statusCode,
+                message = error.message ?: "Failed to parse cloud response",
+                cause = error,
+            )
         }
 
     private suspend fun normalizedBaseUrl(): String = normalizeCloudApiBaseUrl(baseUrlProvider())
@@ -268,10 +339,20 @@ internal class CloudApiClient(
 
     companion object {
         private const val CONNECT_TIMEOUT_MILLIS = 15_000
+        private const val HTTP_ACCEPTED = 202
+        private const val HTTP_CREATED = 201
+        private const val HTTP_TOO_MANY_REQUESTS = 429
+        private const val MAX_RETRY_AFTER_SECONDS = 30
+        private const val MIN_RETRY_AFTER_SECONDS = 1
         private const val READ_TIMEOUT_MILLIS = 15_000
         private val SUCCESS_STATUS_CODE_RANGE = 200..299
     }
 }
+
+private data class CloudHttpResponse(
+    val body: String,
+    val statusCode: Int,
+)
 
 class CloudApiException(
     val statusCode: Int,
@@ -288,6 +369,15 @@ private fun readStream(inputStream: InputStream?): String {
     return BufferedReader(InputStreamReader(inputStream, StandardCharsets.UTF_8)).use { reader ->
         reader.readText()
     }
+}
+
+private fun CloudHttpResponse.toApiException(json: Json): CloudApiException {
+    val errorResponse = body.toErrorResponse(json)
+    return CloudApiException(
+        statusCode = statusCode,
+        code = errorResponse?.code,
+        message = errorResponse?.message ?: body.ifBlank { "Cloud request failed" },
+    )
 }
 
 private fun String.toErrorResponse(json: Json): ErrorResponse? {

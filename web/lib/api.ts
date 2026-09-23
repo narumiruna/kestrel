@@ -20,11 +20,42 @@ export type LoginInput = {
 };
 
 export type AuthMethods = {
+  androidQrLogin: {
+    enabled: boolean;
+  };
   oidc: {
     displayName: string;
     enabled: boolean;
   };
 };
+
+export type AndroidLoginAttemptStatus =
+  | 'approved'
+  | 'claimed'
+  | 'consumed'
+  | 'denied'
+  | 'expired'
+  | 'pending';
+
+export type AndroidLoginAttempt = {
+  attemptId: string;
+  device: {
+    appVersion: string | null;
+    name: string;
+  } | null;
+  expiresAt: string;
+  matchingCode: string | null;
+  status: AndroidLoginAttemptStatus;
+};
+
+export type CreatedAndroidLoginAttempt = {
+  attemptId: string;
+  expiresAt: string;
+  pollIntervalSeconds: number;
+  qrCodeDataUrl: string;
+};
+
+export type AuthenticatedApiRequest = <T>(path: string, options?: RequestInit) => Promise<T>;
 
 export type OidcClientType = 'android' | 'web';
 
@@ -332,6 +363,32 @@ export function login(input: LoginInput) {
 
 export function getAuthMethods() {
   return apiFetch<AuthMethods>('/auth/methods', { cache: 'no-store' });
+}
+
+export function createAndroidLoginAttempt(apiRequest: AuthenticatedApiRequest) {
+  return apiRequest<CreatedAndroidLoginAttempt>('/auth/android-login-attempts', {
+    method: 'POST',
+  });
+}
+
+export function getAndroidLoginAttempt(
+  apiRequest: AuthenticatedApiRequest,
+  attemptId: string,
+  signal?: AbortSignal,
+) {
+  return apiRequest<AndroidLoginAttempt>(`/auth/android-login-attempts/${attemptId}`, { signal });
+}
+
+export function approveAndroidLoginAttempt(apiRequest: AuthenticatedApiRequest, attemptId: string) {
+  return apiRequest<AndroidLoginAttempt>(`/auth/android-login-attempts/${attemptId}/approve`, {
+    method: 'POST',
+  });
+}
+
+export function denyAndroidLoginAttempt(apiRequest: AuthenticatedApiRequest, attemptId: string) {
+  return apiRequest<AndroidLoginAttempt>(`/auth/android-login-attempts/${attemptId}/deny`, {
+    method: 'POST',
+  });
 }
 
 export function startOidc(clientNonce: string, clientType: OidcClientType) {

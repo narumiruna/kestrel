@@ -15,6 +15,7 @@ data class CloudSession(
 
 @Serializable
 internal data class AuthMethodsResponse(
+    val androidQrLogin: AndroidQrLoginMethod = AndroidQrLoginMethod(),
     val oidc: OidcMethod,
 )
 

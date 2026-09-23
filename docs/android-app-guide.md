@@ -77,7 +77,16 @@ The choice applies to the next route start or restore. A route restored after pr
 
 Sign in with username, password, and then an authenticator or recovery code. When the selected server enables OIDC, **Continue with _provider name_** opens the system browser for authentication and returns to Kestrel through its verified Android App Link. Kestrel keeps the callback ticket and client nonce in app-private storage until exchange succeeds or the server definitively rejects it, so an ambiguous network failure can resume when Settings reloads. Local Favorites remain available while signed out or offline. Sync errors retain the previous local data and provide a retry/reconnect action.
 
-OIDC account provisioning and collision behavior are documented in [OIDC sign-in](oidc.md).
+When the server enables **Sign in from Kestrel Web**, a signed-out Android app can also use a five-minute QR code:
+
+1. On Kestrel Web, open **Account → Sign in with a QR code** and explicitly create a code. If Web asks for recent authentication, sign in again normally first.
+2. In Android **Settings → Cloud sync**, choose **Scan Web login QR code**. Google Code Scanner may download its scanner module. Kestrel itself does not request camera permission.
+3. Compare the server, username, Android device label, and matching code on both screens. Cancel if any value differs.
+4. Confirm on Android, then approve from the same Web session that created the code. Android waits for approval, stores its new independent session encrypted, and starts sync.
+
+The QR action requires Google Play services. If scanning is unavailable or its module cannot download, use password/TOTP/recovery-code or OIDC sign-in instead. An expired, denied, or competing claim requires a new QR code. Pending QR state is app-private and excluded from backup so an ambiguous response can retry after process restart. QR login never enables Web remote control; that remains a separate opt-in.
+
+OIDC account provisioning and collision behavior are documented in [OIDC sign-in](oidc.md). The QR protocol and threat boundaries are documented in [Android QR login API](android-qr-login-api.md) and [device and session security](device-session-security.md).
 
 The server address can be changed only while signed out so account, session, and remote-control state cannot be split between servers.
 

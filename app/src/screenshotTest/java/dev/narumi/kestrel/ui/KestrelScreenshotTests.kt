@@ -16,6 +16,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.android.tools.screenshot.PreviewTest
+import dev.narumi.kestrel.core.cloud.AndroidQrLoginDetails
+import dev.narumi.kestrel.core.cloud.AndroidQrLoginMethod
 import dev.narumi.kestrel.core.data.FavoritesSortMode
 import dev.narumi.kestrel.core.library.LibraryItem
 import dev.narumi.kestrel.core.library.LibraryItemKind
@@ -31,6 +33,8 @@ import dev.narumi.kestrel.feature.map.MapSheet
 import dev.narumi.kestrel.feature.map.ReplacementPreviewCard
 import dev.narumi.kestrel.feature.map.RunState
 import dev.narumi.kestrel.feature.map.SetupPromptCard
+import dev.narumi.kestrel.feature.options.AndroidQrLoginContent
+import dev.narumi.kestrel.feature.options.AndroidQrLoginUiState
 import dev.narumi.kestrel.feature.options.OptionsDisclosureCard
 import dev.narumi.kestrel.ui.components.KestrelEmptyState
 import dev.narumi.kestrel.ui.components.PlaybackStatusBar
@@ -307,6 +311,38 @@ fun OptionsCollapsedScreenshot() {
             expanded = false,
             onExpandedChange = {},
         ) {}
+    }
+}
+
+@PreviewTest
+@Preview(name = "Android QR confirmation", widthDp = 360, heightDp = 560, showBackground = true)
+@Composable
+fun AndroidQrConfirmationScreenshot() {
+    ScreenshotTheme {
+        Surface {
+            Column(modifier = Modifier.padding(16.dp)) {
+                AndroidQrLoginContent(
+                    method = AndroidQrLoginMethod(enabled = true),
+                    state =
+                        AndroidQrLoginUiState.Confirmation(
+                            AndroidQrLoginDetails(
+                                appVersion = "0.8.0",
+                                deviceName = "Google Pixel",
+                                expiresAt = 1_800_000_000_000L,
+                                matchingCode = "123-456",
+                                pollIntervalSeconds = 5,
+                                publicOrigin = "https://cloud.example.test",
+                                username = "admin",
+                            ),
+                        ),
+                    enabled = true,
+                    onScan = {},
+                    onConfirm = {},
+                    onCancel = {},
+                    onRetry = {},
+                )
+            }
+        }
     }
 }
 

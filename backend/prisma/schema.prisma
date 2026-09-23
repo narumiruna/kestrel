@@ -7,26 +7,27 @@ datasource db {
 }
 
 model User {
-  id                  String               @id @default(uuid()) @db.Uuid
-  username            String               @unique @db.VarChar(64)
-  passwordHash        String               @map("password_hash")
-  totpSecretEncrypted String?              @map("totp_secret_encrypted")
-  totpEnabledAt       DateTime?            @map("totp_enabled_at")
-  createdAt           DateTime             @default(now()) @map("created_at")
-  updatedAt           DateTime             @updatedAt @map("updated_at")
-  authAuditLogs       AuthAuditLog[]
-  devices             Device[]
-  federatedIdentities FederatedIdentity[]
-  remoteCommands      RemoteCommand[]
-  libraryItems        LibraryItem[]
-  places              Place[]
-  shareLinks          ShareLink[]
-  syncUploadMutations SyncUploadMutation[]
-  recoveryCodes       RecoveryCode[]
-  routeRevisions      RouteRevision[]      @relation("RouteRevisionCreator")
-  routes              Route[]
-  sessions            Session[]
-  syncEvents          SyncEvent[]
+  id                   String                @id @default(uuid()) @db.Uuid
+  username             String                @unique @db.VarChar(64)
+  passwordHash         String                @map("password_hash")
+  totpSecretEncrypted  String?               @map("totp_secret_encrypted")
+  totpEnabledAt        DateTime?             @map("totp_enabled_at")
+  createdAt            DateTime              @default(now()) @map("created_at")
+  updatedAt            DateTime              @updatedAt @map("updated_at")
+  androidLoginAttempts AndroidLoginAttempt[]
+  authAuditLogs        AuthAuditLog[]
+  devices              Device[]
+  federatedIdentities  FederatedIdentity[]
+  remoteCommands       RemoteCommand[]
+  libraryItems         LibraryItem[]
+  places               Place[]
+  shareLinks           ShareLink[]
+  syncUploadMutations  SyncUploadMutation[]
+  recoveryCodes        RecoveryCode[]
+  routeRevisions       RouteRevision[]       @relation("RouteRevisionCreator")
+  routes               Route[]
+  sessions             Session[]
+  syncEvents           SyncEvent[]
 
   @@map("users")
 }
@@ -87,25 +88,53 @@ model RecoveryCode {
 }
 
 model Session {
-  id                           String                @id @default(uuid()) @db.Uuid
-  userId                       String                @map("user_id") @db.Uuid
-  refreshTokenHash             String                @unique @map("refresh_token_hash")
-  previousRefreshTokenHash     String?               @unique @map("previous_refresh_token_hash")
-  rotatedRefreshTokenEncrypted String?               @map("rotated_refresh_token_encrypted")
-  refreshTokenRotatedAt        DateTime?             @map("refresh_token_rotated_at")
-  refreshRequestId             String?               @map("refresh_request_id") @db.VarChar(128)
-  expiresAt                    DateTime              @map("expires_at")
-  revokedAt                    DateTime?             @map("revoked_at")
-  lastUsedAt                   DateTime              @map("last_used_at")
-  ipAddress                    String?               @map("ip_address") @db.VarChar(64)
-  userAgent                    String?               @map("user_agent") @db.VarChar(512)
-  createdAt                    DateTime              @default(now()) @map("created_at")
-  user                         User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  devices                      Device[]
-  refreshTokenHistory          RefreshTokenHistory[]
+  id                             String                @id @default(uuid()) @db.Uuid
+  userId                         String                @map("user_id") @db.Uuid
+  refreshTokenHash               String                @unique @map("refresh_token_hash")
+  previousRefreshTokenHash       String?               @unique @map("previous_refresh_token_hash")
+  rotatedRefreshTokenEncrypted   String?               @map("rotated_refresh_token_encrypted")
+  refreshTokenRotatedAt          DateTime?             @map("refresh_token_rotated_at")
+  refreshRequestId               String?               @map("refresh_request_id") @db.VarChar(128)
+  expiresAt                      DateTime              @map("expires_at")
+  revokedAt                      DateTime?             @map("revoked_at")
+  lastUsedAt                     DateTime              @map("last_used_at")
+  ipAddress                      String?               @map("ip_address") @db.VarChar(64)
+  userAgent                      String?               @map("user_agent") @db.VarChar(512)
+  createdAt                      DateTime              @default(now()) @map("created_at")
+  user                           User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  authorizedAndroidLoginAttempts AndroidLoginAttempt[] @relation("AndroidLoginAuthorizingSession")
+  exchangedAndroidLoginAttempts  AndroidLoginAttempt[] @relation("AndroidLoginExchangeSession")
+  devices                        Device[]
+  refreshTokenHistory            RefreshTokenHistory[]
 
   @@index([userId])
   @@map("sessions")
+}
+
+model AndroidLoginAttempt {
+  id                   String    @id @default(uuid()) @db.Uuid
+  userId               String    @map("user_id") @db.Uuid
+  authorizingSessionId String    @map("authorizing_session_id") @db.Uuid
+  exchangeSessionId    String?   @unique @map("exchange_session_id") @db.Uuid
+  qrSecretHash         String    @unique @map("qr_secret_hash") @db.VarChar(64)
+  verifierChallenge    String?   @map("verifier_challenge") @db.VarChar(43)
+  deviceName           String?   @map("device_name") @db.VarChar(128)
+  appVersion           String?   @map("app_version") @db.VarChar(64)
+  claimedAt            DateTime? @map("claimed_at")
+  approvedAt           DateTime? @map("approved_at")
+  deniedAt             DateTime? @map("denied_at")
+  consumedAt           DateTime? @map("consumed_at")
+  lastPolledAt         DateTime? @map("last_polled_at")
+  expiresAt            DateTime  @map("expires_at")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  authorizingSession   Session   @relation("AndroidLoginAuthorizingSession", fields: [authorizingSessionId], references: [id], onDelete: Cascade)
+  exchangeSession      Session?  @relation("AndroidLoginExchangeSession", fields: [exchangeSessionId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([authorizingSessionId])
+  @@index([expiresAt])
+  @@map("android_login_attempts")
 }
 
 model RefreshTokenHistory {

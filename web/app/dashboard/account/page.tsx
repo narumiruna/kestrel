@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { UserMark } from '@/components/cartographer/UserMark';
+import { AndroidQrLoginPanel } from '@/components/dashboard/AndroidQrLoginPanel';
 import {
   clearOidcLinkState,
   createOidcLinkNonce,
@@ -12,6 +13,7 @@ import { useDashboardAuth } from '@/components/dashboard/useDashboardAuth';
 import { formatError } from '@/components/dashboard/utils';
 import { Button, ConfirmDialog, DialogFrame, TextInput } from '@/components/ui/radix-ui';
 import type {
+  AuthMethods,
   AuthSessionSummary,
   AuthSessionsResponse,
   ChangePasswordInput,
@@ -36,6 +38,7 @@ export default function AccountSecurityPage() {
   const [sessions, setSessions] = useState<AuthSessionSummary[]>([]);
   const [devices, setDevices] = useState<RemoteDevice[]>([]);
   const [oidcLinkStatus, setOidcLinkStatus] = useState<OidcLinkStatus | null>(null);
+  const [androidQrLoginEnabled, setAndroidQrLoginEnabled] = useState<boolean | null>(null);
   const [areSessionsLoading, setAreSessionsLoading] = useState(true);
   const [areDevicesLoading, setAreDevicesLoading] = useState(true);
   const [isOidcLinkStatusLoading, setIsOidcLinkStatusLoading] = useState(true);
@@ -61,6 +64,7 @@ export default function AccountSecurityPage() {
     setAreSessionsLoading(true);
     setAreDevicesLoading(true);
     setIsOidcLinkStatusLoading(true);
+    setAndroidQrLoginEnabled(null);
     setError(null);
 
     void auth
@@ -95,6 +99,18 @@ export default function AccountSecurityPage() {
       .finally(() => {
         if (isCurrentLoad()) {
           setAreDevicesLoading(false);
+        }
+      });
+    void auth
+      .apiRequest<AuthMethods>('/auth/methods')
+      .then((methods) => {
+        if (isCurrentLoad()) {
+          setAndroidQrLoginEnabled(methods.androidQrLogin.enabled);
+        }
+      })
+      .catch(() => {
+        if (isCurrentLoad()) {
+          setAndroidQrLoginEnabled(false);
         }
       });
     void auth
@@ -295,6 +311,13 @@ export default function AccountSecurityPage() {
             </>
           )}
         </section>
+
+        <AndroidQrLoginPanel
+          key={auth.session.session.id}
+          apiRequest={auth.apiRequest}
+          enabled={androidQrLoginEnabled}
+          username={auth.session.user.username}
+        />
 
         <section className="panel account-security-panel" aria-labelledby="sessions-heading">
           <div className="account-security-section-header">

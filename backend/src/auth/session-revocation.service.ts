@@ -5,7 +5,7 @@ const REVOKED_COMMAND_MESSAGE = 'device or session revoked';
 
 type RevocationStore = Pick<
   Prisma.TransactionClient,
-  'device' | 'remoteCommand' | 'session'
+  'androidLoginAttempt' | 'device' | 'remoteCommand' | 'session'
 >;
 
 export class SessionRevocationService {
@@ -67,6 +67,18 @@ async function revokeRecords(
   deviceIds: string[],
   revokedAt: Date,
 ) {
+  const androidLoginAttempts =
+    sessionIds.length === 0
+      ? { count: 0 }
+      : await tx.androidLoginAttempt.updateMany({
+          data: { approvedAt: null, deniedAt: revokedAt },
+          where: {
+            authorizingSessionId: { in: sessionIds },
+            consumedAt: null,
+            deniedAt: null,
+            userId,
+          },
+        });
   const sessions =
     sessionIds.length === 0
       ? { count: 0 }
@@ -101,6 +113,7 @@ async function revokeRecords(
         });
 
   return {
+    androidLoginAttemptsDenied: androidLoginAttempts.count,
     commandsExpired: commands.count,
     devicesRevoked: devices.count,
     sessionsRevoked: sessions.count,

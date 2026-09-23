@@ -6,8 +6,10 @@
 <data-extraction-rules>
     <cloud-backup>
         <exclude domain="sharedpref" path="kestrel_oidc_auth.xml" />
+        <exclude domain="sharedpref" path="kestrel_android_qr_auth.xml" />
     </cloud-backup>
     <device-transfer>
         <exclude domain="sharedpref" path="kestrel_oidc_auth.xml" />
+        <exclude domain="sharedpref" path="kestrel_android_qr_auth.xml" />
     </device-transfer>
 </data-extraction-rules>

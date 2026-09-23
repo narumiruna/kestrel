@@ -8,7 +8,7 @@ const DEFAULT_LEVEL = 'info';
  * Defence in depth: request and audit logs are built from allowlisted fields,
  * so these paths should never appear. Censor them if a future call site slips.
  */
-const REDACTED_PATHS = [
+export const REDACTED_PATHS = [
   'access_token',
   'accessToken',
   'authorization',
@@ -20,9 +20,13 @@ const REDACTED_PATHS = [
   'idToken',
   'newPassword',
   'password',
+  'qrCodeDataUrl',
+  'qrSecret',
   'recoveryCode',
   'refreshToken',
   'totpCode',
+  'verifier',
+  'verifierChallenge',
   '*.access_token',
   '*.accessToken',
   '*.authorization',
@@ -34,9 +38,13 @@ const REDACTED_PATHS = [
   '*.idToken',
   '*.newPassword',
   '*.password',
+  '*.qrCodeDataUrl',
+  '*.qrSecret',
   '*.recoveryCode',
   '*.refreshToken',
   '*.totpCode',
+  '*.verifier',
+  '*.verifierChallenge',
 ];
 
 export const logger = pino({

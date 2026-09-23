@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import type { AndroidLoginService } from '../android-login/android-login.service';
 import { readJsonBody } from '../http/handlers';
 import {
   type AuthVariables,
@@ -13,6 +14,7 @@ import type { SessionAuth } from './session-auth.middleware';
 export function createAuthRoutes(
   authService: AuthService,
   oidcService: OidcService,
+  androidLoginService: AndroidLoginService,
   sessionAuth: SessionAuth,
 ): Hono<{ Variables: AuthVariables }> {
   const routes = new Hono<{ Variables: AuthVariables }>();
@@ -44,7 +46,10 @@ export function createAuthRoutes(
 
   routes.get('/methods', (context) => {
     context.header('Cache-Control', 'no-store');
-    return context.json(oidcService.getMethods());
+    return context.json({
+      ...oidcService.getMethods(),
+      androidQrLogin: androidLoginService.getMethod(),
+    });
   });
 
   routes.post('/oidc/start', async (context) => {
