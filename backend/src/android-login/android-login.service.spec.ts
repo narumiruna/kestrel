@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/require-await */
 import { createHash } from 'node:crypto';
+import QRCode from 'qrcode';
 import { AndroidLoginService } from './android-login.service';
 
 const NOW = new Date('2026-09-23T12:00:00.000Z');
@@ -71,6 +72,7 @@ describe('AndroidLoginService', () => {
   });
 
   afterEach(() => {
+    jest.restoreAllMocks();
     jest.useRealTimers();
     delete process.env.AUTH_ANDROID_QR_LOGIN_CREATION_ENABLED;
     delete process.env.AUTH_ANDROID_QR_LOGIN_SECRET;
@@ -168,7 +170,8 @@ describe('AndroidLoginService', () => {
     );
   });
 
-  it('rejects creation when the active-attempt storage cap is reached', async () => {
+  it('counts denied attempts toward the storage cap before rendering a QR code', async () => {
+    const renderQrCode = jest.spyOn(QRCode, 'toDataURL');
     prisma.tx.session.findFirst.mockResolvedValue({
       createdAt: new Date(NOW.getTime() - 60_000),
     });
@@ -179,6 +182,10 @@ describe('AndroidLoginService', () => {
     ).rejects.toMatchObject({
       message: expect.stringContaining('temporarily unavailable'),
     });
+    expect(prisma.tx.androidLoginAttempt.count).toHaveBeenCalledWith({
+      where: { expiresAt: { gt: NOW } },
+    });
+    expect(renderQrCode).not.toHaveBeenCalled();
     expect(prisma.tx.androidLoginAttempt.create).not.toHaveBeenCalled();
   });
 

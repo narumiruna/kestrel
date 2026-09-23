@@ -25,7 +25,7 @@ Generate a dedicated QR secret without reusing access-token, TOTP, or OIDC keys:
 openssl rand -base64 32
 ```
 
-Before enabling it, apply source-aware ingress limits to `POST /api/backend/auth/android-login-attempts/:attemptId/claim` and `/exchange`. Do not log request bodies, fragments, or query strings. The application additionally limits active attempts, enforces five-minute creation expiry and a minimum five-second exchange poll interval, and returns `Retry-After`; ingress controls remain required for volumetric abuse. Monitor `android_qr_create`, `android_qr_claim`, `android_qr_approve`, `android_qr_deny`, `android_qr_expire`, and `android_qr_exchange` audit outcomes without collecting QR secrets or exact payloads.
+Before enabling it, apply source-aware ingress limits to `POST /api/backend/auth/android-login-attempts/:attemptId/claim` and `/exchange`. Do not log request bodies, fragments, or query strings. The application additionally caps all unexpired attempt rows, including denied replacements, before rendering a QR code; enforces five-minute creation expiry and a minimum five-second exchange poll interval; and returns `Retry-After`. Ingress controls remain required for volumetric abuse. Monitor `android_qr_create`, `android_qr_claim`, `android_qr_approve`, `android_qr_deny`, `android_qr_expire`, and `android_qr_exchange` audit outcomes without collecting QR secrets or exact payloads.
 
 After deployment, verify readiness and request correlation:
 

@@ -31,7 +31,7 @@ const EXCHANGE_RECOVERY_LIFETIME_MS = 20 * 60 * 1000;
 const RECENT_AUTHENTICATION_WINDOW_MS = 10 * 60 * 1000;
 const SESSION_DURATION_MS = 30 * 24 * 60 * 60 * 1000;
 const MINIMUM_POLL_INTERVAL_MS = 5 * 1000;
-const MAX_ACTIVE_ATTEMPTS = 1000;
+const MAX_RETAINED_ATTEMPTS = 1000;
 const MAX_PRUNED_ATTEMPTS = 100;
 const SECRET_BYTES = 32;
 const ENCRYPTION_KEY_BYTES = 32;
@@ -127,13 +127,8 @@ export class AndroidLoginService {
     const attemptId = randomUUID();
     const qrSecret = createRandomSecret();
     const expiresAt = new Date(now.getTime() + ATTEMPT_LIFETIME_MS);
-    const qrCodeDataUrl = await QRCode.toDataURL(
-      createQrPayload(configuration.publicUrl, attemptId, qrSecret),
-      { errorCorrectionLevel: 'M', margin: 1 },
-    );
-
     try {
-      await this.prismaService.$transaction(
+      const qrCodeDataUrl = await this.prismaService.$transaction(
         async (transaction) => {
           const expiredAttempts =
             await transaction.androidLoginAttempt.findMany({
@@ -180,19 +175,19 @@ export class AndroidLoginService {
               userId,
             },
           });
-          const activeAttempts = await transaction.androidLoginAttempt.count({
-            where: {
-              consumedAt: null,
-              deniedAt: null,
-              expiresAt: { gt: now },
-            },
+          const retainedAttempts = await transaction.androidLoginAttempt.count({
+            where: { expiresAt: { gt: now } },
           });
-          if (activeAttempts >= MAX_ACTIVE_ATTEMPTS) {
+          if (retainedAttempts >= MAX_RETAINED_ATTEMPTS) {
             throw new ServiceUnavailableException(
               'Android QR login is temporarily unavailable',
             );
           }
 
+          const dataUrl = await QRCode.toDataURL(
+            createQrPayload(configuration.publicUrl, attemptId, qrSecret),
+            { errorCorrectionLevel: 'M', margin: 1 },
+          );
           await transaction.androidLoginAttempt.create({
             data: {
               authorizingSessionId,
@@ -202,6 +197,7 @@ export class AndroidLoginService {
               userId,
             },
           });
+          return dataUrl;
         },
         { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
       );

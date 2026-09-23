@@ -125,7 +125,7 @@ Only the originating Web session may inspect, approve, deny, or cancel its attem
 | QR payload redirects Android to an attacker server       | Android accepts only the versioned configured-origin path, derives `/api/backend`, never follows the scanned URL, and requires origin confirmation before changing signed-out cloud settings. |
 | Replay or concurrent exchange creates duplicate sessions | Secret/challenge binding, compare-and-set transitions, serializable session creation, and exchange-session recovery return at most one session.                                               |
 | Exchange response is lost                                | Bounded deterministic credential recovery returns the same session and current refresh successor.                                                                                             |
-| Public polling causes database or request pressure       | User-initiated creation, active-attempt caps, short expiry, minimum poll interval, application backstops, and source-aware ingress limits.                                                    |
+| Public polling causes database or request pressure       | User-initiated creation, an unexpired-row cap checked before QR rendering, short expiry, minimum poll interval, application backstops, and source-aware ingress limits.                         |
 | Secrets leak through logs or caches                      | QR secret is in the URL fragment and request body only; responses use `Cache-Control: no-store`; logger redaction covers all QR credential names.                                             |
 
 ## Threats and mitigations
