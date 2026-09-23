@@ -74,9 +74,9 @@ All responses use `Cache-Control: no-store`. Public claim/exchange endpoints hav
 
 ### Configuration and credential recovery
 
-- QR login is disabled unless a valid `KESTREL_PUBLIC_URL` and a dedicated 32-byte `AUTH_ANDROID_QR_LOGIN_SECRET` are configured. Production public URLs require HTTPS; loopback HTTP remains development-only.
+- QR login creation is disabled unless a valid `KESTREL_PUBLIC_URL` and a dedicated 32-byte `AUTH_ANDROID_QR_LOGIN_SECRET` are configured and `AUTH_ANDROID_QR_LOGIN_CREATION_ENABLED` is not `false`. Production public URLs require HTTPS; loopback HTTP remains development-only.
 - The dedicated secret is used with explicit domain separation for matching-code and retry-safe exchange derivation. It is passed through development/production Compose and the deploy workflow but is never committed.
-- Deployment remains backward-compatible when the secret is absent: existing login methods continue working and QR login reports disabled.
+- Deployment remains backward-compatible when the secret is absent: existing login methods continue working and QR login reports disabled. The creation flag provides a drain mode that hides discovery and rejects new attempts while preserving claim/exchange with the retained secret.
 - Logger redaction explicitly covers QR secret, verifier, challenge, and any exchange credential names even though request logging already excludes bodies and query strings.
 
 ## Tech Stack
@@ -117,7 +117,7 @@ All responses use `Cache-Control: no-store`. Public claim/exchange endpoints hav
 - [x] Add Hono routes and method discovery for create/status/approve/deny/claim/exchange with `no-store`, bounded input, generic terminal errors, polling intervals, request metadata, and application rate/storage backstops; acceptance is route tests proving auth boundaries, status codes, headers, rate behavior, and no user/session enumeration.
 - [x] Integrate QR-created sessions with existing access-token issuance, rotating refresh, audit, session listing, revoke, and save-failure cleanup semantics; acceptance is Backend tests proving a QR session is independent of the Web session, survives an ambiguous exchange retry without duplication, appears in `/auth/sessions`, and is immediately blocked after revoke.
 - [x] Add QR credential names to logger redaction and audit create/claim/approve/deny/expiry/exchange outcomes without logging raw QR payloads, request bodies, exact secrets, or refresh credentials; acceptance is logger/audit tests and a repository search showing no secret-bearing log call.
-- [x] Wire optional `AUTH_ANDROID_QR_LOGIN_SECRET` and the expanded `KESTREL_PUBLIC_URL` purpose through `compose.dev.yaml`, `compose.yaml`, Backend documentation, deploy workflow inputs, and operations guidance without setting remote secrets or enabling production externally; acceptance is Compose validation with QR login disabled and enabled using disposable local values.
+- [x] Wire optional `AUTH_ANDROID_QR_LOGIN_SECRET`, `AUTH_ANDROID_QR_LOGIN_CREATION_ENABLED`, and the expanded `KESTREL_PUBLIC_URL` purpose through `compose.dev.yaml`, `compose.yaml`, Backend documentation, deploy workflow inputs, and operations guidance without setting remote secrets or enabling production externally; acceptance is Compose validation with QR login disabled, draining, and enabled using disposable local values.
 - [x] Add Web API types/helpers and a focused Account-page QR-login panel using existing Radix components and Backend-generated QR data URLs; require an explicit start action, show account/expiry/pending/claimed/matching-code/approved/denied/error states, stop polling on terminal state/unmount/session change, and allow cancel; acceptance is component logic tests plus Web lint/typecheck/build.
 - [x] Validate the Web flow with Chrome DevTools against a local real Backend: create, claim simulation, matching-code approval, denial, expiry, stale-session rejection, refresh/navigation cleanup, and concurrent-tab/session change; acceptance is request/DOM evidence at the repository's supported desktop viewport, with any screenshots kept outside the repository.
 - [x] Add the selected Android scanner dependency and a QR-only scanner adapter; do not add `CAMERA` permission when Google Code Scanner is selected, and provide clear unavailable/download/cancel/failure states; acceptance is dependency inspection, manifest verification, and adapter-level tests where platform seams permit.
@@ -154,10 +154,10 @@ All responses use `Cache-Control: no-store`. Public claim/exchange endpoints hav
 ## Rollback / Recovery
 
 - QR login remains optional and disabled when `AUTH_ANDROID_QR_LOGIN_SECRET` or valid public URL configuration is absent; local and OIDC login continue unchanged.
-- The Web and Android entry points can be hidden through method discovery before Backend route removal. Existing QR-created sessions remain ordinary sessions and continue to refresh/revoke normally after feature disablement.
+- Set `AUTH_ANDROID_QR_LOGIN_CREATION_ENABLED=false` to hide Web and Android entry points and reject new attempts while keeping the secret and Backend claim/exchange routes available to drain existing attempts. Existing QR-created sessions remain ordinary sessions and continue to refresh/revoke normally after feature disablement.
 - Before production migration, follow `docs/operations.md` and obtain a verifiable database backup. Do not rewrite an applied migration.
-- To roll back code, first disable attempt creation, allow or explicitly deny outstanding attempts until their short expiry, then remove client entry points and routes. The additive attempt table may remain harmlessly until a reviewed later migration removes it; do not delete active `Session` rows created through QR login.
-- Secret rotation invalidates outstanding attempts/recovery but must not revoke completed Android sessions. Document rotation timing and wait beyond the maximum attempt/recovery lifetime before removing the previous deployment secret if dual-key recovery is not implemented.
+- To roll back code, first disable attempt creation, retain claim/exchange for the five-minute attempt lifetime plus the twenty-minute exchange-recovery window, then remove client entry points, routes, and the secret. The additive attempt table may remain harmlessly until a reviewed later migration removes it; do not delete active `Session` rows created through QR login.
+- Secret rotation invalidates outstanding attempts/recovery but must not revoke completed Android sessions. Use the creation drain and wait at least 25 minutes before removing the previous deployment secret if dual-key recovery is not implemented.
 
 ## Completion Checklist
 

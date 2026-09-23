@@ -13,7 +13,7 @@ Android QR login lets a recently authenticated Web session authorize a new indep
 }
 ```
 
-The method is enabled only when `KESTREL_PUBLIC_URL` is an accepted origin and `AUTH_ANDROID_QR_LOGIN_SECRET` decodes to exactly 32 bytes. Production requires HTTPS; non-production accepts loopback HTTP. Existing login methods remain available when QR login is disabled.
+The method is enabled only when `KESTREL_PUBLIC_URL` is an accepted origin, `AUTH_ANDROID_QR_LOGIN_SECRET` decodes to exactly 32 bytes, and `AUTH_ANDROID_QR_LOGIN_CREATION_ENABLED` is not `false`. Production requires HTTPS; non-production accepts loopback HTTP. Setting the creation flag to `false` hides discovery and rejects new attempts while leaving claim and exchange available for already-issued attempts during a drain. Existing login methods remain available when QR login is disabled.
 
 ## QR payload
 

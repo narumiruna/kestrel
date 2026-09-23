@@ -95,7 +95,7 @@ QR login transfers authorization from a recently authenticated Web session to a 
 
 ### Configuration and compatibility
 
-- The feature is disabled unless `KESTREL_PUBLIC_URL` and the dedicated 32-byte `AUTH_ANDROID_QR_LOGIN_SECRET` are valid.
+- New QR attempts and method discovery are disabled unless `KESTREL_PUBLIC_URL` and the dedicated 32-byte `AUTH_ANDROID_QR_LOGIN_SECRET` are valid and `AUTH_ANDROID_QR_LOGIN_CREATION_ENABLED` is not `false`. The creation flag can drain existing attempts without removing the secret required by claim and exchange.
 - Supported deployments expose the Backend at `${KESTREL_PUBLIC_URL}/api/backend`. Android derives only this fixed path and never accepts an API URL supplied inside the QR.
 - Production origins require HTTPS. HTTP is accepted only for loopback development origins.
 - The first Android implementation uses Google Code Scanner without a camera permission. Devices without Google Play services continue to support password/TOTP/recovery-code and OIDC login.

@@ -51,6 +51,7 @@ describe('AndroidLoginService', () => {
     process.env.NODE_ENV = 'test';
     process.env.KESTREL_PUBLIC_URL = 'https://kestrel.example.test';
     process.env.AUTH_ANDROID_QR_LOGIN_SECRET = CONFIG_SECRET;
+    delete process.env.AUTH_ANDROID_QR_LOGIN_CREATION_ENABLED;
     accessTokenService = {
       issueToken: jest.fn().mockReturnValue({
         expiresAt: new Date(NOW.getTime() + 900_000),
@@ -71,6 +72,7 @@ describe('AndroidLoginService', () => {
 
   afterEach(() => {
     jest.useRealTimers();
+    delete process.env.AUTH_ANDROID_QR_LOGIN_CREATION_ENABLED;
     delete process.env.AUTH_ANDROID_QR_LOGIN_SECRET;
     delete process.env.KESTREL_PUBLIC_URL;
   });
@@ -81,6 +83,36 @@ describe('AndroidLoginService', () => {
 
     process.env.AUTH_ANDROID_QR_LOGIN_SECRET = 'short';
     expect(service.getMethod()).toEqual({ enabled: false });
+  });
+
+  it('drains existing attempts while creation and discovery are disabled', async () => {
+    process.env.AUTH_ANDROID_QR_LOGIN_CREATION_ENABLED = 'false';
+    expect(service.getMethod()).toEqual({ enabled: false });
+    await expect(
+      service.createAttempt(USER_ID, WEB_SESSION_ID),
+    ).rejects.toMatchObject({
+      message: expect.stringContaining('attempts are disabled'),
+    });
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+
+    prisma.androidLoginAttempt.findUnique.mockResolvedValue(attempt());
+    await expect(
+      service.claimAttempt({
+        attemptId: ATTEMPT_ID,
+        deviceName: 'Pixel Test',
+        qrSecret: QR_SECRET,
+        verifierChallenge: CHALLENGE,
+      }),
+    ).resolves.toMatchObject({ attemptId: ATTEMPT_ID });
+
+    prisma.androidLoginAttempt.updateMany.mockResolvedValue({ count: 1 });
+    await expect(
+      service.exchangeAttempt({
+        attemptId: ATTEMPT_ID,
+        qrSecret: QR_SECRET,
+        verifier: VERIFIER,
+      }),
+    ).resolves.toEqual({ retryAfterSeconds: 5, status: 'pending' });
   });
 
   it('creates a short-lived attempt only from a recent Web session', async () => {

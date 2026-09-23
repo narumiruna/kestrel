@@ -34,6 +34,7 @@ Additional auth settings:
 - `AUTH_TOTP_ISSUER`: optional otpauth issuer label shown in authenticator apps
 - `KESTREL_PUBLIC_URL`: public Web origin with no path, query, or fragment; OIDC callbacks and Android QR login derive fixed paths from it
 - `AUTH_ANDROID_QR_LOGIN_SECRET`: optional dedicated 32-byte base64 or 64-character hex secret; set it with `KESTREL_PUBLIC_URL` to enable Android QR login
+- `AUTH_ANDROID_QR_LOGIN_CREATION_ENABLED`: optional `true`/`false` drain switch (defaults to `true`); set it to `false` to hide QR discovery and reject new attempts while preserving claim/exchange for existing attempts
 - `AUTH_OIDC_ISSUER`, `AUTH_OIDC_CLIENT_ID`, `AUTH_OIDC_CLIENT_SECRET`, `AUTH_OIDC_FLOW_ENCRYPTION_KEY`, `KESTREL_PUBLIC_URL`: optional generic OIDC configuration; set all values to enable it (`AUTH_OIDC_DISPLAY_NAME` is optional)
 - `AUTH_OIDC_DISPLAY_NAME`: optional provider label shown by clients (defaults to `OpenID Connect`)
 - `AUTH_OIDC_FLOW_ENCRYPTION_KEY`: separate 32-byte base64 or 64-character hex key for short-lived OIDC state and exchange recovery

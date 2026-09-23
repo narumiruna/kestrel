@@ -108,7 +108,10 @@ export class AndroidLoginService {
 
   getMethod(): { enabled: boolean } {
     try {
-      return { enabled: this.getConfiguration(false) != null };
+      return {
+        enabled:
+          this.isCreationEnabled() && this.getConfiguration(false) != null,
+      };
     } catch {
       return { enabled: false };
     }
@@ -119,7 +122,7 @@ export class AndroidLoginService {
     authorizingSessionId: string,
     metadata: AuthAuditMetadata = {},
   ) {
-    const configuration = this.requireConfiguration();
+    const configuration = this.requireCreationConfiguration();
     const now = new Date();
     const attemptId = randomUUID();
     const qrSecret = createRandomSecret();
@@ -735,12 +738,37 @@ export class AndroidLoginService {
     });
   }
 
+  private requireCreationConfiguration(): AndroidLoginConfiguration {
+    if (!this.isCreationEnabled()) {
+      throw new ServiceUnavailableException(
+        'New Android QR login attempts are disabled',
+      );
+    }
+    return this.requireConfiguration();
+  }
+
   private requireConfiguration(): AndroidLoginConfiguration {
     const configuration = this.getConfiguration(true);
     if (configuration == null) {
       throw new ServiceUnavailableException('Android QR login is disabled');
     }
     return configuration;
+  }
+
+  private isCreationEnabled(): boolean {
+    const configured = this.configService
+      .get('AUTH_ANDROID_QR_LOGIN_CREATION_ENABLED')
+      ?.trim()
+      .toLowerCase();
+    if (configured == null || configured === '' || configured === 'true') {
+      return true;
+    }
+    if (configured === 'false') {
+      return false;
+    }
+    throw new InternalServerErrorException(
+      'AUTH_ANDROID_QR_LOGIN_CREATION_ENABLED must be true or false',
+    );
   }
 
   private getConfiguration(
