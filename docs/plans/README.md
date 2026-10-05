@@ -12,6 +12,8 @@ Top-level `*-plan.md` files are active. Closed or superseded plans live in `arch
 
 The Justfile workflow refinement, Web UI/UX optimization loop, Web Map workspace/route-inspector plans, 2026-08-10 Web Route editor redesign, 2026-09-22 Route workspace UI review, and the 2026-07-15 Options, Favorites, Web Library, and cross-platform UI regression plans are complete and archived in `archived/`.
 
+The [2026-10-05 Web UI feedback pass](archived/2026-10-05_web-ui-feedback-plan.md) is complete: screen-space route marker density, a compact mixed Library with sorting and contextual notes, and shared Account navigation with on-demand password changes. Web checks and isolated Chrome DevTools verification passed; the broader workspace information architecture plan remains active.
+
 ## Security references
 
 - `../device-session-security.md` — session/device trust boundaries, step-up rules, revocation semantics, and remote-command cancellation limits.

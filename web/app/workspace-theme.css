@@ -1,4 +1,4 @@
-/* Shared workspace chrome for Map and Library. */
+/* Shared workspace chrome for Map, Library, and Account. */
 
 :root {
   --cloud-topbar-height: 68px;
@@ -12,6 +12,7 @@
 
 .library-page-shell,
 .kc-shell-library,
+.kc-shell-account,
 .cartographer-stage-map {
   background: var(--workspace-canvas);
 }
@@ -22,6 +23,10 @@
   background: var(--workspace-panel);
   border-color: var(--workspace-border);
   box-shadow: var(--workspace-shadow);
+}
+
+.library-catalog {
+  box-shadow: none;
 }
 
 .kc-shell {

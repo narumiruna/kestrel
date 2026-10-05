@@ -4,6 +4,7 @@ import type { Feature, LineString } from 'geojson';
 import type { GeoJSONSource, Map as MapLibreMap, Marker } from 'maplibre-gl';
 import * as maplibregl from 'maplibre-gl';
 import { useEffect, useRef, useState } from 'react';
+import { getRouteMarkerLayout } from '@/components/dashboard/routeMarkerLabels';
 import { getStyleByName } from '@/components/mapStyle';
 import type { RouteMapCapability } from '@/components/routeMapCapability';
 import { Button } from '@/components/ui/radix-ui';
@@ -182,7 +183,18 @@ export default function RouteMapEditor({
         onReadyRef.current?.(createEmptyRouteMapControls());
       }
     };
+    const handleMoveEnd = () => {
+      updateMarkerDisplay(
+        markersRef.current,
+        selectedWaypointIndexRef.current,
+        hoveredWaypointIndexRef.current,
+        waypointsRef.current.length,
+        map,
+      );
+    };
     map.on('load', handleLoad);
+    map.on('moveend', handleMoveEnd);
+    map.on('resize', handleMoveEnd);
     mapRef.current = map;
 
     return () => {
@@ -190,6 +202,8 @@ export default function RouteMapEditor({
       window.clearTimeout(styleReadyTimeout);
       map.off('click', handleMapClick);
       map.off('load', handleLoad);
+      map.off('moveend', handleMoveEnd);
+      map.off('resize', handleMoveEnd);
       canEditRouteRef.current = false;
       hasLoadedRef.current = false;
       isMapClickAttachedRef.current = false;
@@ -270,6 +284,7 @@ export default function RouteMapEditor({
       selectedWaypointIndex,
       hoveredWaypointIndex,
       waypoints.length,
+      map,
     );
   }, [hoveredWaypointIndex, selectedWaypointIndex, waypoints.length]);
 
@@ -444,6 +459,7 @@ function syncRoutePreview({
     selectedWaypointIndex,
     hoveredWaypointIndex,
     waypoints.length,
+    map,
   );
 }
 
@@ -487,7 +503,10 @@ function syncMarkers({
       onSelectWaypoint?.(index);
     });
     marker.on('dragend', () => {
-      const lngLat = marker.getLngLat();
+      // MapLibre drags the geographic anchor; persist the visible drop position instead.
+      const dropPoint = map.project(marker.getLngLat()).add(marker.getOffset());
+      const lngLat = map.unproject(dropPoint);
+      marker.setOffset([0, 0]).setLngLat(lngLat);
       onChange(
         waypoints.map((currentWaypoint, currentIndex) =>
           currentIndex === index
@@ -512,6 +531,11 @@ function createMarkerElement({ index, waypointCount }: { index: number; waypoint
   element.className = `route-marker ${positionClass}${label.length >= 3 ? ' route-marker-wide' : ''}`;
   element.dataset.label = label;
   element.textContent = label;
+  const leader = document.createElement('span');
+  leader.className = 'route-marker-leader';
+  leader.setAttribute('aria-hidden', 'true');
+  leader.hidden = true;
+  element.append(leader);
   element.type = 'button';
   element.setAttribute('aria-label', `Waypoint ${label}`);
 
@@ -523,12 +547,34 @@ function updateMarkerDisplay(
   selectedWaypointIndex: number | null,
   hoveredWaypointIndex: number | null,
   waypointCount: number,
+  map: MapLibreMap,
 ) {
+  const points = markers.map((marker) => map.project(marker.getLngLat()));
+  const { offsets, visibleLabels, visiblePoints } = getRouteMarkerLayout(
+    points,
+    selectedWaypointIndex,
+    hoveredWaypointIndex,
+    { width: map.getCanvas().clientWidth, height: map.getCanvas().clientHeight },
+  );
   markers.forEach((marker, index) => {
     const element = marker.getElement();
     const isHovered = hoveredWaypointIndex === index;
     const isSelected = selectedWaypointIndex === index;
+    const offset = offsets[index];
+    const currentOffset = marker.getOffset();
+    if (currentOffset.x !== offset.x || currentOffset.y !== offset.y) {
+      marker.setOffset([offset.x, offset.y]);
+    }
+    const leader = element.querySelector<HTMLElement>('.route-marker-leader');
+    if (leader != null) {
+      leader.hidden = offset.x === 0 && offset.y === 0;
+      leader.style.width = `${Math.hypot(offset.x, offset.y)}px`;
+      leader.style.transform = `rotate(${Math.atan2(-offset.y, -offset.x)}rad)`;
+    }
 
+    // A label must not reintroduce a point rejected by hit-target collision handling.
+    element.hidden = !visiblePoints.has(index);
+    element.classList.toggle('route-marker-compact', !visibleLabels.has(index));
     element.classList.toggle('hovered', isHovered);
     element.classList.toggle('selected', isSelected);
     element.setAttribute(

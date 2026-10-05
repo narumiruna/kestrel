@@ -382,7 +382,7 @@ export default function RouteEditor({
               <strong>No waypoint selected</strong>
               <span className="muted">
                 {canUseMap
-                  ? 'Choose a numbered marker, or open Manage all waypoints.'
+                  ? 'Choose a marker, zoom in for more points, or open Manage all waypoints.'
                   : 'Open Manage all waypoints to select and edit one point precisely.'}
               </span>
             </div>
