@@ -88,8 +88,8 @@
 .library-catalog {
   background: var(--workspace-panel, var(--cloud-surface-card));
   border: 1px solid var(--workspace-border, var(--cloud-border-soft));
-  border-radius: 18px;
-  box-shadow: var(--workspace-shadow, var(--cloud-shadow));
+  border-radius: 12px;
+  box-shadow: none;
   display: grid;
   gap: 18px;
   margin: 28px auto 0;
@@ -130,8 +130,8 @@
   align-items: center;
   border-bottom: 1px solid var(--border);
   display: grid;
-  gap: 24px;
-  grid-template-columns: minmax(240px, 480px) auto;
+  gap: 16px;
+  grid-template-columns: minmax(200px, 1fr) auto auto;
   justify-content: space-between;
   padding-block: 6px 18px;
 }
@@ -255,8 +255,8 @@
   display: grid;
   gap: 14px;
   grid-template-columns: 38px minmax(0, 1fr) auto;
-  min-height: 88px;
-  padding: 6px 8px;
+  min-height: 64px;
+  padding: 4px 8px;
 }
 
 .library-item-row:focus-within {
@@ -301,10 +301,10 @@
   border-radius: 6px;
   color: var(--text-primary);
   display: grid;
-  gap: 3px;
+  gap: 2px;
   min-width: 0;
   overflow-wrap: anywhere;
-  padding: 8px 4px;
+  padding: 4px;
 }
 
 .library-item-main:hover :where(h3),
@@ -342,14 +342,35 @@
   display: -webkit-box;
   font-size: 13px;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 1;
   overflow: hidden;
+}
+
+.library-open-label {
+  align-items: center;
+  color: var(--text-secondary);
+  display: inline-flex;
+  flex-shrink: 0;
+  font-size: 12px;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.library-open-label svg {
+  height: 14px;
+  width: 14px;
 }
 
 .library-item-title-row {
   align-items: center;
   display: flex;
   gap: 8px;
+}
+
+.library-item-title-row h3 {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .library-item-title-row .chip {
@@ -362,6 +383,7 @@
   font-size: 12px;
 }
 
+.library-row-actions,
 .library-item-actions,
 .library-share-actions,
 .library-empty-actions {
@@ -371,8 +393,18 @@
   gap: 8px;
 }
 
+.library-row-actions,
 .library-item-actions {
   justify-content: flex-end;
+}
+
+.library-notes-popover {
+  max-width: min(360px, calc(100vw - 32px));
+  overflow-wrap: anywhere;
+}
+
+.library-notes-popover p {
+  margin: 8px 0;
 }
 
 .library-item-actions .library-more-menu-trigger {
@@ -685,8 +717,12 @@
     width: 34px;
   }
 
-  .library-item-actions {
+  .library-row-actions {
     grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+
+  .library-item-actions {
     justify-content: stretch;
     max-width: none;
   }

@@ -4,6 +4,7 @@ import type { Feature, LineString } from 'geojson';
 import type { GeoJSONSource, Map as MapLibreMap, Marker } from 'maplibre-gl';
 import * as maplibregl from 'maplibre-gl';
 import { useEffect, useRef, useState } from 'react';
+import { getVisibleRouteLabels } from '@/components/dashboard/routeMarkerLabels';
 import { getStyleByName } from '@/components/mapStyle';
 import type { RouteMapCapability } from '@/components/routeMapCapability';
 import { Button } from '@/components/ui/radix-ui';
@@ -182,7 +183,17 @@ export default function RouteMapEditor({
         onReadyRef.current?.(createEmptyRouteMapControls());
       }
     };
+    const handleMoveEnd = () => {
+      updateMarkerDisplay(
+        markersRef.current,
+        selectedWaypointIndexRef.current,
+        hoveredWaypointIndexRef.current,
+        waypointsRef.current.length,
+        map,
+      );
+    };
     map.on('load', handleLoad);
+    map.on('moveend', handleMoveEnd);
     mapRef.current = map;
 
     return () => {
@@ -190,6 +201,7 @@ export default function RouteMapEditor({
       window.clearTimeout(styleReadyTimeout);
       map.off('click', handleMapClick);
       map.off('load', handleLoad);
+      map.off('moveend', handleMoveEnd);
       canEditRouteRef.current = false;
       hasLoadedRef.current = false;
       isMapClickAttachedRef.current = false;
@@ -270,6 +282,7 @@ export default function RouteMapEditor({
       selectedWaypointIndex,
       hoveredWaypointIndex,
       waypoints.length,
+      map,
     );
   }, [hoveredWaypointIndex, selectedWaypointIndex, waypoints.length]);
 
@@ -444,6 +457,7 @@ function syncRoutePreview({
     selectedWaypointIndex,
     hoveredWaypointIndex,
     waypoints.length,
+    map,
   );
 }
 
@@ -523,12 +537,23 @@ function updateMarkerDisplay(
   selectedWaypointIndex: number | null,
   hoveredWaypointIndex: number | null,
   waypointCount: number,
+  map: MapLibreMap,
 ) {
+  const points = markers.map((marker) => map.project(marker.getLngLat()));
+  const visibleLabels = getVisibleRouteLabels(points, selectedWaypointIndex, hoveredWaypointIndex);
+  const visiblePoints = getVisibleRouteLabels(
+    points,
+    selectedWaypointIndex,
+    hoveredWaypointIndex,
+    14,
+  );
   markers.forEach((marker, index) => {
     const element = marker.getElement();
     const isHovered = hoveredWaypointIndex === index;
     const isSelected = selectedWaypointIndex === index;
 
+    element.hidden = !visiblePoints.has(index) && !visibleLabels.has(index);
+    element.classList.toggle('route-marker-compact', !visibleLabels.has(index));
     element.classList.toggle('hovered', isHovered);
     element.classList.toggle('selected', isSelected);
     element.setAttribute(

@@ -1,11 +1,16 @@
 'use client';
 
-import { IconButton, TextField } from '@radix-ui/themes';
+import { IconButton, Select, TextField } from '@radix-ui/themes';
 import Link from 'next/link';
 import { useMemo, useRef, useState } from 'react';
 import DashboardShell from '@/components/dashboard/DashboardShell';
 import { LibraryItemActions } from '@/components/dashboard/LibraryItemActions';
 import { matchesPlaceSearch, matchesRouteSearch } from '@/components/dashboard/librarySearch';
+import {
+  type LibraryEntry,
+  type LibrarySort,
+  sortLibraryEntries,
+} from '@/components/dashboard/librarySort';
 import { useDashboardLibraryData } from '@/components/dashboard/useDashboardLibraryData';
 import {
   formatCoord,
@@ -25,6 +30,7 @@ import {
   Button,
   Menu,
   MenuSurface,
+  PopoverFrame,
   TextInput,
   Toggle,
   ToggleGroup,
@@ -51,6 +57,7 @@ export default function LibraryCatalog({
   } = useDashboardLibraryData();
   const [filter, setFilter] = useState<LibraryFilter>(initialFilter);
   const [query, setQuery] = useState('');
+  const [sort, setSort] = useState<LibrarySort>('name');
   const searchRef = useRef<HTMLInputElement | null>(null);
   const normalizedQuery = query.trim().toLowerCase();
   const filteredPlaces = useMemo(
@@ -61,6 +68,17 @@ export default function LibraryCatalog({
     () => routes.filter((route) => matchesRouteSearch(route, normalizedQuery)),
     [normalizedQuery, routes],
   );
+
+  const visibleEntries = useMemo(() => {
+    const entries: LibraryEntry[] = [];
+    if (filter !== 'routes') {
+      entries.push(...filteredPlaces.map((item) => ({ kind: 'places' as const, item })));
+    }
+    if (filter !== 'places') {
+      entries.push(...filteredRoutes.map((item) => ({ kind: 'routes' as const, item })));
+    }
+    return sortLibraryEntries(entries, sort);
+  }, [filter, filteredPlaces, filteredRoutes, sort]);
 
   function clearSearch() {
     setQuery('');
@@ -179,6 +197,13 @@ export default function LibraryCatalog({
               Routes <span>{isLoading || routesError != null ? '—' : routes.length}</span>
             </Toggle>
           </ToggleGroup>
+          <Select.Root value={sort} onValueChange={(value) => setSort(value as LibrarySort)}>
+            <Select.Trigger aria-label="Sort library" className="library-sort" />
+            <Select.Content>
+              <Select.Item value="name">Name</Select.Item>
+              <Select.Item value="updated">Recently updated</Select.Item>
+            </Select.Content>
+          </Select.Root>
         </div>
 
         <p className="library-results-summary" role="status" aria-atomic="true">
@@ -216,21 +241,22 @@ export default function LibraryCatalog({
           />
         ) : null}
 
-        <div className="library-sections" aria-busy={isLoading}>
-          {showPlaces && filteredPlaces.length > 0 ? (
-            <LibrarySection count={filteredPlaces.length} title="Places">
-              {filteredPlaces.map((place) => (
-                <PlaceLibraryRow key={place.id} place={place} onDeleted={refresh} />
-              ))}
-            </LibrarySection>
-          ) : null}
-          {showRoutes && filteredRoutes.length > 0 ? (
-            <LibrarySection count={filteredRoutes.length} title="Routes">
-              {filteredRoutes.map((route) => (
-                <RouteLibraryRow key={route.id} route={route} onDeleted={refresh} />
-              ))}
-            </LibrarySection>
-          ) : null}
+        <div className="library-item-list" aria-busy={isLoading}>
+          {visibleEntries.map((entry) =>
+            entry.kind === 'places' ? (
+              <PlaceLibraryRow
+                key={`places:${entry.item.id}`}
+                place={entry.item}
+                onDeleted={refresh}
+              />
+            ) : (
+              <RouteLibraryRow
+                key={`routes:${entry.item.id}`}
+                route={entry.item}
+                onDeleted={refresh}
+              />
+            ),
+          )}
         </div>
       </section>
     </DashboardShell>
@@ -297,28 +323,6 @@ function LibraryEmptyState({
   );
 }
 
-function LibrarySection({
-  children,
-  count,
-  title,
-}: {
-  children: React.ReactNode;
-  count: number;
-  title: string;
-}) {
-  return (
-    <section className="library-section" aria-labelledby={`library-${title.toLowerCase()}`}>
-      <header>
-        <h2 className="library-section-title" id={`library-${title.toLowerCase()}`}>
-          {title}
-        </h2>
-        <span>{count}</span>
-      </header>
-      <div className="library-item-list">{children}</div>
-    </section>
-  );
-}
-
 function PlaceLibraryRow({ place, onDeleted }: { place: Place; onDeleted: () => Promise<void> }) {
   return (
     <article className="library-item-row">
@@ -332,28 +336,23 @@ function PlaceLibraryRow({ place, onDeleted }: { place: Place; onDeleted: () => 
       >
         <div className="library-item-title-row">
           <h3>{place.name}</h3>
-          <ArrowRightIcon className="library-item-arrow" aria-hidden />
+          <span className="library-open-label">
+            Open on map <ArrowRightIcon aria-hidden />
+          </span>
         </div>
         <p className="library-item-meta">
-          {formatCoord(place.latitude)}, {formatCoord(place.longitude)}
+          Place · {formatCoord(place.latitude)}, {formatCoord(place.longitude)}
         </p>
-        {place.description == null ? null : <p>{place.description}</p>}
-        {place.tags.length === 0 ? null : (
-          <div className="chip-row">
-            {place.tags.map((tag) => (
-              <span className="chip" key={tag}>
-                {tag}
-              </span>
-            ))}
-          </div>
-        )}
       </Link>
-      <LibraryItemActions
-        itemId={place.id}
-        itemKind="places"
-        itemName={place.name}
-        onDeleted={onDeleted}
-      />
+      <div className="library-row-actions">
+        <LibraryNotes name={place.name} description={place.description} tags={place.tags} />
+        <LibraryItemActions
+          itemId={place.id}
+          itemKind="places"
+          itemName={place.name}
+          onDeleted={onDeleted}
+        />
+      </div>
     </article>
   );
 }
@@ -374,22 +373,66 @@ function RouteLibraryRow({ route, onDeleted }: { route: Route; onDeleted: () => 
         <div className="library-item-title-row">
           <h3>{route.name}</h3>
           {route.isPublic ? <span className="chip">Public</span> : null}
-          <ArrowRightIcon className="library-item-arrow" aria-hidden />
+          <span className="library-open-label">
+            Open on map <ArrowRightIcon aria-hidden />
+          </span>
         </div>
         <p className="library-item-meta">
-          {formatRouteDistanceFromWaypoints(route.currentRevision?.waypoints ?? [])} ·{' '}
+          Route · {formatRouteDistanceFromWaypoints(route.currentRevision?.waypoints ?? [])} ·{' '}
           {waypointCount} waypoint{waypointCount === 1 ? '' : 's'} · {route.defaultSpeedKmh} km/h ·{' '}
           {formatMode(route.mode)}
         </p>
-        {route.description == null ? null : <p>{route.description}</p>}
       </Link>
-      <LibraryItemActions
-        itemId={route.id}
-        itemKind="routes"
-        itemName={route.name}
-        onDeleted={onDeleted}
-      />
+      <div className="library-row-actions">
+        <LibraryNotes name={route.name} description={route.description} />
+        <LibraryItemActions
+          itemId={route.id}
+          itemKind="routes"
+          itemName={route.name}
+          onDeleted={onDeleted}
+        />
+      </div>
     </article>
+  );
+}
+
+function LibraryNotes({
+  name,
+  description,
+  tags = [],
+}: {
+  name: string;
+  description: string | null;
+  tags?: string[];
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  if (!description && tags.length === 0) return null;
+  const link = /^https?:\/\/\S+$/i.test(description?.trim() ?? '') ? description?.trim() : null;
+  return (
+    <PopoverFrame
+      className="library-notes-popover"
+      title={`Notes for ${name}`}
+      open={isOpen}
+      onOpenChange={setIsOpen}
+      trigger={
+        <Button aria-label={`View notes and tags for ${name}`} variant="ghost" type="button">
+          Notes
+        </Button>
+      }
+    >
+      {description ? (
+        <p>
+          {link ? (
+            <a href={link} target="_blank" rel="noopener noreferrer">
+              Link to reference
+            </a>
+          ) : (
+            description
+          )}
+        </p>
+      ) : null}
+      {tags.length === 0 ? null : <p className="muted">Tags: {tags.join(' · ')}</p>}
+    </PopoverFrame>
   );
 }
 

@@ -366,17 +366,8 @@ body::before {
 }
 
 body::after {
-  background-image:
-    radial-gradient(circle at 18% 12%, rgb(95 74 53 / 7%) 0 1px, transparent 1px),
-    radial-gradient(circle at 78% 38%, rgb(180 95 50 / 6%) 0 1px, transparent 1px),
-    linear-gradient(135deg, rgb(255 255 255 / 16%), transparent 45%);
-  background-size:
-    16px 16px,
-    22px 22px,
-    100% 100%;
-  content: "";
+  content: none;
   inset: 0;
-  opacity: 0.42;
   pointer-events: none;
   position: fixed;
   z-index: 0;
@@ -5545,6 +5536,21 @@ button.route-marker.route-marker-middle::before {
 
 button.route-marker.route-marker-middle::after {
   color: var(--accent-hover);
+}
+
+/* MapLibre owns marker position and transforms; only simplify the visual body. */
+button.route-marker[hidden] {
+  display: none;
+}
+
+button.route-marker.route-marker-compact::before {
+  box-shadow: none;
+  height: 8px;
+  width: 8px;
+}
+
+button.route-marker.route-marker-compact::after {
+  content: none;
 }
 
 button.route-marker.route-marker-end::before {

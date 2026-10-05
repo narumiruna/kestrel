@@ -12,6 +12,7 @@ import {
 import { useDashboardAuth } from '@/components/dashboard/useDashboardAuth';
 import { formatError } from '@/components/dashboard/utils';
 import { Button, ConfirmDialog, DialogFrame, TextInput } from '@/components/ui/radix-ui';
+import { WorkspaceHeader } from '@/components/WorkspaceHeader';
 import type {
   AuthMethods,
   AuthSessionSummary,
@@ -49,9 +50,12 @@ export default function AccountSecurityPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showAllSessions, setShowAllSessions] = useState(false);
   const [isSignOutOpen, setIsSignOutOpen] = useState(false);
+  const [isPasswordOpen, setIsPasswordOpen] = useState(false);
+  const [isPasswordSaving, setIsPasswordSaving] = useState(false);
   const [isOidcLinkOpen, setIsOidcLinkOpen] = useState(false);
   const [oidcCurrentPassword, setOidcCurrentPassword] = useState('');
   const loadGenerationRef = useRef(0);
+  const passwordTriggerRef = useRef<HTMLButtonElement | null>(null);
 
   const loadSecurityData = useCallback(() => {
     if (!auth.isAuthenticated) {
@@ -239,282 +243,317 @@ export default function AccountSecurityPage() {
   const hiddenSessionCount = sessions.length - visibleSessions.length;
 
   return (
-    <main className="account-security-shell">
-      <header className="account-security-header">
-        <div>
-          <Link className="account-security-back" href="/dashboard/map">
-            ← Back to dashboard
-          </Link>
-          <p className="eyebrow">Account</p>
-          <h1>Account security</h1>
-          <p className="muted no-margin">
-            Manage sign-in methods, active sessions, and remote-control devices.
-          </p>
-        </div>
-      </header>
-
-      {error == null ? null : (
-        <div className="error account-security-feedback" role="alert">
-          {error}
-        </div>
-      )}
-      {notice == null ? null : (
-        <div className="success account-security-feedback" role="status">
-          {notice}
-        </div>
-      )}
-
-      <div className="account-security-grid">
-        <section
-          className="panel account-security-panel account-password-card"
-          aria-labelledby="change-password-heading"
-        >
-          <div className="account-password-intro">
-            <p className="eyebrow">Credentials</p>
-            <h2 id="change-password-heading">Change your password</h2>
-            <p className="muted">Keep your account protected with a password only you know.</p>
+    <main className="shell kc-shell kc-shell-account">
+      <WorkspaceHeader
+        activeSection="account"
+        isRefreshing={areSessionsLoading || areDevicesLoading || isOidcLinkStatusLoading}
+        username={auth.session.user.username}
+        onLogout={() => setIsSignOutOpen(true)}
+        onRefresh={loadSecurityData}
+      />
+      <div className="account-security-shell">
+        <header className="account-security-header">
+          <div>
+            <Link className="account-security-back" href="/dashboard/map">
+              ← Back to dashboard
+            </Link>
+            <p className="eyebrow">Account</p>
+            <h1>Account security</h1>
+            <p className="muted no-margin">
+              Manage sign-in methods, active sessions, and remote-control devices.
+            </p>
           </div>
-          <ChangePasswordForm
-            onChangePassword={changePassword}
+        </header>
+
+        {error == null ? null : (
+          <div className="error account-security-feedback" role="alert">
+            {error}
+          </div>
+        )}
+        {notice == null ? null : (
+          <div className="success account-security-feedback" role="status">
+            {notice}
+          </div>
+        )}
+
+        <div className="account-security-grid">
+          <section
+            className="panel account-security-panel account-security-sign-in"
+            aria-labelledby="sign-in-heading"
+          >
+            <div className="account-security-section-header">
+              <div>
+                <p className="eyebrow">Authentication</p>
+                <h2 id="sign-in-heading">Sign-in methods</h2>
+              </div>
+              {oidcLinkStatus?.linked ? (
+                <span className="chip remote-chip-online">linked</span>
+              ) : null}
+            </div>
+            {isOidcLinkStatusLoading || oidcLinkStatus == null ? (
+              <p className="muted">Loading sign-in methods…</p>
+            ) : !oidcLinkStatus.enabled ? (
+              <p className="muted">OIDC account linking is unavailable on this server.</p>
+            ) : oidcLinkStatus.linked ? (
+              <p className="muted">
+                {oidcLinkStatus.displayName} is linked. You can use it to sign in to this Kestrel
+                account.
+              </p>
+            ) : (
+              <>
+                <p className="muted">
+                  Link {oidcLinkStatus.displayName} to this existing Kestrel account. You will
+                  confirm your current password before continuing to the provider.
+                </p>
+                <div className="account-security-actions">
+                  <Button
+                    className="secondary"
+                    disabled={isSubmitting}
+                    type="button"
+                    onClick={() => setIsOidcLinkOpen(true)}
+                  >
+                    Link {oidcLinkStatus.displayName}
+                  </Button>
+                </div>
+              </>
+            )}
+            <div className="account-password-row">
+              <div>
+                <h3>Password</h3>
+                <p className="muted no-margin">Update the password you use to sign in.</p>
+              </div>
+              <Button
+                ref={passwordTriggerRef}
+                className="secondary"
+                type="button"
+                onClick={() => setIsPasswordOpen(true)}
+              >
+                Change password
+              </Button>
+            </div>
+          </section>
+
+          <AndroidQrLoginPanel
+            key={auth.session.session.id}
+            apiRequest={auth.apiRequest}
+            enabled={androidQrLoginEnabled}
             username={auth.session.user.username}
           />
-        </section>
-        <section
-          className="panel account-security-panel account-security-sign-in"
-          aria-labelledby="sign-in-heading"
-        >
-          <div className="account-security-section-header">
-            <div>
-              <p className="eyebrow">Authentication</p>
-              <h2 id="sign-in-heading">Sign-in methods</h2>
-            </div>
-            {oidcLinkStatus?.linked ? (
-              <span className="chip remote-chip-online">linked</span>
-            ) : null}
-          </div>
-          {isOidcLinkStatusLoading || oidcLinkStatus == null ? (
-            <p className="muted">Loading sign-in methods…</p>
-          ) : !oidcLinkStatus.enabled ? (
-            <p className="muted">OIDC account linking is unavailable on this server.</p>
-          ) : oidcLinkStatus.linked ? (
-            <p className="muted">
-              {oidcLinkStatus.displayName} is linked. You can use it to sign in to this Kestrel
-              account.
-            </p>
-          ) : (
-            <>
-              <p className="muted">
-                Link {oidcLinkStatus.displayName} to this existing Kestrel account. You will confirm
-                your current password before continuing to the provider.
-              </p>
-              <div className="account-security-actions">
-                <Button
-                  className="secondary"
-                  disabled={isSubmitting}
-                  type="button"
-                  onClick={() => setIsOidcLinkOpen(true)}
-                >
-                  Link {oidcLinkStatus.displayName}
-                </Button>
-              </div>
-            </>
-          )}
-        </section>
 
-        <AndroidQrLoginPanel
-          key={auth.session.session.id}
-          apiRequest={auth.apiRequest}
-          enabled={androidQrLoginEnabled}
-          username={auth.session.user.username}
+          <section className="panel account-security-panel" aria-labelledby="sessions-heading">
+            <div className="account-security-section-header">
+              <div>
+                <p className="eyebrow">Authentication</p>
+                <h2 id="sessions-heading">Active sessions</h2>
+              </div>
+              <Button
+                className="secondary"
+                disabled={areSessionsLoading || otherSessionCount === 0 || isSubmitting}
+                type="button"
+                onClick={() => setPendingAction({ kind: 'others', label: 'Other sessions' })}
+              >
+                Revoke all others
+              </Button>
+            </div>
+            {areSessionsLoading ? <p className="muted">Loading sessions…</p> : null}
+            {!areSessionsLoading && sessions.length === 0 ? (
+              <p className="muted">No active sessions were returned.</p>
+            ) : null}
+            <div className="account-security-list">
+              {visibleSessions.map((session) => (
+                <SessionRow
+                  key={session.id}
+                  session={session}
+                  disabled={areSessionsLoading || isSubmitting}
+                  onRevoke={() => {
+                    if (session.isCurrent) {
+                      setIsSignOutOpen(true);
+                    } else {
+                      setPendingAction({
+                        id: session.id,
+                        kind: 'session',
+                        label: describeSession(session),
+                      });
+                    }
+                  }}
+                />
+              ))}
+            </div>
+            {sessions.length > 5 ? (
+              <Button
+                className="secondary account-security-show-more"
+                type="button"
+                onClick={() => setShowAllSessions((current) => !current)}
+              >
+                {showAllSessions
+                  ? 'Show fewer sessions'
+                  : `Show ${hiddenSessionCount} more sessions`}
+              </Button>
+            ) : null}
+          </section>
+
+          <section className="panel account-security-panel" aria-labelledby="devices-heading">
+            <div className="account-security-section-header">
+              <div>
+                <p className="eyebrow">Remote control</p>
+                <h2 id="devices-heading">Android devices</h2>
+              </div>
+              <Button
+                className="secondary"
+                disabled={areDevicesLoading}
+                type="button"
+                onClick={loadSecurityData}
+              >
+                Refresh
+              </Button>
+            </div>
+            <p className="muted">
+              Revoking a device also revokes the Android session that last registered it. A command
+              already delivered to Android may still finish.
+            </p>
+            {areDevicesLoading ? <p className="muted">Loading devices…</p> : null}
+            {!areDevicesLoading && devices.length === 0 ? (
+              <p className="muted">
+                No Android devices registered. Enable web remote control in Kestrel Options to add
+                one.
+              </p>
+            ) : null}
+            <div className="account-security-list">
+              {devices.map((device) => (
+                <DeviceRow
+                  key={device.id}
+                  device={device}
+                  disabled={areDevicesLoading || isSubmitting}
+                  onRevoke={() =>
+                    setPendingAction({ id: device.id, kind: 'device', label: device.name })
+                  }
+                />
+              ))}
+            </div>
+          </section>
+        </div>
+
+        <DialogFrame
+          description="Confirm your current password and choose a new one."
+          open={isPasswordOpen}
+          restoreFocusElement={passwordTriggerRef.current}
+          title="Change password"
+          onOpenChange={(open) => {
+            if (!isPasswordSaving) setIsPasswordOpen(open);
+          }}
+        >
+          {isPasswordOpen ? (
+            <ChangePasswordForm
+              onChangePassword={async (input) => {
+                setIsPasswordSaving(true);
+                try {
+                  await changePassword(input);
+                } finally {
+                  setIsPasswordSaving(false);
+                }
+              }}
+              username={auth.session.user.username}
+            />
+          ) : null}
+        </DialogFrame>
+
+        <DialogFrame
+          description={`Enter your current Kestrel password, then authenticate with ${oidcLinkStatus?.displayName ?? 'the OIDC provider'}.`}
+          eyebrow="Add sign-in method"
+          open={isOidcLinkOpen}
+          title={`Link ${oidcLinkStatus?.displayName ?? 'OIDC'}`}
+          onOpenChange={(open) => {
+            if (!isSubmitting) {
+              setIsOidcLinkOpen(open);
+              if (!open) {
+                setOidcCurrentPassword('');
+              }
+            }
+          }}
+        >
+          <form className="account-security-confirm-form" onSubmit={submitOidcLink}>
+            <label htmlFor="radix-field-app-dashboard-account-page-tsx-oidc-password">
+              Current Kestrel password
+              <TextInput
+                id="radix-field-app-dashboard-account-page-tsx-oidc-password"
+                autoComplete="current-password"
+                required
+                type="password"
+                value={oidcCurrentPassword}
+                onChange={(event) => setOidcCurrentPassword(event.target.value)}
+              />
+            </label>
+            <div className="account-security-actions">
+              <Button
+                className="secondary"
+                disabled={isSubmitting}
+                type="button"
+                onClick={() => {
+                  setIsOidcLinkOpen(false);
+                  setOidcCurrentPassword('');
+                }}
+              >
+                Cancel
+              </Button>
+              <Button disabled={isSubmitting} type="submit">
+                {isSubmitting ? 'Continuing…' : 'Continue to provider'}
+              </Button>
+            </div>
+          </form>
+        </DialogFrame>
+
+        <ConfirmDialog
+          confirmLabel="Sign out"
+          description="This browser session will end immediately. You will need to sign in again."
+          open={isSignOutOpen}
+          title="Sign out this session?"
+          onConfirm={revokeCurrentSession}
+          onOpenChange={setIsSignOutOpen}
         />
 
-        <section className="panel account-security-panel" aria-labelledby="sessions-heading">
-          <div className="account-security-section-header">
-            <div>
-              <p className="eyebrow">Authentication</p>
-              <h2 id="sessions-heading">Active sessions</h2>
-            </div>
-            <Button
-              className="secondary"
-              disabled={areSessionsLoading || otherSessionCount === 0 || isSubmitting}
-              type="button"
-              onClick={() => setPendingAction({ kind: 'others', label: 'Other sessions' })}
-            >
-              Revoke all others
-            </Button>
-          </div>
-          {areSessionsLoading ? <p className="muted">Loading sessions…</p> : null}
-          {!areSessionsLoading && sessions.length === 0 ? (
-            <p className="muted">No active sessions were returned.</p>
-          ) : null}
-          <div className="account-security-list">
-            {visibleSessions.map((session) => (
-              <SessionRow
-                key={session.id}
-                session={session}
-                disabled={areSessionsLoading || isSubmitting}
-                onRevoke={() => {
-                  if (session.isCurrent) {
-                    setIsSignOutOpen(true);
-                  } else {
-                    setPendingAction({
-                      id: session.id,
-                      kind: 'session',
-                      label: describeSession(session),
-                    });
-                  }
-                }}
-              />
-            ))}
-          </div>
-          {sessions.length > 5 ? (
-            <Button
-              className="secondary account-security-show-more"
-              type="button"
-              onClick={() => setShowAllSessions((current) => !current)}
-            >
-              {showAllSessions ? 'Show fewer sessions' : `Show ${hiddenSessionCount} more sessions`}
-            </Button>
-          ) : null}
-        </section>
-
-        <section className="panel account-security-panel" aria-labelledby="devices-heading">
-          <div className="account-security-section-header">
-            <div>
-              <p className="eyebrow">Remote control</p>
-              <h2 id="devices-heading">Android devices</h2>
-            </div>
-            <Button
-              className="secondary"
-              disabled={areDevicesLoading}
-              type="button"
-              onClick={loadSecurityData}
-            >
-              Refresh
-            </Button>
-          </div>
-          <p className="muted">
-            Revoking a device also revokes the Android session that last registered it. A command
-            already delivered to Android may still finish.
-          </p>
-          {areDevicesLoading ? <p className="muted">Loading devices…</p> : null}
-          {!areDevicesLoading && devices.length === 0 ? (
-            <p className="muted">
-              No Android devices registered. Enable web remote control in Kestrel Options to add
-              one.
-            </p>
-          ) : null}
-          <div className="account-security-list">
-            {devices.map((device) => (
-              <DeviceRow
-                key={device.id}
-                device={device}
-                disabled={areDevicesLoading || isSubmitting}
-                onRevoke={() =>
-                  setPendingAction({ id: device.id, kind: 'device', label: device.name })
-                }
-              />
-            ))}
-          </div>
-        </section>
-      </div>
-
-      <DialogFrame
-        description={`Enter your current Kestrel password, then authenticate with ${oidcLinkStatus?.displayName ?? 'the OIDC provider'}.`}
-        eyebrow="Add sign-in method"
-        open={isOidcLinkOpen}
-        title={`Link ${oidcLinkStatus?.displayName ?? 'OIDC'}`}
-        onOpenChange={(open) => {
-          if (!isSubmitting) {
-            setIsOidcLinkOpen(open);
-            if (!open) {
-              setOidcCurrentPassword('');
+        <DialogFrame
+          description="Enter your current password. Existing credentials are accepted even if they predate the current password-length policy."
+          eyebrow="Confirm sensitive action"
+          open={pendingAction != null}
+          title={`Revoke ${pendingAction?.label ?? 'access'}`}
+          onOpenChange={(open) => {
+            if (!open && !isSubmitting) {
+              setPendingAction(null);
+              setCurrentPassword('');
             }
-          }
-        }}
-      >
-        <form className="account-security-confirm-form" onSubmit={submitOidcLink}>
-          <label htmlFor="radix-field-app-dashboard-account-page-tsx-oidc-password">
-            Current Kestrel password
-            <TextInput
-              id="radix-field-app-dashboard-account-page-tsx-oidc-password"
-              autoComplete="current-password"
-              required
-              type="password"
-              value={oidcCurrentPassword}
-              onChange={(event) => setOidcCurrentPassword(event.target.value)}
-            />
-          </label>
-          <div className="account-security-actions">
-            <Button
-              className="secondary"
-              disabled={isSubmitting}
-              type="button"
-              onClick={() => {
-                setIsOidcLinkOpen(false);
-                setOidcCurrentPassword('');
-              }}
-            >
-              Cancel
-            </Button>
-            <Button disabled={isSubmitting} type="submit">
-              {isSubmitting ? 'Continuing…' : 'Continue to provider'}
-            </Button>
-          </div>
-        </form>
-      </DialogFrame>
-
-      <ConfirmDialog
-        confirmLabel="Sign out"
-        description="This browser session will end immediately. You will need to sign in again."
-        open={isSignOutOpen}
-        title="Sign out this session?"
-        onConfirm={revokeCurrentSession}
-        onOpenChange={setIsSignOutOpen}
-      />
-
-      <DialogFrame
-        description="Enter your current password. Existing credentials are accepted even if they predate the current password-length policy."
-        eyebrow="Confirm sensitive action"
-        open={pendingAction != null}
-        title={`Revoke ${pendingAction?.label ?? 'access'}`}
-        onOpenChange={(open) => {
-          if (!open && !isSubmitting) {
-            setPendingAction(null);
-            setCurrentPassword('');
-          }
-        }}
-      >
-        <form className="account-security-confirm-form" onSubmit={submitSensitiveAction}>
-          <label htmlFor="radix-field-app-dashboard-account-page-tsx-1">
-            Current password
-            <TextInput
-              id="radix-field-app-dashboard-account-page-tsx-1"
-              autoComplete="current-password"
-              required
-              type="password"
-              value={currentPassword}
-              onChange={(event) => setCurrentPassword(event.target.value)}
-            />
-          </label>
-          <div className="account-security-actions">
-            <Button
-              className="secondary"
-              disabled={isSubmitting}
-              type="button"
-              onClick={() => {
-                setPendingAction(null);
-                setCurrentPassword('');
-              }}
-            >
-              Cancel
-            </Button>
-            <Button className="danger" disabled={isSubmitting} type="submit">
-              {isSubmitting ? 'Revoking…' : 'Revoke access'}
-            </Button>
-          </div>
-        </form>
-      </DialogFrame>
+          }}
+        >
+          <form className="account-security-confirm-form" onSubmit={submitSensitiveAction}>
+            <label htmlFor="radix-field-app-dashboard-account-page-tsx-1">
+              Current password
+              <TextInput
+                id="radix-field-app-dashboard-account-page-tsx-1"
+                autoComplete="current-password"
+                required
+                type="password"
+                value={currentPassword}
+                onChange={(event) => setCurrentPassword(event.target.value)}
+              />
+            </label>
+            <div className="account-security-actions">
+              <Button
+                className="secondary"
+                disabled={isSubmitting}
+                type="button"
+                onClick={() => {
+                  setPendingAction(null);
+                  setCurrentPassword('');
+                }}
+              >
+                Cancel
+              </Button>
+              <Button className="danger" disabled={isSubmitting} type="submit">
+                {isSubmitting ? 'Revoking…' : 'Revoke access'}
+              </Button>
+            </div>
+          </form>
+        </DialogFrame>
+      </div>
     </main>
   );
 }

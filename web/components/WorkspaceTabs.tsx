@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import type { MouseEvent } from 'react';
 
-export type WorkspaceSection = 'library' | 'map';
+export type WorkspaceSection = 'library' | 'map' | 'account';
 
 type WorkspaceTabsProps = {
   activeSection: WorkspaceSection;

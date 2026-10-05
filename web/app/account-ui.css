@@ -1,4 +1,43 @@
 /* Compact account menu and dedicated password settings. */
+.account-security-shell .eyebrow {
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  margin: 0 0 6px;
+  text-transform: uppercase;
+}
+
+.account-security-shell .account-security-panel {
+  border-radius: 12px;
+  box-shadow: none;
+  padding: 20px 24px;
+}
+
+.account-security-shell .account-security-panel > p {
+  margin: 8px 0;
+}
+
+.account-security-shell .account-security-header {
+  margin-bottom: 20px;
+}
+
+.account-password-row {
+  align-items: center;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  justify-content: space-between;
+  margin-top: 16px;
+  padding-top: 16px;
+}
+
+.account-password-row h3 {
+  font-size: 1rem;
+  margin: 0 0 4px;
+}
+
 .ui-popover-popup.kc-account-popover {
   background: var(--paper-card);
   border: 1px solid var(--border-strong);
