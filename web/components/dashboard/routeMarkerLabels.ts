@@ -1,6 +1,6 @@
 type Point = { x: number; y: number };
 
-/** Keep important labels visible; ordinary labels need 48px of screen-space separation. */
+/** Reserve square screen-space areas, matching the markers' square hit targets. */
 export function getVisibleRouteLabels(
   points: Point[],
   selectedIndex: number | null,
@@ -34,7 +34,10 @@ export function getVisibleRouteLabels(
         if (
           cells
             .get(`${x + dx},${y + dy}`)
-            ?.some((other) => Math.hypot(point.x - other.x, point.y - other.y) < spacing)
+            ?.some(
+              (other) =>
+                Math.max(Math.abs(point.x - other.x), Math.abs(point.y - other.y)) < spacing,
+            )
         ) {
           return;
         }

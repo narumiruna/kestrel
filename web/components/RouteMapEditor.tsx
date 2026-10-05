@@ -545,14 +545,15 @@ function updateMarkerDisplay(
     points,
     selectedWaypointIndex,
     hoveredWaypointIndex,
-    14,
+    44, // Match button.route-marker's 44×44px hit target, including compact dots.
   );
   markers.forEach((marker, index) => {
     const element = marker.getElement();
     const isHovered = hoveredWaypointIndex === index;
     const isSelected = selectedWaypointIndex === index;
 
-    element.hidden = !visiblePoints.has(index) && !visibleLabels.has(index);
+    // A label must not reintroduce a point rejected by hit-target collision handling.
+    element.hidden = !visiblePoints.has(index);
     element.classList.toggle('route-marker-compact', !visibleLabels.has(index));
     element.classList.toggle('hovered', isHovered);
     element.classList.toggle('selected', isSelected);
