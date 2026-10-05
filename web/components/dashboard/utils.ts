@@ -1,4 +1,6 @@
-import { ApiError, type RouteMode } from '@/lib/api';
+import { ApiError } from '@/lib/api';
+
+export { formatMode } from './formatMode';
 
 type Coordinate = {
   latitude: number;
@@ -23,10 +25,6 @@ export function normalizeNullable(value: string): string | null {
 
 export function formatCoord(value: number): string {
   return value.toFixed(6);
-}
-
-export function formatMode(mode: RouteMode): string {
-  return mode === 'PING_PONG' ? 'Ping-pong' : mode[0] + mode.slice(1).toLowerCase();
 }
 
 export function formatRouteDistanceFromWaypoints(waypoints: Coordinate[]): string {

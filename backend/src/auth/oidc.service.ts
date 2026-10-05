@@ -32,6 +32,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AccessTokenService } from './access-token.service';
 import { AuthAuditMetadata, AuthAuditService } from './auth-audit.service';
 import { TotpService } from './totp.service';
+import { recoverExchangeSessionCredential } from './exchange-session-recovery';
 
 const PROVIDER = 'oidc';
 const AUTHORIZATION_LIFETIME_MS = 10 * 60 * 1000;
@@ -1141,47 +1142,21 @@ export class OidcService {
     ) {
       return null;
     }
-    const session = await this.prismaService.session.findUnique({
-      select: {
-        createdAt: true,
-        expiresAt: true,
-        id: true,
-        lastUsedAt: true,
-        refreshTokenHash: true,
-        revokedAt: true,
-        rotatedRefreshTokenEncrypted: true,
-        user: { select: { id: true, username: true } },
-      },
-      where: { id: attempt.exchangeSessionId },
-    });
-    if (
-      session == null ||
-      session.revokedAt != null ||
-      session.expiresAt <= now
-    ) {
-      return null;
-    }
-    let refreshToken = deriveSecret(
-      configuration.encryptionKey,
-      'exchange-refresh-token',
-      exchangeTicket,
-      clientNonce,
+    const recovered = await recoverExchangeSessionCredential(
+      this.prismaService,
+      this.totpService,
+      attempt.exchangeSessionId,
+      now,
+      () =>
+        deriveSecret(
+          configuration.encryptionKey,
+          'exchange-refresh-token',
+          exchangeTicket,
+          clientNonce,
+        ),
     );
-    if (!secureHashMatches(session.refreshTokenHash, refreshToken)) {
-      if (session.rotatedRefreshTokenEncrypted == null) {
-        return null;
-      }
-      try {
-        refreshToken = this.totpService.decryptSecret(
-          session.rotatedRefreshTokenEncrypted,
-        );
-      } catch {
-        return null;
-      }
-      if (!secureHashMatches(session.refreshTokenHash, refreshToken)) {
-        return null;
-      }
-    }
+    if (recovered == null) return null;
+    const { session, refreshToken } = recovered;
     return this.issueExchangeResponse(
       {
         createdAt: session.createdAt,

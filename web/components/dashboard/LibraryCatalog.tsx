@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useMemo, useRef, useState } from 'react';
 import DashboardShell from '@/components/dashboard/DashboardShell';
 import { LibraryItemActions } from '@/components/dashboard/LibraryItemActions';
+import { matchesPlaceSearch, matchesRouteSearch } from '@/components/dashboard/librarySearch';
 import { useDashboardLibraryData } from '@/components/dashboard/useDashboardLibraryData';
 import {
   formatCoord,
@@ -53,23 +54,11 @@ export default function LibraryCatalog({
   const searchRef = useRef<HTMLInputElement | null>(null);
   const normalizedQuery = query.trim().toLowerCase();
   const filteredPlaces = useMemo(
-    () =>
-      places.filter((place) =>
-        [place.name, place.description ?? '', ...place.tags]
-          .join(' ')
-          .toLowerCase()
-          .includes(normalizedQuery),
-      ),
+    () => places.filter((place) => matchesPlaceSearch(place, normalizedQuery)),
     [normalizedQuery, places],
   );
   const filteredRoutes = useMemo(
-    () =>
-      routes.filter((route) =>
-        [route.name, route.description ?? '', formatMode(route.mode)]
-          .join(' ')
-          .toLowerCase()
-          .includes(normalizedQuery),
-      ),
+    () => routes.filter((route) => matchesRouteSearch(route, normalizedQuery)),
     [normalizedQuery, routes],
   );
 

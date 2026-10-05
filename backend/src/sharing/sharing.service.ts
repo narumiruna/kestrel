@@ -4,13 +4,7 @@ import {
   NotFoundException,
 } from '../http/errors';
 import { randomBytes } from 'node:crypto';
-import {
-  LibraryItemKind,
-  RouteMode,
-  Prisma,
-  SyncEntityType,
-  SyncOperation,
-} from '@prisma/client';
+import { LibraryItemKind, RouteMode, Prisma } from '@prisma/client';
 import {
   mapPlace,
   mapRoute,
@@ -21,7 +15,7 @@ import {
 } from '../library/library.models';
 import {
   createPlaceWithLibraryItem,
-  getNextSortOrder,
+  createRouteWithLibraryItem,
 } from '../library/library-writes';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -456,70 +450,21 @@ async function copySharedRoute(
     routeRevisionId,
   );
   const route = selectVisibleRoute(shareLink);
-  const sortOrder = await getNextSortOrder(tx, userId);
-  const createdRoute = await tx.route.create({
-    data: {
+  const { routeId } = await createRouteWithLibraryItem(
+    tx,
+    userId,
+    {
       defaultSpeedKmh: revision.defaultSpeedKmh,
       description: route.description,
       isPublic: false,
       mode: revision.mode,
       name: route.name,
-      userId,
     },
-    select: {
-      id: true,
-    },
-  });
-  const routeRevision = await tx.routeRevision.create({
-    data: {
-      createdBy: userId,
-      payload: createRouteRevisionPayload(revision),
-      revisionNumber: 1,
-      routeId: createdRoute.id,
-    },
-    select: {
-      id: true,
-    },
-  });
-
-  await tx.route.update({
-    data: {
-      currentRevisionId: routeRevision.id,
-    },
-    where: {
-      id: createdRoute.id,
-    },
-  });
-  const libraryItem = await tx.libraryItem.create({
-    data: {
-      kind: LibraryItemKind.ROUTE,
-      routeId: createdRoute.id,
-      sortOrder,
-      userId,
-    },
-    select: {
-      id: true,
-    },
-  });
-
-  await recordSyncEvent(tx, {
-    entityId: createdRoute.id,
-    entityType: SyncEntityType.ROUTE,
-    operation: SyncOperation.UPSERT,
-    userId,
-  });
-  await recordSyncEvent(tx, {
-    entityId: libraryItem.id,
-    entityType: SyncEntityType.LIBRARY_ITEM,
-    operation: SyncOperation.UPSERT,
-    userId,
-  });
-
+    createRouteRevisionPayload(revision),
+  );
   const copiedRoute = await tx.route.findUniqueOrThrow({
     select: routeSelect,
-    where: {
-      id: createdRoute.id,
-    },
+    where: { id: routeId },
   });
 
   return mapRoute(copiedRoute);
@@ -713,27 +658,6 @@ function createRouteRevisionPayload(
       speedKmh: waypoint.speedKmh,
     })),
   };
-}
-
-async function recordSyncEvent(
-  prisma: Prisma.TransactionClient,
-  input: {
-    entityId: string;
-    entityType: SyncEntityType;
-    operation: SyncOperation;
-    payload?: Prisma.InputJsonObject;
-    userId: string;
-  },
-) {
-  await prisma.syncEvent.create({
-    data: {
-      entityId: input.entityId,
-      entityType: input.entityType,
-      operation: input.operation,
-      payload: input.payload,
-      userId: input.userId,
-    },
-  });
 }
 
 function createShareToken(): string {

@@ -29,7 +29,10 @@ import {
   type RouteWaypointInput,
 } from './library.validation';
 
-import { createPlaceWithLibraryItem, getNextSortOrder } from './library-writes';
+import {
+  createPlaceWithLibraryItem,
+  createRouteWithLibraryItem,
+} from './library-writes';
 
 export class LibraryService {
   constructor(private readonly prismaService: PrismaService) {}
@@ -236,73 +239,25 @@ export class LibraryService {
   async createRoute(userId: string, input: unknown) {
     const createInput = parseCreateRouteInput(input);
     const route = await this.prismaService.$transaction(async (tx) => {
-      const sortOrder = await getNextSortOrder(tx, userId);
-      const createdRoute = await tx.route.create({
-        data: {
+      const { routeId } = await createRouteWithLibraryItem(
+        tx,
+        userId,
+        {
           defaultSpeedKmh: createInput.defaultSpeedKmh,
           description: createInput.description,
           isPublic: createInput.isPublic,
           mode: createInput.mode,
           name: createInput.name,
-          userId,
         },
-        select: {
-          id: true,
-        },
-      });
-      const revision = await tx.routeRevision.create({
-        data: {
-          createdBy: userId,
-          payload: createRouteRevisionPayload({
-            defaultSpeedKmh: createInput.defaultSpeedKmh,
-            mode: createInput.mode,
-            waypoints: createInput.waypoints,
-          }),
-          revisionNumber: 1,
-          routeId: createdRoute.id,
-        },
-        select: {
-          id: true,
-        },
-      });
-
-      await tx.route.update({
-        data: {
-          currentRevisionId: revision.id,
-        },
-        where: {
-          id: createdRoute.id,
-        },
-      });
-      const libraryItem = await tx.libraryItem.create({
-        data: {
-          kind: LibraryItemKind.ROUTE,
-          routeId: createdRoute.id,
-          sortOrder,
-          userId,
-        },
-        select: {
-          id: true,
-        },
-      });
-      await recordSyncEvent(tx, {
-        entityId: createdRoute.id,
-        entityType: SyncEntityType.ROUTE,
-        operation: SyncOperation.UPSERT,
-        userId,
-      });
-      await recordSyncEvent(tx, {
-        entityId: libraryItem.id,
-        entityType: SyncEntityType.LIBRARY_ITEM,
-        operation: SyncOperation.UPSERT,
-        userId,
-      });
-
+        createRouteRevisionPayload({
+          defaultSpeedKmh: createInput.defaultSpeedKmh,
+          mode: createInput.mode,
+          waypoints: createInput.waypoints,
+        }),
+      );
       return tx.route.findUniqueOrThrow({
         select: routeSelect,
-        where: {
-          id: createdRoute.id,
-        },
+        where: { id: routeId },
       });
     });
 

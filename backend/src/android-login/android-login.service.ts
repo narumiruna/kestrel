@@ -13,6 +13,7 @@ import {
   AuthAuditService,
 } from '../auth/auth-audit.service';
 import { TotpService } from '../auth/totp.service';
+import { recoverExchangeSessionCredential } from '../auth/exchange-session-recovery';
 import { ConfigService } from '../config.service';
 import {
   BadRequestException,
@@ -631,48 +632,22 @@ export class AndroidLoginService {
     ) {
       return null;
     }
-    const session = await this.prismaService.session.findUnique({
-      select: {
-        createdAt: true,
-        expiresAt: true,
-        id: true,
-        lastUsedAt: true,
-        refreshTokenHash: true,
-        revokedAt: true,
-        rotatedRefreshTokenEncrypted: true,
-        user: { select: { id: true, username: true } },
-      },
-      where: { id: attempt.exchangeSessionId },
-    });
-    if (
-      session == null ||
-      session.revokedAt != null ||
-      session.expiresAt <= now
-    ) {
-      return null;
-    }
-    let refreshToken = deriveSecret(
-      configuration.secret,
-      'android-qr-refresh-token',
-      request.attemptId,
-      request.qrSecret,
-      request.verifier,
+    const recovered = await recoverExchangeSessionCredential(
+      this.prismaService,
+      this.totpService,
+      attempt.exchangeSessionId,
+      now,
+      () =>
+        deriveSecret(
+          configuration.secret,
+          'android-qr-refresh-token',
+          request.attemptId,
+          request.qrSecret,
+          request.verifier,
+        ),
     );
-    if (!secureHashMatches(session.refreshTokenHash, refreshToken)) {
-      if (session.rotatedRefreshTokenEncrypted == null) {
-        return null;
-      }
-      try {
-        refreshToken = this.totpService.decryptSecret(
-          session.rotatedRefreshTokenEncrypted,
-        );
-      } catch {
-        return null;
-      }
-      if (!secureHashMatches(session.refreshTokenHash, refreshToken)) {
-        return null;
-      }
-    }
+    if (recovered == null) return null;
+    const { session, refreshToken } = recovered;
     return this.issueSessionResponse(session, session.user, refreshToken, now);
   }
 

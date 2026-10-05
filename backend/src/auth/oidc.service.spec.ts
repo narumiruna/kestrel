@@ -1336,6 +1336,17 @@ describe('OidcService', () => {
     ).rejects.toThrow(GoneException);
     const recovered = await service.exchange(request);
 
+    expect(Object.keys(recovered).sort()).toEqual(
+      [
+        'accessToken',
+        'accessTokenExpiresAt',
+        'authMethod',
+        'refreshToken',
+        'session',
+        'user',
+      ].sort(),
+    );
+    expect(recovered.authMethod).toBe('oidc');
     expect(recovered.refreshToken).toBe(first.refreshToken);
     expect(recovered.session).toEqual(first.session);
     expect(recovered.user).toEqual(first.user);
@@ -1383,11 +1394,79 @@ describe('OidcService', () => {
       exchangeTicket: 'exchange-ticket-value-1234567890123456',
     });
 
-    expect(recovered.refreshToken).toBe(rotatedRefreshToken);
-    expect(recovered.session.id).toBe('session-1');
+    expect(recovered).toEqual({
+      accessToken: 'kestrel-access-token',
+      accessTokenExpiresAt: expect.any(Date),
+      authMethod: 'oidc',
+      refreshToken: rotatedRefreshToken,
+      session: {
+        createdAt: now,
+        expiresAt: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
+        id: 'session-1',
+        lastUsedAt: now,
+      },
+      user: { id: 'user-1', username: 'oidc-user' },
+    });
     expect(decryptSecret).toHaveBeenCalledWith('encrypted-rotated-token');
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
+
+  it.each([
+    'missing',
+    'revoked',
+    'expired',
+    'no ciphertext',
+    'decrypt failure',
+    'wrong successor',
+  ])(
+    'rejects %s exchange recovery without creating another session',
+    async (caseName) => {
+      const prisma = createPrismaMock();
+      const now = new Date();
+      prisma.oidcLoginAttempt.findUnique.mockResolvedValue({
+        ...completedAttempt(),
+        consumedAt: now,
+        exchangeSessionId: 'session-1',
+        expiresAt: new Date(now.getTime() + 60_000),
+      });
+      prisma.session.findUnique.mockResolvedValue(
+        caseName === 'missing'
+          ? null
+          : {
+              createdAt: now,
+              expiresAt:
+                caseName === 'expired' ? now : new Date(now.getTime() + 60_000),
+              id: 'session-1',
+              lastUsedAt: now,
+              refreshTokenHash: sha256('successor'),
+              revokedAt: caseName === 'revoked' ? now : null,
+              rotatedRefreshTokenEncrypted:
+                caseName === 'no ciphertext' ? null : 'encrypted',
+              user: { id: 'user-1', username: 'oidc-user' },
+            },
+      );
+      const decryptSecret = jest.fn();
+      if (caseName === 'decrypt failure')
+        decryptSecret.mockImplementation(() => {
+          throw new Error('decrypt failed');
+        });
+      else
+        decryptSecret.mockReturnValue(
+          caseName === 'wrong successor' ? 'wrong' : 'successor',
+        );
+      const service = createService(prisma, undefined, undefined, {
+        decryptSecret,
+      } as unknown as TotpService);
+
+      await expect(
+        service.exchange({
+          clientNonce: CLIENT_NONCE,
+          exchangeTicket: 'exchange-ticket-value-1234567890123456',
+        }),
+      ).rejects.toThrow('OIDC exchange ticket is invalid or expired');
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    },
+  );
 
   it('rejects nonce mismatch, username collisions, expired tickets, and replay', async () => {
     const prisma = createPrismaMock();

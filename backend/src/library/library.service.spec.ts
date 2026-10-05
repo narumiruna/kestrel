@@ -498,6 +498,21 @@ describe('LibraryService', () => {
         userId: 'user-1',
       },
     ]);
+    const writeOrder = [
+      prismaService.libraryItem.findFirst,
+      prismaService.route.create,
+      prismaService.routeRevision.create,
+      prismaService.route.update,
+      prismaService.libraryItem.create,
+      prismaService.syncEvent.create,
+      prismaService.route.findUniqueOrThrow,
+    ].map((mock) => mock.mock.invocationCallOrder[0]);
+    expect(writeOrder).toEqual([...writeOrder].sort((a, b) => a - b));
+    expect(
+      prismaService.syncEvent.create.mock.invocationCallOrder[1],
+    ).toBeLessThan(
+      prismaService.route.findUniqueOrThrow.mock.invocationCallOrder[0],
+    );
     expect(result).toMatchObject({
       currentRevision: {
         id: 'revision-1',
@@ -904,6 +919,28 @@ describe('LibraryService', () => {
         userId: 'user-1',
       },
     ]);
+  });
+
+  it('stops route creation after a revision write failure', async () => {
+    prismaService.libraryItem.findFirst.mockResolvedValue(null);
+    prismaService.route.create.mockResolvedValue({ id: 'route-1' });
+    const failure = new Error('revision write failed');
+    prismaService.routeRevision.create.mockRejectedValue(failure);
+
+    await expect(
+      libraryService.createRoute('user-1', {
+        name: 'Route',
+        mode: 'once',
+        defaultSpeedKmh: 10,
+        waypoints: [
+          { latitude: 1, longitude: 2 },
+          { latitude: 3, longitude: 4 },
+        ],
+      }),
+    ).rejects.toBe(failure);
+    expect(prismaService.route.update).not.toHaveBeenCalled();
+    expect(prismaService.libraryItem.create).not.toHaveBeenCalled();
+    expect(prismaService.syncEvent.create).not.toHaveBeenCalled();
   });
 
   it('validates route payloads before hitting Prisma', async () => {
