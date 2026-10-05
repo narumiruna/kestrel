@@ -1,5 +1,38 @@
 type Point = { x: number; y: number };
 
+/** Separate priority targets visually without changing their geographic coordinates. */
+export function getRouteMarkerLayout(
+  points: Point[],
+  selectedIndex: number | null,
+  hoveredIndex: number | null,
+) {
+  const offsets = points.map(() => ({ x: 0, y: 0 }));
+  const displayPoints = points.map((point) => ({ ...point }));
+  const reserved: Point[] = [];
+  const priorityIndices = new Set([0, points.length - 1, selectedIndex, hoveredIndex]);
+
+  for (const index of priorityIndices) {
+    if (index == null || points[index] == null) continue;
+    const point = displayPoints[index];
+    // At most four priority points; each candidate shifts one full target plus a gap.
+    while (
+      reserved.some(
+        (other) => Math.max(Math.abs(point.x - other.x), Math.abs(point.y - other.y)) < 48,
+      )
+    ) {
+      offsets[index].x += 48;
+      point.x += 48;
+    }
+    reserved.push(point);
+  }
+
+  return {
+    offsets,
+    visiblePoints: getVisibleRouteLabels(displayPoints, selectedIndex, hoveredIndex, 44),
+    visibleLabels: getVisibleRouteLabels(displayPoints, selectedIndex, hoveredIndex),
+  };
+}
+
 /** Reserve square screen-space areas, matching the markers' square hit targets. */
 export function getVisibleRouteLabels(
   points: Point[],

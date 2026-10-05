@@ -5514,6 +5514,7 @@ button.route-marker::before {
     box-shadow var(--transition-fast),
     transform var(--transition-fast);
   width: var(--route-marker-body-width);
+  z-index: 1;
 }
 
 button.route-marker::after {
@@ -5527,6 +5528,18 @@ button.route-marker::after {
   position: absolute;
   top: 50%;
   transform: translate(-50%, -50%);
+  z-index: 2;
+}
+
+.route-marker-leader {
+  background: var(--accent-hover);
+  box-shadow: 0 0 0 1px var(--sand-1);
+  height: 2px;
+  left: 50%;
+  pointer-events: none;
+  position: absolute;
+  top: 50%;
+  transform-origin: 0 50%;
 }
 
 button.route-marker.route-marker-middle::before {

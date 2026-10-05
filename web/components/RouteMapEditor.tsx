@@ -4,7 +4,7 @@ import type { Feature, LineString } from 'geojson';
 import type { GeoJSONSource, Map as MapLibreMap, Marker } from 'maplibre-gl';
 import * as maplibregl from 'maplibre-gl';
 import { useEffect, useRef, useState } from 'react';
-import { getVisibleRouteLabels } from '@/components/dashboard/routeMarkerLabels';
+import { getRouteMarkerLayout } from '@/components/dashboard/routeMarkerLabels';
 import { getStyleByName } from '@/components/mapStyle';
 import type { RouteMapCapability } from '@/components/routeMapCapability';
 import { Button } from '@/components/ui/radix-ui';
@@ -526,6 +526,11 @@ function createMarkerElement({ index, waypointCount }: { index: number; waypoint
   element.className = `route-marker ${positionClass}${label.length >= 3 ? ' route-marker-wide' : ''}`;
   element.dataset.label = label;
   element.textContent = label;
+  const leader = document.createElement('span');
+  leader.className = 'route-marker-leader';
+  leader.setAttribute('aria-hidden', 'true');
+  leader.hidden = true;
+  element.append(leader);
   element.type = 'button';
   element.setAttribute('aria-label', `Waypoint ${label}`);
 
@@ -540,17 +545,26 @@ function updateMarkerDisplay(
   map: MapLibreMap,
 ) {
   const points = markers.map((marker) => map.project(marker.getLngLat()));
-  const visibleLabels = getVisibleRouteLabels(points, selectedWaypointIndex, hoveredWaypointIndex);
-  const visiblePoints = getVisibleRouteLabels(
+  const { offsets, visibleLabels, visiblePoints } = getRouteMarkerLayout(
     points,
     selectedWaypointIndex,
     hoveredWaypointIndex,
-    44, // Match button.route-marker's 44×44px hit target, including compact dots.
   );
   markers.forEach((marker, index) => {
     const element = marker.getElement();
     const isHovered = hoveredWaypointIndex === index;
     const isSelected = selectedWaypointIndex === index;
+    const offset = offsets[index];
+    const currentOffset = marker.getOffset();
+    if (currentOffset.x !== offset.x || currentOffset.y !== offset.y) {
+      marker.setOffset([offset.x, offset.y]);
+    }
+    const leader = element.querySelector<HTMLElement>('.route-marker-leader');
+    if (leader != null) {
+      leader.hidden = offset.x === 0 && offset.y === 0;
+      leader.style.width = `${Math.hypot(offset.x, offset.y)}px`;
+      leader.style.transform = `rotate(${Math.atan2(-offset.y, -offset.x)}rad)`;
+    }
 
     // A label must not reintroduce a point rejected by hit-target collision handling.
     element.hidden = !visiblePoints.has(index);

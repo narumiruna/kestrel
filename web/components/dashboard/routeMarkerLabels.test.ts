@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { getVisibleRouteLabels } from './routeMarkerLabels.ts';
+import { getRouteMarkerLayout, getVisibleRouteLabels } from './routeMarkerLabels.ts';
 
 test('empty and single-point routes have valid labels', () => {
   assert.deepEqual([...getVisibleRouteLabels([], null, null)], []);
@@ -62,20 +62,48 @@ test('zoomed-in points recover labels without mutating their coordinates', () =>
   assert.deepEqual(points, before);
 });
 
-test('overlapping endpoints remain visible and collision checks cross grid boundaries', () => {
+test('overlapping endpoints remain visible with separate hit areas and unchanged coordinates', () => {
+  const points = [
+    { x: 0, y: 0 },
+    { x: 0, y: 0 },
+  ];
+  const layout = getRouteMarkerLayout(points, null, null);
+  assert.deepEqual([...layout.visiblePoints], [0, 1]);
+  assert.deepEqual(layout.offsets, [
+    { x: 0, y: 0 },
+    { x: 48, y: 0 },
+  ]);
+  assert.deepEqual(points, [
+    { x: 0, y: 0 },
+    { x: 0, y: 0 },
+  ]);
+  assert.deepEqual(getRouteMarkerLayout(points, 1, 1).offsets, layout.offsets);
+});
+
+test('all overlapping priority markers have disjoint 44px hit areas', () => {
+  const points = Array.from({ length: 5 }, () => ({ x: 0, y: 0 }));
+  const layout = getRouteMarkerLayout(points, 1, 2);
+  assert.deepEqual([...layout.visiblePoints].sort(), [0, 1, 2, 4]);
+  const indices = [...layout.visiblePoints];
+  for (const index of indices) {
+    for (const other of indices) {
+      if (index === other) continue;
+      assert.ok(Math.abs(layout.offsets[index].x - layout.offsets[other].x) >= 44);
+    }
+  }
+});
+
+test('non-overlapping points keep zero offsets and overlap offsets reset after zoom', () => {
+  const points = [0, 60, 120].map((x) => ({ x, y: 0 }));
   assert.deepEqual(
-    [
-      ...getVisibleRouteLabels(
-        [
-          { x: 0, y: 0 },
-          { x: 0, y: 0 },
-        ],
-        null,
-        null,
-      ),
-    ],
-    [0, 1],
+    getRouteMarkerLayout(points, 1, null).offsets,
+    points.map(() => ({ x: 0, y: 0 })),
   );
+  assert.deepEqual(getRouteMarkerLayout([], null, null).offsets, []);
+  assert.deepEqual(getRouteMarkerLayout([{ x: 0, y: 0 }], 0, 0).offsets, [{ x: 0, y: 0 }]);
+});
+
+test('collision checks cross grid boundaries', () => {
   const labels = getVisibleRouteLabels(
     [
       { x: -1, y: -1 },
