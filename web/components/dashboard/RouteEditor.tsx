@@ -66,6 +66,7 @@ import {
   Disclosure,
   Menu,
   MenuSurface,
+  Tabs,
   TextArea,
   TextInput,
   Toggle,
@@ -86,6 +87,8 @@ type Props = {
   onFocusTargetChange?: (waypoint: RouteWaypoint | null) => void;
   onHoverWaypointIndexChange?: (index: number | null) => void;
   onRetryPlaces?: () => void;
+  onSectionChange: (section: 'path' | 'playback') => void;
+  section: 'path' | 'playback';
   onSave: (input: RouteInput) => Promise<void> | void;
   onSelectedWaypointIndexChange?: (index: number | null) => void;
   places?: Place[];
@@ -105,6 +108,8 @@ export default function RouteEditor({
   onHoverWaypointIndexChange,
   onRetryPlaces,
   onSave,
+  onSectionChange,
+  section,
   onSelectedWaypointIndexChange,
   places = [],
   placesError = null,
@@ -198,11 +203,24 @@ export default function RouteEditor({
   }, [draft.waypoints.length, onSelectedWaypointIndexChange, selectedWaypointIndex]);
 
   useEffect(() => {
-    if (!isManageOpen || selectedWaypointIndex == null) {
+    if (selectedWaypointIndex != null) setIsManageOpen(true);
+  }, [selectedWaypointIndex]);
+
+  useEffect(() => {
+    if (section !== 'path' || !isManageOpen || selectedWaypointIndex == null) {
       return;
     }
-    waypointRowRefs.current[selectedWaypointIndex]?.scrollIntoView({ block: 'nearest' });
-  }, [isManageOpen, selectedWaypointIndex]);
+    const frame = window.requestAnimationFrame(() => {
+      const row = waypointRowRefs.current[selectedWaypointIndex];
+      const list = row?.parentElement;
+      if (row == null || list == null) return;
+      list.scrollTop +=
+        row.getBoundingClientRect().top -
+        list.getBoundingClientRect().top -
+        (list.clientHeight - row.clientHeight) / 2;
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [isManageOpen, section, selectedWaypointIndex]);
 
   function updateState(transform: (state: RouteDraftState) => RouteDraftState) {
     setDraftState((current) => transform(current));
@@ -326,224 +344,248 @@ export default function RouteEditor({
           </section>
         </section>
 
-        <section className="route-path-section" aria-labelledby="route-path-heading">
-          <div className="route-section-heading">
-            <div>
-              <h3 id="route-path-heading">1 Path</h3>
-              <p className="muted no-margin">{mapInstruction}</p>
-            </div>
-          </div>
-          <div className="route-path-toolbar">
-            <fieldset className="route-path-action-group route-path-add-actions">
-              <legend>Add waypoint</legend>
-              <Button
-                ref={savedPlaceTriggerRef}
-                className="secondary"
-                type="button"
-                onClick={() => setIsFavoritesOpen(true)}
-              >
-                <PlusIcon /> Saved place
-              </Button>
-              <Button
-                className="secondary"
-                type="button"
-                onClick={() => setCoordinateDialog({ kind: 'add' })}
-              >
-                <PlusIcon /> Coordinates
-              </Button>
-            </fieldset>
-            <fieldset className="route-path-action-group route-path-history-actions">
-              <legend>History</legend>
-              <Button
-                aria-label="Undo last path change"
-                className="secondary"
-                disabled={draftState.pastPaths.length === 0}
-                type="button"
-                onClick={() => updateState(undoRoutePath)}
-              >
-                <ResetIcon /> Undo
-              </Button>
-              <Button
-                aria-label="Redo last path change"
-                className="secondary"
-                disabled={draftState.futurePaths.length === 0}
-                type="button"
-                onClick={() => updateState(redoRoutePath)}
-              >
-                <ResumeIcon /> Redo
-              </Button>
-            </fieldset>
-          </div>
-
-          <RoutePathGuidance canUseMap={canUseMap} places={places} waypoints={draft.waypoints} />
-
-          {selectedWaypoint == null ? (
-            <div className="selected-waypoint-empty">
-              <strong>No waypoint selected</strong>
-              <span className="muted">
-                {canUseMap
-                  ? 'Choose a marker, zoom in for more points, or open Manage all waypoints.'
-                  : 'Open Manage all waypoints to select and edit one point precisely.'}
-              </span>
-            </div>
-          ) : (
-            <section
-              className="selected-waypoint-card"
-              aria-label={`Selected waypoint ${selectedWaypointNumber}`}
-            >
-              <div>
-                <span className={getWaypointBadgeClassName(selectedIndex, draft.waypoints.length)}>
-                  {selectedWaypointNumber}
-                </span>
-                <span>
-                  <strong>
-                    {formatWaypointName(
-                      selectedWaypoint,
-                      places,
-                      `Waypoint ${selectedWaypointNumber}`,
-                    )}
-                  </strong>
-                  <small className="mono">{formatWaypointCoords(selectedWaypoint)}</small>
-                </span>
+        <Tabs.Root
+          value={section}
+          onValueChange={(value) => onSectionChange(value as 'path' | 'playback')}
+        >
+          <Tabs.List aria-label="Route settings" className="route-settings-tabs">
+            <Tabs.Trigger value="path">Path</Tabs.Trigger>
+            <Tabs.Trigger value="playback">Playback</Tabs.Trigger>
+          </Tabs.List>
+          <Tabs.Content value="path">
+            <section className="route-path-section" aria-labelledby="route-path-heading">
+              <div className="route-section-heading">
+                <div>
+                  <h3 id="route-path-heading" className="sr-only">
+                    Path
+                  </h3>
+                  <p className="muted no-margin">{mapInstruction}</p>
+                </div>
               </div>
-              <div className="selected-waypoint-actions">
-                <Button
-                  aria-label="Move selected waypoint up"
-                  className="secondary"
-                  disabled={selectedWaypointIndex === 0}
-                  type="button"
-                  onClick={() => moveWaypoint(selectedIndex, selectedIndex - 1)}
+              <div className="route-path-toolbar">
+                <fieldset className="route-path-action-group route-path-add-actions">
+                  <legend>Add waypoint</legend>
+                  <Button
+                    ref={savedPlaceTriggerRef}
+                    className="secondary"
+                    type="button"
+                    onClick={() => setIsFavoritesOpen(true)}
+                  >
+                    <PlusIcon /> Saved place
+                  </Button>
+                  <Button
+                    className="secondary"
+                    type="button"
+                    onClick={() => setCoordinateDialog({ kind: 'add' })}
+                  >
+                    <PlusIcon /> Coordinates
+                  </Button>
+                </fieldset>
+                <fieldset className="route-path-action-group route-path-history-actions">
+                  <legend>History</legend>
+                  <Button
+                    aria-label="Undo last path change"
+                    className="secondary"
+                    disabled={draftState.pastPaths.length === 0}
+                    type="button"
+                    onClick={() => updateState(undoRoutePath)}
+                  >
+                    <ResetIcon /> Undo
+                  </Button>
+                  <Button
+                    aria-label="Redo last path change"
+                    className="secondary"
+                    disabled={draftState.futurePaths.length === 0}
+                    type="button"
+                    onClick={() => updateState(redoRoutePath)}
+                  >
+                    <ResumeIcon /> Redo
+                  </Button>
+                </fieldset>
+              </div>
+
+              <RoutePathGuidance
+                canUseMap={canUseMap}
+                places={places}
+                waypoints={draft.waypoints}
+              />
+
+              {selectedWaypoint == null ? (
+                <div className="selected-waypoint-empty">
+                  <strong>No waypoint selected</strong>
+                  <span className="muted">
+                    {canUseMap
+                      ? 'Choose a marker, zoom in for more points, or open Manage all waypoints.'
+                      : 'Open Manage all waypoints to select and edit one point precisely.'}
+                  </span>
+                </div>
+              ) : (
+                <section
+                  className="selected-waypoint-card"
+                  aria-label={`Selected waypoint ${selectedWaypointNumber}`}
                 >
-                  <ArrowUpIcon />
-                </Button>
-                <Button
-                  aria-label="Move selected waypoint down"
-                  className="secondary"
-                  disabled={selectedWaypointIndex === draft.waypoints.length - 1}
-                  type="button"
-                  onClick={() => moveWaypoint(selectedIndex, selectedIndex + 1)}
-                >
-                  <ArrowDownIcon />
-                </Button>
-                <Button
-                  className="secondary"
-                  type="button"
-                  onClick={() =>
-                    setCoordinateDialog({
-                      draftId: selectedWaypoint.draftId,
-                      index: selectedIndex,
-                      kind: 'edit',
-                      waypoint: selectedWaypoint,
-                    })
+                  <div>
+                    <span
+                      className={getWaypointBadgeClassName(selectedIndex, draft.waypoints.length)}
+                    >
+                      {selectedWaypointNumber}
+                    </span>
+                    <span>
+                      <strong>
+                        {formatWaypointName(
+                          selectedWaypoint,
+                          places,
+                          `Waypoint ${selectedWaypointNumber}`,
+                        )}
+                      </strong>
+                      <small className="mono">{formatWaypointCoords(selectedWaypoint)}</small>
+                    </span>
+                  </div>
+                  <div className="selected-waypoint-actions">
+                    <Button
+                      aria-label="Move selected waypoint up"
+                      className="secondary"
+                      disabled={selectedWaypointIndex === 0}
+                      type="button"
+                      onClick={() => moveWaypoint(selectedIndex, selectedIndex - 1)}
+                    >
+                      <ArrowUpIcon />
+                    </Button>
+                    <Button
+                      aria-label="Move selected waypoint down"
+                      className="secondary"
+                      disabled={selectedWaypointIndex === draft.waypoints.length - 1}
+                      type="button"
+                      onClick={() => moveWaypoint(selectedIndex, selectedIndex + 1)}
+                    >
+                      <ArrowDownIcon />
+                    </Button>
+                    <Button
+                      className="secondary"
+                      type="button"
+                      onClick={() =>
+                        setCoordinateDialog({
+                          draftId: selectedWaypoint.draftId,
+                          index: selectedIndex,
+                          kind: 'edit',
+                          waypoint: selectedWaypoint,
+                        })
+                      }
+                    >
+                      <Pencil1Icon /> Edit
+                    </Button>
+                    <Button
+                      aria-label="Remove selected waypoint"
+                      className="danger"
+                      type="button"
+                      onClick={() => removeWaypoint(selectedWaypoint, selectedIndex)}
+                    >
+                      <Cross2Icon /> Remove
+                    </Button>
+                  </div>
+                </section>
+              )}
+
+              {canCloseLoop ? (
+                <div className="close-loop-callout">
+                  <span>
+                    Loop will jump from the last waypoint to the first. Add the return segment for
+                    continuous movement.
+                  </span>
+                  <Button
+                    className="secondary"
+                    type="button"
+                    onClick={() => updateState(closeRouteLoop)}
+                  >
+                    Close loop
+                  </Button>
+                </div>
+              ) : null}
+
+              <Disclosure
+                className="route-editor-collapsible route-manage-disclosure"
+                open={isManageOpen}
+                summary={
+                  <>
+                    <span>Manage all {draft.waypoints.length} waypoints</span>
+                    <span className="muted">Reorder, duplicate, edit, or remove</span>
+                  </>
+                }
+                onOpenChange={setIsManageOpen}
+              >
+                <div className="route-editor-collapsible-content">
+                  <WaypointList
+                    draggedWaypointIndex={draggedWaypointIndex}
+                    dragOverWaypointIndex={dragOverWaypointIndex}
+                    hoveredWaypointIndex={hoveredWaypointIndex}
+                    places={places}
+                    selectedWaypointIndex={selectedWaypointIndex}
+                    setDraggedWaypointIndex={setDraggedWaypointIndex}
+                    setDragOverWaypointIndex={setDragOverWaypointIndex}
+                    waypointRowRefs={waypointRowRefs}
+                    waypoints={draft.waypoints}
+                    onEdit={(waypoint, index) =>
+                      setCoordinateDialog({
+                        draftId: waypoint.draftId,
+                        index,
+                        kind: 'edit',
+                        waypoint,
+                      })
+                    }
+                    onHover={onHoverWaypointIndexChange}
+                    onInsert={insertAfter}
+                    onMove={moveWaypoint}
+                    onRemove={removeWaypoint}
+                    onSelect={selectWaypoint}
+                  />
+                </div>
+              </Disclosure>
+            </section>
+          </Tabs.Content>
+          <Tabs.Content value="playback">
+            <section className="route-playback-section" aria-labelledby="route-playback-heading">
+              <div>
+                <h3 id="route-playback-heading" className="sr-only">
+                  Playback
+                </h3>
+                <p className="muted no-margin">
+                  Preview the path without moving points. Choose how Android moves through it.
+                </p>
+              </div>
+              <label htmlFor="route-speed">
+                Default speed (km/h)
+                <TextInput
+                  id="route-speed"
+                  inputMode="decimal"
+                  required
+                  value={draft.defaultSpeedKmh}
+                  onChange={(event) =>
+                    updateState((state) =>
+                      setRouteDraftField(state, 'defaultSpeedKmh', event.target.value),
+                    )
                   }
+                />
+              </label>
+              <div className="route-mode-choice">
+                <span>Playback mode</span>
+                <ToggleGroup
+                  aria-label="Playback mode"
+                  type="single"
+                  value={draft.mode}
+                  onValueChange={(mode) => {
+                    if (mode !== '') {
+                      updateState((state) => setRouteDraftField(state, 'mode', mode as RouteMode));
+                    }
+                  }}
                 >
-                  <Pencil1Icon /> Edit
-                </Button>
-                <Button
-                  aria-label="Remove selected waypoint"
-                  className="danger"
-                  type="button"
-                  onClick={() => removeWaypoint(selectedWaypoint, selectedIndex)}
-                >
-                  <Cross2Icon /> Remove
-                </Button>
+                  <Toggle value="ONCE">Once</Toggle>
+                  <Toggle value="LOOP">Loop</Toggle>
+                  <Toggle value="PING_PONG">Ping-pong</Toggle>
+                </ToggleGroup>
               </div>
             </section>
-          )}
-
-          {canCloseLoop ? (
-            <div className="close-loop-callout">
-              <span>
-                Loop will jump from the last waypoint to the first. Add the return segment for
-                continuous movement.
-              </span>
-              <Button
-                className="secondary"
-                type="button"
-                onClick={() => updateState(closeRouteLoop)}
-              >
-                Close loop
-              </Button>
-            </div>
-          ) : null}
-
-          <Disclosure
-            className="route-editor-collapsible route-manage-disclosure"
-            open={isManageOpen}
-            summary={
-              <>
-                <span>Manage all {draft.waypoints.length} waypoints</span>
-                <span className="muted">Reorder, duplicate, edit, or remove</span>
-              </>
-            }
-            onOpenChange={setIsManageOpen}
-          >
-            <div className="route-editor-collapsible-content">
-              <WaypointList
-                draggedWaypointIndex={draggedWaypointIndex}
-                dragOverWaypointIndex={dragOverWaypointIndex}
-                hoveredWaypointIndex={hoveredWaypointIndex}
-                places={places}
-                selectedWaypointIndex={selectedWaypointIndex}
-                setDraggedWaypointIndex={setDraggedWaypointIndex}
-                setDragOverWaypointIndex={setDragOverWaypointIndex}
-                waypointRowRefs={waypointRowRefs}
-                waypoints={draft.waypoints}
-                onEdit={(waypoint, index) =>
-                  setCoordinateDialog({
-                    draftId: waypoint.draftId,
-                    index,
-                    kind: 'edit',
-                    waypoint,
-                  })
-                }
-                onHover={onHoverWaypointIndexChange}
-                onInsert={insertAfter}
-                onMove={moveWaypoint}
-                onRemove={removeWaypoint}
-                onSelect={selectWaypoint}
-              />
-            </div>
-          </Disclosure>
-        </section>
-
-        <section className="route-playback-section" aria-labelledby="route-playback-heading">
-          <div>
-            <h3 id="route-playback-heading">2 Playback</h3>
-            <p className="muted no-margin">Choose how Android moves through this path.</p>
-          </div>
-          <label htmlFor="route-speed">
-            Default speed (km/h)
-            <TextInput
-              id="route-speed"
-              inputMode="decimal"
-              required
-              value={draft.defaultSpeedKmh}
-              onChange={(event) =>
-                updateState((state) =>
-                  setRouteDraftField(state, 'defaultSpeedKmh', event.target.value),
-                )
-              }
-            />
-          </label>
-          <div className="route-mode-choice">
-            <span>Playback mode</span>
-            <ToggleGroup
-              aria-label="Playback mode"
-              type="single"
-              value={draft.mode}
-              onValueChange={(mode) => {
-                if (mode !== '') {
-                  updateState((state) => setRouteDraftField(state, 'mode', mode as RouteMode));
-                }
-              }}
-            >
-              <Toggle value="ONCE">Once</Toggle>
-              <Toggle value="LOOP">Loop</Toggle>
-              <Toggle value="PING_PONG">Ping-pong</Toggle>
-            </ToggleGroup>
-          </div>
-        </section>
+          </Tabs.Content>
+        </Tabs.Root>
 
         <Disclosure
           className="route-editor-collapsible route-more-details-disclosure"
@@ -587,7 +629,7 @@ export default function RouteEditor({
 
         <section className="route-save-use-section" aria-labelledby="route-save-use-heading">
           <div>
-            <h3 id="route-save-use-heading">3 Save & use</h3>
+            <h3 id="route-save-use-heading">Save & use</h3>
             <p className="muted no-margin">
               Save manually, then share or play the intended snapshot.
             </p>

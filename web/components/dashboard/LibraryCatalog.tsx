@@ -241,6 +241,16 @@ export default function LibraryCatalog({
           />
         ) : null}
 
+        <div className="library-column-headings" aria-hidden="true">
+          <span />
+          <div className="library-columns">
+            <span>Name</span>
+            <span>Type</span>
+            <span>Summary</span>
+            <span />
+          </div>
+          <span>Actions</span>
+        </div>
         <div className="library-item-list" aria-busy={isLoading}>
           {visibleEntries.map((entry) =>
             entry.kind === 'places' ? (
@@ -330,19 +340,20 @@ function PlaceLibraryRow({ place, onDeleted }: { place: Place; onDeleted: () => 
         <SewingPinIcon />
       </div>
       <Link
-        className="library-item-main"
+        className="library-item-main library-columns"
         href={`/dashboard/map?kind=places&selected=${encodeURIComponent(place.id)}`}
         aria-label={`Open ${place.name} on map`}
       >
         <div className="library-item-title-row">
           <h3>{place.name}</h3>
-          <span className="library-open-label">
-            Open on map <ArrowRightIcon aria-hidden />
-          </span>
         </div>
+        <span className="library-item-kind">Place</span>
         <p className="library-item-meta">
-          Place · {formatCoord(place.latitude)}, {formatCoord(place.longitude)}
+          {formatCoord(place.latitude)}, {formatCoord(place.longitude)}
         </p>
+        <span className="library-open-label">
+          Open on map <ArrowRightIcon aria-hidden />
+        </span>
       </Link>
       <div className="library-row-actions">
         <LibraryNotes name={place.name} description={place.description} tags={place.tags} />
@@ -366,22 +377,25 @@ function RouteLibraryRow({ route, onDeleted }: { route: Route; onDeleted: () => 
         <Share1Icon />
       </div>
       <Link
-        className="library-item-main"
+        className="library-item-main library-columns"
         href={`/dashboard/map?kind=routes&selected=${encodeURIComponent(route.id)}`}
         aria-label={`Open ${route.name} on map`}
       >
         <div className="library-item-title-row">
           <h3>{route.name}</h3>
           {route.isPublic ? <span className="chip">Public</span> : null}
-          <span className="library-open-label">
-            Open on map <ArrowRightIcon aria-hidden />
-          </span>
         </div>
-        <p className="library-item-meta">
-          Route · {formatRouteDistanceFromWaypoints(route.currentRevision?.waypoints ?? [])} ·{' '}
-          {waypointCount} waypoint{waypointCount === 1 ? '' : 's'} · {route.defaultSpeedKmh} km/h ·{' '}
+        <span className="library-item-kind">Route</span>
+        <p
+          className="library-item-meta"
+          title={`${waypointCount} waypoints · ${route.defaultSpeedKmh} km/h`}
+        >
+          {formatRouteDistanceFromWaypoints(route.currentRevision?.waypoints ?? [])} ·{' '}
           {formatMode(route.mode)}
         </p>
+        <span className="library-open-label">
+          Open on map <ArrowRightIcon aria-hidden />
+        </span>
       </Link>
       <div className="library-row-actions">
         <LibraryNotes name={route.name} description={route.description} />

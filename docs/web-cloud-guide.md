@@ -19,11 +19,11 @@ Open **Map → Routes**, then select a saved route or choose **New**.
 
 A route draft follows one task sequence:
 
-1. **Path** — add, select, and manage the ordered waypoints shown on the map.
-2. **Playback** — choose the default speed and Once, Loop, or Ping-pong behavior.
+1. **Path** tab — add, select, and manage the ordered waypoints shown on the map.
+2. **Playback** tab — preview the route with only its start/end markers, without adding or dragging points; choose the default speed and Once, Loop, or Ping-pong behavior.
 3. **Save & use** — save manually, then play the intended snapshot on Android or share the saved revision.
 
-Route name and compact status stay above the sequence. Optional description and compatibility visibility remain under **More details**.
+Route name and compact status stay above the tabs. Switching tabs preserves the draft and Undo/Redo history; Save, Share, and device playback remain below both tabs. Optional description and compatibility visibility remain under **More details**.
 
 The map is a live preview of the draft. Kestrel does not auto-save routes: nothing is written to the cloud until **Save route** succeeds. A new route says **Not saved yet**, a changed route says **Unsaved changes** or **Not ready to save**, and a clean existing route shows its saved cloud revision without a disabled Save button.
 
@@ -31,11 +31,11 @@ The map is a live preview of the draft. Kestrel does not auto-save routes: nothi
 
 You can build the same path with pointer, touch, or keyboard:
 
-- Click the map to append a waypoint when the route preview is ready.
+- In **Path**, click the map to append a waypoint when the route preview is ready.
 - Choose **Saved place** to open a searchable dialog and append a Place from the cloud library.
 - Choose **Coordinates** to add an exact latitude and longitude without using the map.
 - Drag a numbered map marker to move it.
-- Select a marker to move, edit, or remove that waypoint precisely. Every editable marker keeps its number visible; Start is circular and End has a squared flag-like shape in addition to their color difference.
+- Select a marker to center the map and reveal its selected row in **Manage all waypoints**, then move, edit, or remove it precisely. Numbers thin out as you zoom out, while selected/hovered points and endpoints take priority. Zoom in or use the list to access hidden points. Start is circular and End has a squared flag-like shape in addition to their color difference.
 - Open **Manage all waypoints** to reorder, duplicate, edit, or remove any row.
 
 Routes require 2–1000 waypoints. Latitude must be from −90 to 90 and longitude from −180 to 180.

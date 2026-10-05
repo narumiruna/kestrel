@@ -127,6 +127,14 @@
 }
 
 /* Route builder redesign: path-first hierarchy with one draft and one completion action. */
+.route-settings-tabs {
+  margin-top: 8px;
+}
+
+.route-settings-tabs :where(button) {
+  flex: 1;
+}
+
 .index-card-route > .index-card-breadcrumb,
 .index-card-route > .index-card-header {
   display: none;
@@ -363,9 +371,9 @@
 }
 
 .route-editor-redesign .waypoint-list {
-  max-height: none;
-  overflow: visible;
-  scrollbar-gutter: auto;
+  max-height: 240px;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
 }
 
 .route-editor-redesign .waypoint-row {

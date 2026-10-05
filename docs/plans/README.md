@@ -14,6 +14,8 @@ The Justfile workflow refinement, Web UI/UX optimization loop, Web Map workspace
 
 The [2026-10-05 Web UI feedback pass](archived/2026-10-05_web-ui-feedback-plan.md) is complete: screen-space route marker density, a compact mixed Library with sorting and contextual notes, and shared Account navigation with on-demand password changes. Web checks and isolated Chrome DevTools verification passed; the broader workspace information architecture plan remains active.
 
+The [2026-10-05 Web workspace UI polish](archived/2026-10-05_web-workspace-ui-polish-plan.md) completes the remaining shared mockup refinements: Path/Playback tabs and read-only route preview, zoom-aware labels and selected-row synchronization, aligned Library columns, smaller panel rounding, and production-safe MapLibre worker modules. Node.js 22 Web gates and isolated Chrome DevTools checks passed; delivered in [PR #330](https://github.com/narumiruna/kestrel/pull/330).
+
 ## Security references
 
 - `../device-session-security.md` — session/device trust boundaries, step-up rules, revocation semantics, and remote-command cancellation limits.

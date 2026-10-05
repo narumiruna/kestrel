@@ -22,6 +22,7 @@ type Props = {
   fitRequest?: number;
   focusTarget?: RouteWaypoint | null;
   hoveredWaypointIndex?: number | null;
+  isEditing?: boolean;
   onCapabilityChange?: (capability: RouteMapCapability) => void;
   onChange: (waypoints: RouteWaypoint[]) => void;
   onHoverWaypoint?: (index: number | null) => void;
@@ -39,6 +40,7 @@ export default function RouteMapEditor({
   fitRequest = 0,
   focusTarget = null,
   hoveredWaypointIndex = null,
+  isEditing = true,
   onCapabilityChange,
   onChange,
   onHoverWaypoint,
@@ -51,6 +53,7 @@ export default function RouteMapEditor({
   const [mapAttempt, setMapAttempt] = useState(0);
   const [mapStatus, setMapStatus] = useState<RouteMapCapability>('loading');
   const canEditRouteRef = useRef(false);
+  const isEditingRef = useRef(isEditing);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const hasLoadedRef = useRef(false);
   const isMapClickAttachedRef = useRef(false);
@@ -72,14 +75,18 @@ export default function RouteMapEditor({
   }, [mapStatus, onCapabilityChange]);
 
   useEffect(() => {
+    isEditingRef.current = isEditing;
     hoveredWaypointIndexRef.current = hoveredWaypointIndex;
-    onChangeRef.current = onChange;
+    onChangeRef.current = (nextWaypoints) => {
+      if (isEditingRef.current) onChange(nextWaypoints);
+    };
     onHoverWaypointRef.current = onHoverWaypoint;
     onReadyRef.current = onReady;
     onSelectWaypointRef.current = onSelectWaypoint;
     selectedWaypointIndexRef.current = selectedWaypointIndex;
     waypointsRef.current = waypoints;
   }, [
+    isEditing,
     hoveredWaypointIndex,
     onChange,
     onHoverWaypoint,
@@ -128,7 +135,7 @@ export default function RouteMapEditor({
     }
 
     const handleMapClick = (event: maplibregl.MapMouseEvent) => {
-      if (!canEditRouteRef.current) {
+      if (!canEditRouteRef.current || !isEditingRef.current) {
         return;
       }
       onChangeRef.current([
@@ -155,6 +162,7 @@ export default function RouteMapEditor({
       hasLoadedRef.current = true;
       try {
         syncRoutePreview({
+          isEditing: isEditingRef.current,
           existingMarkers: markersRef.current,
           hoveredWaypointIndex: hoveredWaypointIndexRef.current,
           map,
@@ -190,6 +198,7 @@ export default function RouteMapEditor({
         hoveredWaypointIndexRef.current,
         waypointsRef.current.length,
         map,
+        isEditingRef.current,
       );
     };
     map.on('load', handleLoad);
@@ -228,6 +237,7 @@ export default function RouteMapEditor({
     const update = () => {
       try {
         syncRoutePreview({
+          isEditing: isEditingRef.current,
           existingMarkers: markersRef.current,
           hoveredWaypointIndex: hoveredWaypointIndexRef.current,
           map,
@@ -285,8 +295,9 @@ export default function RouteMapEditor({
       hoveredWaypointIndex,
       waypoints.length,
       map,
+      isEditing,
     );
-  }, [hoveredWaypointIndex, selectedWaypointIndex, waypoints.length]);
+  }, [hoveredWaypointIndex, isEditing, selectedWaypointIndex, waypoints.length]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -347,6 +358,7 @@ export default function RouteMapEditor({
       window.clearTimeout(styleReadyTimeout);
       try {
         syncRoutePreview({
+          isEditing: isEditingRef.current,
           existingMarkers: markersRef.current,
           hoveredWaypointIndex: hoveredWaypointIndexRef.current,
           map,
@@ -427,6 +439,7 @@ export default function RouteMapEditor({
 }
 
 function syncRoutePreview({
+  isEditing,
   existingMarkers,
   hoveredWaypointIndex,
   map,
@@ -436,6 +449,7 @@ function syncRoutePreview({
   selectedWaypointIndex,
   waypoints,
 }: {
+  isEditing: boolean;
   existingMarkers: Marker[];
   hoveredWaypointIndex: number | null;
   map: MapLibreMap;
@@ -460,6 +474,7 @@ function syncRoutePreview({
     hoveredWaypointIndex,
     waypoints.length,
     map,
+    isEditing,
   );
 }
 
@@ -493,7 +508,7 @@ function syncMarkers({
 
     marker.getElement().addEventListener('click', (event) => {
       event.stopPropagation();
-      onSelectWaypoint?.(index);
+      if (!(marker.getElement() as HTMLButtonElement).disabled) onSelectWaypoint?.(index);
     });
     marker.getElement().addEventListener('mouseenter', () => onHoverWaypoint?.(index));
     marker.getElement().addEventListener('mouseleave', () => onHoverWaypoint?.(null));
@@ -548,6 +563,7 @@ function updateMarkerDisplay(
   hoveredWaypointIndex: number | null,
   waypointCount: number,
   map: MapLibreMap,
+  isEditing: boolean,
 ) {
   const points = markers.map((marker) => map.project(marker.getLngLat()));
   const { offsets, visibleLabels, visiblePoints } = getRouteMarkerLayout(
@@ -555,11 +571,12 @@ function updateMarkerDisplay(
     selectedWaypointIndex,
     hoveredWaypointIndex,
     { width: map.getCanvas().clientWidth, height: map.getCanvas().clientHeight },
+    { isEditing, zoom: map.getZoom() },
   );
   markers.forEach((marker, index) => {
     const element = marker.getElement();
-    const isHovered = hoveredWaypointIndex === index;
-    const isSelected = selectedWaypointIndex === index;
+    const isHovered = isEditing && hoveredWaypointIndex === index;
+    const isSelected = isEditing && selectedWaypointIndex === index;
     const offset = offsets[index];
     const currentOffset = marker.getOffset();
     if (currentOffset.x !== offset.x || currentOffset.y !== offset.y) {
@@ -573,6 +590,8 @@ function updateMarkerDisplay(
     }
 
     // A label must not reintroduce a point rejected by hit-target collision handling.
+    marker.setDraggable(isEditing);
+    (element as HTMLButtonElement).disabled = !isEditing;
     element.hidden = !visiblePoints.has(index);
     element.classList.toggle('route-marker-compact', !visibleLabels.has(index));
     element.classList.toggle('hovered', isHovered);
