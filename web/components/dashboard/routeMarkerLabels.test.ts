@@ -244,6 +244,60 @@ test('an offscreen priority point cannot reserve space against an eligible neigh
   assert.ok(layout.visibleLabels.has(1));
 });
 
+test('playback preview shows only endpoints and ignores stale selection and hover', () => {
+  const points = Array.from({ length: 94 }, (_, index) => ({ x: 50 + index * 50, y: 100 }));
+  const layout = getRouteMarkerLayout(points, 46, 47, undefined, { isEditing: false });
+  assert.deepEqual([...layout.visiblePoints], [0, 93]);
+  assert.deepEqual([...layout.visibleLabels], [0, 93]);
+});
+
+test('preview handles empty, single-point, closed, and offscreen routes without changing anchors', () => {
+  const preview = { isEditing: false };
+  assert.equal(getRouteMarkerLayout([], null, null, undefined, preview).visiblePoints.size, 0);
+  assert.deepEqual(
+    [...getRouteMarkerLayout([{ x: 100, y: 100 }], 0, 0, undefined, preview).visiblePoints],
+    [0],
+  );
+  const points = Array.from({ length: 4 }, () => ({ x: 100, y: 100 }));
+  const before = structuredClone(points);
+  const layout = getRouteMarkerLayout(points, 1, 2, undefined, preview);
+  assert.deepEqual([...layout.visiblePoints], [0, 3]);
+  assert.notDeepEqual(layout.offsets[0], layout.offsets[3]);
+  assert.deepEqual(points, before);
+  const offscreen = getRouteMarkerLayout(
+    [
+      { x: -100, y: 100 },
+      { x: 100, y: 100 },
+      { x: 1000, y: 100 },
+    ],
+    1,
+    1,
+    { width: 600, height: 400 },
+    preview,
+  );
+  assert.equal(offscreen.visiblePoints.size, 0);
+});
+
+test('zoom changes ordinary label density while keeping priority labels and hit areas', () => {
+  const points = Array.from({ length: 20 }, (_, index) => ({ x: index * 50, y: 100 }));
+  const far = getRouteMarkerLayout(points, 8, 10, undefined, { zoom: 12 });
+  const middle = getRouteMarkerLayout(points, 8, 10, undefined, { zoom: 14 });
+  const near = getRouteMarkerLayout(points, 8, 10, undefined, { zoom: 16 });
+  assert.ok(far.visibleLabels.size < near.visibleLabels.size);
+  assert.ok(middle.visibleLabels.size <= near.visibleLabels.size);
+  assert.deepEqual(far.visiblePoints, near.visiblePoints);
+  for (const layout of [far, middle, near]) {
+    for (const index of [0, 8, 10, 19]) assert.ok(layout.visibleLabels.has(index));
+  }
+});
+
+test('returning from playback restores all collision-safe edit targets', () => {
+  const points = Array.from({ length: 10 }, (_, index) => ({ x: index * 60, y: 100 }));
+  const original = getRouteMarkerLayout(points, 4, null);
+  getRouteMarkerLayout(points, 4, 5, undefined, { isEditing: false, zoom: 10 });
+  assert.deepEqual(getRouteMarkerLayout(points, 4, null), original);
+});
+
 test('collision checks cross grid boundaries', () => {
   const labels = getVisibleRouteLabels(
     [

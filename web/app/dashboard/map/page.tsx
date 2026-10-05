@@ -91,6 +91,7 @@ export default function DashboardMapPage() {
   const [hoveredWaypointIndex, setHoveredWaypointIndex] = useState<number | null>(null);
   const [focusTarget, setFocusTarget] = useState<RouteWaypoint | null>(null);
   const [fitRequest, setFitRequest] = useState(0);
+  const [routeSection, setRouteSection] = useState<'path' | 'playback'>('path');
   const [isNewRoute, setIsNewRoute] = useState(false);
   const [routeMapCapability, setRouteMapCapability] = useState<RouteMapCapability>('loading');
   const [draftPlaceCoords, setDraftPlaceCoords] = useState<Coordinates | null>(null);
@@ -342,6 +343,7 @@ export default function DashboardMapPage() {
   function startNewRoute() {
     requestDraftAction(() => {
       resetDraftState();
+      setRouteSection('path');
       setActiveKind('routes');
       setSelectedRouteId(null);
       routeDraftRouteIdRef.current = null;
@@ -406,13 +408,18 @@ export default function DashboardMapPage() {
         fitRequest={fitRequest}
         focusTarget={focusTarget}
         hoveredWaypointIndex={hoveredWaypointIndex}
+        isEditing={routeSection === 'path'}
         selectedWaypointIndex={selectedWaypointIndex}
         waypoints={draftWaypoints}
         onCapabilityChange={setRouteMapCapability}
         onChange={(waypoints) => setRouteDraftState((state) => replaceRoutePath(state, waypoints))}
         onHoverWaypoint={setHoveredWaypointIndex}
         onReady={setViewportControls}
-        onSelectWaypoint={setSelectedWaypointIndex}
+        onSelectWaypoint={(index) => {
+          setSelectedWaypointIndex(index);
+          const waypoint = draftWaypoints[index];
+          if (waypoint != null) setFocusTarget({ ...waypoint });
+        }}
       />
     );
   const selectedLabel =
@@ -489,6 +496,8 @@ export default function DashboardMapPage() {
               route={isNewRoute ? null : selectedRoute}
               routeMapCapability={routeMapCapability}
               selectedWaypointIndex={selectedWaypointIndex}
+              section={routeSection}
+              onSectionChange={setRouteSection}
               setDraftState={setRouteDraftState}
               onBeforeNavigateAway={() => {
                 navigateIfDraftSafe('/dashboard/library/places');

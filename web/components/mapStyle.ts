@@ -1,4 +1,7 @@
-import type { StyleSpecification } from 'maplibre-gl';
+import { type StyleSpecification, setWorkerUrl } from 'maplibre-gl';
+
+// Keep the worker and its shared module together in both dev and production builds.
+setWorkerUrl('/maplibre/maplibre-gl-worker.mjs');
 
 export type MapStyleName = 'dark' | 'plain' | 'satellite' | 'terrain';
 

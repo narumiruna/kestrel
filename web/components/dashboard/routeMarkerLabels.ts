@@ -19,7 +19,12 @@ export function getRouteMarkerLayout(
   selectedIndex: number | null,
   hoveredIndex: number | null,
   viewport?: { width: number; height: number },
+  { isEditing = true, zoom = 16 }: { isEditing?: boolean; zoom?: number } = {},
 ) {
+  if (!isEditing) {
+    selectedIndex = null;
+    hoveredIndex = null;
+  }
   const offsets = points.map(() => ({ x: 0, y: 0 }));
   const displayPoints = points.map((point) => ({ ...point }));
   const reserved: Point[] = [];
@@ -84,7 +89,12 @@ export function getRouteMarkerLayout(
   // Ineligible targets must never reserve space against a fully visible neighbor.
   const eligibleIndices = new Set<number>();
   displayPoints.forEach((point, index) => {
-    if (!unplaced.has(index) && fits(point)) eligibleIndices.add(index);
+    if (
+      !unplaced.has(index) &&
+      fits(point) &&
+      (isEditing || index === 0 || index === points.length - 1)
+    )
+      eligibleIndices.add(index);
   });
   return {
     offsets,
@@ -99,7 +109,7 @@ export function getRouteMarkerLayout(
       displayPoints,
       selectedIndex,
       hoveredIndex,
-      48,
+      zoom < 13 ? 96 : zoom < 15 ? 64 : 48,
       eligibleIndices,
     ),
   };
