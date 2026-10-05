@@ -5,11 +5,17 @@ export type LibraryEntry = { kind: 'places'; item: Place } | { kind: 'routes'; i
 
 const names = new Intl.Collator('en', { numeric: true, sensitivity: 'base' });
 
+function updatedRank(entry: LibraryEntry): number {
+  const timestamp = Date.parse(entry.item.updatedAt);
+  return Number.isFinite(timestamp) ? timestamp : Number.NEGATIVE_INFINITY;
+}
+
 export function sortLibraryEntries(entries: LibraryEntry[], sort: LibrarySort): LibraryEntry[] {
   return [...entries].sort((a, b) => {
     if (sort === 'updated') {
-      const difference = Date.parse(b.item.updatedAt) - Date.parse(a.item.updatedAt);
-      if (Number.isFinite(difference) && difference !== 0) return difference;
+      const aRank = updatedRank(a);
+      const bRank = updatedRank(b);
+      if (aRank !== bRank) return aRank > bRank ? -1 : 1;
     }
     return (
       names.compare(a.item.name, b.item.name) ||

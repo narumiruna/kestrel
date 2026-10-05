@@ -203,6 +203,47 @@ test('offscreen anchors stay offscreen and impossible tiny viewports have a boun
   assert.equal(getRouteMarkerLayout(points, 1, 2, { width: 0, height: 0 }).visiblePoints.size, 0);
 });
 
+test('clipped ordinary points cannot suppress fully visible neighbors at any edge', () => {
+  for (const [clipped, neighbor] of [
+    [
+      { x: 1, y: 50 },
+      { x: 30, y: 50 },
+    ],
+    [
+      { x: 399, y: 50 },
+      { x: 370, y: 50 },
+    ],
+    [
+      { x: 50, y: 1 },
+      { x: 50, y: 30 },
+    ],
+    [
+      { x: 50, y: 199 },
+      { x: 50, y: 170 },
+    ],
+  ]) {
+    const points = [{ x: 200, y: 100 }, clipped, neighbor, { x: 300, y: 150 }];
+    const layout = getRouteMarkerLayout(points, null, null, { width: 400, height: 200 });
+    assert.ok(!layout.visiblePoints.has(1));
+    assert.ok(layout.visiblePoints.has(2));
+    assert.ok(!layout.visibleLabels.has(1));
+    assert.ok(layout.visibleLabels.has(2));
+  }
+});
+
+test('an offscreen priority point cannot reserve space against an eligible neighbor', () => {
+  const points = [
+    { x: -1, y: 50 },
+    { x: 30, y: 50 },
+    { x: 300, y: 150 },
+  ];
+  const layout = getRouteMarkerLayout(points, null, null, { width: 400, height: 200 });
+  assert.ok(!layout.visiblePoints.has(0));
+  assert.ok(layout.visiblePoints.has(1));
+  assert.ok(!layout.visibleLabels.has(0));
+  assert.ok(layout.visibleLabels.has(1));
+});
+
 test('collision checks cross grid boundaries', () => {
   const labels = getVisibleRouteLabels(
     [

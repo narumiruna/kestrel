@@ -81,19 +81,27 @@ export function getRouteMarkerLayout(
     reserved.push(placement);
   }
 
-  const visiblePoints = getVisibleRouteLabels(
-    displayPoints,
-    selectedIndex,
-    hoveredIndex,
-    HIT_TARGET_SIZE,
-  );
-  for (const index of visiblePoints) {
-    if (unplaced.has(index) || !fits(displayPoints[index])) visiblePoints.delete(index);
-  }
+  // Ineligible targets must never reserve space against a fully visible neighbor.
+  const eligibleIndices = new Set<number>();
+  displayPoints.forEach((point, index) => {
+    if (!unplaced.has(index) && fits(point)) eligibleIndices.add(index);
+  });
   return {
     offsets,
-    visiblePoints,
-    visibleLabels: getVisibleRouteLabels(displayPoints, selectedIndex, hoveredIndex),
+    visiblePoints: getVisibleRouteLabels(
+      displayPoints,
+      selectedIndex,
+      hoveredIndex,
+      HIT_TARGET_SIZE,
+      eligibleIndices,
+    ),
+    visibleLabels: getVisibleRouteLabels(
+      displayPoints,
+      selectedIndex,
+      hoveredIndex,
+      48,
+      eligibleIndices,
+    ),
   };
 }
 
@@ -103,13 +111,19 @@ export function getVisibleRouteLabels(
   selectedIndex: number | null,
   hoveredIndex: number | null,
   spacing = 48,
+  eligibleIndices?: ReadonlySet<number>,
 ): Set<number> {
   const visible = new Set<number>();
   const cells = new Map<string, Point[]>();
 
   function add(index: number) {
     const point = points[index];
-    if (point == null || visible.has(index)) return;
+    if (
+      point == null ||
+      visible.has(index) ||
+      (eligibleIndices != null && !eligibleIndices.has(index))
+    )
+      return;
     visible.add(index);
     const key = `${Math.floor(point.x / spacing)},${Math.floor(point.y / spacing)}`;
     const cell = cells.get(key) ?? [];
@@ -123,7 +137,7 @@ export function getVisibleRouteLabels(
   }
 
   points.forEach((point, index) => {
-    if (visible.has(index)) return;
+    if (visible.has(index) || (eligibleIndices != null && !eligibleIndices.has(index))) return;
     const x = Math.floor(point.x / spacing);
     const y = Math.floor(point.y / spacing);
     for (let dx = -1; dx <= 1; dx++) {
