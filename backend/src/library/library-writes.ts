@@ -59,6 +59,64 @@ export async function createPlaceWithLibraryItem(
   return { placeId: place.id, libraryItemId: libraryItem.id };
 }
 
+// Callers prepare the route and revision snapshots; this owns only the initial write order.
+export async function createRouteWithLibraryItem(
+  tx: Prisma.TransactionClient,
+  userId: string,
+  routeData: Omit<
+    Prisma.RouteUncheckedCreateInput,
+    'userId' | 'currentRevisionId'
+  >,
+  payload: Prisma.InputJsonObject,
+) {
+  const sortOrder = await getNextSortOrder(tx, userId);
+  const route = await tx.route.create({
+    data: { ...routeData, userId },
+    select: { id: true },
+  });
+  const revision = await tx.routeRevision.create({
+    data: {
+      createdBy: userId,
+      payload,
+      revisionNumber: 1,
+      routeId: route.id,
+    },
+    select: { id: true },
+  });
+  await tx.route.update({
+    data: { currentRevisionId: revision.id },
+    where: { id: route.id },
+  });
+  const libraryItem = await tx.libraryItem.create({
+    data: {
+      kind: LibraryItemKind.ROUTE,
+      routeId: route.id,
+      sortOrder,
+      userId,
+    },
+    select: { id: true },
+  });
+  await tx.syncEvent.create({
+    data: {
+      entityId: route.id,
+      entityType: SyncEntityType.ROUTE,
+      operation: SyncOperation.UPSERT,
+      payload: undefined,
+      userId,
+    },
+  });
+  await tx.syncEvent.create({
+    data: {
+      entityId: libraryItem.id,
+      entityType: SyncEntityType.LIBRARY_ITEM,
+      operation: SyncOperation.UPSERT,
+      payload: undefined,
+      userId,
+    },
+  });
+  return { routeId: route.id, libraryItemId: libraryItem.id };
+}
+
 export async function getNextSortOrder(
   prisma: Prisma.TransactionClient,
   userId: string,

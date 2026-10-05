@@ -472,6 +472,22 @@ describe('SharingService', () => {
         id: 'revision-3',
         mode: RouteMode.LOOP,
         revisionNumber: 3,
+        waypoints: [
+          {
+            latitude: 25.03,
+            longitude: 121.56,
+            pauseSeconds: 3,
+            sequence: 2,
+            speedKmh: 18,
+          },
+          {
+            latitude: 25.04,
+            longitude: 121.57,
+            pauseSeconds: null,
+            sequence: 8,
+            speedKmh: null,
+          },
+        ],
       }),
     );
     prismaService.libraryItem.findFirst.mockResolvedValue({
@@ -508,6 +524,21 @@ describe('SharingService', () => {
       },
     );
 
+    const writeOrder = [
+      prismaService.libraryItem.findFirst,
+      prismaService.route.create,
+      prismaService.routeRevision.create,
+      prismaService.route.update,
+      prismaService.libraryItem.create,
+      prismaService.syncEvent.create,
+      prismaService.route.findUniqueOrThrow,
+    ].map((mock) => mock.mock.invocationCallOrder[0]);
+    expect(writeOrder).toEqual([...writeOrder].sort((a, b) => a - b));
+    expect(
+      prismaService.syncEvent.create.mock.invocationCallOrder[1],
+    ).toBeLessThan(
+      prismaService.route.findUniqueOrThrow.mock.invocationCallOrder[0],
+    );
     expect(prismaService.routeRevision.findFirst).toHaveBeenCalledWith({
       select: routeRevisionSelect,
       where: {
@@ -538,15 +569,15 @@ describe('SharingService', () => {
             {
               latitude: 25.03,
               longitude: 121.56,
-              pauseSeconds: null,
-              sequence: 0,
-              speedKmh: null,
+              pauseSeconds: 3,
+              sequence: 2,
+              speedKmh: 18,
             },
             {
               latitude: 25.04,
               longitude: 121.57,
               pauseSeconds: null,
-              sequence: 1,
+              sequence: 8,
               speedKmh: null,
             },
           ],
@@ -595,6 +626,33 @@ describe('SharingService', () => {
       mode: RouteMode.LOOP,
       name: 'River ride',
     });
+  });
+
+  it('stops shared-route writes when the first revision cannot be created', async () => {
+    prismaService.shareLink.findUnique.mockResolvedValue(
+      createPublicShareRecord({}),
+    );
+    prismaService.routeRevision.findFirst.mockResolvedValue(
+      createRouteRevisionRecord({
+        defaultSpeedKmh: 24,
+        id: 'revision-3',
+        mode: RouteMode.LOOP,
+        revisionNumber: 3,
+      }),
+    );
+    prismaService.libraryItem.findFirst.mockResolvedValue(null);
+    prismaService.route.create.mockResolvedValue({ id: 'copied-route-1' });
+    const failure = new Error('revision write failed');
+    prismaService.routeRevision.create.mockRejectedValue(failure);
+
+    await expect(
+      sharingService.copySharedRoute('user-2', 'share-token-1', {
+        routeRevisionId: 'revision-3',
+      }),
+    ).rejects.toBe(failure);
+    expect(prismaService.route.update).not.toHaveBeenCalled();
+    expect(prismaService.libraryItem.create).not.toHaveBeenCalled();
+    expect(prismaService.syncEvent.create).not.toHaveBeenCalled();
   });
 
   it('copies the originally viewed snapshot even after the route gets a newer revision', async () => {

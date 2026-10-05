@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/require-await */
-import { createHash } from 'node:crypto';
+import { createHash, createHmac } from 'node:crypto';
 import QRCode from 'qrcode';
 import { AndroidLoginService } from './android-login.service';
 
@@ -334,6 +334,64 @@ describe('AndroidLoginService', () => {
     });
   });
 
+  it('recovers the original QR exchange credential with the complete response shape', async () => {
+    const sessionId = '44444444-4444-4444-8444-444444444444';
+    const originalToken = createHmac(
+      'sha256',
+      Buffer.from(CONFIG_SECRET, 'base64'),
+    )
+      .update('android-qr-refresh-token')
+      .update('\0')
+      .update(ATTEMPT_ID)
+      .update('\0')
+      .update(QR_SECRET)
+      .update('\0')
+      .update(VERIFIER)
+      .digest('base64url');
+    prisma.androidLoginAttempt.findUnique.mockResolvedValue(
+      attempt({
+        approvedAt: NOW,
+        consumedAt: NOW,
+        exchangeSessionId: sessionId,
+      }),
+    );
+    const expectedSession = {
+      createdAt: NOW,
+      expiresAt: new Date(NOW.getTime() + 60_000),
+      id: sessionId,
+      lastUsedAt: NOW,
+    };
+    const storedSession = {
+      ...expectedSession,
+      refreshTokenHash: sha256(originalToken),
+      revokedAt: null,
+      rotatedRefreshTokenEncrypted: null,
+      user: { id: USER_ID, username: 'alice' },
+    };
+    prisma.session.findUnique.mockResolvedValue(storedSession);
+
+    await expect(
+      service.exchangeAttempt({
+        attemptId: ATTEMPT_ID,
+        qrSecret: QR_SECRET,
+        verifier: VERIFIER,
+      }),
+    ).resolves.toEqual({
+      status: 'complete',
+      session: {
+        accessToken: 'access-token',
+        accessTokenExpiresAt: new Date(NOW.getTime() + 900_000),
+        authMethod: 'android_qr',
+        refreshToken: originalToken,
+        session: storedSession,
+        user: { id: USER_ID, username: 'alice' },
+      },
+    });
+    expect(totpService.decryptSecret).not.toHaveBeenCalled();
+    expect(prisma.tx.session.create).not.toHaveBeenCalled();
+    expect(auditService.log).toHaveBeenCalledTimes(1);
+  });
+
   it('recovers the same consumed session and its rotated refresh successor', async () => {
     prisma.androidLoginAttempt.findUnique.mockResolvedValue(
       attempt({
@@ -369,6 +427,59 @@ describe('AndroidLoginService', () => {
       status: 'complete',
     });
     expect(prisma.tx.session.create).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    'missing',
+    'revoked',
+    'expired',
+    'no ciphertext',
+    'decrypt failure',
+    'wrong successor',
+  ])('rejects %s recovery without a new session', async (caseName) => {
+    prisma.androidLoginAttempt.findUnique.mockResolvedValue(
+      attempt({
+        approvedAt: NOW,
+        consumedAt: NOW,
+        exchangeSessionId: 'session-1',
+      }),
+    );
+    prisma.session.findUnique.mockResolvedValue(
+      caseName === 'missing'
+        ? null
+        : {
+            createdAt: NOW,
+            expiresAt:
+              caseName === 'expired' ? NOW : new Date(NOW.getTime() + 60_000),
+            id: 'session-1',
+            lastUsedAt: NOW,
+            refreshTokenHash: sha256('successor'),
+            revokedAt: caseName === 'revoked' ? NOW : null,
+            rotatedRefreshTokenEncrypted:
+              caseName === 'no ciphertext' ? null : 'encrypted',
+            user: { id: USER_ID, username: 'alice' },
+          },
+    );
+    if (caseName === 'decrypt failure')
+      totpService.decryptSecret.mockImplementation(() => {
+        throw new Error('decrypt failed');
+      });
+    else
+      totpService.decryptSecret.mockReturnValue(
+        caseName === 'wrong successor' ? 'wrong' : 'successor',
+      );
+
+    await expect(
+      service.exchangeAttempt({
+        attemptId: ATTEMPT_ID,
+        qrSecret: QR_SECRET,
+        verifier: VERIFIER,
+      }),
+    ).rejects.toMatchObject({
+      message: 'Android QR login is invalid or expired',
+    });
+    expect(prisma.tx.session.create).not.toHaveBeenCalled();
+    expect(auditService.log).not.toHaveBeenCalled();
   });
 
   it('fails closed for a wrong QR secret, verifier, denial, or expiry', async () => {

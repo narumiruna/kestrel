@@ -1,6 +1,5 @@
 'use client';
 
-import dynamic from 'next/dynamic';
 import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { useShareLink } from '@/components/dashboard/useShareLink';
 import {
@@ -10,42 +9,23 @@ import {
   toAbsolutePublicUrl,
 } from '@/components/dashboard/utils';
 import { DEFAULT_MAP_CENTER } from '@/components/mapStyle';
-import {
-  Button,
-  ConfirmDialog,
-  DialogFrame,
-  Disclosure,
-  TextArea,
-  TextInput,
-} from '@/components/ui/radix-ui';
+import { Button, DialogFrame, Disclosure, TextArea, TextInput } from '@/components/ui/radix-ui';
 import type { Place, PlaceInput } from '@/lib/api';
 
-const PlaceMapEditor = dynamic(() => import('@/components/PlaceMapEditor'), {
-  ssr: false,
-});
-
 export default function PlaceEditor({
-  compactDetails = false,
   draftCoords,
   onCoordinatesChange,
-  onDelete,
   onDirtyChange,
   onDiscard,
   onSave,
   place,
-  showHeader = true,
-  showMap = true,
 }: {
-  compactDetails?: boolean;
   draftCoords?: { latitude: number; longitude: number };
   onCoordinatesChange?: (coords: { latitude: number; longitude: number }) => void;
-  onDelete?: () => void;
   onDirtyChange?: (isDirty: boolean) => void;
   onDiscard?: (coords: { latitude: number; longitude: number }) => void;
   onSave: (input: PlaceInput) => void;
   place: Place | null;
-  showHeader?: boolean;
-  showMap?: boolean;
 }) {
   const [name, setName] = useState(place?.name ?? '');
   const [latitude, setLatitude] = useState(() =>
@@ -78,19 +58,6 @@ export default function PlaceEditor({
   );
 
   const baseline = useMemo(() => getPlaceBaseline(place, baselineCoords), [baselineCoords, place]);
-  const mapCoords = useMemo(
-    () => ({
-      latitude: parseCoordinateOrFallback(
-        latitude,
-        place?.latitude ?? draftCoords?.latitude ?? DEFAULT_MAP_CENTER.latitude,
-      ),
-      longitude: parseCoordinateOrFallback(
-        longitude,
-        place?.longitude ?? draftCoords?.longitude ?? DEFAULT_MAP_CENTER.longitude,
-      ),
-    }),
-    [draftCoords, latitude, longitude, place],
-  );
   const isDirty = !isPlaceDraftEqual(
     {
       description,
@@ -200,17 +167,9 @@ export default function PlaceEditor({
 
   return (
     <form
-      className={`${showMap ? 'panel ' : ''}stack place-editor${showMap ? '' : ' place-editor-embedded'}${compactDetails ? ' place-editor-compact' : ''}`}
+      className="stack place-editor place-editor-embedded place-editor-compact"
       onSubmit={submit}
     >
-      {showHeader ? (
-        <header className="place-editor-header">
-          <div className="breadcrumb">
-            Places / <span>{place?.name ?? 'New place'}</span>
-          </div>
-          <h2>{place == null ? 'New place' : place.name}</h2>
-        </header>
-      ) : null}
       <div className="place-editor-content stack">
         {error == null ? null : (
           <div className="error" role="alert">
@@ -222,18 +181,6 @@ export default function PlaceEditor({
             {saveNotice}
           </div>
         )}
-        {showMap ? (
-          <PlaceMapEditor
-            latitude={mapCoords.latitude}
-            longitude={mapCoords.longitude}
-            onChange={(coords) => {
-              setLatitude(formatCoordinateInput(coords.latitude));
-              setLongitude(formatCoordinateInput(coords.longitude));
-              lastEmittedCoordsRef.current = coords;
-              onCoordinatesChange?.(coords);
-            }}
-          />
-        ) : null}
         <label htmlFor="radix-field-components-dashboard-placeeditor-tsx-1">
           Name
           <TextInput
@@ -265,66 +212,30 @@ export default function PlaceEditor({
             />
           </label>
         </div>
-        {compactDetails ? (
-          <Disclosure className="editor-more-details" summary="More details">
-            <div className="stack">
-              <label htmlFor="radix-field-components-dashboard-placeeditor-tsx-4">
-                Tags (comma separated)
-                <TextInput
-                  id="radix-field-components-dashboard-placeeditor-tsx-4"
-                  value={tags}
-                  onChange={(event) => setTags(event.target.value)}
-                />
-              </label>
-              <label htmlFor="radix-field-components-dashboard-placeeditor-tsx-5">
-                Description
-                <TextArea
-                  id="radix-field-components-dashboard-placeeditor-tsx-5"
-                  value={description}
-                  onChange={(event) => setDescription(event.target.value)}
-                />
-              </label>
-            </div>
-          </Disclosure>
-        ) : (
-          <>
-            <label htmlFor="radix-field-components-dashboard-placeeditor-tsx-6">
+        <Disclosure className="editor-more-details" summary="More details">
+          <div className="stack">
+            <label htmlFor="radix-field-components-dashboard-placeeditor-tsx-4">
               Tags (comma separated)
               <TextInput
-                id="radix-field-components-dashboard-placeeditor-tsx-6"
+                id="radix-field-components-dashboard-placeeditor-tsx-4"
                 value={tags}
                 onChange={(event) => setTags(event.target.value)}
               />
             </label>
-            <label htmlFor="radix-field-components-dashboard-placeeditor-tsx-7">
+            <label htmlFor="radix-field-components-dashboard-placeeditor-tsx-5">
               Description
               <TextArea
-                id="radix-field-components-dashboard-placeeditor-tsx-7"
+                id="radix-field-components-dashboard-placeeditor-tsx-5"
                 value={description}
                 onChange={(event) => setDescription(event.target.value)}
               />
             </label>
-          </>
-        )}
+          </div>
+        </Disclosure>
       </div>
       <footer className="route-editor-footer place-editor-footer">
         <div className="place-editor-footer-actions">
-          <div className="place-editor-danger-actions">
-            {onDelete == null ? null : (
-              <ConfirmDialog
-                confirmLabel="Delete place"
-                description="This cannot be undone. The place and its public share link will be permanently removed."
-                disabled={isSaving}
-                title="Delete this place?"
-                trigger={
-                  <Button className="danger" disabled={isSaving} type="button">
-                    Delete
-                  </Button>
-                }
-                onConfirm={onDelete}
-              />
-            )}
-          </div>
+          <div className="place-editor-danger-actions"></div>
           <div className="place-editor-save-actions">
             {isDirty ? <span className="unsaved-changes-label">Unsaved changes</span> : null}
             {isDirty ? (
@@ -521,12 +432,6 @@ function PlaceSharePanel({ place }: { place: Place | null }) {
       )}
     </section>
   );
-}
-
-function parseCoordinateOrFallback(value: string, fallback: number): number {
-  const parsedValue = Number(value);
-
-  return Number.isFinite(parsedValue) ? parsedValue : fallback;
 }
 
 function formatCoordinateInput(value: number): string {

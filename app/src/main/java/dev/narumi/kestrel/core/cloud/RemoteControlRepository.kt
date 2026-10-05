@@ -283,17 +283,7 @@ internal class RemoteControlRepository internal constructor(
     private suspend fun <T> withAuthorizedSession(
         session: CloudSession,
         block: suspend (CloudSession) -> T,
-    ): T =
-        try {
-            block(session)
-        } catch (error: CloudApiException) {
-            if (error.statusCode != 401) throw error
-            val authorizedSession =
-                authRepository.refreshSessionIfCurrent(session)
-                    ?: authRepository.currentSession()?.takeIf { it.sessionId == session.sessionId }
-                    ?: error("Session expired. Please sign in again.")
-            block(authorizedSession)
-        }
+    ): T = withAuthorizedSession(authRepository, session, block)
 
     private fun requireSession(): CloudSession = authRepository.currentSession() ?: error("Sign in to cloud first")
 

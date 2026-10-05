@@ -180,45 +180,6 @@ export function createDarkMapStyle(): StyleSpecification {
   };
 }
 
-export function createFieldNotebookMapStyle(): StyleSpecification {
-  return {
-    glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
-    layers: [
-      {
-        id: 'paper',
-        paint: {
-          'background-color': '#efe1c3',
-        },
-        type: 'background',
-      },
-      {
-        id: 'osm-paper-wash',
-        paint: {
-          'raster-brightness-max': 0.93,
-          'raster-brightness-min': 0.08,
-          'raster-contrast': -0.22,
-          'raster-hue-rotate': 12,
-          'raster-opacity': 0.72,
-          'raster-saturation': -0.58,
-        },
-        source: 'osm',
-        type: 'raster',
-      },
-      {
-        id: 'paper-veil',
-        paint: {
-          'background-color': 'rgba(244, 226, 190, 0.18)',
-        },
-        type: 'background',
-      },
-    ],
-    sources: {
-      osm: createOsmRasterSource(),
-    },
-    version: 8,
-  };
-}
-
 function createOsmRasterSource(): StyleSpecification['sources'][string] {
   return {
     attribution: OSM_ATTRIBUTION,

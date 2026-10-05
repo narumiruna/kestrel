@@ -15,24 +15,8 @@ abstract class LibraryDao {
     abstract fun observeLibraryItems(): Flow<List<LibraryItemRecord>>
 
     @Transaction
-    @Query("SELECT * FROM library_items WHERE kind = 'Place' ORDER BY sort_order ASC, created_at ASC")
-    abstract fun observePlaceLibraryItems(): Flow<List<LibraryItemRecord>>
-
-    @Transaction
-    @Query("SELECT * FROM library_items WHERE kind = 'Route' ORDER BY sort_order ASC, created_at ASC")
-    abstract fun observeRouteLibraryItems(): Flow<List<LibraryItemRecord>>
-
-    @Transaction
     @Query("SELECT * FROM library_items WHERE id = :itemId")
     abstract suspend fun getLibraryItem(itemId: String): LibraryItemRecord?
-
-    @Transaction
-    @Query("SELECT * FROM library_items WHERE id = :itemId")
-    abstract suspend fun getStartupLibraryItem(itemId: String): LibraryItemRecord?
-
-    @Transaction
-    @Query("SELECT * FROM library_items WHERE kind = 'Place' AND sync_status IN ('LocalOnly', 'Dirty', 'Deleted')")
-    abstract suspend fun getPendingPlaceUploadRecords(): List<LibraryItemRecord>
 
     @Query("SELECT * FROM library_items ORDER BY sort_order ASC, created_at ASC")
     abstract suspend fun getLibraryItemsSnapshot(): List<LibraryItemEntity>

@@ -9,6 +9,7 @@ import { KeyboardCheatsheet } from '@/components/cartographer/KeyboardCheatsheet
 import { ScaleBar } from '@/components/cartographer/ScaleBar';
 import { type MobileWorkspacePanel, Stage } from '@/components/cartographer/Stage';
 import { useKeyboardShortcuts } from '@/components/cartographer/useKeyboardShortcuts';
+import { matchesPlaceSearch, matchesRouteSearch } from '@/components/dashboard/librarySearch';
 import PlaceEditor from '@/components/dashboard/PlaceEditor';
 import { PlaceRemoteControlAction } from '@/components/dashboard/RemoteControlPanel';
 import RouteEditor from '@/components/dashboard/RouteEditor';
@@ -536,7 +537,6 @@ export default function DashboardMapPage() {
             <MapEmptySelection kind="place" />
           ) : (
             <PlaceEditor
-              compactDetails
               draftCoords={activePlaceCoords}
               key={
                 isNewPlace
@@ -551,8 +551,6 @@ export default function DashboardMapPage() {
               }}
               onSave={savePlace}
               place={isNewPlace ? null : selectedPlace}
-              showHeader={false}
-              showMap={false}
             />
           )}
         </IndexCard>
@@ -768,12 +766,7 @@ function filterPlaces(places: Place[], query: string): Place[] {
 
   return normalizedQuery.length === 0
     ? places
-    : places.filter((place) =>
-        [place.name, place.description ?? '', ...place.tags]
-          .join(' ')
-          .toLowerCase()
-          .includes(normalizedQuery),
-      );
+    : places.filter((place) => matchesPlaceSearch(place, normalizedQuery));
 }
 
 function filterRoutes(routes: Route[], query: string): Route[] {
@@ -781,12 +774,7 @@ function filterRoutes(routes: Route[], query: string): Route[] {
 
   return normalizedQuery.length === 0
     ? routes
-    : routes.filter((route) =>
-        [route.name, route.description ?? '', formatMode(route.mode)]
-          .join(' ')
-          .toLowerCase()
-          .includes(normalizedQuery),
-      );
+    : routes.filter((route) => matchesRouteSearch(route, normalizedQuery));
 }
 
 function getRouteWaypoints(route: Route | null): RouteWaypoint[] {

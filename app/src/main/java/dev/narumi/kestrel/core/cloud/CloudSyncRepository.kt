@@ -555,21 +555,7 @@ class CloudSyncRepository internal constructor(
             ?: error("Missing local route for remote id $remoteId")
     }
 
-    private suspend fun <T> withAuthorizedSession(block: suspend (CloudSession) -> T): T {
-        val currentSession = requireSession()
-        return try {
-            block(currentSession)
-        } catch (error: CloudApiException) {
-            if (error.statusCode != 401) {
-                throw error
-            }
-            val authorizedSession =
-                authRepository.refreshSessionIfCurrent(currentSession)
-                    ?: authRepository.currentSession()?.takeIf { it.sessionId == currentSession.sessionId }
-                    ?: error("Session expired. Please sign in again.")
-            block(authorizedSession)
-        }
-    }
+    private suspend fun <T> withAuthorizedSession(block: suspend (CloudSession) -> T): T = withAuthorizedSession(authRepository, requireSession(), block)
 
     private fun requireSession(): CloudSession = authRepository.currentSession() ?: error("Not signed in")
 
