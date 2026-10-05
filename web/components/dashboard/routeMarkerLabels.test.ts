@@ -88,7 +88,12 @@ test('all overlapping priority markers have disjoint 44px hit areas', () => {
   for (const index of indices) {
     for (const other of indices) {
       if (index === other) continue;
-      assert.ok(Math.abs(layout.offsets[index].x - layout.offsets[other].x) >= 44);
+      assert.ok(
+        Math.max(
+          Math.abs(layout.offsets[index].x - layout.offsets[other].x),
+          Math.abs(layout.offsets[index].y - layout.offsets[other].y),
+        ) >= 44,
+      );
     }
   }
 });
@@ -128,6 +133,74 @@ test('hover still separates a genuinely overlapping priority point', () => {
   ];
   assert.ok(!getRouteMarkerLayout(points, null, null).visiblePoints.has(1));
   assert.deepEqual(getRouteMarkerLayout(points, null, 1).offsets[1], { x: 48, y: 0 });
+});
+
+test('priority targets stay fully inside every edge and corner of the viewport', () => {
+  const viewport = { width: 600, height: 400 };
+  for (const anchor of [
+    { x: 1, y: 200 },
+    { x: 599, y: 200 },
+    { x: 300, y: 1 },
+    { x: 300, y: 399 },
+    { x: 1, y: 1 },
+    { x: 599, y: 1 },
+    { x: 1, y: 399 },
+    { x: 599, y: 399 },
+    { x: 544, y: 200 }, // Route-fit padding is only 56px.
+  ]) {
+    const points = Array.from({ length: 4 }, () => ({ ...anchor }));
+    const layout = getRouteMarkerLayout(points, 1, 2, viewport);
+    assert.equal(layout.visiblePoints.size, 4);
+    for (const index of layout.visiblePoints) {
+      const x = anchor.x + layout.offsets[index].x;
+      const y = anchor.y + layout.offsets[index].y;
+      assert.ok(x >= 22 && x <= viewport.width - 22);
+      assert.ok(y >= 22 && y <= viewport.height - 22);
+      for (const other of layout.visiblePoints) {
+        if (other === index) continue;
+        assert.ok(
+          Math.max(
+            Math.abs(layout.offsets[index].x - layout.offsets[other].x),
+            Math.abs(layout.offsets[index].y - layout.offsets[other].y),
+          ) >= 44,
+        );
+      }
+    }
+    assert.deepEqual(
+      points,
+      Array.from({ length: 4 }, () => anchor),
+    );
+  }
+});
+
+test('viewport placement retains stable hover at the right edge', () => {
+  const points = [
+    { x: 578, y: 200 },
+    { x: 533, y: 200 },
+    { x: 100, y: 100 },
+  ];
+  const viewport = { width: 600, height: 400 };
+  const initial = getRouteMarkerLayout(points, null, null, viewport);
+  assert.ok(initial.visiblePoints.has(1));
+  assert.deepEqual(getRouteMarkerLayout(points, null, 1, viewport).offsets, initial.offsets);
+});
+
+test('offscreen anchors stay offscreen and impossible tiny viewports have a bounded fallback', () => {
+  const offscreen = getRouteMarkerLayout(
+    [
+      { x: -100, y: 50 },
+      { x: 100, y: 50 },
+    ],
+    null,
+    null,
+    { width: 200, height: 100 },
+  );
+  assert.ok(!offscreen.visiblePoints.has(0));
+  assert.deepEqual(offscreen.offsets[0], { x: 0, y: 0 });
+  const points = Array.from({ length: 4 }, () => ({ x: 22, y: 22 }));
+  const tiny = getRouteMarkerLayout(points, 1, 2, { width: 44, height: 44 });
+  assert.equal(tiny.visiblePoints.size, 1);
+  assert.equal(getRouteMarkerLayout(points, 1, 2, { width: 0, height: 0 }).visiblePoints.size, 0);
 });
 
 test('collision checks cross grid boundaries', () => {

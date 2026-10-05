@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { AndroidQrLoginPanel } from '@/components/dashboard/AndroidQrLoginPanel';
 import { ChangePasswordForm } from '@/components/dashboard/ChangePasswordForm';
@@ -254,9 +253,6 @@ export default function AccountSecurityPage() {
       <div className="account-security-shell">
         <header className="account-security-header">
           <div>
-            <Link className="account-security-back" href="/dashboard/map">
-              ← Back to dashboard
-            </Link>
             <p className="eyebrow">Account</p>
             <h1>Account security</h1>
             <p className="muted no-margin">

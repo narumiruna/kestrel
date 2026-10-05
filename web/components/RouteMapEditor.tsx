@@ -194,6 +194,7 @@ export default function RouteMapEditor({
     };
     map.on('load', handleLoad);
     map.on('moveend', handleMoveEnd);
+    map.on('resize', handleMoveEnd);
     mapRef.current = map;
 
     return () => {
@@ -202,6 +203,7 @@ export default function RouteMapEditor({
       map.off('click', handleMapClick);
       map.off('load', handleLoad);
       map.off('moveend', handleMoveEnd);
+      map.off('resize', handleMoveEnd);
       canEditRouteRef.current = false;
       hasLoadedRef.current = false;
       isMapClickAttachedRef.current = false;
@@ -552,6 +554,7 @@ function updateMarkerDisplay(
     points,
     selectedWaypointIndex,
     hoveredWaypointIndex,
+    { width: map.getCanvas().clientWidth, height: map.getCanvas().clientHeight },
   );
   markers.forEach((marker, index) => {
     const element = marker.getElement();
