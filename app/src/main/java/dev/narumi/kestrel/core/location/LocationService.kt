@@ -10,6 +10,8 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
+import android.os.PowerManager
+import android.os.SystemClock
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.content.getSystemService
@@ -44,6 +46,8 @@ class LocationService : Service() {
     private lateinit var prefs: KestrelPrefs
     private lateinit var stateWriter: MockStateWriter
     private lateinit var remoteControlPoller: RemoteControlPoller
+    private lateinit var routeWakeLock: PowerManager.WakeLock
+    private var routeExecution: RoutePlaybackExecution? = null
 
     @Volatile private var providerStarted = false
     private val providerWriteLock = Any()
@@ -66,6 +70,10 @@ class LocationService : Service() {
         prefs = KestrelPrefs(applicationContext)
         stateWriter = MockStateWriter(snapshot = ::currentStateSnapshot, write = prefs::setMockState)
         remoteControlPoller = RemoteControlPoller.getInstance(applicationContext)
+        routeWakeLock =
+            requireNotNull(getSystemService<PowerManager>())
+                .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Kestrel:RoutePlayback")
+                .apply { setReferenceCounted(false) }
         ensureChannel()
     }
 
@@ -254,6 +262,7 @@ class LocationService : Service() {
     private fun pauseAction(intent: Intent): Int {
         synchronized(providerWriteLock) {
             check(_runtimeState.value is RuntimeState.Route) { "No route is playing." }
+            routeExecution?.pause()
             paused = true
             updateRouteRuntimePaused(paused = true)
         }
@@ -266,6 +275,7 @@ class LocationService : Service() {
     private fun resumeAction(intent: Intent): Int {
         synchronized(providerWriteLock) {
             check(_runtimeState.value is RuntimeState.Route) { "No paused route is available." }
+            routeExecution?.resume()
             paused = false
             updateRouteRuntimePaused(paused = false)
         }
@@ -377,35 +387,48 @@ class LocationService : Service() {
         stopRoute()
         stopSingleKeepAlive()
         paused = false
+        val execution =
+            RoutePlaybackExecution(
+                elapsedRealtimeMillis = SystemClock::elapsedRealtime,
+                // Intentionally held for active playback, not a fixed timeout: routes may loop
+                // indefinitely. Every route exit releases it, including coroutine failure.
+                acquire = { routeWakeLock.acquire() },
+                release = { if (routeWakeLock.isHeld) routeWakeLock.release() },
+            )
+        routeExecution = execution
         activeRoute = ActiveRouteSnapshot.create(engine, waypoints, speedKmh, mode)
         routeJob =
             scope.launch {
-                // Read once per route job so Settings changes apply to the next route start or
-                // restore, not mid-flight.
-                val progressWriteIntervalTicks =
-                    progressWriteIntervalTicksFor(
-                        prefs.mockPlaybackSettings.first().progressWriteIntervalSeconds,
-                    )
-                var tickCounter = 0
-                while (isActive) {
-                    delay(LOCATION_SERVICE_TICK_MILLIS)
-                    val finished =
-                        synchronized(providerWriteLock) {
-                            if (activeRoute?.engine !== engine) return@launch
-                            if (paused) return@synchronized false
-                            pushSample(engine.advance(LOCATION_SERVICE_TICK_MILLIS / 1000.0), engine)
-                            engine.isFinished().also { if (it) finishRoute(waypoints.last()) }
+                try {
+                    // Read once per route job so Settings changes apply to the next route start or
+                    // restore, not mid-flight.
+                    val progressWriteIntervalTicks =
+                        progressWriteIntervalTicksFor(
+                            prefs.mockPlaybackSettings.first().progressWriteIntervalSeconds,
+                        )
+                    var tickCounter = 0
+                    while (isActive) {
+                        delay(LOCATION_SERVICE_TICK_MILLIS)
+                        val finished =
+                            synchronized(providerWriteLock) {
+                                if (activeRoute?.engine !== engine) return@launch
+                                if (paused) return@synchronized false
+                                pushSample(engine.advance(execution.nextDeltaSeconds()), engine)
+                                engine.isFinished().also { if (it) finishRoute(waypoints.last()) }
+                            }
+                        if (finished) {
+                            stateWriter.persist()
+                            return@launch
                         }
-                    if (finished) {
-                        stateWriter.persist()
-                        return@launch
+                        if (paused) continue
+                        tickCounter++
+                        if (tickCounter >= progressWriteIntervalTicks) {
+                            tickCounter = 0
+                            stateWriter.persist()
+                        }
                     }
-                    if (paused) continue
-                    tickCounter++
-                    if (tickCounter >= progressWriteIntervalTicks) {
-                        tickCounter = 0
-                        stateWriter.persist()
-                    }
+                } finally {
+                    synchronized(providerWriteLock) { execution.stop() }
                 }
             }
     }
@@ -413,12 +436,16 @@ class LocationService : Service() {
     private fun stopRoute() {
         routeJob?.cancel()
         routeJob = null
+        routeExecution?.stop()
+        routeExecution = null
         paused = false
         activeRoute = null
     }
 
     // Called under providerWriteLock so a live settings update cannot race route completion.
     private fun finishRoute(last: LatLng) {
+        routeExecution?.stop()
+        routeExecution = null
         activeRoute = null
         currentMode = MockState.Mode.Single
         _runtimeState.value = RuntimeState.Single(last)
