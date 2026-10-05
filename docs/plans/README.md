@@ -4,7 +4,6 @@ Top-level `*-plan.md` files are active. Closed or superseded plans live in `arch
 
 ## Active files
 
-- `2026-10-05_web-workspace-ui-polish-plan.md` — shared mockup refinements are implemented and verified; signed commit/push/PR handoff is in progress.
 - `2026-10-05_behavior-preserving-simplifications-plan.md` — eight refactors implemented and under verification; Android screenshot validation lacks reference images and the historical QR e2e failure is not reproducible. Keep open until completion criteria have evidence.
 - `2026-09-23_android-qr-login-plan.md` — add a short-lived, dual-confirmed Web-to-Android QR login flow with independent retry-safe Android sessions and no credentials embedded in the QR.
 - `2026-09-23_web-workspace-information-architecture-plan.md` — clarify Map, Library, and Account ownership; add panel-aware Map layout, Library preview/sort/filter, dedicated Account settings, and consistent manual-save/sync semantics.
@@ -14,6 +13,8 @@ Top-level `*-plan.md` files are active. Closed or superseded plans live in `arch
 The Justfile workflow refinement, Web UI/UX optimization loop, Web Map workspace/route-inspector plans, 2026-08-10 Web Route editor redesign, 2026-09-22 Route workspace UI review, and the 2026-07-15 Options, Favorites, Web Library, and cross-platform UI regression plans are complete and archived in `archived/`.
 
 The [2026-10-05 Web UI feedback pass](archived/2026-10-05_web-ui-feedback-plan.md) is complete: screen-space route marker density, a compact mixed Library with sorting and contextual notes, and shared Account navigation with on-demand password changes. Web checks and isolated Chrome DevTools verification passed; the broader workspace information architecture plan remains active.
+
+The [2026-10-05 Web workspace UI polish](archived/2026-10-05_web-workspace-ui-polish-plan.md) completes the remaining shared mockup refinements: Path/Playback tabs and read-only route preview, zoom-aware labels and selected-row synchronization, aligned Library columns, smaller panel rounding, and production-safe MapLibre worker modules. Node.js 22 Web gates and isolated Chrome DevTools checks passed; delivered in [PR #330](https://github.com/narumiruna/kestrel/pull/330).
 
 ## Security references
 

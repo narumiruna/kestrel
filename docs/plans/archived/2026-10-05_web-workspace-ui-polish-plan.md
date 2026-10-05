@@ -27,7 +27,7 @@ Mockups express hierarchy, not literal specifications for pagination, autosave, 
 - [x] Node.js 22 Web tests, `just web-check`, `just web-lint`, `just web-typecheck`, and `just web-build` pass; record existing warnings and any failure honestly.
 - [x] Chrome DevTools fixture checks at 1440×900 light mode cover all three screens, Path/Playback draft preservation and read-only preview, dense marker selection/list/map sync and zoom recovery, mixed columns/sort/search, password disclosure/focus restoration, and plausible read/save failures. Fixtures block actual backend/device/database writes; screenshots remain outside Git.
 - [x] Review complete diff for scope, API/storage compatibility, map lifecycle/events, draft/save semantics, focus/accessibility, and security; `git diff --check` passes. Preserve `PLAN.md`, lockfiles, schemas, caches, and image binaries.
-- [ ] Archive this plan and update the index after acceptance evidence passes; sign the intended commit, push the focused branch, and open a PR with verification and limitations. No releases, deployments, or device operations.
+- [x] Archive this plan and update the index after acceptance evidence passes; sign the intended commit, push the focused branch, and open a PR with verification and limitations. No releases, deployments, or device operations.
 
 ## Verification evidence
 
@@ -40,6 +40,10 @@ Mockups express hierarchy, not literal specifications for pagination, autosave, 
 - Initial visual verification caught the pre-existing broken default worker URL. A hashed worker URL also failed its relative shared-module import; fixed-name pre-rendered modules resolved both errors. Initial format checks failed while iterating and now pass. One browser retry hung on an old page's unsaved-navigation prompt; fresh isolated targets with a 150s watchdog resolve that harness issue.
 - Existing dependency audit risk: Next.js 16.3.5 reports critical advisory GHSA-vcvr-r3jv-pc5j (`next/og ImageResponse`). Source search finds no use of that API. No dependency upgrade is included in this UI task. Audit itself does not pass; required Web gates do.
 - Android/Backend are unchanged, so their gates, migrations, real-device commands, and live-account/database tests are not applicable. Mobile/dark-mode matrices, release/deploy, real password/Share/delete/device writes, and package publishing were not performed.
+
+## Handoff
+
+Implementation commit `73bd780` is SSH-signed and verified using a temporary allowed-signers file, pushed to `narumi/feat/web-workspace-ui-polish`, and delivered as [PR #330](https://github.com/narumiruna/kestrel/pull/330) against `main`. This plan is archived and indexed in the documentation follow-up. Hosted CI is still pending at handoff and is not claimed as passing. Local commit hooks passed, including Java 26 Spotless and Web Biome. Untracked user-owned `PLAN.md` remains untouched.
 
 ## Risks
 
