@@ -398,14 +398,6 @@ export default function AccountSecurityPage() {
                 <p className="eyebrow">Remote control</p>
                 <h2 id="devices-heading">Android devices</h2>
               </div>
-              <Button
-                className="secondary"
-                disabled={areDevicesLoading}
-                type="button"
-                onClick={loadSecurityData}
-              >
-                Refresh
-              </Button>
             </div>
             <p className="muted">
               Revoking a device also revokes the Android session that last registered it. A command

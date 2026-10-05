@@ -1,5 +1,7 @@
 type Point = { x: number; y: number };
 
+const HIT_TARGET_SIZE = 44;
+
 /** Separate priority targets visually without changing their geographic coordinates. */
 export function getRouteMarkerLayout(
   points: Point[],
@@ -17,7 +19,8 @@ export function getRouteMarkerLayout(
     // At most four priority points; each candidate shifts one full target plus a gap.
     while (
       reserved.some(
-        (other) => Math.max(Math.abs(point.x - other.x), Math.abs(point.y - other.y)) < 48,
+        (other) =>
+          Math.max(Math.abs(point.x - other.x), Math.abs(point.y - other.y)) < HIT_TARGET_SIZE,
       )
     ) {
       offsets[index].x += 48;
@@ -28,7 +31,12 @@ export function getRouteMarkerLayout(
 
   return {
     offsets,
-    visiblePoints: getVisibleRouteLabels(displayPoints, selectedIndex, hoveredIndex, 44),
+    visiblePoints: getVisibleRouteLabels(
+      displayPoints,
+      selectedIndex,
+      hoveredIndex,
+      HIT_TARGET_SIZE,
+    ),
     visibleLabels: getVisibleRouteLabels(displayPoints, selectedIndex, hoveredIndex),
   };
 }

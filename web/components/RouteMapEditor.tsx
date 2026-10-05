@@ -501,7 +501,10 @@ function syncMarkers({
       onSelectWaypoint?.(index);
     });
     marker.on('dragend', () => {
-      const lngLat = marker.getLngLat();
+      // MapLibre drags the geographic anchor; persist the visible drop position instead.
+      const dropPoint = map.project(marker.getLngLat()).add(marker.getOffset());
+      const lngLat = map.unproject(dropPoint);
+      marker.setOffset([0, 0]).setLngLat(lngLat);
       onChange(
         waypoints.map((currentWaypoint, currentIndex) =>
           currentIndex === index

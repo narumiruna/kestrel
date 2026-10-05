@@ -103,6 +103,33 @@ test('non-overlapping points keep zero offsets and overlap offsets reset after z
   assert.deepEqual(getRouteMarkerLayout([{ x: 0, y: 0 }], 0, 0).offsets, [{ x: 0, y: 0 }]);
 });
 
+test('hover and selection never displace an already visible point at the hit-target boundary', () => {
+  for (const separation of [44, 45, 46, 47, 48]) {
+    for (const y of [0, separation]) {
+      const points = [
+        { x: 0, y: 0 },
+        { x: separation, y },
+        { x: 200, y: 200 },
+      ];
+      const initial = getRouteMarkerLayout(points, null, null);
+      assert.ok(initial.visiblePoints.has(1));
+      assert.deepEqual(getRouteMarkerLayout(points, null, 1).offsets, initial.offsets);
+      assert.deepEqual(getRouteMarkerLayout(points, 1, 1).offsets, initial.offsets);
+      assert.deepEqual(getRouteMarkerLayout(points, null, null).offsets, initial.offsets);
+    }
+  }
+});
+
+test('hover still separates a genuinely overlapping priority point', () => {
+  const points = [
+    { x: 0, y: 0 },
+    { x: 43, y: 43 },
+    { x: 200, y: 200 },
+  ];
+  assert.ok(!getRouteMarkerLayout(points, null, null).visiblePoints.has(1));
+  assert.deepEqual(getRouteMarkerLayout(points, null, 1).offsets[1], { x: 48, y: 0 });
+});
+
 test('collision checks cross grid boundaries', () => {
   const labels = getVisibleRouteLabels(
     [
