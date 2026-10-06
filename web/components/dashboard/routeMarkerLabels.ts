@@ -22,13 +22,12 @@ export function getRouteMarkerLayout(
   { isEditing = true, zoom = 16 }: { isEditing?: boolean; zoom?: number } = {},
 ) {
   if (!isEditing) {
-    selectedIndex = null;
     hoveredIndex = null;
   }
   const offsets = points.map(() => ({ x: 0, y: 0 }));
   const displayPoints = points.map((point) => ({ ...point }));
   const reserved: Point[] = [];
-  const priorityIndices = new Set([0, points.length - 1, selectedIndex, hoveredIndex]);
+  const priorityIndices = new Set([selectedIndex, 0, points.length - 1, hoveredIndex]);
   const unplaced = new Set<number>();
   const halfSize = HIT_TARGET_SIZE / 2;
   const fits = (point: Point) =>
@@ -92,7 +91,7 @@ export function getRouteMarkerLayout(
     if (
       !unplaced.has(index) &&
       fits(point) &&
-      (isEditing || index === 0 || index === points.length - 1)
+      (isEditing || index === selectedIndex || index === 0 || index === points.length - 1)
     )
       eligibleIndices.add(index);
   });

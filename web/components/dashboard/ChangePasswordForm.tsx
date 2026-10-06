@@ -11,10 +11,14 @@ type PasswordField = 'current' | 'new' | 'confirm';
 
 export function ChangePasswordForm({
   onChangePassword,
+  onCancel,
+  onSuccess,
   username,
 }: {
   onChangePassword: (input: ChangePasswordInput) => Promise<void>;
   username: string;
+  onCancel?: () => void;
+  onSuccess?: () => void;
 }) {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -59,6 +63,7 @@ export function ChangePasswordForm({
       setTouched({ current: false, new: false, confirm: false });
       setVisible({ current: false, new: false, confirm: false });
       setNotice('Password changed successfully. Use your new password next time you sign in.');
+      onSuccess?.();
     } catch (nextError) {
       const message = formatError(nextError);
       if (/invalid current password/i.test(message)) {
@@ -88,6 +93,7 @@ export function ChangePasswordForm({
           aria-describedby={descriptionId}
           aria-invalid={invalid}
           autoComplete={autoComplete}
+          autoFocus={key === 'current'}
           className={invalid ? 'password-input is-invalid' : 'password-input'}
           disabled={isSaving}
           id={id}
@@ -194,9 +200,16 @@ export function ChangePasswordForm({
           </p>
         )}
       </div>
-      <Button className="change-password-submit" disabled={!canSubmit || isSaving} type="submit">
-        {isSaving ? 'Changing password…' : 'Change password'}
-      </Button>
+      <div className="account-security-actions">
+        <Button className="change-password-submit" disabled={!canSubmit || isSaving} type="submit">
+          {isSaving ? 'Updating password…' : 'Update password'}
+        </Button>
+        {onCancel == null ? null : (
+          <Button className="secondary" disabled={isSaving} type="button" onClick={onCancel}>
+            Cancel
+          </Button>
+        )}
+      </div>
     </form>
   );
 }

@@ -1,0 +1,464 @@
+/* Bounded workspace overrides for the legacy cascade. */
+:root {
+  --cloud-topbar-height: 64px;
+  --cloud-sidebar-width: 260px;
+  --cloud-editor-width: 350px;
+  --workspace-canvas: var(--sand-2);
+  --workspace-panel: var(--sand-1);
+  --workspace-chrome: var(--sand-1);
+  --workspace-shadow: none;
+  --workspace-control: var(--sand-2);
+  --workspace-radius: 10px;
+  --workspace-row-height: 60px;
+  --workspace-gap: 16px;
+}
+
+.kc-shell-library,
+.kc-shell-account {
+  padding: 0 0 24px;
+}
+
+.kc-topbar.workspace-topbar,
+.cartographer-stage-map .workspace-topbar {
+  border: 0;
+  border-bottom: 1px solid var(--workspace-border);
+  border-radius: 0;
+  box-shadow: none;
+  height: var(--cloud-topbar-height);
+  left: 0;
+  min-height: var(--cloud-topbar-height);
+  padding-inline: var(--workspace-gap);
+  right: 0;
+  top: 0;
+}
+
+.workspace-topbar .kc-icon-button.secondary,
+.workspace-topbar .kc-user-button.secondary,
+.workspace-header-start .workspace-tabs a {
+  min-height: 44px;
+}
+
+.workspace-topbar .kc-icon-button.secondary {
+  height: 44px;
+  width: 44px;
+}
+
+.cartographer-paper-vignette,
+.field-notebook-spine {
+  display: none;
+}
+
+.cartographer-stage-map {
+  --ink-muted: var(--sand-11);
+  --text-muted: var(--sand-11);
+  --workspace-control-border: var(--sand-8);
+}
+
+.cartographer-stage-map .field-notebook,
+.cartographer-stage-map .index-card {
+  background: var(--workspace-panel);
+  border-radius: var(--workspace-radius);
+  box-shadow: none;
+}
+
+.cartographer-stage-map .map-library-panel .notebook-entry {
+  border-radius: 6px;
+  min-height: var(--workspace-row-height);
+  padding-block: 8px;
+  text-align: left;
+}
+
+.cartographer-stage-map .notebook-entry > span {
+  font-size: 12px;
+}
+
+.cartographer-stage-map .map-library-panel button.notebook-entry {
+  align-items: flex-start;
+}
+
+.cartographer-stage-map .notebook-entry strong {
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
+}
+
+.cartographer-stage-map .map-library-panel .notebook-entry.active {
+  background: var(--accent-soft);
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.cartographer-stage-map .route-marker.selected {
+  filter: drop-shadow(0 0 3px var(--text-primary));
+}
+
+.cartographer-stage-map .map-picker-tools {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.route-editor-title-row .route-title-field {
+  flex: 1 1 0;
+}
+
+.route-editor-title-row .route-more-trigger {
+  padding: 0;
+  width: 44px;
+}
+
+.route-map-mode {
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+}
+
+.route-map-mode button {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  color: var(--text-secondary);
+  flex: 1;
+  min-height: 40px;
+}
+
+.route-map-mode button[data-state="on"] {
+  background: var(--accent-soft);
+  color: var(--orange-12);
+}
+
+.route-editor-redesign .selected-waypoint-empty {
+  background: none;
+  border: 0;
+  padding: 4px 0;
+}
+
+.selected-waypoint-card > div:first-child {
+  flex: 1;
+}
+
+.route-editor-redesign .selected-waypoint-card {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+
+.selected-waypoint-card :where(strong) {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.route-editor-redesign .route-manage-disclosure {
+  border-inline: 0;
+  border-radius: 0;
+}
+
+.route-editor-redesign .route-path-add-actions {
+  flex-wrap: wrap;
+}
+
+.library-catalog {
+  gap: 12px;
+  margin: 24px auto 0;
+  max-width: 1240px;
+  padding: 24px;
+  width: calc(100% - 48px);
+}
+
+.library-catalog-header h1,
+.account-security-header h1 {
+  font-size: 30px;
+  line-height: 1.2;
+}
+
+.library-catalog-header h1 {
+  margin: 0 0 6px;
+}
+
+.library-toolbar {
+  gap: 12px;
+  padding-bottom: 12px;
+}
+
+.library-item-row {
+  min-height: var(--workspace-row-height);
+}
+
+.library-item-meta,
+.library-open-label {
+  font-size: 13px;
+}
+
+.ui-popover-popup.library-notes-popover {
+  background: var(--workspace-panel);
+}
+
+.library-row-actions .rt-variant-ghost {
+  color: var(--text-secondary);
+}
+
+.library-notes-popover :where(a) {
+  overflow-wrap: anywhere;
+}
+
+.account-security-shell {
+  min-height: 0;
+  padding-top: 16px;
+}
+
+.account-section-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  margin-bottom: 12px;
+}
+
+.account-section-nav :where(a) {
+  align-items: center;
+  color: var(--text-secondary);
+  display: inline-flex;
+  min-height: 44px;
+}
+
+.account-security-back {
+  align-items: center;
+  color: var(--text-secondary);
+  display: inline-flex;
+  gap: 8px;
+  min-height: 44px;
+  margin-bottom: 8px;
+}
+
+.account-security-grid {
+  align-items: start;
+  gap: var(--workspace-gap);
+}
+
+.account-security-grid .account-security-sign-in {
+  grid-column: auto;
+}
+
+.account-security-panel h2 {
+  font-size: 20px;
+  scroll-margin-top: 16px;
+}
+
+.account-security-grid .account-security-android-login {
+  grid-column: auto;
+}
+
+.account-security-shell .account-security-panel {
+  border-radius: var(--workspace-radius);
+  padding: 20px;
+}
+
+.account-security-list {
+  gap: 0;
+}
+
+.account-security-row {
+  background: none;
+  border: 0;
+  border-top: 1px solid var(--border);
+  border-radius: 0;
+  padding: 12px 0;
+}
+
+.account-password-expansion {
+  border-top: 1px solid var(--border);
+  margin-top: 16px;
+  padding-top: 20px;
+}
+
+.account-password-expansion .change-password-form {
+  max-width: 480px;
+}
+
+.password-field .password-input input.rt-TextFieldInput {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  min-height: 0;
+  padding: 0;
+}
+
+.password-field .password-visibility {
+  height: 44px;
+  min-width: 44px;
+}
+
+.route-editor-redesign .waypoint-menu-trigger {
+  min-height: 44px;
+  width: 44px;
+}
+
+.change-password-form .account-security-actions {
+  flex-wrap: wrap;
+  justify-content: flex-start;
+}
+
+@media (min-width: 1024px) {
+  .cartographer-stage-map {
+    --cloud-sidebar-width: 260px;
+    --cloud-editor-width: 350px;
+  }
+
+  .cartographer-stage-map.cartographer-stage-left-collapsed .field-notebook,
+  .cartographer-stage-map.cartographer-stage-right-collapsed .index-card {
+    visibility: hidden;
+  }
+
+  .cartographer-stage-map .cartographer-map-layer {
+    bottom: 0;
+    left: calc(var(--cloud-sidebar-width) + 32px);
+    right: calc(var(--cloud-editor-width) + 32px);
+    top: var(--cloud-topbar-height);
+  }
+
+  .cartographer-stage-map.cartographer-stage-left-collapsed .cartographer-map-layer {
+    left: 0;
+  }
+
+  .cartographer-stage-map.cartographer-stage-right-collapsed .cartographer-map-layer {
+    right: 0;
+  }
+
+  .library-column-headings,
+  .library-item-list .library-item-row {
+    grid-template-columns: 38px minmax(0, 1fr) 180px;
+  }
+
+  .library-columns,
+  .library-item-main.library-columns {
+    grid-template-columns: minmax(0, 1fr) 56px minmax(0, 1fr) 106px;
+  }
+}
+
+@media (min-width: 1024px) and (max-width: 1150px) {
+  .cartographer-stage-map {
+    --cloud-sidebar-width: 240px;
+    --cloud-editor-width: 320px;
+  }
+}
+
+@media (max-width: 1023px) {
+  .cartographer-stage-map {
+    grid-template-rows: minmax(180px, 30dvh) auto minmax(0, 1fr);
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+    padding: calc(var(--cloud-topbar-height) + 8px) 10px 10px;
+  }
+
+  .cartographer-stage-map.cartographer-stage-mobile-map {
+    grid-template-rows: minmax(0, 1fr) auto;
+  }
+
+  .cartographer-stage-map .cartographer-map-layer,
+  .cartographer-stage-map .map-control-stack {
+    grid-row: 1;
+  }
+
+  .cartographer-stage-map .cartographer-map-layer {
+    height: 100%;
+    min-height: 0;
+  }
+
+  .cartographer-stage-map .mobile-workspace-bar {
+    background: var(--workspace-panel);
+    grid-row: 2;
+    position: relative;
+    top: auto;
+    box-shadow: none;
+  }
+
+  .cartographer-stage-map .field-notebook,
+  .cartographer-stage-map .index-card {
+    grid-row: 3;
+    min-height: 0;
+    overflow: auto;
+    visibility: visible;
+  }
+
+  .cartographer-stage-map.cartographer-stage-mobile-inspector .index-card {
+    overflow: auto;
+  }
+
+  .cartographer-stage-map.cartographer-stage-mobile-inspector .index-card-body {
+    min-height: 0;
+    overflow: auto;
+  }
+}
+
+@media (max-width: 767px) {
+  .library-catalog {
+    margin-top: 16px;
+    padding: 16px;
+    width: calc(100% - 24px);
+  }
+
+  .library-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+  }
+
+  .library-search {
+    flex: 1 1 100%;
+  }
+
+  .library-filter-tabs {
+    max-width: 100%;
+  }
+
+  .library-item-row {
+    gap: 8px;
+    grid-template-columns: 32px minmax(0, 1fr);
+    padding-block: 10px;
+  }
+
+  .library-row-actions {
+    grid-column: 2;
+    justify-content: flex-start;
+  }
+
+  .library-item-main.library-columns {
+    align-items: center;
+    column-gap: 8px;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .library-item-meta,
+  .library-open-label {
+    grid-column: 1 / -1;
+  }
+
+  .account-security-section-header {
+    align-items: center;
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .library-item-title-row h3 {
+    max-width: 100%;
+  }
+
+  .library-item-actions > button,
+  .library-item-actions > a,
+  .library-row-actions > button {
+    min-height: 44px;
+  }
+
+  .account-security-actions {
+    flex-wrap: wrap;
+  }
+
+  .route-editor-redesign .route-editor-title-row {
+    align-items: end;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+}

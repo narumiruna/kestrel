@@ -23,6 +23,7 @@ type Props = {
   focusTarget?: RouteWaypoint | null;
   hoveredWaypointIndex?: number | null;
   isEditing?: boolean;
+  isAdding?: boolean;
   onCapabilityChange?: (capability: RouteMapCapability) => void;
   onChange: (waypoints: RouteWaypoint[]) => void;
   onHoverWaypoint?: (index: number | null) => void;
@@ -41,6 +42,7 @@ export default function RouteMapEditor({
   focusTarget = null,
   hoveredWaypointIndex = null,
   isEditing = true,
+  isAdding = false,
   onCapabilityChange,
   onChange,
   onHoverWaypoint,
@@ -54,6 +56,7 @@ export default function RouteMapEditor({
   const [mapStatus, setMapStatus] = useState<RouteMapCapability>('loading');
   const canEditRouteRef = useRef(false);
   const isEditingRef = useRef(isEditing);
+  const isAddingRef = useRef(isAdding);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const hasLoadedRef = useRef(false);
   const isMapClickAttachedRef = useRef(false);
@@ -76,6 +79,7 @@ export default function RouteMapEditor({
 
   useEffect(() => {
     isEditingRef.current = isEditing;
+    isAddingRef.current = isAdding;
     hoveredWaypointIndexRef.current = hoveredWaypointIndex;
     onChangeRef.current = (nextWaypoints) => {
       if (isEditingRef.current) onChange(nextWaypoints);
@@ -87,6 +91,7 @@ export default function RouteMapEditor({
     waypointsRef.current = waypoints;
   }, [
     isEditing,
+    isAdding,
     hoveredWaypointIndex,
     onChange,
     onHoverWaypoint,
@@ -135,7 +140,7 @@ export default function RouteMapEditor({
     }
 
     const handleMapClick = (event: maplibregl.MapMouseEvent) => {
-      if (!canEditRouteRef.current || !isEditingRef.current) {
+      if (!canEditRouteRef.current || !isEditingRef.current || !isAddingRef.current) {
         return;
       }
       onChangeRef.current([
@@ -145,7 +150,7 @@ export default function RouteMapEditor({
           longitude: roundCoord(event.lngLat.lng),
         },
       ]);
-      onSelectWaypointRef.current?.(waypointsRef.current.length);
+      // New waypoints are identified by the draft reducer, not an obsolete array index.
     };
     mapClickHandlerRef.current = handleMapClick;
     const styleReadyTimeout = window.setTimeout(() => {
@@ -166,7 +171,7 @@ export default function RouteMapEditor({
           existingMarkers: markersRef.current,
           hoveredWaypointIndex: hoveredWaypointIndexRef.current,
           map,
-          onChange: onChangeRef.current,
+          onChange: (nextWaypoints) => onChangeRef.current(nextWaypoints),
           onHoverWaypoint: onHoverWaypointRef.current,
           onSelectWaypoint: onSelectWaypointRef.current,
           selectedWaypointIndex: selectedWaypointIndexRef.current,
@@ -205,8 +210,11 @@ export default function RouteMapEditor({
     map.on('moveend', handleMoveEnd);
     map.on('resize', handleMoveEnd);
     mapRef.current = map;
+    const resizeObserver = new ResizeObserver(() => map.resize());
+    resizeObserver.observe(containerRef.current);
 
     return () => {
+      resizeObserver.disconnect();
       clearMarkers(markersRef.current);
       window.clearTimeout(styleReadyTimeout);
       map.off('click', handleMapClick);
@@ -241,7 +249,7 @@ export default function RouteMapEditor({
           existingMarkers: markersRef.current,
           hoveredWaypointIndex: hoveredWaypointIndexRef.current,
           map,
-          onChange: onChangeRef.current,
+          onChange: (nextWaypoints) => onChangeRef.current(nextWaypoints),
           onHoverWaypoint: onHoverWaypointRef.current,
           onSelectWaypoint: onSelectWaypointRef.current,
           selectedWaypointIndex: selectedWaypointIndexRef.current,
@@ -306,10 +314,18 @@ export default function RouteMapEditor({
       return;
     }
 
+    const point = map.project([focusTarget.longitude, focusTarget.latitude]);
+    const canvas = map.getCanvas();
+    if (
+      point.x >= 56 &&
+      point.x <= canvas.clientWidth - 56 &&
+      point.y >= 56 &&
+      point.y <= canvas.clientHeight - 56
+    )
+      return;
     map.easeTo({
       center: [focusTarget.longitude, focusTarget.latitude],
-      duration: 350,
-      zoom: Math.max(map.getZoom(), 14),
+      duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 350,
     });
   }, [focusTarget]);
 
@@ -362,7 +378,7 @@ export default function RouteMapEditor({
           existingMarkers: markersRef.current,
           hoveredWaypointIndex: hoveredWaypointIndexRef.current,
           map,
-          onChange: onChangeRef.current,
+          onChange: (nextWaypoints) => onChangeRef.current(nextWaypoints),
           onHoverWaypoint: onHoverWaypointRef.current,
           onSelectWaypoint: onSelectWaypointRef.current,
           selectedWaypointIndex: selectedWaypointIndexRef.current,
@@ -544,7 +560,7 @@ function createMarkerElement({ index, waypointCount }: { index: number; waypoint
   const label = getWaypointShortLabel(index);
   const positionClass = getWaypointMarkerPositionClass(index, waypointCount);
   element.className = `route-marker ${positionClass}${label.length >= 3 ? ' route-marker-wide' : ''}`;
-  element.dataset.label = label;
+  element.dataset.label = index === 0 ? 'S' : index === waypointCount - 1 ? 'E' : label;
   element.textContent = label;
   const leader = document.createElement('span');
   leader.className = 'route-marker-leader';
@@ -576,7 +592,9 @@ function updateMarkerDisplay(
   markers.forEach((marker, index) => {
     const element = marker.getElement();
     const isHovered = isEditing && hoveredWaypointIndex === index;
-    const isSelected = isEditing && selectedWaypointIndex === index;
+    const isSelected = selectedWaypointIndex === index;
+    element.style.zIndex = isSelected ? '4' : isHovered ? '3' : '1';
+    element.setAttribute('aria-pressed', String(isSelected));
     const offset = offsets[index];
     const currentOffset = marker.getOffset();
     if (currentOffset.x !== offset.x || currentOffset.y !== offset.y) {

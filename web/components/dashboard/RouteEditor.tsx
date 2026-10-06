@@ -37,19 +37,13 @@ import {
   getWaypointBadgeClassName,
 } from '@/components/dashboard/routeEditorUtils';
 import { getRouteSavePresentation } from '@/components/dashboard/routeSavePresentation';
-import {
-  formatError,
-  formatMode,
-  formatRouteDistanceFromWaypoints,
-} from '@/components/dashboard/utils';
+import { formatError, formatRouteDistanceFromWaypoints } from '@/components/dashboard/utils';
 import {
   canEditRouteOnMap,
   getRouteMapInstruction,
   type RouteMapCapability,
 } from '@/components/routeMapCapability';
 import {
-  ArrowDownIcon,
-  ArrowUpIcon,
   Cross2Icon,
   DotsHorizontalIcon,
   Pencil1Icon,
@@ -87,6 +81,11 @@ type Props = {
   onFocusTargetChange?: (waypoint: RouteWaypoint | null) => void;
   onHoverWaypointIndexChange?: (index: number | null) => void;
   onRetryPlaces?: () => void;
+  isPointEditing: boolean;
+  isAddingWaypoint: boolean;
+  onPointEditingChange: (editing: boolean) => void;
+  onAddingWaypointChange: (adding: boolean) => void;
+  onSelectedWaypointIdChange: (id: string | null) => void;
   onSectionChange: (section: 'path' | 'playback') => void;
   section: 'path' | 'playback';
   onSave: (input: RouteInput) => Promise<void> | void;
@@ -110,6 +109,11 @@ export default function RouteEditor({
   onSave,
   onSectionChange,
   section,
+  isPointEditing,
+  isAddingWaypoint,
+  onPointEditingChange,
+  onAddingWaypointChange,
+  onSelectedWaypointIdChange,
   onSelectedWaypointIndexChange,
   places = [],
   placesError = null,
@@ -125,7 +129,7 @@ export default function RouteEditor({
   const [error, setError] = useState<string | null>(null);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [isFavoritesOpen, setIsFavoritesOpen] = useState(false);
-  const [isManageOpen, setIsManageOpen] = useState(false);
+  const [isManageOpen, setIsManageOpen] = useState(true);
   const [isMoreDetailsOpen, setIsMoreDetailsOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
@@ -210,20 +214,37 @@ export default function RouteEditor({
     if (section !== 'path' || !isManageOpen || selectedWaypointIndex == null) {
       return;
     }
-    const frame = window.requestAnimationFrame(() => {
-      const row = waypointRowRefs.current[selectedWaypointIndex];
-      const list = row?.parentElement;
-      if (row == null || list == null) return;
-      list.scrollTop +=
-        row.getBoundingClientRect().top -
-        list.getBoundingClientRect().top -
-        (list.clientHeight - row.clientHeight) / 2;
-    });
-    return () => window.cancelAnimationFrame(frame);
+    const row = waypointRowRefs.current[selectedWaypointIndex];
+    const list = row?.parentElement;
+    if (row == null || list == null) return;
+    let frame = 0;
+    const revealSelection = () => {
+      window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(() => {
+        if (list.clientHeight === 0) return;
+        list.scrollTop +=
+          row.getBoundingClientRect().top -
+          list.getBoundingClientRect().top -
+          (list.clientHeight - row.clientHeight) / 2;
+      });
+    };
+    const observer = new ResizeObserver(revealSelection);
+    observer.observe(list);
+    revealSelection();
+    return () => {
+      observer.disconnect();
+      window.cancelAnimationFrame(frame);
+    };
   }, [isManageOpen, section, selectedWaypointIndex]);
 
-  function updateState(transform: (state: RouteDraftState) => RouteDraftState) {
-    setDraftState((current) => transform(current));
+  function updateState(
+    transform: (state: RouteDraftState) => RouteDraftState,
+    selectIndex?: number,
+  ) {
+    const next = transform(draftState);
+    setDraftState(next);
+    if (selectIndex != null)
+      onSelectedWaypointIdChange(next.draft.waypoints[selectIndex]?.draftId ?? null);
     setError(null);
     setSaveNotice(null);
   }
@@ -249,38 +270,30 @@ export default function RouteEditor({
   }
 
   function addFavoriteWaypoint(place: Place) {
-    updateState((state) =>
-      addRouteWaypoint(state, { latitude: place.latitude, longitude: place.longitude }),
+    updateState(
+      (state) => addRouteWaypoint(state, { latitude: place.latitude, longitude: place.longitude }),
+      draft.waypoints.length,
     );
-    const index = draft.waypoints.length;
-    onSelectedWaypointIndexChange?.(index);
     onFocusTargetChange?.({ latitude: place.latitude, longitude: place.longitude });
     setIsFavoritesOpen(false);
   }
 
   function selectWaypoint(waypoint: RouteDraftWaypoint, index: number) {
     onSelectedWaypointIndexChange?.(index);
+    onPointEditingChange(true);
     onFocusTargetChange?.(waypoint);
   }
 
   function moveWaypoint(fromIndex: number, toIndex: number) {
     updateState((state) => moveRouteWaypoint(state, fromIndex, toIndex));
-    onSelectedWaypointIndexChange?.(toIndex);
   }
 
-  function removeWaypoint(waypoint: RouteDraftWaypoint, index: number) {
+  function removeWaypoint(waypoint: RouteDraftWaypoint) {
     updateState((state) => removeRouteWaypoint(state, waypoint.draftId));
-    const nextLength = draft.waypoints.length - 1;
-    if (nextLength === 0) {
-      onSelectedWaypointIndexChange?.(null);
-    } else {
-      onSelectedWaypointIndexChange?.(Math.min(index, nextLength - 1));
-    }
   }
 
   function insertAfter(_waypoint: RouteDraftWaypoint, index: number) {
-    updateState((state) => insertRouteWaypointAfter(state, index));
-    onSelectedWaypointIndexChange?.(index + 1);
+    updateState((state) => insertRouteWaypointAfter(state, index), index + 1);
   }
 
   return (
@@ -309,7 +322,6 @@ export default function RouteEditor({
                   type="button"
                 >
                   <DotsHorizontalIcon />
-                  More
                 </Button>
               }
             >
@@ -336,11 +348,6 @@ export default function RouteEditor({
           <section className="route-status-line" aria-label="Route draft summary">
             <strong>{draft.waypoints.length} waypoints</strong>
             <span>{distanceLabel}</span>
-            <span>{draft.defaultSpeedKmh || '—'} km/h</span>
-            <span>{formatMode(draft.mode)}</span>
-            {route?.currentRevision == null ? null : (
-              <span>Revision {route.currentRevision.revisionNumber}</span>
-            )}
           </section>
         </section>
 
@@ -359,12 +366,43 @@ export default function RouteEditor({
                   <h3 id="route-path-heading" className="sr-only">
                     Path
                   </h3>
-                  <p className="muted no-margin">{mapInstruction}</p>
+                  <p className="muted no-margin">
+                    {isAddingWaypoint
+                      ? 'Click the map to append points. Cancel when finished.'
+                      : canUseMap
+                        ? 'Select a point to edit. Drag in Edit points mode; use Add on map to append.'
+                        : mapInstruction}
+                  </p>
                 </div>
               </div>
+              <ToggleGroup
+                aria-label="Route map mode"
+                className="route-map-mode"
+                type="single"
+                value={isPointEditing ? 'edit' : 'overview'}
+                onValueChange={(value) => {
+                  if (value) onPointEditingChange(value === 'edit');
+                }}
+              >
+                <Toggle value="overview">Overview</Toggle>
+                <Toggle value="edit">Edit points</Toggle>
+              </ToggleGroup>
               <div className="route-path-toolbar">
                 <fieldset className="route-path-action-group route-path-add-actions">
-                  <legend>Add waypoint</legend>
+                  <legend className="sr-only">Add waypoint</legend>
+                  <Button
+                    className="secondary"
+                    type="button"
+                    disabled={!canUseMap}
+                    aria-pressed={isAddingWaypoint}
+                    onClick={() => {
+                      onPointEditingChange(true);
+                      onAddingWaypointChange(!isAddingWaypoint);
+                    }}
+                  >
+                    {isAddingWaypoint ? <Cross2Icon /> : <PlusIcon />}{' '}
+                    {isAddingWaypoint ? 'Cancel adding' : 'Add on map'}
+                  </Button>
                   <Button
                     ref={savedPlaceTriggerRef}
                     className="secondary"
@@ -382,7 +420,7 @@ export default function RouteEditor({
                   </Button>
                 </fieldset>
                 <fieldset className="route-path-action-group route-path-history-actions">
-                  <legend>History</legend>
+                  <legend className="sr-only">History</legend>
                   <Button
                     aria-label="Undo last path change"
                     className="secondary"
@@ -415,8 +453,8 @@ export default function RouteEditor({
                   <strong>No waypoint selected</strong>
                   <span className="muted">
                     {canUseMap
-                      ? 'Choose a marker, zoom in for more points, or open Manage all waypoints.'
-                      : 'Open Manage all waypoints to select and edit one point precisely.'}
+                      ? 'Choose Edit points, or select from the list below.'
+                      : 'Select from the list below to edit exact coordinates.'}
                   </span>
                 </div>
               ) : (
@@ -443,24 +481,6 @@ export default function RouteEditor({
                   </div>
                   <div className="selected-waypoint-actions">
                     <Button
-                      aria-label="Move selected waypoint up"
-                      className="secondary"
-                      disabled={selectedWaypointIndex === 0}
-                      type="button"
-                      onClick={() => moveWaypoint(selectedIndex, selectedIndex - 1)}
-                    >
-                      <ArrowUpIcon />
-                    </Button>
-                    <Button
-                      aria-label="Move selected waypoint down"
-                      className="secondary"
-                      disabled={selectedWaypointIndex === draft.waypoints.length - 1}
-                      type="button"
-                      onClick={() => moveWaypoint(selectedIndex, selectedIndex + 1)}
-                    >
-                      <ArrowDownIcon />
-                    </Button>
-                    <Button
                       className="secondary"
                       type="button"
                       onClick={() =>
@@ -473,14 +493,6 @@ export default function RouteEditor({
                       }
                     >
                       <Pencil1Icon /> Edit
-                    </Button>
-                    <Button
-                      aria-label="Remove selected waypoint"
-                      className="danger"
-                      type="button"
-                      onClick={() => removeWaypoint(selectedWaypoint, selectedIndex)}
-                    >
-                      <Cross2Icon /> Remove
                     </Button>
                   </div>
                 </section>
@@ -505,12 +517,7 @@ export default function RouteEditor({
               <Disclosure
                 className="route-editor-collapsible route-manage-disclosure"
                 open={isManageOpen}
-                summary={
-                  <>
-                    <span>Manage all {draft.waypoints.length} waypoints</span>
-                    <span className="muted">Reorder, duplicate, edit, or remove</span>
-                  </>
-                }
+                summary={<span>Waypoints ({draft.waypoints.length})</span>}
                 onOpenChange={setIsManageOpen}
               >
                 <div className="route-editor-collapsible-content">
@@ -592,7 +599,7 @@ export default function RouteEditor({
           open={isMoreDetailsOpen}
           summary={
             <>
-              <span>More details</span>
+              <span>Route details</span>
               <span className="muted">Description and visibility</span>
             </>
           }
@@ -629,9 +636,13 @@ export default function RouteEditor({
 
         <section className="route-save-use-section" aria-labelledby="route-save-use-heading">
           <div>
-            <h3 id="route-save-use-heading">Save & use</h3>
+            <h3 id="route-save-use-heading">
+              {section === 'playback' ? 'Save & use' : 'Save & share'}
+            </h3>
             <p className="muted no-margin">
-              Save manually, then share or play the intended snapshot.
+              {section === 'playback'
+                ? 'Save manually, then send the intended snapshot to Android.'
+                : 'Save manually. Device controls are in Playback.'}
             </p>
           </div>
           {savePresentation.showStickyBar ? null : savePanel}
@@ -647,13 +658,15 @@ export default function RouteEditor({
                   : `Device and Share use saved Revision ${route.currentRevision?.revisionNumber ?? '—'}.`}
               </p>
               <div className="route-use-actions">
-                <RouteRemoteControlAction
-                  isDirty={isDirty}
-                  mode={draft.mode}
-                  route={route}
-                  speedKmh={Number(draft.defaultSpeedKmh)}
-                  waypoints={draft.waypoints}
-                />
+                {section === 'playback' ? (
+                  <RouteRemoteControlAction
+                    isDirty={isDirty}
+                    mode={draft.mode}
+                    route={route}
+                    speedKmh={Number(draft.defaultSpeedKmh)}
+                    waypoints={draft.waypoints}
+                  />
+                ) : null}
                 <Button
                   ref={shareTriggerRef}
                   aria-haspopup="dialog"
@@ -729,10 +742,9 @@ export default function RouteEditor({
             updateState((state) =>
               updateRouteWaypoint(state, coordinateDialog.draftId, nextWaypoint),
             );
-            onSelectedWaypointIndexChange?.(coordinateDialog.index);
+            onSelectedWaypointIdChange(coordinateDialog.draftId);
           } else {
-            updateState((state) => addRouteWaypoint(state, nextWaypoint));
-            onSelectedWaypointIndexChange?.(draft.waypoints.length);
+            updateState((state) => addRouteWaypoint(state, nextWaypoint), draft.waypoints.length);
           }
           onFocusTargetChange?.(nextWaypoint);
           setCoordinateDialog(null);

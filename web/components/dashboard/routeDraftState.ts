@@ -34,6 +34,14 @@ export type RouteValidation = {
   saveDisabledReason: string | null;
 };
 
+export function getSelectedWaypointIndex(
+  waypoints: RouteDraftWaypoint[],
+  draftId: string | null,
+): number | null {
+  const index = waypoints.findIndex((point) => point.draftId === draftId);
+  return index < 0 ? null : index;
+}
+
 export function createRouteDraftState(route: Route | null): RouteDraftState {
   const revisionId = route?.currentRevision?.id ?? 'new';
   const waypoints =
@@ -60,6 +68,21 @@ export function createRouteDraftState(route: Route | null): RouteDraftState {
     nextWaypointId: waypoints.length,
     pastPaths: [],
   };
+}
+
+export function refreshRouteDraftFromRoute(
+  state: RouteDraftState,
+  route: Route | null,
+): RouteDraftState {
+  if (isRouteDraftDirty(state)) return state;
+
+  const refreshed = createRouteDraftState(route);
+  if (routePathsEqual(state.draft.waypoints, refreshed.draft.waypoints, false)) {
+    refreshed.baseline.waypoints = cloneWaypoints(state.draft.waypoints);
+    refreshed.draft.waypoints = cloneWaypoints(state.draft.waypoints);
+  }
+  refreshed.nextWaypointId = Math.max(state.nextWaypointId, refreshed.nextWaypointId);
+  return refreshed;
 }
 
 export function setRouteDraftField<Key extends Exclude<keyof RouteDraft, 'waypoints'>>(
@@ -243,6 +266,11 @@ export function rebaseRouteDraftAfterSave(
   savedRoute: Route,
 ): RouteDraftState {
   const savedState = createRouteDraftState(savedRoute);
+  // Saved sequences correspond to submitted positions; client identities are not sent to the API.
+  savedState.draft.waypoints.forEach((waypoint, index) => {
+    waypoint.draftId = submittedState.draft.waypoints[index]?.draftId ?? waypoint.draftId;
+  });
+  savedState.baseline = cloneDraft(savedState.draft);
   const pathChangedAfterSubmission = !routePathsEqual(
     currentState.draft.waypoints,
     submittedState.draft.waypoints,
@@ -412,14 +440,18 @@ function routeDraftsEqual(left: RouteDraft, right: RouteDraft): boolean {
   );
 }
 
-function routePathsEqual(left: RouteDraftWaypoint[], right: RouteDraftWaypoint[]): boolean {
+function routePathsEqual(
+  left: RouteDraftWaypoint[],
+  right: RouteDraftWaypoint[],
+  compareIds = true,
+): boolean {
   return (
     left.length === right.length &&
     left.every((waypoint, index) => {
       const other = right[index];
       return (
         other != null &&
-        waypoint.draftId === other.draftId &&
+        (!compareIds || waypoint.draftId === other.draftId) &&
         waypoint.latitude === other.latitude &&
         waypoint.longitude === other.longitude &&
         waypoint.pauseSeconds === other.pauseSeconds &&

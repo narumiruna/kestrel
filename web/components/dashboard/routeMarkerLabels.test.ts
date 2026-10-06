@@ -77,7 +77,9 @@ test('overlapping endpoints remain visible with separate hit areas and unchanged
     { x: 0, y: 0 },
     { x: 0, y: 0 },
   ]);
-  assert.deepEqual(getRouteMarkerLayout(points, 1, 1).offsets, layout.offsets);
+  const selected = getRouteMarkerLayout(points, 1, 1);
+  assert.deepEqual(selected.offsets[1], { x: 0, y: 0 });
+  assert.notDeepEqual(selected.offsets[0], selected.offsets[1]);
 });
 
 test('all overlapping priority markers have disjoint 44px hit areas', () => {
@@ -244,11 +246,11 @@ test('an offscreen priority point cannot reserve space against an eligible neigh
   assert.ok(layout.visibleLabels.has(1));
 });
 
-test('playback preview shows only endpoints and ignores stale selection and hover', () => {
+test('overview shows endpoints and selected point without ordinary labels or stale hover', () => {
   const points = Array.from({ length: 94 }, (_, index) => ({ x: 50 + index * 50, y: 100 }));
   const layout = getRouteMarkerLayout(points, 46, 47, undefined, { isEditing: false });
-  assert.deepEqual([...layout.visiblePoints], [0, 93]);
-  assert.deepEqual([...layout.visibleLabels], [0, 93]);
+  assert.deepEqual([...layout.visiblePoints], [46, 0, 93]);
+  assert.deepEqual([...layout.visibleLabels], [46, 0, 93]);
 });
 
 test('preview handles empty, single-point, closed, and offscreen routes without changing anchors', () => {
@@ -261,7 +263,7 @@ test('preview handles empty, single-point, closed, and offscreen routes without 
   const points = Array.from({ length: 4 }, () => ({ x: 100, y: 100 }));
   const before = structuredClone(points);
   const layout = getRouteMarkerLayout(points, 1, 2, undefined, preview);
-  assert.deepEqual([...layout.visiblePoints], [0, 3]);
+  assert.deepEqual([...layout.visiblePoints], [1, 0, 3]);
   assert.notDeepEqual(layout.offsets[0], layout.offsets[3]);
   assert.deepEqual(points, before);
   const offscreen = getRouteMarkerLayout(
@@ -275,7 +277,7 @@ test('preview handles empty, single-point, closed, and offscreen routes without 
     { width: 600, height: 400 },
     preview,
   );
-  assert.equal(offscreen.visiblePoints.size, 0);
+  assert.deepEqual([...offscreen.visiblePoints], [1]);
 });
 
 test('zoom changes ordinary label density while keeping priority labels and hit areas', () => {

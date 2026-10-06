@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { AndroidQrLoginPanel } from '@/components/dashboard/AndroidQrLoginPanel';
 import { ChangePasswordForm } from '@/components/dashboard/ChangePasswordForm';
@@ -10,6 +11,7 @@ import {
 } from '@/components/dashboard/oidcLinkState';
 import { useDashboardAuth } from '@/components/dashboard/useDashboardAuth';
 import { formatError } from '@/components/dashboard/utils';
+import { ArrowLeftIcon } from '@/components/ui/icons';
 import { Button, ConfirmDialog, DialogFrame, TextInput } from '@/components/ui/radix-ui';
 import { WorkspaceHeader } from '@/components/WorkspaceHeader';
 import type {
@@ -55,6 +57,13 @@ export default function AccountSecurityPage() {
   const [oidcCurrentPassword, setOidcCurrentPassword] = useState('');
   const loadGenerationRef = useRef(0);
   const passwordTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const shouldRestorePasswordFocusRef = useRef(false);
+
+  useEffect(() => {
+    if (isPasswordOpen || isPasswordSaving || !shouldRestorePasswordFocusRef.current) return;
+    shouldRestorePasswordFocusRef.current = false;
+    passwordTriggerRef.current?.focus();
+  }, [isPasswordOpen, isPasswordSaving]);
 
   const loadSecurityData = useCallback(() => {
     if (!auth.isAuthenticated) {
@@ -251,9 +260,16 @@ export default function AccountSecurityPage() {
         onRefresh={loadSecurityData}
       />
       <div className="account-security-shell">
+        <Link className="account-security-back" href="/dashboard/map">
+          <ArrowLeftIcon aria-hidden /> Back to workspace
+        </Link>
+        <nav className="account-section-nav" aria-label="Account security sections">
+          <a href="#sign-in-heading">Sign-in methods</a>
+          <a href="#sessions-heading">Active sessions</a>
+          <a href="#devices-heading">Android devices</a>
+        </nav>
         <header className="account-security-header">
           <div>
-            <p className="eyebrow">Account</p>
             <h1>Account security</h1>
             <p className="muted no-margin">
               Manage sign-in methods, active sessions, and remote-control devices.
@@ -279,7 +295,6 @@ export default function AccountSecurityPage() {
           >
             <div className="account-security-section-header">
               <div>
-                <p className="eyebrow">Authentication</p>
                 <h2 id="sign-in-heading">Sign-in methods</h2>
               </div>
               {oidcLinkStatus?.linked ? (
@@ -322,24 +337,45 @@ export default function AccountSecurityPage() {
                 ref={passwordTriggerRef}
                 className="secondary"
                 type="button"
-                onClick={() => setIsPasswordOpen(true)}
+                aria-expanded={isPasswordOpen}
+                aria-controls="account-password-form"
+                disabled={isPasswordSaving}
+                onClick={() => setIsPasswordOpen((open) => !open)}
               >
                 Change password
               </Button>
             </div>
+            {isPasswordOpen ? (
+              <div id="account-password-form" className="account-password-expansion">
+                <ChangePasswordForm
+                  username={auth.session.user.username}
+                  onCancel={() => {
+                    shouldRestorePasswordFocusRef.current = true;
+                    setIsPasswordOpen(false);
+                  }}
+                  onSuccess={() => {
+                    shouldRestorePasswordFocusRef.current = true;
+                    setIsPasswordOpen(false);
+                    setNotice(
+                      'Password changed successfully. Use your new password next time you sign in.',
+                    );
+                  }}
+                  onChangePassword={async (input) => {
+                    setIsPasswordSaving(true);
+                    try {
+                      await changePassword(input);
+                    } finally {
+                      setIsPasswordSaving(false);
+                    }
+                  }}
+                />
+              </div>
+            ) : null}
           </section>
-
-          <AndroidQrLoginPanel
-            key={auth.session.session.id}
-            apiRequest={auth.apiRequest}
-            enabled={androidQrLoginEnabled}
-            username={auth.session.user.username}
-          />
 
           <section className="panel account-security-panel" aria-labelledby="sessions-heading">
             <div className="account-security-section-header">
               <div>
-                <p className="eyebrow">Authentication</p>
                 <h2 id="sessions-heading">Active sessions</h2>
               </div>
               <Button
@@ -388,10 +424,16 @@ export default function AccountSecurityPage() {
             ) : null}
           </section>
 
+          <AndroidQrLoginPanel
+            key={auth.session.session.id}
+            apiRequest={auth.apiRequest}
+            enabled={androidQrLoginEnabled}
+            username={auth.session.user.username}
+          />
+
           <section className="panel account-security-panel" aria-labelledby="devices-heading">
             <div className="account-security-section-header">
               <div>
-                <p className="eyebrow">Remote control</p>
                 <h2 id="devices-heading">Android devices</h2>
               </div>
             </div>
@@ -420,30 +462,6 @@ export default function AccountSecurityPage() {
             </div>
           </section>
         </div>
-
-        <DialogFrame
-          description="Confirm your current password and choose a new one."
-          open={isPasswordOpen}
-          restoreFocusElement={passwordTriggerRef.current}
-          title="Change password"
-          onOpenChange={(open) => {
-            if (!isPasswordSaving) setIsPasswordOpen(open);
-          }}
-        >
-          {isPasswordOpen ? (
-            <ChangePasswordForm
-              onChangePassword={async (input) => {
-                setIsPasswordSaving(true);
-                try {
-                  await changePassword(input);
-                } finally {
-                  setIsPasswordSaving(false);
-                }
-              }}
-              username={auth.session.user.username}
-            />
-          ) : null}
-        </DialogFrame>
 
         <DialogFrame
           description={`Enter your current Kestrel password, then authenticate with ${oidcLinkStatus?.displayName ?? 'the OIDC provider'}.`}

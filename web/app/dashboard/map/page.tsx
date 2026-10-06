@@ -15,9 +15,11 @@ import { PlaceRemoteControlAction } from '@/components/dashboard/RemoteControlPa
 import RouteEditor from '@/components/dashboard/RouteEditor';
 import {
   createRouteDraftState,
+  getSelectedWaypointIndex,
   isRouteDraftDirty,
   type RouteDraftState,
   rebaseRouteDraftAfterSave,
+  refreshRouteDraftFromRoute,
   replaceRoutePath,
   resetRouteDraft,
 } from '@/components/dashboard/routeDraftState';
@@ -87,7 +89,9 @@ export default function DashboardMapPage() {
   const [routeDraftState, setRouteDraftState] = useState<RouteDraftState>(() =>
     createRouteDraftState(null),
   );
-  const [selectedWaypointIndex, setSelectedWaypointIndex] = useState<number | null>(null);
+  const [selectedWaypointId, setSelectedWaypointId] = useState<string | null>(null);
+  const [isPointEditing, setIsPointEditing] = useState(false);
+  const [isAddingWaypoint, setIsAddingWaypoint] = useState(false);
   const [hoveredWaypointIndex, setHoveredWaypointIndex] = useState<number | null>(null);
   const [focusTarget, setFocusTarget] = useState<RouteWaypoint | null>(null);
   const [fitRequest, setFitRequest] = useState(0);
@@ -118,6 +122,27 @@ export default function DashboardMapPage() {
   const lastUpdatedLabel = useRelativeUpdatedLabel(lastLoadedAt);
   const isRouteDirty = isRouteDraftDirty(routeDraftState);
   const draftWaypoints = routeDraftState.draft.waypoints;
+  const selectedWaypointIndex = getSelectedWaypointIndex(draftWaypoints, selectedWaypointId);
+  function setSelectedWaypointIndex(index: number | null) {
+    setSelectedWaypointId(index == null ? null : (draftWaypoints[index]?.draftId ?? null));
+  }
+
+  useEffect(() => {
+    if (!isPointEditing) setIsAddingWaypoint(false);
+  }, [isPointEditing]);
+  useEffect(() => {
+    if (!isAddingWaypoint) return;
+    const cancelAdding = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsAddingWaypoint(false);
+    };
+    window.addEventListener('keydown', cancelAdding);
+    return () => window.removeEventListener('keydown', cancelAdding);
+  }, [isAddingWaypoint]);
+  useEffect(() => {
+    void selectedRouteId;
+    setIsAddingWaypoint(false);
+    setIsPointEditing(false);
+  }, [selectedRouteId]);
   const hasDirtyDraft = isRouteDirty || isPlaceDirty;
 
   useEffect(() => {
@@ -165,9 +190,9 @@ export default function DashboardMapPage() {
     const isRouteSelectionChange = routeDraftRouteIdRef.current !== routeId;
     routeDraftRouteIdRef.current = routeId;
     setRouteDraftState((currentState) =>
-      isRouteSelectionChange || !isRouteDraftDirty(currentState)
+      isRouteSelectionChange
         ? createRouteDraftState(selectedRoute)
-        : currentState,
+        : refreshRouteDraftFromRoute(currentState, selectedRoute),
     );
 
     if (!isRouteSelectionChange) {
@@ -175,7 +200,7 @@ export default function DashboardMapPage() {
     }
 
     const nextWaypoints = getRouteWaypoints(selectedRoute);
-    setSelectedWaypointIndex(null);
+    setSelectedWaypointId(null);
     setHoveredWaypointIndex(null);
     setFocusTarget(null);
 
@@ -368,6 +393,11 @@ export default function DashboardMapPage() {
   }
 
   function resetDraftState() {
+    setIsAddingWaypoint(false);
+    setIsPointEditing(false);
+    setSelectedWaypointId(null);
+    setHoveredWaypointIndex(null);
+    setFocusTarget(null);
     setRouteDraftState(resetRouteDraft);
     setIsPlaceDirty(false);
     setIsNewRoute(false);
@@ -408,18 +438,21 @@ export default function DashboardMapPage() {
         fitRequest={fitRequest}
         focusTarget={focusTarget}
         hoveredWaypointIndex={hoveredWaypointIndex}
-        isEditing={routeSection === 'path'}
+        isEditing={isPointEditing}
+        isAdding={isAddingWaypoint}
         selectedWaypointIndex={selectedWaypointIndex}
         waypoints={draftWaypoints}
         onCapabilityChange={setRouteMapCapability}
-        onChange={(waypoints) => setRouteDraftState((state) => replaceRoutePath(state, waypoints))}
+        onChange={(waypoints) => {
+          const next = replaceRoutePath(routeDraftState, waypoints);
+          setRouteDraftState(next);
+          if (waypoints.length > draftWaypoints.length) {
+            setSelectedWaypointId(next.draft.waypoints.at(-1)?.draftId ?? null);
+          }
+        }}
         onHoverWaypoint={setHoveredWaypointIndex}
         onReady={setViewportControls}
-        onSelectWaypoint={(index) => {
-          setSelectedWaypointIndex(index);
-          const waypoint = draftWaypoints[index];
-          if (waypoint != null) setFocusTarget({ ...waypoint });
-        }}
+        onSelectWaypoint={setSelectedWaypointIndex}
       />
     );
   const selectedLabel =
@@ -497,7 +530,16 @@ export default function DashboardMapPage() {
               routeMapCapability={routeMapCapability}
               selectedWaypointIndex={selectedWaypointIndex}
               section={routeSection}
-              onSectionChange={setRouteSection}
+              onSectionChange={(section) => {
+                setRouteSection(section);
+                setIsAddingWaypoint(false);
+                if (section === 'playback') setIsPointEditing(false);
+              }}
+              isPointEditing={isPointEditing}
+              isAddingWaypoint={isAddingWaypoint}
+              onPointEditingChange={setIsPointEditing}
+              onAddingWaypointChange={setIsAddingWaypoint}
+              onSelectedWaypointIdChange={setSelectedWaypointId}
               setDraftState={setRouteDraftState}
               onBeforeNavigateAway={() => {
                 navigateIfDraftSafe('/dashboard/library/places');
@@ -714,7 +756,7 @@ function MapLibraryPanel({
                     <CheckIcon />
                   </span>
                 ) : null}
-                <strong>{place.name}</strong>
+                <strong title={place.name}>{place.name}</strong>
                 <span className="font-mono">
                   {formatCoord(place.latitude)}, {formatCoord(place.longitude)}
                 </span>
@@ -733,7 +775,9 @@ function MapLibraryPanel({
                     <CheckIcon />
                   </span>
                 ) : null}
-                <strong className="route-card-title">{route.name}</strong>
+                <strong className="route-card-title" title={route.name}>
+                  {route.name}
+                </strong>
                 <span className="route-card-meta-line">
                   {formatRouteDistanceFromWaypoints(route.currentRevision?.waypoints ?? [])} ·{' '}
                   {formatMode(route.mode)}

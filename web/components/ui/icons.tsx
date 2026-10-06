@@ -1,5 +1,6 @@
 import {
   ArrowDownIcon as RadixArrowDownIcon,
+  ArrowLeftIcon as RadixArrowLeftIcon,
   ArrowRightIcon as RadixArrowRightIcon,
   ArrowUpIcon as RadixArrowUpIcon,
   BorderLeftIcon as RadixBorderLeftIcon,
@@ -44,6 +45,7 @@ function createIcon(Glyph: RadixIcon) {
 }
 
 export const ArrowDownIcon = createIcon(RadixArrowDownIcon);
+export const ArrowLeftIcon = createIcon(RadixArrowLeftIcon);
 export const ArrowRightIcon = createIcon(RadixArrowRightIcon);
 export const ArrowUpIcon = createIcon(RadixArrowUpIcon);
 export const BorderLeftIcon = createIcon(RadixBorderLeftIcon);
