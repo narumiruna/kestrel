@@ -9,9 +9,11 @@ import {
   getRouteValidation,
   getSelectedWaypointIndex,
   insertRouteWaypointAfter,
+  isRouteDraftDirty,
   moveRouteWaypoint,
   rebaseRouteDraftAfterSave,
   redoRoutePath,
+  refreshRouteDraftFromRoute,
   removeRouteWaypoint,
   resetRouteDraft,
   reverseRoute,
@@ -79,7 +81,9 @@ const route: Route = {
   updatedAt: '2026-08-10T00:00:00.000Z',
 };
 
-function createSavedRoute(name: string): Route {
+function createSavedRoute(name: string): Route & {
+  currentRevision: NonNullable<Route['currentRevision']>;
+} {
   if (route.currentRevision == null) {
     throw new Error('route fixture must include a revision');
   }
@@ -277,9 +281,83 @@ test('accepts the saved response as a clean baseline when no later edits exist',
   const rebasedState = rebaseRouteDraftAfterSave(submittedState, submittedState, savedRoute);
 
   assert.equal(rebasedState.draft.name, 'Submitted route');
-  assert.equal(rebasedState.draft.waypoints[0].draftId, 'revision-4:0');
+  assert.equal(rebasedState.draft.waypoints[0].draftId, submittedState.draft.waypoints[0].draftId);
+  assert.equal(isRouteDraftDirty(rebasedState), false);
   assert.deepEqual(rebasedState.pastPaths, []);
   assert.deepEqual(rebasedState.futurePaths, []);
+});
+
+test('selection survives saving a locally added waypoint and the following refresh', () => {
+  const submittedState = addRouteWaypoint(createRouteDraftState(route), {
+    latitude: 25.05,
+    longitude: 121.58,
+  });
+  const selectedId = submittedState.draft.waypoints[2].draftId;
+  const savedRoute = createSavedRoute(route.name);
+  savedRoute.currentRevision.waypoints = toRouteInput(submittedState.draft).waypoints.map(
+    (waypoint, sequence) => ({ ...waypoint, sequence }),
+  );
+
+  const rebased = rebaseRouteDraftAfterSave(submittedState, submittedState, savedRoute);
+  const refreshed = refreshRouteDraftFromRoute(rebased, savedRoute);
+  assert.equal(getSelectedWaypointIndex(rebased.draft.waypoints, selectedId), 2);
+  assert.equal(getSelectedWaypointIndex(refreshed.draft.waypoints, selectedId), 2);
+  assert.equal(isRouteDraftDirty(refreshed), false);
+  assert.deepEqual(refreshed.draft.waypoints, refreshed.baseline.waypoints);
+  assert.equal(submittedState.draft.waypoints[2].draftId, selectedId);
+});
+
+test('save preserves later reorder selection and the identities restored by undo', () => {
+  const submittedState = setRouteDraftField(createRouteDraftState(route), 'name', 'Submitted');
+  const selectedId = submittedState.draft.waypoints[0].draftId;
+  const currentState = moveRouteWaypoint(submittedState, 0, 1);
+  const savedRoute = createSavedRoute('Submitted');
+  const rebased = rebaseRouteDraftAfterSave(currentState, submittedState, savedRoute);
+
+  assert.equal(getSelectedWaypointIndex(rebased.draft.waypoints, selectedId), 1);
+  assert.equal(refreshRouteDraftFromRoute(rebased, savedRoute), rebased);
+  const undone = undoRoutePath(rebased);
+  assert.equal(getSelectedWaypointIndex(undone.draft.waypoints, selectedId), 0);
+  assert.equal(isRouteDraftDirty(undone), false);
+  const redone = redoRoutePath(undone);
+  assert.equal(getSelectedWaypointIndex(redone.draft.waypoints, selectedId), 1);
+});
+
+test('clean refresh retains identities for unchanged paths but not unrelated changed paths', () => {
+  const state = createRouteDraftState(route);
+  const selectedId = state.draft.waypoints[1].draftId;
+  const savedRoute = createSavedRoute('Externally renamed');
+  const refreshed = refreshRouteDraftFromRoute(state, savedRoute);
+  assert.equal(refreshed.draft.name, 'Externally renamed');
+  assert.equal(getSelectedWaypointIndex(refreshed.draft.waypoints, selectedId), 1);
+  assert.equal(isRouteDraftDirty(refreshed), false);
+
+  savedRoute.currentRevision.waypoints = [...savedRoute.currentRevision.waypoints].reverse();
+  const changed = refreshRouteDraftFromRoute(refreshed, savedRoute);
+  assert.equal(getSelectedWaypointIndex(changed.draft.waypoints, selectedId), null);
+  assert.equal(changed.draft.waypoints[0].latitude, state.draft.waypoints[1].latitude);
+});
+
+test('new-route save and refresh preserve selected IDs and collision-free allocation', () => {
+  let submittedState = createRouteDraftState(null);
+  submittedState = setRouteDraftField(submittedState, 'name', 'New route');
+  submittedState = addRouteWaypoint(submittedState, { latitude: 25, longitude: 121 });
+  submittedState = addRouteWaypoint(submittedState, { latitude: 26, longitude: 122 });
+  submittedState = { ...submittedState, nextWaypointId: 9 };
+  const input = toRouteInput(submittedState.draft);
+  const savedRoute = { ...createSavedRoute(input.name), ...input };
+  savedRoute.currentRevision.waypoints = input.waypoints.map((waypoint, sequence) => ({
+    ...waypoint,
+    sequence,
+  }));
+  const selectedId = submittedState.draft.waypoints[1].draftId;
+  const rebased = rebaseRouteDraftAfterSave(submittedState, submittedState, savedRoute);
+  const refreshed = refreshRouteDraftFromRoute(rebased, savedRoute);
+  const extended = addRouteWaypoint(refreshed, { latitude: 27, longitude: 123 });
+  assert.equal(getSelectedWaypointIndex(refreshed.draft.waypoints, selectedId), 1);
+  assert.equal(isRouteDraftDirty(refreshed), false);
+  assert.equal(extended.draft.waypoints[2].draftId, 'draft-9');
+  assert.equal(new Set(extended.draft.waypoints.map((point) => point.draftId)).size, 3);
 });
 
 test('upserts a successful route response before a list refresh', () => {

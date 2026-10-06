@@ -19,6 +19,7 @@ import {
   isRouteDraftDirty,
   type RouteDraftState,
   rebaseRouteDraftAfterSave,
+  refreshRouteDraftFromRoute,
   replaceRoutePath,
   resetRouteDraft,
 } from '@/components/dashboard/routeDraftState';
@@ -189,9 +190,9 @@ export default function DashboardMapPage() {
     const isRouteSelectionChange = routeDraftRouteIdRef.current !== routeId;
     routeDraftRouteIdRef.current = routeId;
     setRouteDraftState((currentState) =>
-      isRouteSelectionChange || !isRouteDraftDirty(currentState)
+      isRouteSelectionChange
         ? createRouteDraftState(selectedRoute)
-        : currentState,
+        : refreshRouteDraftFromRoute(currentState, selectedRoute),
     );
 
     if (!isRouteSelectionChange) {
