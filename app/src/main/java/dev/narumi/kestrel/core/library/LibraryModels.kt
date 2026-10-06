@@ -87,6 +87,7 @@ fun LibraryItemWithContent.description(): String {
             val target = place ?: return "—"
             "%.5f, %.5f".format(target.lat, target.lng)
         }
+
         LibraryItemKind.Route -> {
             val targetRoute = route ?: return "Route"
             "Route · ${waypoints.size} waypoints · ${targetRoute.defaultSpeedKmh.toInt()} km/h · ${targetRoute.mode}"
@@ -96,18 +97,24 @@ fun LibraryItemWithContent.description(): String {
 
 fun List<LibraryItemWithContent>.sortedFor(sortMode: FavoritesSortMode.Mode): List<LibraryItemWithContent> =
     when (sortMode) {
-        FavoritesSortMode.Mode.Manual -> sortedWith(compareByManualOrder())
-        FavoritesSortMode.Mode.Recent ->
+        FavoritesSortMode.Mode.Manual -> {
+            sortedWith(compareByManualOrder())
+        }
+
+        FavoritesSortMode.Mode.Recent -> {
             sortedWith(
                 compareByDescending<LibraryItemWithContent> { it.item.lastUsedAt ?: Long.MIN_VALUE }
                     .thenBy { it.name.lowercase() },
             )
-        FavoritesSortMode.Mode.Alphabetical ->
+        }
+
+        FavoritesSortMode.Mode.Alphabetical -> {
             sortedWith(
                 compareBy<LibraryItemWithContent> { it.name.lowercase() }
                     .thenBy { it.item.sortOrder }
                     .thenBy { it.item.createdAt },
             )
+        }
     }
 
 fun FavoritesSortMode.Mode.label(): String =

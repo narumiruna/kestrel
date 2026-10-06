@@ -51,7 +51,7 @@ private fun StatusRow(
 ) {
     val (statusIcon, title, subtitle) =
         when (runState) {
-            RunState.Idle ->
+            RunState.Idle -> {
                 Triple(
                     if (waypointCount > 1) KestrelIcons.RouteFilled else KestrelIcons.MyLocation,
                     when (waypointCount) {
@@ -65,24 +65,31 @@ private fun StatusRow(
                         else -> "Preview only · Start when you’re ready."
                     },
                 )
-            RunState.Single ->
+            }
+
+            RunState.Single -> {
                 Triple(
                     KestrelIcons.MyLocation,
                     "Mocking single point",
                     mockNow?.let { "%.5f, %.5f".format(it.lat, it.lng) } ?: "—",
                 )
-            RunState.RoutePlaying ->
+            }
+
+            RunState.RoutePlaying -> {
                 Triple(
                     KestrelIcons.Play,
                     "Route playing",
                     formatRouteStatusDetails(waypointCount, speedKmh, routeMode),
                 )
-            RunState.RoutePaused ->
+            }
+
+            RunState.RoutePaused -> {
                 Triple(
                     KestrelIcons.Pause,
                     "Route paused",
                     formatRouteStatusDetails(waypointCount, speedKmh, routeMode),
                 )
+            }
         }
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -139,13 +146,16 @@ private fun PrimaryActionRow(
                 )
             }
         }
-        RunState.Single ->
+
+        RunState.Single -> {
             Button(
                 onClick = onStop,
                 enabled = !operationPending,
                 modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
             ) { Text(if (operationPending) "Stopping…" else "Stop mock") }
-        RunState.RoutePlaying, RunState.RoutePaused ->
+        }
+
+        RunState.RoutePlaying, RunState.RoutePaused -> {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Button(
                     onClick = onPrimary,
@@ -166,5 +176,6 @@ private fun PrimaryActionRow(
                     modifier = Modifier.weight(1f).heightIn(min = 48.dp),
                 ) { Text("Stop") }
             }
+        }
     }
 }

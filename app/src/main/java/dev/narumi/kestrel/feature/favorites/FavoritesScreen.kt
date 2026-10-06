@@ -105,7 +105,10 @@ fun FavoritesScreen(
                         operationMessage = successMessage
                         onSuccess()
                     }
-                    is PersistedActionResult.Failure -> operationError = result.message
+
+                    is PersistedActionResult.Failure -> {
+                        operationError = result.message
+                    }
                 }
             } finally {
                 operationBusy = false

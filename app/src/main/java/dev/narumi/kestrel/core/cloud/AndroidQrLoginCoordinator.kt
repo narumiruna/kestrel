@@ -161,13 +161,17 @@ internal class AndroidQrLoginCoordinator(
                             ),
                     )
             ) {
-                is AndroidQrExchangeResult.Pending ->
+                is AndroidQrExchangeResult.Pending -> {
                     AndroidQrLoginProgress.Waiting(
                         details = attempt.toDetails(),
                         retryAfterSeconds =
                             maxOf(attempt.pollIntervalSeconds, result.retryAfterSeconds),
                     )
-                is AndroidQrExchangeResult.Complete -> complete(attempt, result.session)
+                }
+
+                is AndroidQrExchangeResult.Complete -> {
+                    complete(attempt, result.session)
+                }
             }
         } catch (failure: CloudApiException) {
             handleTerminalFailure(attempt, failure)
@@ -203,15 +207,20 @@ internal class AndroidQrLoginCoordinator(
                 attemptStore.compareAndClear(attempt)
                 AndroidQrLoginProgress.Denied
             }
+
             HTTP_GONE -> {
                 attemptStore.compareAndClear(attempt)
                 AndroidQrLoginProgress.Expired
             }
+
             HTTP_BAD_REQUEST, HTTP_CONFLICT -> {
                 attemptStore.compareAndClear(attempt)
                 throw failure
             }
-            else -> throw failure
+
+            else -> {
+                throw failure
+            }
         }
 }
 

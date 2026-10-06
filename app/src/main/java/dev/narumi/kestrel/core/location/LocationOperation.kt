@@ -26,7 +26,7 @@ internal fun parseRouteSettingsUpdate(
     modeName: String?,
 ): RouteSettingsUpdate {
     require(speedKmh != null || modeName != null) { "Choose a speed or playback mode to change." }
-    require(speedKmh == null || speedKmh.isFinite() && speedKmh > 0.0) {
+    require(speedKmh == null || (speedKmh.isFinite() && speedKmh > 0.0)) {
         "Route speed must be a finite number greater than zero km/h."
     }
     val mode =
@@ -42,11 +42,21 @@ internal fun validateRouteRequest(
     speedKmh: Double,
 ): String? =
     when {
-        waypoints.size < 2 -> "A route needs at least two waypoints."
-        waypoints.any { !it.lat.isFinite() || !it.lng.isFinite() || it.lat !in -90.0..90.0 || it.lng !in -180.0..180.0 } ->
+        waypoints.size < 2 -> {
+            "A route needs at least two waypoints."
+        }
+
+        waypoints.any { !it.lat.isFinite() || !it.lng.isFinite() || it.lat !in -90.0..90.0 || it.lng !in -180.0..180.0 } -> {
             "Every waypoint must contain valid latitude and longitude values."
-        !speedKmh.isFinite() || speedKmh <= 0.0 -> "Route speed must be greater than zero."
-        else -> null
+        }
+
+        !speedKmh.isFinite() || speedKmh <= 0.0 -> {
+            "Route speed must be greater than zero."
+        }
+
+        else -> {
+            null
+        }
     }
 
 internal fun mockOperationErrorMessage(
@@ -54,12 +64,19 @@ internal fun mockOperationErrorMessage(
     previousMockActive: Boolean,
 ): String =
     when (error) {
-        is SecurityException -> "Kestrel could not use mock location. Recheck permissions and the selected mock-location app."
-        is IllegalArgumentException -> error.message ?: "The mock-location request is invalid."
-        else ->
+        is SecurityException -> {
+            "Kestrel could not use mock location. Recheck permissions and the selected mock-location app."
+        }
+
+        is IllegalArgumentException -> {
+            error.message ?: "The mock-location request is invalid."
+        }
+
+        else -> {
             if (previousMockActive) {
                 "Kestrel could not apply the mock location. The previous mock is still active; try again."
             } else {
                 "Kestrel could not apply the mock location. No mock was started; try again."
             }
+        }
     }

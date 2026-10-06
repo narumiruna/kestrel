@@ -346,4 +346,4 @@ _require-web-deps:
 
 [private]
 _require-backend-deps:
-    @test -x backend/node_modules/.bin/eslint && test -x backend/node_modules/.bin/jest && test -x backend/node_modules/.bin/nest && test -x backend/node_modules/.bin/prisma || { printf '%s\n' 'Backend dependencies are missing. Run: just backend-install' >&2; exit 1; }
+    @test -x backend/node_modules/.bin/eslint && test -x backend/node_modules/.bin/jest && test -x backend/node_modules/.bin/tsc && test -x backend/node_modules/.bin/prisma || { printf '%s\n' 'Backend dependencies are missing. Run: just backend-install' >&2; exit 1; }

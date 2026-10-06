@@ -31,11 +31,18 @@ internal fun mapWorkflowPhase(
 
 internal fun currentMockSummary(runtime: RuntimeState): String =
     when (runtime) {
-        RuntimeState.Idle -> "No mock is active"
-        is RuntimeState.Single -> "Point · %.5f, %.5f".format(runtime.point.lat, runtime.point.lng)
-        is RuntimeState.Route ->
+        RuntimeState.Idle -> {
+            "No mock is active"
+        }
+
+        is RuntimeState.Single -> {
+            "Point · %.5f, %.5f".format(runtime.point.lat, runtime.point.lng)
+        }
+
+        is RuntimeState.Route -> {
             "Route · ${runtime.waypoints.size} waypoints · ${runtime.speedKmh.toWorkflowSpeed()} · " +
                 runtime.mode.toWorkflowLabel()
+        }
     }
 
 internal fun runtimeMatchesDraft(
@@ -45,12 +52,19 @@ internal fun runtimeMatchesDraft(
     routeMode: MovementEngine.Mode,
 ): Boolean =
     when (runtime) {
-        RuntimeState.Idle -> false
-        is RuntimeState.Single -> waypoints.singleOrNull() == runtime.point
-        is RuntimeState.Route ->
+        RuntimeState.Idle -> {
+            false
+        }
+
+        is RuntimeState.Single -> {
+            waypoints.singleOrNull() == runtime.point
+        }
+
+        is RuntimeState.Route -> {
             runtime.waypoints == waypoints &&
                 runtime.speedKmh == speedKmh &&
                 runtime.mode == routeMode
+        }
     }
 
 internal fun previewSummary(

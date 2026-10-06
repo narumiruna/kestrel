@@ -126,6 +126,7 @@ internal class CloudAuthRepository private constructor(
                 }
                 error("OIDC sign-in failed")
             }
+
             is OidcCallback.Success -> {
                 val resumableAttempt = attempt.copy(exchangeTicket = callback.exchangeTicket)
                 check(oidcAttemptStore.compareAndSet(attempt, resumableAttempt)) {

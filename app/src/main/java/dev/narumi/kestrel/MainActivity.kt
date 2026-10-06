@@ -288,7 +288,7 @@ private fun AppDestinationContent(
     modifier: Modifier,
 ) {
     when (currentDestination) {
-        AppDestinations.HOME ->
+        AppDestinations.HOME -> {
             MapScreen(
                 modifier = modifier,
                 pendingFavoriteApply = pendingFavoriteApply,
@@ -297,18 +297,23 @@ private fun AppDestinationContent(
                 onMapLinkPointConsumed = onMapLinkPointConsumed,
                 onViewAllFavorites = onShowFavorites,
             )
-        AppDestinations.FAVORITES ->
+        }
+
+        AppDestinations.FAVORITES -> {
             FavoritesScreen(
                 modifier = modifier,
                 onApplyToMap = onApplyFavorite,
                 onChooseOnMap = onShowMap,
             )
-        AppDestinations.SETTINGS ->
+        }
+
+        AppDestinations.SETTINGS -> {
             OptionsScreen(
                 pendingOidcCallback = pendingOidcCallback,
                 onOidcCallbackConsumed = onOidcCallbackConsumed,
                 modifier = modifier,
             )
+        }
     }
 }
 

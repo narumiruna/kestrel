@@ -113,43 +113,58 @@ internal fun AndroidQrLoginContent(
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         when (state) {
-            AndroidQrLoginUiState.Restoring -> StatusText("Checking for a saved QR sign-in…")
-            AndroidQrLoginUiState.Idle -> IdleQrLoginContent(enabled, onScan)
-            AndroidQrLoginUiState.OpeningScanner ->
+            AndroidQrLoginUiState.Restoring -> {
+                StatusText("Checking for a saved QR sign-in…")
+            }
+
+            AndroidQrLoginUiState.Idle -> {
+                IdleQrLoginContent(enabled, onScan)
+            }
+
+            AndroidQrLoginUiState.OpeningScanner -> {
                 StatusText("Opening the QR scanner. Google Play services may download the scanner module.")
-            AndroidQrLoginUiState.Claiming -> StatusText("Checking the server and claiming this one-time code…")
-            is AndroidQrLoginUiState.Confirmation ->
+            }
+
+            AndroidQrLoginUiState.Claiming -> {
+                StatusText("Checking the server and claiming this one-time code…")
+            }
+
+            is AndroidQrLoginUiState.Confirmation -> {
                 QrLoginConfirmationContent(
                     details = state.details,
                     waiting = false,
                     onConfirm = onConfirm,
                     onCancel = onCancel,
                 )
-            is AndroidQrLoginUiState.Confirming ->
-                QrLoginConfirmationContent(
-                    details = state.details,
-                    waiting = true,
-                    onConfirm = onConfirm,
-                    onCancel = onCancel,
-                )
-            is AndroidQrLoginUiState.Waiting ->
-                QrLoginConfirmationContent(
-                    details = state.details,
-                    waiting = true,
-                    onConfirm = onConfirm,
-                    onCancel = onCancel,
-                )
-            is AndroidQrLoginUiState.Error -> {
-                ErrorText(state.message)
-                KestrelActionRow {
-                    Button(onClick = onRetry, enabled = enabled) { Text("Retry") }
-                    OutlinedButton(onClick = onCancel) { Text("Cancel") }
-                }
             }
+
+            is AndroidQrLoginUiState.Confirming -> {
+                QrLoginConfirmationContent(
+                    details = state.details,
+                    waiting = true,
+                    onConfirm = onConfirm,
+                    onCancel = onCancel,
+                )
+            }
+
+            is AndroidQrLoginUiState.Waiting -> {
+                QrLoginConfirmationContent(
+                    details = state.details,
+                    waiting = true,
+                    onConfirm = onConfirm,
+                    onCancel = onCancel,
+                )
+            }
+
+            is AndroidQrLoginUiState.Error -> {
+                RetryQrLoginContent(state.message, enabled, onRetry, onCancel)
+            }
+
             AndroidQrLoginUiState.ScannerUnavailable -> {
                 ErrorText("Google Play services is unavailable. Use password or browser sign-in instead.")
                 OutlinedButton(onClick = onCancel, modifier = Modifier.fillMaxWidth()) { Text("Dismiss") }
             }
+
             AndroidQrLoginUiState.ScannerDownloadFailed -> {
                 ErrorText("The QR scanner could not download. Check Google Play services and your network, then retry.")
                 KestrelActionRow {
@@ -157,10 +172,29 @@ internal fun AndroidQrLoginContent(
                     OutlinedButton(onClick = onCancel) { Text("Dismiss") }
                 }
             }
-            AndroidQrLoginUiState.Denied ->
+
+            AndroidQrLoginUiState.Denied -> {
                 TerminalQrLoginContent("The web sign-in was denied or cancelled.", enabled, onScan)
-            AndroidQrLoginUiState.Expired -> TerminalQrLoginContent("This QR code expired.", enabled, onScan)
+            }
+
+            AndroidQrLoginUiState.Expired -> {
+                TerminalQrLoginContent("This QR code expired.", enabled, onScan)
+            }
         }
+    }
+}
+
+@Composable
+private fun RetryQrLoginContent(
+    message: String,
+    enabled: Boolean,
+    onRetry: () -> Unit,
+    onCancel: () -> Unit,
+) {
+    ErrorText(message)
+    KestrelActionRow {
+        Button(onClick = onRetry, enabled = enabled) { Text("Retry") }
+        OutlinedButton(onClick = onCancel) { Text("Cancel") }
     }
 }
 

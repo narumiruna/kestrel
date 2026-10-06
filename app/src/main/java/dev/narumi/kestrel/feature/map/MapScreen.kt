@@ -145,16 +145,22 @@ internal fun reconcileMapRender(
     draftRouteMode: MovementEngine.Mode,
 ): MapRender =
     when (runtime) {
-        RuntimeState.Idle -> MapRender(RunState.Idle, draftWaypoints, draftSpeedKmh, draftRouteMode)
-        is RuntimeState.Single ->
+        RuntimeState.Idle -> {
+            MapRender(RunState.Idle, draftWaypoints, draftSpeedKmh, draftRouteMode)
+        }
+
+        is RuntimeState.Single -> {
             MapRender(RunState.Single, draftWaypoints, draftSpeedKmh, draftRouteMode)
-        is RuntimeState.Route ->
+        }
+
+        is RuntimeState.Route -> {
             MapRender(
                 runState = if (runtime.paused) RunState.RoutePaused else RunState.RoutePlaying,
                 waypoints = runtime.waypoints,
                 speedKmh = runtime.speedKmh,
                 routeMode = runtime.mode,
             )
+        }
     }
 
 /**
@@ -318,7 +324,11 @@ fun MapScreen(
             StartupPreference.Mode.Last -> {
                 prefs.lastCamera.first()?.let { cameraTarget = it }
             }
-            StartupPreference.Mode.Current -> awaitCurrentForStartup = true
+
+            StartupPreference.Mode.Current -> {
+                awaitCurrentForStartup = true
+            }
+
             StartupPreference.Mode.Favorite -> {
                 val currentItems = libraryRepository.items.first()
                 val startupItem =
@@ -553,19 +563,22 @@ fun MapScreen(
                                     failureMessage = "Could not save the Favorite. Check storage and try again.",
                                 ) {
                                     when (pending) {
-                                        is PendingFavorite.Point ->
+                                        is PendingFavorite.Point -> {
                                             libraryRepository.addPlace(
                                                 name = name,
                                                 lat = pending.target.lat,
                                                 lng = pending.target.lng,
                                             )
-                                        is PendingFavorite.Route ->
+                                        }
+
+                                        is PendingFavorite.Route -> {
                                             libraryRepository.addRoute(
                                                 name = name,
                                                 waypoints = pending.waypoints,
                                                 defaultSpeedKmh = pending.speedKmh,
                                                 mode = pending.mode.name,
                                             )
+                                        }
                                     }
                                 }
                         ) {
@@ -574,7 +587,10 @@ fun MapScreen(
                                 pendingFavorite = null
                                 favoriteName = ""
                             }
-                            is PersistedActionResult.Failure -> favoriteError = result.message
+
+                            is PersistedActionResult.Failure -> {
+                                favoriteError = result.message
+                            }
                         }
                     } finally {
                         favoriteSaving = false
@@ -645,12 +661,21 @@ fun MapScreen(
             onPlayingModeChange = { updateActiveRouteSettings(mode = it) },
             onPrimary = {
                 when (runState) {
-                    RunState.Idle -> if (waypoints.isEmpty()) showGenerateDialog = true else startDraftOperation()
-                    RunState.Single -> Unit
-                    RunState.RoutePlaying ->
+                    RunState.Idle -> {
+                        if (waypoints.isEmpty()) showGenerateDialog = true else startDraftOperation()
+                    }
+
+                    RunState.Single -> {
+                        Unit
+                    }
+
+                    RunState.RoutePlaying -> {
                         beginOperation(LocationService.pause(context), clearDraftOnSuccess = false)
-                    RunState.RoutePaused ->
+                    }
+
+                    RunState.RoutePaused -> {
                         beginOperation(LocationService.resume(context), clearDraftOnSuccess = false)
+                    }
                 }
             },
             onStop = { beginOperation(LocationService.stop(context), clearDraftOnSuccess = false) },
@@ -823,18 +848,24 @@ private fun GoToFavoritesSection(
         }
     }
     when {
-        itemsLoading -> Text("Loading Favorites…", color = MaterialTheme.colorScheme.onSurfaceVariant)
-        filteredItems.isEmpty() ->
+        itemsLoading -> {
+            Text("Loading Favorites…", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+
+        filteredItems.isEmpty() -> {
             Text(
                 "No Favorites match this filter. Choose a point on the map to create one.",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-        else ->
+        }
+
+        else -> {
             LazyColumn(modifier = Modifier.heightIn(max = 420.dp)) {
                 items(filteredItems, key = { it.item.id }) { item ->
                     GoToFavoriteRow(item = item, onClick = { onApplyItem(item) })
                 }
             }
+        }
     }
     OutlinedButton(
         onClick = onViewAllFavorites,
@@ -1060,14 +1091,21 @@ internal fun StatusBanner(
         }
     val message =
         when (setupStep) {
-            MapSetupStep.Permissions ->
+            MapSetupStep.Permissions -> {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     "Allow location and notifications so mock GPS can run."
                 } else {
                     "Allow location so mock GPS can run."
                 }
-            MapSetupStep.MockLocationApp -> "Open developer options and choose Kestrel as the mock location app."
-            MapSetupStep.Ready -> return
+            }
+
+            MapSetupStep.MockLocationApp -> {
+                "Open developer options and choose Kestrel as the mock location app."
+            }
+
+            MapSetupStep.Ready -> {
+                return
+            }
         }
     SetupPromptCard(
         setupStep = setupStep,
@@ -1111,6 +1149,7 @@ internal fun SetupPromptCard(
                             Text("Allow permissions")
                         }
                     }
+
                     MapSetupStep.MockLocationApp -> {
                         Button(onClick = onOpenDeveloperOptions) {
                             Text("Open developer options")
@@ -1119,7 +1158,10 @@ internal fun SetupPromptCard(
                             Text("Recheck")
                         }
                     }
-                    MapSetupStep.Ready -> Unit
+
+                    MapSetupStep.Ready -> {
+                        Unit
+                    }
                 }
             }
         }
@@ -1267,11 +1309,14 @@ private fun SaveFavoriteDialog(
 ) {
     val (title, supporting) =
         when (pending) {
-            is PendingFavorite.Point ->
+            is PendingFavorite.Point -> {
                 "Save favorite" to "%.5f, %.5f".format(pending.target.lat, pending.target.lng)
-            is PendingFavorite.Route ->
+            }
+
+            is PendingFavorite.Route -> {
                 "Save route" to
                     "${pending.waypoints.size} waypoints · ${pending.speedKmh.toInt()} km/h"
+            }
         }
     AlertDialog(
         onDismissRequest = onDismiss,

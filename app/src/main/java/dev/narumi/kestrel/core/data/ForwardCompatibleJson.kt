@@ -40,19 +40,25 @@ private fun mergeKnownValue(
     descriptor: SerialDescriptor,
 ): JsonElement =
     when (descriptor.kind) {
-        StructureKind.CLASS, StructureKind.OBJECT ->
+        StructureKind.CLASS, StructureKind.OBJECT -> {
             mergeObject(
                 previous = previous as? JsonObject,
                 encoded = encoded.jsonObject,
                 descriptor = descriptor,
             )
-        StructureKind.LIST ->
+        }
+
+        StructureKind.LIST -> {
             mergeList(
                 previous = previous as? JsonArray,
                 encoded = encoded as JsonArray,
                 descriptor = descriptor,
             )
-        else -> encoded
+        }
+
+        else -> {
+            encoded
+        }
     }
 
 @OptIn(ExperimentalSerializationApi::class)

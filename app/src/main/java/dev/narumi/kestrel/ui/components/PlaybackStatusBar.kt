@@ -34,14 +34,19 @@ internal enum class PlaybackBarAction { Pause, Resume }
 
 internal fun playbackBarPresentation(runtime: RuntimeState): PlaybackBarPresentation? =
     when (runtime) {
-        RuntimeState.Idle -> null
-        is RuntimeState.Single ->
+        RuntimeState.Idle -> {
+            null
+        }
+
+        is RuntimeState.Single -> {
             PlaybackBarPresentation(
                 title = "Mocking point",
                 details = "%.5f, %.5f".format(runtime.point.lat, runtime.point.lng),
                 primaryAction = null,
             )
-        is RuntimeState.Route ->
+        }
+
+        is RuntimeState.Route -> {
             PlaybackBarPresentation(
                 title = if (runtime.paused) "Route paused" else "Route playing",
                 details =
@@ -49,6 +54,7 @@ internal fun playbackBarPresentation(runtime: RuntimeState): PlaybackBarPresenta
                         runtime.mode.toBarLabel(),
                 primaryAction = if (runtime.paused) PlaybackBarAction.Resume else PlaybackBarAction.Pause,
             )
+        }
     }
 
 @Composable
