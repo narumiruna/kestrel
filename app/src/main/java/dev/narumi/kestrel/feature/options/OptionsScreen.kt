@@ -176,7 +176,10 @@ fun OptionsScreen(
                         settingsMessage = successMessage
                         onSuccess()
                     }
-                    is PersistedActionResult.Failure -> settingsError = result.message
+
+                    is PersistedActionResult.Failure -> {
+                        settingsError = result.message
+                    }
                 }
             } finally {
                 settingsBusy = false
@@ -319,9 +322,14 @@ private fun CloudSettingsSection(
     suspend fun applyAndroidQrProgress(progress: AndroidQrLoginProgress) {
         androidQrLoginState =
             when (progress) {
-                is AndroidQrLoginProgress.Confirmation -> AndroidQrLoginUiState.Confirmation(progress.details)
-                is AndroidQrLoginProgress.Waiting ->
+                is AndroidQrLoginProgress.Confirmation -> {
+                    AndroidQrLoginUiState.Confirmation(progress.details)
+                }
+
+                is AndroidQrLoginProgress.Waiting -> {
                     AndroidQrLoginUiState.Waiting(progress.details, progress.retryAfterSeconds)
+                }
+
                 is AndroidQrLoginProgress.Completed -> {
                     cloudSession = progress.session
                     loginForm = CloudLoginForm()
@@ -329,8 +337,14 @@ private fun CloudSettingsSection(
                     cloudMessage = "Signed in as ${progress.session.username} with a Web QR code"
                     AndroidQrLoginUiState.Idle
                 }
-                AndroidQrLoginProgress.Denied -> AndroidQrLoginUiState.Denied
-                AndroidQrLoginProgress.Expired -> AndroidQrLoginUiState.Expired
+
+                AndroidQrLoginProgress.Denied -> {
+                    AndroidQrLoginUiState.Denied
+                }
+
+                AndroidQrLoginProgress.Expired -> {
+                    AndroidQrLoginUiState.Expired
+                }
             }
     }
 
@@ -445,10 +459,12 @@ private fun CloudSettingsSection(
                     syncRepository.resolveConflictUseLocal(pending.conflict.id)
                     cloudMessage = "Kept this device's version"
                 }
+
                 ConflictResolutionChoice.KeepCloud -> {
                     syncRepository.resolveConflictUseCloud(pending.conflict.id)
                     cloudMessage = "Kept the cloud version"
                 }
+
                 ConflictResolutionChoice.KeepBoth -> {
                     syncRepository.resolveConflictKeepBoth(pending.conflict.id)
                     cloudMessage = "Kept both versions"
@@ -498,16 +514,26 @@ private fun CloudSettingsSection(
                             )
                     }
                 }
-                QrCodeScanResult.Cancelled -> androidQrLoginState = AndroidQrLoginUiState.Idle
-                QrCodeScanResult.ScannerDownloadFailed ->
+
+                QrCodeScanResult.Cancelled -> {
+                    androidQrLoginState = AndroidQrLoginUiState.Idle
+                }
+
+                QrCodeScanResult.ScannerDownloadFailed -> {
                     androidQrLoginState = AndroidQrLoginUiState.ScannerDownloadFailed
-                QrCodeScanResult.Unavailable -> androidQrLoginState = AndroidQrLoginUiState.ScannerUnavailable
-                is QrCodeScanResult.Failure ->
+                }
+
+                QrCodeScanResult.Unavailable -> {
+                    androidQrLoginState = AndroidQrLoginUiState.ScannerUnavailable
+                }
+
+                is QrCodeScanResult.Failure -> {
                     androidQrLoginState =
                         AndroidQrLoginUiState.Error(
                             message = result.message,
                             retryPendingAttempt = false,
                         )
+                }
             }
         }
     }
@@ -1160,12 +1186,17 @@ private fun ConfirmConflictResolutionDialog(
 ) {
     val effect =
         when (pending.choice) {
-            ConflictResolutionChoice.KeepDevice ->
+            ConflictResolutionChoice.KeepDevice -> {
                 "Replace the cloud copy with this device's name, coordinates, and description."
-            ConflictResolutionChoice.KeepCloud ->
+            }
+
+            ConflictResolutionChoice.KeepCloud -> {
                 "Replace this device's saved copy with the cloud name, coordinates, and description."
-            ConflictResolutionChoice.KeepBoth ->
+            }
+
+            ConflictResolutionChoice.KeepBoth -> {
                 "Keep two Favorites so neither version is overwritten."
+            }
         }
     AlertDialog(
         onDismissRequest = onDismiss,

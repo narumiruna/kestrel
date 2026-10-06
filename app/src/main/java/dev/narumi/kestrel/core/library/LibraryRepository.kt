@@ -167,12 +167,16 @@ private class RoomLibraryRepository(
         val updatedAt = System.currentTimeMillis()
         database.withTransaction {
             when (record.item.kind) {
-                LibraryItemKind.Place ->
+                LibraryItemKind.Place -> {
                     record.item.placeId?.let {
                         dao.renamePlace(it, trimmedName, updatedAt)
                         markPlaceDirty(record.item.id, updatedAt)
                     }
-                LibraryItemKind.Route -> record.item.routeId?.let { dao.renameRoute(it, trimmedName, updatedAt) }
+                }
+
+                LibraryItemKind.Route -> {
+                    record.item.routeId?.let { dao.renameRoute(it, trimmedName, updatedAt) }
+                }
             }
         }
     }
@@ -213,7 +217,7 @@ private class RoomLibraryRepository(
         try {
             database.withTransaction {
                 when (record.item.kind) {
-                    LibraryItemKind.Place ->
+                    LibraryItemKind.Place -> {
                         record.item.placeId?.let {
                             if (record.item.remoteId == null) {
                                 dao.deletePendingSyncChangesForItem(record.item.id)
@@ -229,7 +233,11 @@ private class RoomLibraryRepository(
                                 dao.updateLibraryItemSyncStatus(record.item.id, SyncStatus.Deleted, updatedAt)
                             }
                         }
-                    LibraryItemKind.Route -> record.item.routeId?.let { dao.deleteRoute(it) }
+                    }
+
+                    LibraryItemKind.Route -> {
+                        record.item.routeId?.let { dao.deleteRoute(it) }
+                    }
                 }
             }
         } catch (error: Exception) {

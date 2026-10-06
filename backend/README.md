@@ -55,6 +55,10 @@ The API will start on `http://localhost:3300`.
 
 ## Validation
 
+Use Node.js 22. Install locked dependencies with `npm ci`, then run `npm run prisma:generate` before the checks below.
+
+The backend emits CommonJS. Node.js 22.12+ can load the ESM-only `jose` 6 package through `require()`. Jest on Node.js 22 cannot use that native loading path, so both unit and e2e configurations transform `jose` JavaScript with `ts-jest`; other dependencies remain excluded from transformation. The OIDC tests exercise the real signing and verification implementation rather than mocking it.
+
 ```bash
 npm run lint
 npm run test

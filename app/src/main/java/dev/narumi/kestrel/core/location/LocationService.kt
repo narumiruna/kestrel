@@ -309,7 +309,7 @@ class LocationService : Service() {
     private suspend fun restoreState(): Boolean {
         val state = prefs.mockState.first() ?: return false
         return when (state.mode) {
-            MockState.Mode.Single ->
+            MockState.Mode.Single -> {
                 state.single?.let {
                     val point = LatLng(it.lat, it.lng)
                     if (!point.lat.isFinite() || !point.lng.isFinite() || point.lat !in -90.0..90.0 || point.lng !in -180.0..180.0) {
@@ -326,8 +326,15 @@ class LocationService : Service() {
                     refreshNotification()
                     true
                 } ?: false
-            MockState.Mode.Route -> state.route?.let(::restoreRoute) ?: false
-            MockState.Mode.Idle -> false
+            }
+
+            MockState.Mode.Route -> {
+                state.route?.let(::restoreRoute) ?: false
+            }
+
+            MockState.Mode.Idle -> {
+                false
+            }
         }
     }
 
@@ -457,19 +464,25 @@ class LocationService : Service() {
     private fun currentStateSnapshot(): MockState? =
         synchronized(providerWriteLock) {
             when (val runtime = _runtimeState.value) {
-                RuntimeState.Idle -> null
-                is RuntimeState.Single ->
+                RuntimeState.Idle -> {
+                    null
+                }
+
+                is RuntimeState.Single -> {
                     MockState(
                         mode = MockState.Mode.Single,
                         single = SinglePointState(runtime.point.lat, runtime.point.lng),
                     )
-                is RuntimeState.Route ->
+                }
+
+                is RuntimeState.Route -> {
                     MockState(
                         mode = MockState.Mode.Route,
                         route =
                             activeRoute?.toRouteState()
                                 ?: throw CancellationException("Route snapshot is no longer available."),
                     )
+                }
             }
         }
 

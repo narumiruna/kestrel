@@ -87,16 +87,23 @@ internal fun FavoritesContent(
                     }
                 }
                 when {
-                    loading -> item(key = "loading") { FavoritesLoading() }
-                    items.isEmpty() ->
+                    loading -> {
+                        item(key = "loading") { FavoritesLoading() }
+                    }
+
+                    items.isEmpty() -> {
                         item(key = "empty") {
                             FavoritesEmptyResults(emptyLibrary = true, onAction = onChooseOnMap)
                         }
-                    visibleItems.isEmpty() ->
+                    }
+
+                    visibleItems.isEmpty() -> {
                         item(key = "no-matches") {
                             FavoritesEmptyResults(emptyLibrary = false, onAction = onClearFilters)
                         }
-                    else ->
+                    }
+
+                    else -> {
                         itemsIndexed(visibleItems, key = { _, item -> "favorite:${item.item.id}" }) { index, item ->
                             val previousIndex =
                                 visibleItems
@@ -124,6 +131,7 @@ internal fun FavoritesContent(
                                 onDelete = { onDelete(item) },
                             )
                         }
+                    }
                 }
             }
             FavoritesFeedback(

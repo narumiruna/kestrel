@@ -392,14 +392,21 @@ private object LocationServicePlaybackStateProvider : RemotePlaybackStateProvide
 
 internal fun RuntimeState.toRemotePlaybackState(): RemotePlaybackState =
     when (this) {
-        RuntimeState.Idle -> RemotePlaybackState.IDLE
-        is RuntimeState.Single -> RemotePlaybackState.SINGLE
-        is RuntimeState.Route ->
+        RuntimeState.Idle -> {
+            RemotePlaybackState.IDLE
+        }
+
+        is RuntimeState.Single -> {
+            RemotePlaybackState.SINGLE
+        }
+
+        is RuntimeState.Route -> {
             if (paused) {
                 RemotePlaybackState.PAUSED
             } else {
                 RemotePlaybackState.ROUTE
             }
+        }
     }
 
 private class AndroidRemoteDeviceInfoProvider(

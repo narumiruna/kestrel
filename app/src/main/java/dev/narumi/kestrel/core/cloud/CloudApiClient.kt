@@ -47,10 +47,12 @@ internal class CloudApiClient(
                 apiBaseUrl = apiBaseUrl,
             )
         return when (response.statusCode) {
-            HTTP_CREATED ->
+            HTTP_CREATED -> {
                 AndroidQrExchangeResult.Complete(
                     decodeResponse<AuthSessionResponse>(response).toSession(),
                 )
+            }
+
             HTTP_ACCEPTED, HTTP_TOO_MANY_REQUESTS -> {
                 val pending = decodeResponse<PendingAndroidLoginResponse>(response)
                 check(pending.status == "pending" || pending.status == "slow_down") {
@@ -61,7 +63,10 @@ internal class CloudApiClient(
                 }
                 AndroidQrExchangeResult.Pending(pending.retryAfterSeconds)
             }
-            else -> throw response.toApiException(json)
+
+            else -> {
+                throw response.toApiException(json)
+            }
         }
     }
 

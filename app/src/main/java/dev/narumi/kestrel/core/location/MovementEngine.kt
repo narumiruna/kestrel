@@ -67,11 +67,13 @@ class MovementEngine(
             Mode.Once -> {
                 progress = (progress + delta).coerceIn(0.0, totalDistance)
             }
+
             Mode.Loop -> {
                 var next = (progress + delta) % totalDistance
                 if (next < 0) next += totalDistance
                 progress = next
             }
+
             Mode.PingPong -> {
                 // A faster speed on a short route can cross several endpoints in one tick.
                 val period = 2 * totalDistance
