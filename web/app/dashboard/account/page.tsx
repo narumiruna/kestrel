@@ -57,6 +57,13 @@ export default function AccountSecurityPage() {
   const [oidcCurrentPassword, setOidcCurrentPassword] = useState('');
   const loadGenerationRef = useRef(0);
   const passwordTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const shouldRestorePasswordFocusRef = useRef(false);
+
+  useEffect(() => {
+    if (isPasswordOpen || isPasswordSaving || !shouldRestorePasswordFocusRef.current) return;
+    shouldRestorePasswordFocusRef.current = false;
+    passwordTriggerRef.current?.focus();
+  }, [isPasswordOpen, isPasswordSaving]);
 
   const loadSecurityData = useCallback(() => {
     if (!auth.isAuthenticated) {
@@ -343,15 +350,15 @@ export default function AccountSecurityPage() {
                 <ChangePasswordForm
                   username={auth.session.user.username}
                   onCancel={() => {
+                    shouldRestorePasswordFocusRef.current = true;
                     setIsPasswordOpen(false);
-                    passwordTriggerRef.current?.focus();
                   }}
                   onSuccess={() => {
+                    shouldRestorePasswordFocusRef.current = true;
                     setIsPasswordOpen(false);
                     setNotice(
                       'Password changed successfully. Use your new password next time you sign in.',
                     );
-                    passwordTriggerRef.current?.focus();
                   }}
                   onChangePassword={async (input) => {
                     setIsPasswordSaving(true);
