@@ -2,7 +2,7 @@
 
 import { IconButton, Select, TextField } from '@radix-ui/themes';
 import Link from 'next/link';
-import { useMemo, useRef, useState } from 'react';
+import { useId, useMemo, useRef, useState } from 'react';
 import DashboardShell from '@/components/dashboard/DashboardShell';
 import { LibraryItemActions } from '@/components/dashboard/LibraryItemActions';
 import { matchesPlaceSearch, matchesRouteSearch } from '@/components/dashboard/librarySearch';
@@ -121,9 +121,8 @@ export default function LibraryCatalog({
       <section className="library-catalog" aria-labelledby="library-heading">
         <header className="library-catalog-header">
           <div>
-            <p className="library-eyebrow">Places & routes</p>
-            <h1 id="library-heading">Your library</h1>
-            <p>Your saved starting points and paths. Select an item to edit it on the map.</p>
+            <h1 id="library-heading">Library</h1>
+            <p>Saved places and routes.</p>
           </div>
           <MenuSurface
             className="library-new-menu-content"
@@ -206,9 +205,6 @@ export default function LibraryCatalog({
           </Select.Root>
         </div>
 
-        <p className="library-results-summary" role="status" aria-atomic="true">
-          {resultSummary}
-        </p>
         {error == null ? null : (
           <div className="library-load-error" role="alert">
             <div>
@@ -246,7 +242,7 @@ export default function LibraryCatalog({
           <div className="library-columns">
             <span>Name</span>
             <span>Type</span>
-            <span>Summary</span>
+            <span>Details</span>
             <span />
           </div>
           <span>Actions</span>
@@ -268,6 +264,9 @@ export default function LibraryCatalog({
             ),
           )}
         </div>
+        <p className="library-results-summary" role="status" aria-atomic="true">
+          {resultSummary} · {totalItems} {error == null && !isLoading ? 'total' : 'loaded'} items
+        </p>
       </section>
     </DashboardShell>
   );
@@ -345,7 +344,7 @@ function PlaceLibraryRow({ place, onDeleted }: { place: Place; onDeleted: () => 
         aria-label={`Open ${place.name} on map`}
       >
         <div className="library-item-title-row">
-          <h3>{place.name}</h3>
+          <h3 title={place.name}>{place.name}</h3>
         </div>
         <span className="library-item-kind">Place</span>
         <p className="library-item-meta">
@@ -382,7 +381,7 @@ function RouteLibraryRow({ route, onDeleted }: { route: Route; onDeleted: () => 
         aria-label={`Open ${route.name} on map`}
       >
         <div className="library-item-title-row">
-          <h3>{route.name}</h3>
+          <h3 title={route.name}>{route.name}</h3>
           {route.isPublic ? <span className="chip">Public</span> : null}
         </div>
         <span className="library-item-kind">Route</span>
@@ -420,6 +419,7 @@ function LibraryNotes({
   tags?: string[];
 }) {
   const [isOpen, setIsOpen] = useState(false);
+  const referenceUrlId = useId();
   if (!description && tags.length === 0) return null;
   const link = /^https?:\/\/\S+$/i.test(description?.trim() ?? '') ? description?.trim() : null;
   return (
@@ -437,7 +437,7 @@ function LibraryNotes({
       {description ? (
         <p>
           {link ? (
-            <a href={link} target="_blank" rel="noopener noreferrer">
+            <a href={link} title={link} target="_blank" rel="noopener noreferrer">
               Link to reference
             </a>
           ) : (
@@ -445,6 +445,12 @@ function LibraryNotes({
           )}
         </p>
       ) : null}
+      {link == null ? null : (
+        <label htmlFor={referenceUrlId}>
+          Reference URL
+          <TextInput id={referenceUrlId} readOnly value={link} />
+        </label>
+      )}
       {tags.length === 0 ? null : <p className="muted">Tags: {tags.join(' · ')}</p>}
     </PopoverFrame>
   );

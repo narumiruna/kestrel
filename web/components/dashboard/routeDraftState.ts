@@ -34,6 +34,14 @@ export type RouteValidation = {
   saveDisabledReason: string | null;
 };
 
+export function getSelectedWaypointIndex(
+  waypoints: RouteDraftWaypoint[],
+  draftId: string | null,
+): number | null {
+  const index = waypoints.findIndex((point) => point.draftId === draftId);
+  return index < 0 ? null : index;
+}
+
 export function createRouteDraftState(route: Route | null): RouteDraftState {
   const revisionId = route?.currentRevision?.id ?? 'new';
   const waypoints =

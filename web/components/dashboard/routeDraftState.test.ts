@@ -7,6 +7,7 @@ import {
   createRouteDraftState,
   getRouteChangeSummary,
   getRouteValidation,
+  getSelectedWaypointIndex,
   insertRouteWaypointAfter,
   moveRouteWaypoint,
   rebaseRouteDraftAfterSave,
@@ -20,6 +21,26 @@ import {
   updateRouteWaypoint,
   upsertRouteById,
 } from './routeDraftState.ts';
+
+test('selection follows identity through insertion, reorder, deletion, undo and redo', () => {
+  let state = createRouteDraftState(null);
+  for (let i = 0; i < 94; i++)
+    state = addRouteWaypoint(state, { latitude: 25 + i / 1000, longitude: 121 });
+  const selectedId = state.draft.waypoints[46].draftId;
+  assert.equal(getSelectedWaypointIndex(state.draft.waypoints, selectedId), 46);
+  state = insertRouteWaypointAfter(state, 0);
+  assert.equal(getSelectedWaypointIndex(state.draft.waypoints, selectedId), 47);
+  state = moveRouteWaypoint(state, 47, 2);
+  assert.equal(getSelectedWaypointIndex(state.draft.waypoints, selectedId), 2);
+  state = removeRouteWaypoint(state, state.draft.waypoints[0].draftId);
+  assert.equal(getSelectedWaypointIndex(state.draft.waypoints, selectedId), 1);
+  state = removeRouteWaypoint(state, selectedId);
+  assert.equal(getSelectedWaypointIndex(state.draft.waypoints, selectedId), null);
+  state = undoRoutePath(state);
+  assert.equal(getSelectedWaypointIndex(state.draft.waypoints, selectedId), 1);
+  state = redoRoutePath(state);
+  assert.equal(getSelectedWaypointIndex(state.draft.waypoints, selectedId), null);
+});
 
 const route: Route = {
   createdAt: '2026-08-10T00:00:00.000Z',
