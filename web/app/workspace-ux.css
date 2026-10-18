@@ -1,13 +1,130 @@
-/* Bounded workspace overrides for the legacy cascade. */
+/* Android default palette. Keep these overrides after the legacy cascade. */
+:root,
+.radix-themes.light {
+  --kestrel-canvas: #f4f7fb;
+  --kestrel-surface: #ffffff;
+  --kestrel-subtle: #f0f5fb;
+  --kestrel-text: #17202a;
+  --kestrel-secondary: #44505d;
+  --kestrel-muted: #556372;
+  --kestrel-border: #c2ceda;
+  --kestrel-outline: #6f7b88;
+  --kestrel-primary: #0066b8;
+  --kestrel-primary-hover: #004a8c;
+  --kestrel-primary-soft: #d2e5ff;
+  --kestrel-on-primary: #ffffff;
+  --kestrel-on-primary-soft: #001a33;
+  --kestrel-danger: #b4232a;
+  --kestrel-danger-soft: #ffdad9;
+  --kestrel-success: #00705f;
+  --kestrel-warning: #805500;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --kestrel-canvas: #0e141a;
+    --kestrel-surface: #151c23;
+    --kestrel-subtle: #1e2833;
+    --kestrel-text: #e3eaf1;
+    --kestrel-secondary: #c4ced9;
+    --kestrel-muted: #bdcad9;
+    --kestrel-border: #3f4852;
+    --kestrel-outline: #8d98a5;
+    --kestrel-primary: #9dcaff;
+    --kestrel-primary-hover: #d2e5ff;
+    --kestrel-primary-soft: #004a8c;
+    --kestrel-on-primary: #00315f;
+    --kestrel-on-primary-soft: #d2e5ff;
+    --kestrel-danger: #ffb3b5;
+    --kestrel-danger-soft: #690005;
+    --kestrel-success: #6fe5d0;
+    --kestrel-warning: #f5cc76;
+  }
+}
+
+:root[data-theme="dark"],
+.radix-themes.dark {
+  --kestrel-canvas: #0e141a;
+  --kestrel-surface: #151c23;
+  --kestrel-subtle: #1e2833;
+  --kestrel-text: #e3eaf1;
+  --kestrel-secondary: #c4ced9;
+  --kestrel-muted: #bdcad9;
+  --kestrel-border: #3f4852;
+  --kestrel-outline: #8d98a5;
+  --kestrel-primary: #9dcaff;
+  --kestrel-primary-hover: #d2e5ff;
+  --kestrel-primary-soft: #004a8c;
+  --kestrel-on-primary: #00315f;
+  --kestrel-on-primary-soft: #d2e5ff;
+  --kestrel-danger: #ffb3b5;
+  --kestrel-danger-soft: #690005;
+  --kestrel-success: #6fe5d0;
+  --kestrel-warning: #f5cc76;
+}
+
+:root,
+:root[data-theme],
+.radix-themes.light,
+.radix-themes.dark {
+  --bg-canvas: var(--kestrel-canvas);
+  --bg-surface: var(--kestrel-surface);
+  --bg-subtle: var(--kestrel-subtle);
+  --border: var(--kestrel-border);
+  --border-strong: var(--kestrel-outline);
+  --text-primary: var(--kestrel-text);
+  --text-secondary: var(--kestrel-secondary);
+  --text-muted: var(--kestrel-muted);
+  --accent: var(--kestrel-primary);
+  --accent-hover: var(--kestrel-primary-hover);
+  --accent-soft: var(--kestrel-primary-soft);
+  --accent-9: var(--kestrel-primary);
+  --accent-10: var(--kestrel-primary-hover);
+  --accent-11: var(--kestrel-primary);
+  --accent-12: var(--kestrel-on-primary-soft);
+  --accent-contrast: var(--kestrel-on-primary);
+  --success: var(--kestrel-success);
+  --warning: var(--kestrel-warning);
+  --danger: var(--kestrel-danger);
+  --danger-soft: var(--kestrel-danger-soft);
+  --color-primary-text: var(--kestrel-on-primary);
+  --color-success-text: var(--success);
+  --color-background: var(--bg-canvas);
+  --color-panel-solid: var(--bg-surface);
+  --paper-cream: var(--bg-canvas);
+  --paper-parchment: var(--bg-canvas);
+  --paper-card: var(--bg-surface);
+  --paper-card-warm: var(--bg-subtle);
+  --ink-black: var(--text-primary);
+  --ink-brown: var(--text-secondary);
+  --ink-muted: var(--text-muted);
+  --kestrel-rust: var(--accent);
+  --kestrel-rust-dark: var(--accent-hover);
+  --kestrel-rust-soft: var(--accent-soft);
+  --bg-canvas-end: var(--bg-canvas);
+  --bg-header-end: var(--bg-surface);
+  --overlay-surface: var(--bg-surface);
+  --sticky-surface: var(--bg-surface);
+  --toolbar-bg: var(--bg-subtle);
+  --cloud-surface-paper: var(--bg-surface);
+  --cloud-surface-card: var(--bg-surface);
+  --cloud-border-soft: var(--border);
+  --workspace-border: var(--border);
+  --focus-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent);
+  /* Orange is reserved for route geometry, not interface selection. */
+  --route-accent: #c2410c;
+  --route-accent-hover: #9a3412;
+}
+
 :root {
   --cloud-topbar-height: 64px;
   --cloud-sidebar-width: 260px;
   --cloud-editor-width: 350px;
-  --workspace-canvas: var(--sand-2);
-  --workspace-panel: var(--sand-1);
-  --workspace-chrome: var(--sand-1);
+  --workspace-canvas: var(--bg-canvas);
+  --workspace-panel: var(--bg-surface);
+  --workspace-chrome: var(--bg-surface);
   --workspace-shadow: none;
-  --workspace-control: var(--sand-2);
+  --workspace-control: var(--bg-subtle);
   --workspace-radius: 10px;
   --workspace-row-height: 60px;
   --workspace-gap: 16px;
@@ -49,9 +166,9 @@
 }
 
 .cartographer-stage-map {
-  --ink-muted: var(--sand-11);
-  --text-muted: var(--sand-11);
-  --workspace-control-border: var(--sand-8);
+  --ink-muted: var(--kestrel-muted);
+  --text-muted: var(--kestrel-muted);
+  --workspace-control-border: var(--border-strong);
 }
 
 .cartographer-stage-map .field-notebook,
@@ -86,12 +203,18 @@
 
 .cartographer-stage-map .map-library-panel .notebook-entry.active {
   background: var(--accent-soft);
-  border-color: transparent;
-  box-shadow: none;
+  border-color: var(--accent);
+  box-shadow: inset 3px 0 0 var(--accent);
+  color: var(--kestrel-on-primary-soft);
 }
 
 .cartographer-stage-map .route-marker.selected {
   filter: drop-shadow(0 0 3px var(--text-primary));
+}
+
+.workspace-topbar .kc-avatar,
+.cartographer-stage-map .notebook-entry-selected-mark {
+  color: var(--kestrel-on-primary);
 }
 
 .cartographer-stage-map .map-picker-tools {
@@ -105,29 +228,6 @@
 .route-editor-title-row .route-more-trigger {
   padding: 0;
   width: 44px;
-}
-
-.route-map-mode {
-  background: var(--bg-subtle);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  display: flex;
-  gap: 4px;
-  padding: 3px;
-}
-
-.route-map-mode button {
-  background: transparent;
-  border: 0;
-  box-shadow: none;
-  color: var(--text-secondary);
-  flex: 1;
-  min-height: 40px;
-}
-
-.route-map-mode button[data-state="on"] {
-  background: var(--accent-soft);
-  color: var(--orange-12);
 }
 
 .route-editor-redesign .selected-waypoint-empty {
@@ -160,6 +260,216 @@
 
 .route-editor-redesign .route-path-add-actions {
   flex-wrap: wrap;
+}
+
+/* Route workflow: only the inspector body scrolls vertically. */
+.cartographer-stage-map .index-card-route {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.cartographer-stage-map .index-card-route .index-card-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  scrollbar-gutter: stable;
+  scroll-padding-block: 12px 160px;
+}
+.cartographer-stage-map .index-card-route .route-editor-redesign {
+  height: auto;
+  min-height: 100%;
+  overflow: visible;
+  scrollbar-gutter: auto;
+}
+.cartographer-stage-map .index-card-route .route-editor-content,
+.route-editor-redesign .waypoint-list {
+  flex: none;
+  max-height: none;
+  overflow: visible;
+  scrollbar-gutter: auto;
+}
+.route-editor-redesign .route-save-footer {
+  background: var(--bg-surface);
+  bottom: 0;
+  margin-top: auto;
+  position: sticky;
+}
+.route-editor-redesign .route-save-panel {
+  border-radius: var(--workspace-radius);
+  grid-template-columns: minmax(0, 1fr);
+}
+.route-editor-redesign .route-fit-action {
+  margin-top: 8px;
+}
+.route-editor-redesign .route-mode-choice > div {
+  grid-template-columns: minmax(0, 1fr);
+}
+.cartographer-stage-map .route-editor-redesign button,
+.route-editor-redesign :where(.rt-TextFieldRoot, .rt-TextAreaRoot),
+.cartographer-stage-map .map-control-bar > button,
+.cartographer-stage-map .map-appearance-control > .map-style-trigger,
+.cartographer-stage-map .map-panel-control {
+  min-height: 44px;
+}
+.cartographer-stage-map .map-control-bar,
+.cartographer-stage-map .map-appearance-control > .map-style-trigger {
+  height: 46px;
+}
+.cartographer-stage-map .map-control-bar > button,
+.route-editor-redesign .waypoint-menu-trigger {
+  min-width: 44px;
+  width: 44px;
+}
+.route-editor-redesign .waypoint-menu-trigger {
+  color: var(--text-secondary);
+  opacity: 1;
+}
+.route-editor-redesign .waypoint-focus {
+  grid-template-columns: 28px minmax(0, 1fr);
+  width: 100%;
+}
+.route-editor-redesign .waypoint-row:hover,
+.route-editor-redesign .waypoint-row.hovered,
+.cartographer-stage-map .map-library-panel .notebook-entry:hover:not(:disabled) {
+  background: var(--bg-subtle);
+}
+.route-editor-redesign .waypoint-row.selected,
+.route-editor-redesign .selected-waypoint-card {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+.route-editor-redesign .waypoint-row.selected .waypoint-name {
+  font-weight: 800;
+}
+.route-editor-redesign .waypoint-badge {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-strong);
+  color: var(--text-primary);
+}
+.route-editor-redesign .waypoint-coordinates,
+.route-editor-redesign .selected-waypoint-card small {
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.cartographer-stage-map .workspace-tabs a.active,
+.cartographer-stage-map .route-settings-tabs [data-state="active"],
+.cartographer-stage-map
+  :where(.sidebar-tabs, .mobile-workspace-actions, .route-mode-choice)
+  button[data-state="on"] {
+  background: var(--accent-soft);
+  box-shadow: inset 0 -3px 0 var(--accent);
+  color: var(--kestrel-on-primary-soft);
+  font-weight: 800;
+}
+.radix-themes .cartographer-stage-map .route-editor-redesign button[type="submit"] {
+  background: var(--accent);
+  color: var(--kestrel-on-primary);
+}
+.radix-themes
+  .cartographer-stage-map
+  .route-editor-redesign
+  button[type="submit"]:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+.cartographer-stage-map :where(button.secondary) {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-strong);
+  color: var(--text-secondary);
+  box-shadow: none;
+}
+.cartographer-stage-map :where(button.secondary):hover:not(:disabled) {
+  background: var(--bg-subtle);
+  border-color: var(--accent);
+  color: var(--accent-hover);
+  transform: none;
+}
+.cartographer-stage-map :where(button):active:not(:disabled, .route-marker) {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+.cartographer-stage-map :where(button):disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+.cartographer-stage-map :where(button, a, [tabindex]):focus-visible,
+.ui-dialog-popup :where(button, input, textarea):focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+.cartographer-stage-map .map-panel-control::after {
+  display: none;
+}
+
+.cartographer-stage-map .maplibregl-ctrl-bottom-right {
+  bottom: 8px;
+  left: 8px;
+  right: auto;
+  max-width: calc(100% - 16px);
+}
+.route-map-add-notice {
+  align-items: center;
+  background: var(--bg-surface);
+  border: 2px solid var(--accent);
+  border-radius: var(--workspace-radius);
+  box-shadow: var(--shadow-sm);
+  color: var(--text-primary);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 13px;
+  gap: 8px;
+  left: 12px;
+  padding: 8px;
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  z-index: 9;
+}
+.cartographer-stage-map .route-map-add-notice span {
+  flex: 1 1 180px;
+}
+.cartographer-stage-map .route-map-add-notice button {
+  min-height: 44px;
+}
+/* MapLibre owns marker positioning; style only the visual body. */
+button.route-marker::before,
+button.route-marker.route-marker-end::before {
+  background: var(--route-accent);
+  border-color: #ffffff;
+}
+button.route-marker::after {
+  color: #ffffff;
+}
+button.route-marker.route-marker-middle::before {
+  background: #ffffff;
+  border-color: var(--route-accent);
+}
+button.route-marker.route-marker-middle::after {
+  color: var(--route-accent);
+}
+button.route-marker.selected::before {
+  background: var(--accent);
+  border-color: var(--kestrel-on-primary);
+  box-shadow:
+    0 0 0 3px var(--text-primary),
+    0 0 0 6px #ffffff;
+}
+button.route-marker.selected::after {
+  color: var(--kestrel-on-primary);
+}
+.route-marker-leader {
+  background: var(--route-accent);
+}
+@media (prefers-reduced-motion: reduce) {
+  .cartographer-stage-map *,
+  .cartographer-stage-map *::before,
+  .cartographer-stage-map *::after {
+    animation: none;
+    transition: none;
+    scroll-behavior: auto;
+  }
 }
 
 .library-catalog {
@@ -348,7 +658,7 @@
 
 @media (max-width: 1023px) {
   .cartographer-stage-map {
-    grid-template-rows: minmax(180px, 30dvh) auto minmax(0, 1fr);
+    grid-template-rows: minmax(140px, 22dvh) auto minmax(0, 1fr);
     height: 100dvh;
     min-height: 0;
     overflow: hidden;
@@ -369,6 +679,15 @@
     min-height: 0;
   }
 
+  .cartographer-stage-map .map-control-stack {
+    align-self: start;
+    margin: 8px 8px 0 0;
+  }
+
+  .cartographer-stage-map .route-map-add-notice {
+    top: 70px;
+  }
+
   .cartographer-stage-map .mobile-workspace-bar {
     background: var(--workspace-panel);
     grid-row: 2;
@@ -381,12 +700,16 @@
   .cartographer-stage-map .index-card {
     grid-row: 3;
     min-height: 0;
-    overflow: auto;
+    overflow: hidden;
     visibility: visible;
   }
 
-  .cartographer-stage-map.cartographer-stage-mobile-inspector .index-card {
+  .cartographer-stage-map .field-notebook {
     overflow: auto;
+  }
+
+  .cartographer-stage-map.cartographer-stage-mobile-inspector .index-card {
+    overflow: hidden;
   }
 
   .cartographer-stage-map.cartographer-stage-mobile-inspector .index-card-body {

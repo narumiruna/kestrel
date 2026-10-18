@@ -352,7 +352,7 @@ export function ConfirmDialog({
             <AlertDialog.Action>
               <RadixButton
                 color="red"
-                disabled={isConfirming}
+                disabled={disabled || isConfirming}
                 type="button"
                 variant="solid"
                 onClick={() => void confirm()}

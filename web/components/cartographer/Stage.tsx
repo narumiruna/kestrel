@@ -1,8 +1,8 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { BorderLeftIcon, BorderRightIcon } from '@/components/ui/icons';
-import { Button, Toggle, ToggleGroup } from '@/components/ui/radix-ui';
+import { ArrowLeftIcon, ArrowRightIcon } from '@/components/ui/icons';
+import { Button, Hint, Toggle, ToggleGroup } from '@/components/ui/radix-ui';
 
 export type MobileWorkspacePanel = 'inspector' | 'map' | 'picker';
 
@@ -65,7 +65,7 @@ export function Stage({
           >
             <Toggle value="map">Map</Toggle>
             <Toggle value="picker">Choose</Toggle>
-            <Toggle value="inspector">Edit</Toggle>
+            <Toggle value="inspector">Details</Toggle>
           </ToggleGroup>
         </nav>
       )}
@@ -73,34 +73,38 @@ export function Stage({
         <fieldset className="map-panel-controls map-panel-icon-controls">
           <legend className="sr-only">Map panel controls</legend>
           {onToggleLeftPanel == null ? null : (
-            <Button
-              aria-expanded={!isLeftPanelCollapsed}
-              aria-label={isLeftPanelCollapsed ? 'Show item picker' : 'Hide item picker'}
-              className={`map-panel-control map-panel-control-library ${
-                isLeftPanelCollapsed ? 'is-restore' : 'is-collapse'
-              }`}
-              data-label="Item picker"
-              title={isLeftPanelCollapsed ? 'Show item picker' : 'Hide item picker'}
-              type="button"
-              onClick={onToggleLeftPanel}
-            >
-              <BorderLeftIcon />
-            </Button>
+            <Hint label={isLeftPanelCollapsed ? 'Show item picker' : 'Hide item picker'}>
+              <Button
+                aria-expanded={!isLeftPanelCollapsed}
+                aria-label={isLeftPanelCollapsed ? 'Show item picker' : 'Hide item picker'}
+                className={`map-panel-control map-panel-control-library ${
+                  isLeftPanelCollapsed ? 'is-restore' : 'is-collapse'
+                }`}
+                data-label="Item picker"
+                title={isLeftPanelCollapsed ? 'Show item picker' : 'Hide item picker'}
+                type="button"
+                onClick={onToggleLeftPanel}
+              >
+                {isLeftPanelCollapsed ? <ArrowRightIcon /> : <ArrowLeftIcon />}
+              </Button>
+            </Hint>
           )}
           {onToggleRightPanel == null ? null : (
-            <Button
-              aria-expanded={!isRightPanelCollapsed}
-              aria-label={isRightPanelCollapsed ? 'Show inspector' : 'Hide inspector'}
-              className={`map-panel-control map-panel-control-editor ${
-                isRightPanelCollapsed ? 'is-restore' : 'is-collapse'
-              }`}
-              data-label="Inspector"
-              title={isRightPanelCollapsed ? 'Show inspector' : 'Hide inspector'}
-              type="button"
-              onClick={onToggleRightPanel}
-            >
-              <BorderRightIcon />
-            </Button>
+            <Hint label={isRightPanelCollapsed ? 'Show details' : 'Hide details'}>
+              <Button
+                aria-expanded={!isRightPanelCollapsed}
+                aria-label={isRightPanelCollapsed ? 'Show details' : 'Hide details'}
+                className={`map-panel-control map-panel-control-editor ${
+                  isRightPanelCollapsed ? 'is-restore' : 'is-collapse'
+                }`}
+                data-label="Inspector"
+                title={isRightPanelCollapsed ? 'Show details' : 'Hide details'}
+                type="button"
+                onClick={onToggleRightPanel}
+              >
+                {isRightPanelCollapsed ? <ArrowLeftIcon /> : <ArrowRightIcon />}
+              </Button>
+            </Hint>
           )}
         </fieldset>
       )}

@@ -4,6 +4,17 @@ export function canEditRouteOnMap(capability: RouteMapCapability): boolean {
   return capability === 'ready';
 }
 
+export function getRouteViewportControlState(
+  capability: RouteMapCapability,
+  waypointCount: number,
+) {
+  const viewportDisabled = !canEditRouteOnMap(capability);
+  return {
+    fitDisabled: viewportDisabled || waypointCount === 0,
+    viewportDisabled,
+  };
+}
+
 export function getRouteMapInstruction(capability: RouteMapCapability): string {
   switch (capability) {
     case 'loading':

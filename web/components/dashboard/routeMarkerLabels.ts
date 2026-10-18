@@ -19,7 +19,15 @@ export function getRouteMarkerLayout(
   selectedIndex: number | null,
   hoveredIndex: number | null,
   viewport?: { width: number; height: number },
-  { isEditing = true, zoom = 16 }: { isEditing?: boolean; zoom?: number } = {},
+  {
+    isEditing = true,
+    showAllPoints = false,
+    zoom = 16,
+  }: {
+    isEditing?: boolean;
+    showAllPoints?: boolean;
+    zoom?: number;
+  } = {},
 ) {
   if (!isEditing) {
     hoveredIndex = null;
@@ -91,7 +99,11 @@ export function getRouteMarkerLayout(
     if (
       !unplaced.has(index) &&
       fits(point) &&
-      (isEditing || index === selectedIndex || index === 0 || index === points.length - 1)
+      (isEditing ||
+        showAllPoints ||
+        index === selectedIndex ||
+        index === 0 ||
+        index === points.length - 1)
     )
       eligibleIndices.add(index);
   });
@@ -109,7 +121,13 @@ export function getRouteMarkerLayout(
       selectedIndex,
       hoveredIndex,
       zoom < 13 ? 96 : zoom < 15 ? 64 : 48,
-      eligibleIndices,
+      isEditing
+        ? eligibleIndices
+        : new Set(
+            [...eligibleIndices].filter(
+              (index) => index === selectedIndex || index === 0 || index === points.length - 1,
+            ),
+          ),
     ),
   };
 }
