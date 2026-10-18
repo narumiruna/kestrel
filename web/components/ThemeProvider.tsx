@@ -77,10 +77,10 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   return (
     <RadixTheme
-      accentColor="orange"
+      accentColor="blue"
       appearance={isHydrated ? theme : 'inherit'}
-      grayColor="sand"
-      panelBackground="translucent"
+      grayColor="slate"
+      panelBackground="solid"
       radius="large"
       scaling="100%"
     >
@@ -129,6 +129,10 @@ function applyTheme(theme: Theme) {
 }
 
 function enableManualThemeTransition() {
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    return;
+  }
+
   document.documentElement.classList.add(TRANSITION_CLASS);
   window.setTimeout(() => {
     document.documentElement.classList.remove(TRANSITION_CLASS);

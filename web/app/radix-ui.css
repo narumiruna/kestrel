@@ -190,7 +190,7 @@
   font-size: 0.88rem;
   font-weight: 600;
   gap: 9px;
-  min-height: 40px;
+  min-height: 44px;
   outline: none;
   padding: 8px 11px;
   text-align: left;
@@ -240,12 +240,12 @@
   border-radius: 8px;
   color: var(--text-muted);
   display: flex;
-  height: 30px;
+  height: 44px;
   justify-content: center;
-  min-height: 30px;
-  opacity: 0.6;
+  min-height: 44px;
+  opacity: 1;
   padding: 0;
-  width: 30px;
+  width: 44px;
 }
 
 .waypoint-row:hover .waypoint-menu-trigger,

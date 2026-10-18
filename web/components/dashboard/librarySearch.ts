@@ -10,7 +10,12 @@ export function matchesPlaceSearch(place: Place, normalizedQuery: string): boole
 }
 
 export function matchesRouteSearch(route: Route, normalizedQuery: string): boolean {
-  return [route.name, route.description ?? '', formatMode(route.mode)]
+  return [
+    route.name,
+    route.description ?? '',
+    formatMode(route.mode),
+    route.mode.replaceAll('_', '-'),
+  ]
     .join(' ')
     .toLowerCase()
     .includes(normalizedQuery);

@@ -246,6 +246,16 @@ test('an offscreen priority point cannot reserve space against an eligible neigh
   assert.ok(layout.visibleLabels.has(1));
 });
 
+test('browsing permits collision-safe ordinary point selection without enabling editing or extra labels', () => {
+  const points = Array.from({ length: 10 }, (_, index) => ({ x: 50 + index * 60, y: 100 }));
+  const layout = getRouteMarkerLayout(points, 4, 5, undefined, {
+    isEditing: false,
+    showAllPoints: true,
+  });
+  assert.equal(layout.visiblePoints.size, 10);
+  assert.deepEqual([...layout.visibleLabels], [4, 0, 9]);
+});
+
 test('overview shows endpoints and selected point without ordinary labels or stale hover', () => {
   const points = Array.from({ length: 94 }, (_, index) => ({ x: 50 + index * 50, y: 100 }));
   const layout = getRouteMarkerLayout(points, 46, 47, undefined, { isEditing: false });

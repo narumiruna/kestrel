@@ -4,7 +4,9 @@ import type { Feature, LineString } from 'geojson';
 import type { GeoJSONSource, Map as MapLibreMap, Marker } from 'maplibre-gl';
 import * as maplibregl from 'maplibre-gl';
 import { useEffect, useRef, useState } from 'react';
+import { getRouteCameraAction } from '@/components/dashboard/routeCameraAction';
 import { getRouteMarkerLayout } from '@/components/dashboard/routeMarkerLabels';
+import { getRouteBounds, getRouteViewportPadding } from '@/components/dashboard/routeViewport';
 import { getStyleByName } from '@/components/mapStyle';
 import type { RouteMapCapability } from '@/components/routeMapCapability';
 import { Button } from '@/components/ui/radix-ui';
@@ -24,6 +26,7 @@ type Props = {
   hoveredWaypointIndex?: number | null;
   isEditing?: boolean;
   isAdding?: boolean;
+  onCancelAdding?: () => void;
   onCapabilityChange?: (capability: RouteMapCapability) => void;
   onChange: (waypoints: RouteWaypoint[]) => void;
   onHoverWaypoint?: (index: number | null) => void;
@@ -43,6 +46,7 @@ export default function RouteMapEditor({
   hoveredWaypointIndex = null,
   isEditing = true,
   isAdding = false,
+  onCancelAdding,
   onCapabilityChange,
   onChange,
   onHoverWaypoint,
@@ -72,6 +76,10 @@ export default function RouteMapEditor({
   const selectedWaypointIndexRef = useRef(selectedWaypointIndex);
   const waypointsRef = useRef(waypoints);
   const currentStyleNameRef = useRef(styleName);
+  const keepRouteFittedRef = useRef(true);
+  const lastFitRequestRef = useRef(0);
+  const lastFocusTargetRef = useRef<RouteWaypoint | null>(null);
+  const pendingResizeFitRef = useRef(false);
 
   useEffect(() => {
     onCapabilityChange?.(mapStatus);
@@ -185,8 +193,9 @@ export default function RouteMapEditor({
           map.on('click', handleMapClick);
           isMapClickAttachedRef.current = true;
         }
+        keepRouteFittedRef.current = true;
         fitWaypoints(map, waypointsRef.current);
-        onReadyRef.current?.(createRouteMapControls(map, waypointsRef));
+        onReadyRef.current?.(createRouteMapControls(map, waypointsRef, keepRouteFittedRef));
       } catch {
         clearMarkers(markersRef.current);
         canEditRouteRef.current = false;
@@ -210,11 +219,28 @@ export default function RouteMapEditor({
     map.on('moveend', handleMoveEnd);
     map.on('resize', handleMoveEnd);
     mapRef.current = map;
-    const resizeObserver = new ResizeObserver(() => map.resize());
+    const handleUserMove = (event: { originalEvent?: unknown }) => {
+      if (event.originalEvent != null) keepRouteFittedRef.current = false;
+    };
+    map.on('movestart', handleUserMove);
+    let resizeFrame = 0;
+    const resizeObserver = new ResizeObserver(() => {
+      window.cancelAnimationFrame(resizeFrame);
+      resizeFrame = window.requestAnimationFrame(() => {
+        map.resize();
+        pendingResizeFitRef.current = keepRouteFittedRef.current;
+        if (pendingResizeFitRef.current && canEditRouteRef.current) {
+          pendingResizeFitRef.current = false;
+          fitWaypoints(map, waypointsRef.current, false);
+        }
+      });
+    });
     resizeObserver.observe(containerRef.current);
 
     return () => {
+      window.cancelAnimationFrame(resizeFrame);
       resizeObserver.disconnect();
+      map.off('movestart', handleUserMove);
       clearMarkers(markersRef.current);
       window.clearTimeout(styleReadyTimeout);
       map.off('click', handleMapClick);
@@ -236,6 +262,7 @@ export default function RouteMapEditor({
   useEffect(() => {
     // Resync when the waypoint array changes; refs keep deferred style callbacks current.
     void waypoints;
+    keepRouteFittedRef.current = false;
     const map = mapRef.current;
 
     if (map == null || !hasLoadedRef.current) {
@@ -265,7 +292,7 @@ export default function RouteMapEditor({
           setMapCanvasAvailable(map, true);
           mapStatusRef.current = 'ready';
           setMapStatus('ready');
-          onReadyRef.current?.(createRouteMapControls(map, waypointsRef));
+          onReadyRef.current?.(createRouteMapControls(map, waypointsRef, keepRouteFittedRef));
         }
       } catch {
         clearMarkers(markersRef.current);
@@ -309,35 +336,40 @@ export default function RouteMapEditor({
 
   useEffect(() => {
     const map = mapRef.current;
-
-    if (map == null || focusTarget == null || !canEditRouteRef.current) {
+    if (focusTarget == null) lastFocusTargetRef.current = null;
+    const action = getRouteCameraAction({
+      hasFitRequest: fitRequest !== 0 && fitRequest !== lastFitRequestRef.current,
+      hasFocusRequest: focusTarget != null && focusTarget !== lastFocusTargetRef.current,
+      isReady: map != null && mapStatus === 'ready' && canEditRouteRef.current,
+      shouldRefitAfterResize: pendingResizeFitRef.current && keepRouteFittedRef.current,
+    });
+    if (map == null || action == null) return;
+    pendingResizeFitRef.current = false;
+    lastFocusTargetRef.current = focusTarget;
+    if (action === 'fit') {
+      lastFitRequestRef.current = fitRequest;
+      keepRouteFittedRef.current = true;
+      fitWaypoints(map, waypointsRef.current);
       return;
     }
-
+    if (focusTarget == null) return;
     const point = map.project([focusTarget.longitude, focusTarget.latitude]);
     const canvas = map.getCanvas();
+    const padding = getMapPadding(map);
     if (
-      point.x >= 56 &&
-      point.x <= canvas.clientWidth - 56 &&
-      point.y >= 56 &&
-      point.y <= canvas.clientHeight - 56
+      point.x >= padding.left &&
+      point.x <= canvas.clientWidth - padding.right &&
+      point.y >= padding.top &&
+      point.y <= canvas.clientHeight - padding.bottom
     )
       return;
+    keepRouteFittedRef.current = false;
     map.easeTo({
       center: [focusTarget.longitude, focusTarget.latitude],
+      offset: [(padding.left - padding.right) / 2, (padding.top - padding.bottom) / 2],
       duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 350,
     });
-  }, [focusTarget]);
-
-  useEffect(() => {
-    const map = mapRef.current;
-
-    if (map == null || fitRequest === 0 || !canEditRouteRef.current) {
-      return;
-    }
-
-    fitWaypoints(map, waypointsRef.current);
-  }, [fitRequest]);
+  }, [fitRequest, focusTarget, mapStatus]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -389,7 +421,7 @@ export default function RouteMapEditor({
         setMapCanvasAvailable(map, true);
         mapStatusRef.current = 'ready';
         setMapStatus('ready');
-        onReadyRef.current?.(createRouteMapControls(map, waypointsRef));
+        onReadyRef.current?.(createRouteMapControls(map, waypointsRef, keepRouteFittedRef));
       } catch {
         clearMarkers(markersRef.current);
         canEditRouteRef.current = false;
@@ -422,6 +454,14 @@ export default function RouteMapEditor({
   return (
     <div className={`${className} route-map-shell route-map-capability-${mapStatus}`}>
       <div className="route-map-canvas" ref={containerRef} />
+      {isAdding ? (
+        <div className="route-map-add-notice" role="status">
+          <span>Click the map to add waypoints. Press Escape to finish.</span>
+          <Button className="secondary" type="button" onClick={onCancelAdding}>
+            Cancel adding
+          </Button>
+        </div>
+      ) : null}
       {mapStatus === 'ready' ? null : (
         <div
           className={`route-map-status route-map-status-${mapStatus}`}
@@ -587,7 +627,7 @@ function updateMarkerDisplay(
     selectedWaypointIndex,
     hoveredWaypointIndex,
     { width: map.getCanvas().clientWidth, height: map.getCanvas().clientHeight },
-    { isEditing, zoom: map.getZoom() },
+    { isEditing, showAllPoints: true, zoom: map.getZoom() },
   );
   markers.forEach((marker, index) => {
     const element = marker.getElement();
@@ -609,7 +649,7 @@ function updateMarkerDisplay(
 
     // A label must not reintroduce a point rejected by hit-target collision handling.
     marker.setDraggable(isEditing);
-    (element as HTMLButtonElement).disabled = !isEditing;
+    (element as HTMLButtonElement).disabled = false;
     element.hidden = !visiblePoints.has(index);
     element.classList.toggle('route-marker-compact', !visibleLabels.has(index));
     element.classList.toggle('hovered', isHovered);
@@ -644,33 +684,31 @@ function getWaypointMarkerPositionClass(index: number, waypointCount: number): s
   return 'route-marker-middle';
 }
 
-function fitWaypoints(map: MapLibreMap, waypoints: RouteWaypoint[]) {
-  if (waypoints.length === 0) {
-    return;
-  }
-
-  if (waypoints.length === 1) {
-    map.easeTo({
-      center: [waypoints[0].longitude, waypoints[0].latitude],
-      duration: 350,
-      zoom: Math.max(map.getZoom(), 13),
-    });
-    return;
-  }
-
-  const bounds = waypoints.reduce(
-    (currentBounds, waypoint) => currentBounds.extend([waypoint.longitude, waypoint.latitude]),
-    new maplibregl.LngLatBounds(
-      [waypoints[0].longitude, waypoints[0].latitude],
-      [waypoints[0].longitude, waypoints[0].latitude],
-    ),
-  );
-
+function fitWaypoints(map: MapLibreMap, waypoints: RouteWaypoint[], animate = true) {
+  const bounds = getRouteBounds(waypoints);
+  if (bounds == null) return;
   map.fitBounds(bounds, {
-    duration: 350,
-    maxZoom: 15,
-    padding: 56,
+    duration: animate && !window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 350 : 0,
+    maxZoom: waypoints.length === 1 ? 14 : 15,
+    padding: getMapPadding(map),
   });
+}
+
+function getMapPadding(map: MapLibreMap) {
+  const container = map.getContainer();
+  const viewport = container.getBoundingClientRect();
+  const stage = container.closest('.cartographer-stage');
+  const obstacles = Array.from(
+    stage?.querySelectorAll<HTMLElement>(
+      '.field-notebook, .index-card, .workspace-topbar, .map-control-stack, .route-map-add-notice, .maplibregl-ctrl-bottom-right',
+    ) ?? [],
+  )
+    .filter((element) => {
+      const style = window.getComputedStyle(element);
+      return style.visibility !== 'hidden' && style.display !== 'none';
+    })
+    .map((element) => element.getBoundingClientRect());
+  return getRouteViewportPadding(viewport, obstacles);
 }
 
 function syncLineLayer(map: MapLibreMap, waypoints: RouteWaypoint[]) {
@@ -706,7 +744,7 @@ function syncLineLayer(map: MapLibreMap, waypoints: RouteWaypoint[]) {
         'line-join': 'round',
       },
       paint: {
-        'line-color': '#f05a28',
+        'line-color': '#C2410C',
         'line-width': 4.5,
       },
       source: LINE_SOURCE_ID,
@@ -776,11 +814,25 @@ function isWebGlAvailable(): boolean {
 function createRouteMapControls(
   map: MapLibreMap,
   waypointsRef: { current: RouteWaypoint[] },
+  keepRouteFittedRef: { current: boolean },
 ): RouteMapControls {
   return {
-    fit: () => fitWaypoints(map, waypointsRef.current),
-    zoomIn: () => map.zoomIn({ duration: 180 }),
-    zoomOut: () => map.zoomOut({ duration: 180 }),
+    fit: () => {
+      keepRouteFittedRef.current = true;
+      fitWaypoints(map, waypointsRef.current);
+    },
+    zoomIn: () => {
+      keepRouteFittedRef.current = false;
+      map.zoomIn({
+        duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 180,
+      });
+    },
+    zoomOut: () => {
+      keepRouteFittedRef.current = false;
+      map.zoomOut({
+        duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 180,
+      });
+    },
   };
 }
 

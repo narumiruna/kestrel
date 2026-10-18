@@ -40,6 +40,9 @@ test('saved route matching includes formatted mode, null descriptions and order'
     ['harbor', ['loop']],
     ['quiet notes', ['once']],
     ['ping-pong', ['ping']],
+    ['back and forth', ['ping']],
+    ['one way', ['once']],
+    ['repeat', ['loop']],
     ['loop', ['loop']],
     ['missing', []],
   ] as const) {
