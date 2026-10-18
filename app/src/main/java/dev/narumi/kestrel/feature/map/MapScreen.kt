@@ -282,9 +282,8 @@ fun MapScreen(
     var pendingFavorite by rememberSaveable { mutableStateOf<PendingFavorite?>(null) }
     var pendingLongPressPoint by rememberSaveable { mutableStateOf<LatLng?>(null) }
     var favoriteName by rememberSaveable { mutableStateOf("") }
-    var cameraTarget by rememberSaveable { mutableStateOf<CameraSnapshot?>(null) }
+    val cameraState = rememberSaveable(saver = MapCameraState.Saver) { MapCameraState() }
     var awaitCurrentForStartup by rememberSaveable { mutableStateOf(false) }
-    var lastCameraCenter by rememberSaveable { mutableStateOf<LatLng?>(null) }
     var showGenerateDialog by rememberSaveable { mutableStateOf(false) }
     var showGoToSheet by rememberSaveable { mutableStateOf(false) }
     var startupResolved by rememberSaveable { mutableStateOf(false) }
@@ -315,7 +314,7 @@ fun MapScreen(
         val pref = prefs.startupPreference.first()
         when (pref.mode) {
             StartupPreference.Mode.Last -> {
-                prefs.lastCamera.first()?.let { cameraTarget = it }
+                prefs.lastCamera.first()?.let(cameraState::moveTo)
             }
 
             StartupPreference.Mode.Current -> {
@@ -328,14 +327,14 @@ fun MapScreen(
                     pref.libraryItemId?.let { itemId -> currentItems.firstOrNull { it.item.id == itemId } }
                 if (startupItem == null) {
                     prefs.setStartupPreference(StartupPreference(StartupPreference.Mode.Last))
-                    prefs.lastCamera.first()?.let { cameraTarget = it }
+                    prefs.lastCamera.first()?.let(cameraState::moveTo)
                 } else {
                     val requestId =
                         applyStartupItem(
                             item = startupItem,
                             context = context,
                             setWaypoints = { waypoints = it },
-                            setCameraTarget = { cameraTarget = it },
+                            setCameraTarget = cameraState::moveTo,
                             setSpeedKmh = { speedKmh = it },
                             setRouteMode = { routeMode = it },
                         )
@@ -352,7 +351,7 @@ fun MapScreen(
     LaunchedEffect(myLocation, awaitCurrentForStartup) {
         if (!awaitCurrentForStartup) return@LaunchedEffect
         val ml = myLocation ?: return@LaunchedEffect
-        cameraTarget = CameraSnapshot(ml.lat, ml.lng, 15.0)
+        cameraState.moveTo(CameraSnapshot(ml.lat, ml.lng, 15.0))
         awaitCurrentForStartup = false
     }
 
@@ -444,7 +443,7 @@ fun MapScreen(
         // Choosing a target is a side-effect-free preview. Active playback keeps running until
         // replacement is explicitly confirmed.
         waypoints = listOf(point)
-        cameraTarget = CameraSnapshot(point.lat, point.lng, 15.0)
+        cameraState.moveTo(CameraSnapshot(point.lat, point.lng, 15.0))
         showGoToSheet = false
     }
 
@@ -452,7 +451,7 @@ fun MapScreen(
         if (item.kind == LibraryItemKind.Place) {
             val point = item.primaryPoint() ?: return
             waypoints = listOf(point)
-            cameraTarget = CameraSnapshot(point.lat, point.lng, 15.0)
+            cameraState.moveTo(CameraSnapshot(point.lat, point.lng, 15.0))
         } else {
             val route = item.route ?: return
             val routeWaypoints = item.routeWaypoints()
@@ -461,7 +460,7 @@ fun MapScreen(
             routeMode =
                 runCatching { MovementEngine.Mode.valueOf(route.mode) }
                     .getOrDefault(MovementEngine.Mode.Once)
-            routeWaypoints.firstOrNull()?.let { cameraTarget = CameraSnapshot(it.lat, it.lng, 15.0) }
+            routeWaypoints.firstOrNull()?.let { cameraState.moveTo(CameraSnapshot(it.lat, it.lng, 15.0)) }
         }
         showGoToSheet = false
         scope.launch { libraryRepository.touchItem(item.item.id) }
@@ -500,9 +499,9 @@ fun MapScreen(
             existingDraftCount = waypoints.size,
             onConfirm = { count, meters ->
                 val origin =
-                    lastCameraCenter
+                    cameraState.viewport?.let { LatLng(it.lat, it.lng) }
                         ?: myLocation
-                        ?: cameraTarget?.let { LatLng(it.lat, it.lng) }
+                        ?: cameraState.target?.let { LatLng(it.lat, it.lng) }
                         ?: LatLng(25.0330, 121.5654)
                 waypoints = RouteGenerator.generate(origin, count, meters)
                 scope.launch {
@@ -692,13 +691,15 @@ fun MapScreen(
             previewRoute = previewRoute,
             previewPoint = previewPoint,
             myLocation = myLocation,
-            cameraTarget = cameraTarget,
+            initialCamera = cameraState.initialCamera,
+            cameraTarget = cameraState.target,
+            onCameraMoveEnded = cameraState::onMoveEnded,
             setupStep = setupStep,
             permissionState = permissionState,
             onMapClick = { point -> waypoints = waypoints + point },
             onMapLongClick = { pendingLongPressPoint = it },
             onCameraIdle = { snap ->
-                lastCameraCenter = LatLng(snap.lat, snap.lng)
+                cameraState.onIdle(snap)
                 if (!firstCameraIdleSeen) {
                     firstCameraIdleSeen = true
                 } else {
@@ -714,7 +715,7 @@ fun MapScreen(
             onRefreshMockCheck = { mockAllowed = mockProvider.isMockAllowed() },
             onChooseTarget = { showGoToSheet = true },
             onCenterOnMe = {
-                myLocation?.let { cameraTarget = CameraSnapshot(it.lat, it.lng, 15.0) }
+                myLocation?.let { cameraState.moveTo(CameraSnapshot(it.lat, it.lng, 15.0)) }
             },
         )
     }

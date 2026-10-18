@@ -71,6 +71,7 @@ fun KestrelMap(
     modifier: Modifier = Modifier,
     initialCenter: LatLng = LatLng(25.0330, 121.5654),
     initialZoom: Double = 11.0,
+    initialCamera: CameraSnapshot? = null,
     mockLocation: LatLng? = null,
     currentRoute: List<LatLng> = emptyList(),
     previewRoute: List<LatLng> = emptyList(),
@@ -80,12 +81,14 @@ fun KestrelMap(
     onMapClick: (LatLng) -> Unit = {},
     onMapLongClick: (LatLng) -> Unit = {},
     onCameraIdle: (CameraSnapshot) -> Unit = {},
+    onCameraMoveEnded: (CameraSnapshot, CameraSnapshot) -> Unit = { _, _ -> },
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val currentMapClick by rememberUpdatedState(onMapClick)
     val currentMapLongClick by rememberUpdatedState(onMapLongClick)
     val currentCameraIdle by rememberUpdatedState(onCameraIdle)
+    val currentCameraMoveEnded by rememberUpdatedState(onCameraMoveEnded)
     val colorScheme = MaterialTheme.colorScheme
     val colors =
         remember(colorScheme) {
@@ -122,8 +125,8 @@ fun KestrelMap(
     BindMapLifecycle(
         mapView = mapView,
         lifecycle = lifecycleOwner.lifecycle,
-        initialCenter = initialCenter,
-        initialZoom = initialZoom,
+        initialCenter = initialCamera?.let { LatLng(it.lat, it.lng) } ?: initialCenter,
+        initialZoom = initialCamera?.zoom ?: initialZoom,
         colors = colors,
         listeners = listeners,
         onCameraIdle = { currentCameraIdle(it) },
@@ -137,7 +140,10 @@ fun KestrelMap(
     UpdatePointSource(styleRef, SOURCE_MOCK, mockLocation)
     UpdatePointSource(styleRef, SOURCE_PREVIEW_POINT, previewPoint)
     UpdatePointSource(styleRef, SOURCE_ME, myLocation)
-    UpdateCamera(mapRef, cameraTarget)
+    val cameraMap = mapRef
+    UpdateCamera(cameraMap, cameraTarget, isMapActive = { mapRef === cameraMap }) { target, viewport ->
+        currentCameraMoveEnded(target, viewport)
+    }
     UpdateRoute(styleRef, currentRoute, SOURCE_LINE, SOURCE_WAYPOINTS)
     UpdateRoute(styleRef, previewRoute, SOURCE_PREVIEW_LINE, SOURCE_PREVIEW_WAYPOINTS)
 
@@ -180,10 +186,11 @@ private fun BindMapLifecycle(
             map?.removeOnMapLongClickListener(listeners.longClick)
             cameraListener?.let { map?.removeOnCameraIdleListener(it) }
             lifecycle.removeObserver(observer)
+            // Destruction can cancel a move. Keep its pending target for the replacement view.
+            onDisposeMap()
             mapView.onPause()
             mapView.onStop()
             mapView.onDestroy()
-            onDisposeMap()
         }
     }
 }
@@ -314,14 +321,7 @@ private fun createCameraListener(
     map: MapLibreMap,
     onCameraIdle: (CameraSnapshot) -> Unit,
 ) = MapLibreMap.OnCameraIdleListener {
-    val position = map.cameraPosition
-    onCameraIdle(
-        CameraSnapshot(
-            position.target?.latitude ?: 0.0,
-            position.target?.longitude ?: 0.0,
-            position.zoom,
-        ),
-    )
+    onCameraIdle(map.cameraSnapshot())
 }
 
 private fun createLifecycleObserver(mapView: MapView) =
@@ -351,16 +351,37 @@ private fun UpdatePointSource(
     }
 }
 
+private fun MapLibreMap.cameraSnapshot(): CameraSnapshot {
+    val position = cameraPosition
+    return CameraSnapshot(position.target?.latitude ?: 0.0, position.target?.longitude ?: 0.0, position.zoom)
+}
+
 @Composable
 private fun UpdateCamera(
     map: MapLibreMap?,
     target: CameraSnapshot?,
+    isMapActive: () -> Boolean,
+    onMoveEnded: (CameraSnapshot, CameraSnapshot) -> Unit,
 ) {
-    LaunchedEffect(target, map) {
-        if (map == null || target == null) return@LaunchedEffect
-        map.animateCamera(
-            CameraUpdateFactory.newLatLngZoom(MlLatLng(target.lat, target.lng), target.zoom),
-        )
+    DisposableEffect(target, map) {
+        var active = true
+
+        fun complete() {
+            if (active && map != null && target != null && isMapActive()) {
+                onMoveEnded(target, map.cameraSnapshot())
+            }
+        }
+        if (map != null && target != null) {
+            map.animateCamera(
+                CameraUpdateFactory.newLatLngZoom(MlLatLng(target.lat, target.lng), target.zoom),
+                object : MapLibreMap.CancelableCallback {
+                    override fun onCancel() = complete()
+
+                    override fun onFinish() = complete()
+                },
+            )
+        }
+        onDispose { active = false }
     }
 }
 
