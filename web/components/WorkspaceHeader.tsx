@@ -2,17 +2,14 @@
 
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
-import { useState } from 'react';
+import { type MouseEvent, type RefObject, useRef, useState } from 'react';
 import { BrandMark } from '@/components/BrandMark';
-import { useTheme } from '@/components/ThemeProvider';
 import {
   ChevronDownIcon,
   ChevronRightIcon,
   ExitIcon,
-  LockClosedIcon,
-  MoonIcon,
+  GearIcon,
   ReloadIcon,
-  SunIcon,
 } from '@/components/ui/icons';
 import { Button, PopoverFrame } from '@/components/ui/radix-ui';
 import { type WorkspaceSection, WorkspaceTabs } from '@/components/WorkspaceTabs';
@@ -40,6 +37,7 @@ export function WorkspaceHeader({
 }: WorkspaceHeaderProps) {
   const t = useTranslations('WorkspaceHeader');
   const [isAccountOpen, setIsAccountOpen] = useState(false);
+  const settingsLinkRef = useRef<HTMLAnchorElement>(null);
   const refreshLabel =
     statusLabel == null ? t('refreshWorkspace') : t('refreshStatus', { status: statusLabel });
 
@@ -90,8 +88,30 @@ export function WorkspaceHeader({
               </Button>
             }
             onOpenChange={setIsAccountOpen}
+            onOpenAutoFocus={(event) => {
+              event.preventDefault();
+              settingsLinkRef.current?.focus();
+            }}
           >
-            <AccountMenu username={username} onLogout={onLogout} />
+            <AccountMenu
+              username={username}
+              settingsLinkRef={settingsLinkRef}
+              onSettingsClick={(event) => {
+                setIsAccountOpen(false);
+                if (
+                  activeSection === 'account' &&
+                  event.button === 0 &&
+                  !event.metaKey &&
+                  !event.ctrlKey &&
+                  !event.shiftKey &&
+                  !event.altKey
+                ) {
+                  event.preventDefault();
+                  window.location.hash = 'preferences';
+                }
+              }}
+              onLogout={onLogout}
+            />
           </PopoverFrame>
         </div>
       </div>
@@ -101,13 +121,16 @@ export function WorkspaceHeader({
 
 function AccountMenu({
   onLogout,
+  onSettingsClick,
+  settingsLinkRef,
   username,
 }: {
   onLogout: () => void | Promise<void>;
+  onSettingsClick: (event: MouseEvent<HTMLAnchorElement>) => void;
+  settingsLinkRef: RefObject<HTMLAnchorElement | null>;
   username: string;
 }) {
   const t = useTranslations('WorkspaceHeader');
-  const { isHydrated, theme, toggleTheme } = useTheme();
 
   return (
     <div className="account-menu">
@@ -116,24 +139,14 @@ function AccountMenu({
         <span className="muted">{username}</span>
       </div>
       <div className="account-menu-options">
-        <Button
-          aria-label={t('darkModeStatus', { enabled: theme === 'dark' ? 'on' : 'off' })}
-          aria-pressed={theme === 'dark'}
-          className="secondary account-menu-row"
-          disabled={!isHydrated}
-          type="button"
-          onClick={toggleTheme}
+        <Link
+          ref={settingsLinkRef}
+          className="account-menu-row account-menu-link"
+          href="/dashboard/account"
+          onClick={onSettingsClick}
         >
-          {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
-          <span className="account-menu-row-label">
-            {t('appearance')}
-            <span className="account-menu-detail">{t('darkMode')}</span>
-          </span>
-          <span className="account-menu-value">{theme === 'dark' ? t('on') : t('off')}</span>
-        </Button>
-        <Link className="account-menu-row account-menu-link" href="/dashboard/account">
-          <LockClosedIcon />
-          <span className="account-menu-row-label">{t('accountSecurity')}</span>
+          <GearIcon />
+          <span className="account-menu-row-label">{t('accountSettings')}</span>
           <ChevronRightIcon className="account-menu-chevron" />
         </Link>
       </div>

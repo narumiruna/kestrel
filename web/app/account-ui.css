@@ -1,4 +1,102 @@
-/* Compact account menu and dedicated password settings. */
+/* Account settings, account menu, and password settings. */
+.account-settings-layout {
+  align-items: start;
+  display: grid;
+  gap: 28px;
+  grid-template-columns: 180px minmax(0, 1fr);
+}
+
+.account-settings-nav {
+  display: grid;
+  gap: 6px;
+}
+
+.account-settings-nav a {
+  align-items: center;
+  border-radius: 8px;
+  color: var(--text-secondary);
+  display: flex;
+  gap: 10px;
+  min-height: 44px;
+  padding: 10px 12px;
+  text-decoration: none;
+}
+
+.account-settings-nav a:hover,
+.account-settings-nav a[aria-current] {
+  background: var(--accent-soft);
+  color: var(--text-primary);
+}
+
+.account-settings-nav a[aria-current] {
+  font-weight: 600;
+}
+
+.account-settings-nav a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.account-settings-error {
+  color: var(--danger);
+  font-weight: 700;
+  margin-left: auto;
+}
+
+.account-settings-content {
+  min-width: 0;
+}
+
+.account-settings-content .account-security-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.account-preference-group {
+  margin-top: 24px;
+}
+
+.account-preference-group + .account-preference-group {
+  border-top: 1px solid var(--border);
+  padding-top: 24px;
+}
+
+.account-preferences .stack {
+  align-items: center;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, 320px);
+}
+
+.account-preferences .stack > span,
+.account-preferences h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.account-preferences .stack > .error {
+  grid-column: 1 / -1;
+}
+
+.account-appearance-options {
+  max-width: 420px;
+}
+
+@media (max-width: 640px) {
+  .account-settings-layout {
+    gap: 16px;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .account-settings-nav {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .account-preferences .stack {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 .account-security-shell .eyebrow {
   color: var(--text-secondary);
   font-size: 11px;

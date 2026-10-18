@@ -19,6 +19,8 @@ The [2026-10-05 Web UI feedback pass](archived/2026-10-05_web-ui-feedback-plan.m
 
 The [2026-10-05 Web workspace UI polish](archived/2026-10-05_web-workspace-ui-polish-plan.md) completes the remaining shared mockup refinements: Path/Playback tabs and read-only route preview, zoom-aware labels and selected-row synchronization, aligned Library columns, smaller panel rounding, and production-safe MapLibre worker modules. Node.js 22 Web gates and isolated Chrome DevTools checks passed; delivered in [PR #330](https://github.com/narumiruna/kestrel/pull/330).
 
+The [2026-10-18 Web Account settings plan](archived/2026-10-18_web-account-settings-plan.md) is complete: Account settings is the first menu action, with Preferences and Security in a left-navigation layout. Web gates, 18-locale validation, and isolated Chrome DevTools checks passed; existing security state and API contracts remain unchanged.
+
 ## Security references
 
 - `../device-session-security.md` — session/device trust boundaries, step-up rules, revocation semantics, and remote-command cancellation limits.

@@ -405,6 +405,7 @@ type PopoverFrameProps = {
   className?: string;
   open: boolean;
   sideOffset?: number;
+  onOpenAutoFocus?: ComponentProps<typeof Popover.Content>['onOpenAutoFocus'];
   title: string;
   trigger: ReactElement;
   onOpenChange: (open: boolean) => void;
@@ -416,6 +417,7 @@ export function PopoverFrame({
   className = '',
   onOpenChange,
   open,
+  onOpenAutoFocus,
   sideOffset = 8,
   title,
   trigger,
@@ -427,6 +429,7 @@ export function PopoverFrame({
         align={align}
         aria-label={title}
         className={`ui-popover-popup ${className}`.trim()}
+        onOpenAutoFocus={onOpenAutoFocus}
         sideOffset={sideOffset}
       >
         {children}
