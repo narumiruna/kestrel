@@ -20,7 +20,7 @@ The user's latest color instruction replaces the initial deep-teal requirement. 
 - [x] Update semantic tokens and workspace styles to Android colors, distinct semantic states, visible focus, larger targets and one inspector scroll owner; evidence: palette contrast tests and desktop/narrow browser checks.
 - [x] Replace nested mode controls with View / Edit / Playback and a single add-source menu; preserve draft history, allow read-only marker selection and reveal selected rows above the save bar; evidence: workflow tests and browser interactions.
 - [x] Fit empty, single and multi-point routes using measured map space and tool padding; preserve manually moved cameras on edits and resize; evidence: viewport tests and real MapLibre camera checks.
-- [x] Add regression tests and execute all affected-workspace gates with lockfile-aligned dependencies; evidence: 85 Web tests, full Web checks and Node 22 production build below.
+- [x] Add regression tests and execute all affected-workspace gates with lockfile-aligned dependencies; evidence: 88 Web tests, full Web checks and Node 22 production build below.
 - [x] Complete account-backed Map / Routes regression checks with real saved routes and places: select routes, save/reload edits, delete/reorder, share and inspect existing Android playback controls. Evidence: normal registration, TOTP, login and refresh against a dedicated local test database, followed by browser checks. No existing service, account or physical device was modified.
 - [x] Fix review findings for focus/resize requests during style loading, overlapping save/navigation, clean implicit form submissions, failed deletion feedback, stable tabpanel relationships and read-only/external drops; evidence: camera policy tests and browser failure injection.
 
@@ -41,7 +41,7 @@ The user's latest color instruction replaces the initial deep-teal requirement. 
 - Web `npm ci` and `npm ls --depth=0`: succeeded; no package or lockfile change, 0 Web audit vulnerabilities.
 - `just web-check`: passed, including generated brand asset checks; 44 existing CSS warnings and 1 informational diagnostic remain. No new diagnostic in changed files.
 - `just web-lint` and `just web-typecheck`: passed.
-- Web typecheck, 85 Node tests and production build under Node.js 22.23.3: passed. Next.js 16.3.8 generated the existing 22 static pages.
+- Web typecheck, 88 Node tests and production build under Node.js 22.23.3: passed. Next.js 16.3.8 generated the existing 22 static pages.
 - `just backend-check`: passed without Backend source changes; Prisma generation, lint, 258 unit tests, 11 e2e tests, typecheck and build passed.
 - Backend `npm ci` reported 24 inherited audit vulnerabilities (20 moderate, 4 high). No Backend dependency changed; dependency remediation is outside this Web plan.
 - `git diff --check`: passed. No image, credential, generated cache, migration or verification-page source is intended for the commit.
@@ -60,6 +60,16 @@ Chrome DevTools MCP could not find its configured executable. A separate local C
 - Accessibility: every workflow tab has a stable tabpanel, arrow-key mode navigation and keyboard selection work, modal focus returns correctly, reduced motion is respected, View rejects drops, and Edit rejects external drops while retaining internal reordering.
 - Playback protocol: the actual Web UI queued START_ROUTE/STOP through the real Backend. A dedicated test-owned protocol receiver polled and acknowledged them. The UI displayed APPLIED/FAILED results, preserved the intended unsaved draft snapshot and respected remote opt-out. This is not Android runtime playback evidence.
 - Captures: `/tmp/kestrel-route-authenticated-desktop.png` and `/tmp/kestrel-route-authenticated-narrow.png`. No screenshot is committed.
+
+## PR Review Ledger
+
+| Item | Evidence and scope | Outcome |
+| --- | --- | --- |
+| [R1: empty-route zoom](https://github.com/narumiruna/kestrel/pull/345#discussion_r4305548681) | P2, in scope. This PR included an empty waypoint list in `viewportDisabled`, which disabled both zoom buttons. | Already addressed by separate fit and zoom states. Three regression tests cover empty, single/multi-point and unavailable maps. Chrome checks confirm actual zoom and keyboard activation on an empty map, including after removing the last point. |
+
+- `just web-check`, `just web-lint`, Node 22 typecheck, all 88 tests and build passed for this review fix.
+- The first typecheck found a stale reference to the temporary browser-check page. Next.js rebuilt the dev route types after that page was removed. The final typecheck and production build passed; no test page or generated artifact is committed.
+- The existing Android runtime acceptance gate remains open. A ready PR state is not device evidence or an acceptance decision.
 
 ## Review and Remaining Risks
 

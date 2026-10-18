@@ -31,7 +31,10 @@ import {
   formatRouteDistanceFromWaypoints,
 } from '@/components/dashboard/utils';
 import { DEFAULT_MAP_CENTER } from '@/components/mapStyle';
-import type { RouteMapCapability } from '@/components/routeMapCapability';
+import {
+  getRouteViewportControlState,
+  type RouteMapCapability,
+} from '@/components/routeMapCapability';
 import { CheckIcon, Cross2Icon, MagnifyingGlassIcon, PlusIcon } from '@/components/ui/icons';
 import { Button, ConfirmDialog, TextInput, Toggle, ToggleGroup } from '@/components/ui/radix-ui';
 import { WorkspaceHeader } from '@/components/WorkspaceHeader';
@@ -127,6 +130,10 @@ export default function DashboardMapPage() {
   const lastUpdatedLabel = useRelativeUpdatedLabel(lastLoadedAt);
   const isRouteDirty = isRouteDraftDirty(routeDraftState);
   const draftWaypoints = routeDraftState.draft.waypoints;
+  const routeViewportControls = getRouteViewportControlState(
+    routeMapCapability,
+    draftWaypoints.length,
+  );
   const selectedWaypointIndex = getSelectedWaypointIndex(draftWaypoints, selectedWaypointId);
   function setSelectedWaypointIndex(index: number | null) {
     setSelectedWaypointId(index == null ? null : (draftWaypoints[index]?.draftId ?? null));
@@ -625,9 +632,8 @@ export default function DashboardMapPage() {
       )}
       <ZoomStack
         isMapFocused={isLibraryCollapsed && isInspectorCollapsed}
-        viewportDisabled={
-          activeKind === 'routes' && (routeMapCapability !== 'ready' || draftWaypoints.length === 0)
-        }
+        viewportDisabled={activeKind === 'routes' && routeViewportControls.viewportDisabled}
+        fitDisabled={activeKind === 'routes' && routeViewportControls.fitDisabled}
         fitLabel={activeKind === 'routes' ? 'Show entire route' : 'Fit to all pins'}
         onFit={() => {
           if (activeKind === 'routes') setFitRequest((request) => request + 1);

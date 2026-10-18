@@ -13,6 +13,7 @@ import { Button, Hint, Menu, MenuSurface } from '@/components/ui/radix-ui';
 import { useMapStyle } from '@/hooks/useMapStyle';
 
 type ZoomStackProps = {
+  fitDisabled?: boolean;
   fitLabel?: string;
   isMapFocused?: boolean;
   onFit?: () => void;
@@ -23,6 +24,7 @@ type ZoomStackProps = {
 };
 
 export function ZoomStack({
+  fitDisabled = false,
   fitLabel = 'Fit to all pins',
   isMapFocused = false,
   onFit,
@@ -65,7 +67,7 @@ export function ZoomStack({
         <Hint label={fitLabel}>
           <Button
             aria-label={fitLabel}
-            disabled={viewportDisabled}
+            disabled={viewportDisabled || fitDisabled}
             title={fitLabel}
             type="button"
             onClick={onFit}
