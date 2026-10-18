@@ -284,8 +284,8 @@ fun MapScreen(
     var waypoints by rememberSaveable(stateSaver = DraftWaypointsSaver) {
         mutableStateOf<List<LatLng>>(emptyList())
     }
-    var speedKmh by rememberSaveable { mutableStateOf(20.0) }
-    var routeMode by rememberSaveable { mutableStateOf(MovementEngine.Mode.Once) }
+    var speedKmh by rememberSaveable { mutableStateOf(15.0) }
+    var routeMode by rememberSaveable { mutableStateOf(MovementEngine.Mode.PingPong) }
     var pendingFavorite by remember { mutableStateOf<PendingFavorite?>(null) }
     var pendingLongPressPoint by remember { mutableStateOf<LatLng?>(null) }
     var favoriteName by remember { mutableStateOf("") }

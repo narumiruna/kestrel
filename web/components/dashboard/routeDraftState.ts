@@ -53,10 +53,10 @@ export function createRouteDraftState(route: Route | null): RouteDraftState {
       speedKmh: waypoint.speedKmh ?? null,
     })) ?? [];
   const baseline: RouteDraft = {
-    defaultSpeedKmh: route?.defaultSpeedKmh.toString() ?? '5',
+    defaultSpeedKmh: route?.defaultSpeedKmh.toString() ?? '15',
     description: route?.description ?? '',
     isPublic: route?.isPublic ?? false,
-    mode: route?.mode ?? 'ONCE',
+    mode: route?.mode ?? 'PING_PONG',
     name: route?.name ?? '',
     waypoints,
   };

@@ -24,6 +24,16 @@ import {
   upsertRouteById,
 } from './routeDraftState.ts';
 
+test('new routes default to 15 km/h and PingPong', () => {
+  const state = createRouteDraftState(null);
+
+  assert.equal(state.draft.defaultSpeedKmh, '15');
+  assert.equal(state.draft.mode, 'PING_PONG');
+  assert.equal(toRouteInput(state.draft).defaultSpeedKmh, 15);
+  assert.equal(toRouteInput(state.draft).mode, 'PING_PONG');
+  assert.equal(isRouteDraftDirty(state), false);
+});
+
 test('selection follows identity through insertion, reorder, deletion, undo and redo', () => {
   let state = createRouteDraftState(null);
   for (let i = 0; i < 94; i++)
@@ -98,6 +108,15 @@ function createSavedRoute(name: string): Route & {
     name,
   };
 }
+
+test('existing routes keep their saved speed and mode', () => {
+  const state = createRouteDraftState(route);
+
+  assert.equal(state.draft.defaultSpeedKmh, '12');
+  assert.equal(state.draft.mode, 'LOOP');
+  assert.equal(toRouteInput(state.draft).defaultSpeedKmh, 12);
+  assert.equal(toRouteInput(state.draft).mode, 'LOOP');
+});
 
 test('creates stable draft waypoints and strips client ids from save input', () => {
   const state = createRouteDraftState(route);
