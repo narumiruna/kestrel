@@ -10,69 +10,56 @@ import {
   useMemo,
   useState,
 } from 'react';
-
-type Theme = 'dark' | 'light';
+import { createThemePreference, type Theme } from './themePreference';
 
 type ThemeContextValue = {
   isHydrated: boolean;
   theme: Theme;
-  toggleTheme: () => void;
+  setTheme: (theme: Theme) => void;
 };
 
-const STORAGE_KEY = 'kestrel-theme';
 const TRANSITION_CLASS = 'theme-transition-enabled';
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setTheme] = useState<Theme>('light');
+  const [theme, setCurrentTheme] = useState<Theme>('light');
   const [isHydrated, setIsHydrated] = useState(false);
+  const [preference] = useState(createThemePreference);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
 
     function applyStoredOrSystemTheme() {
-      const storedTheme = readStoredTheme();
-      const nextTheme = storedTheme ?? getSystemTheme(mediaQuery);
+      const nextTheme = preference.resolveTheme(mediaQuery.matches ? 'dark' : 'light');
 
       applyTheme(nextTheme);
-      setTheme(nextTheme);
+      setCurrentTheme(nextTheme);
     }
 
     applyStoredOrSystemTheme();
     setIsHydrated(true);
+    mediaQuery.addEventListener('change', applyStoredOrSystemTheme);
 
-    function handleSystemThemeChange() {
-      if (readStoredTheme() != null) {
-        return;
-      }
+    return () => mediaQuery.removeEventListener('change', applyStoredOrSystemTheme);
+  }, [preference]);
 
-      applyStoredOrSystemTheme();
-    }
-
-    mediaQuery.addEventListener('change', handleSystemThemeChange);
-
-    return () => mediaQuery.removeEventListener('change', handleSystemThemeChange);
-  }, []);
-
-  const toggleTheme = useCallback(() => {
-    setTheme((currentTheme) => {
-      const nextTheme = currentTheme === 'dark' ? 'light' : 'dark';
-
+  const setTheme = useCallback(
+    (nextTheme: Theme) => {
       enableManualThemeTransition();
-      writeStoredTheme(nextTheme);
+      preference.setTheme(nextTheme);
       applyTheme(nextTheme);
-
-      return nextTheme;
-    });
-  }, []);
+      setCurrentTheme(nextTheme);
+    },
+    [preference],
+  );
 
   const value = useMemo<ThemeContextValue>(
     () => ({
       isHydrated,
       theme,
-      toggleTheme,
+      setTheme,
     }),
-    [isHydrated, theme, toggleTheme],
+    [isHydrated, theme, setTheme],
   );
 
   return (
@@ -97,28 +84,6 @@ export function useTheme() {
   }
 
   return context;
-}
-
-function readStoredTheme(): Theme | null {
-  try {
-    const storedTheme = window.localStorage.getItem(STORAGE_KEY);
-
-    return storedTheme === 'dark' || storedTheme === 'light' ? storedTheme : null;
-  } catch {
-    return null;
-  }
-}
-
-function writeStoredTheme(theme: Theme) {
-  try {
-    window.localStorage.setItem(STORAGE_KEY, theme);
-  } catch {
-    // A blocked or full Web Storage area should not break theme switching.
-  }
-}
-
-function getSystemTheme(mediaQuery: MediaQueryList): Theme {
-  return mediaQuery.matches ? 'dark' : 'light';
 }
 
 function applyTheme(theme: Theme) {

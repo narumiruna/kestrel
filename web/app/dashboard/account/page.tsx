@@ -11,8 +11,7 @@ import {
   saveOidcLinkAttempt,
 } from '@/components/dashboard/oidcLinkState';
 import { useDashboardAuth } from '@/components/dashboard/useDashboardAuth';
-import { LanguageSelector } from '@/components/LanguageSelector';
-import { ArrowLeftIcon } from '@/components/ui/icons';
+import { ArrowLeftIcon, GearIcon, LockClosedIcon } from '@/components/ui/icons';
 import { Button, ConfirmDialog, DialogFrame, TextInput } from '@/components/ui/radix-ui';
 import { WorkspaceHeader } from '@/components/WorkspaceHeader';
 import { errorMessage } from '@/i18n/errors';
@@ -25,6 +24,8 @@ import type {
   RemoteDevice,
   RemoteDevicesResponse,
 } from '@/lib/api';
+import { AccountPreferences } from './AccountPreferences';
+import { resolveAccountNavigation } from './accountNavigation';
 import { describeSession, formatDate } from './accountPresentation';
 
 type PendingAction =
@@ -45,9 +46,11 @@ const UNAVAILABLE_OIDC_LINK_STATUS: OidcLinkStatus = {
   linked: false,
 };
 
-export default function AccountSecurityPage() {
+export default function AccountSettingsPage() {
   const t = useTranslations('Account');
   const errorT = useTranslations('Errors');
+  const locale = useLocale();
+  const previousLocaleRef = useRef(locale);
   const auth = useDashboardAuth();
   const [sessions, setSessions] = useState<AuthSessionSummary[]>([]);
   const [devices, setDevices] = useState<RemoteDevice[]>([]);
@@ -58,6 +61,10 @@ export default function AccountSecurityPage() {
   const [isOidcLinkStatusLoading, setIsOidcLinkStatusLoading] = useState(true);
   const [error, setError] = useState<AccountError | null>(null);
   const [notice, setNotice] = useState<AccountNotice | null>(null);
+  const [navigation, setNavigation] = useState<ReturnType<typeof resolveAccountNavigation> | null>(
+    null,
+  );
+  const section = navigation?.section ?? 'preferences';
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const [currentPassword, setCurrentPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -72,10 +79,16 @@ export default function AccountSecurityPage() {
   const shouldRestorePasswordFocusRef = useRef(false);
 
   useEffect(() => {
-    if (isPasswordOpen || isPasswordSaving || !shouldRestorePasswordFocusRef.current) return;
+    if (
+      section !== 'security' ||
+      isPasswordOpen ||
+      isPasswordSaving ||
+      !shouldRestorePasswordFocusRef.current
+    )
+      return;
     shouldRestorePasswordFocusRef.current = false;
     passwordTriggerRef.current?.focus();
-  }, [isPasswordOpen, isPasswordSaving]);
+  }, [isPasswordOpen, isPasswordSaving, section]);
 
   const loadSecurityData = useCallback(() => {
     if (!auth.isAuthenticated) {
@@ -166,13 +179,47 @@ export default function AccountSecurityPage() {
     if (!auth.isHydrated) {
       return;
     }
-    const url = new URL(window.location.href);
-    if (url.searchParams.get('oidc') === 'linked') {
-      setNotice('oidcLinked');
-      url.searchParams.delete('oidc');
-      window.history.replaceState(null, '', `${url.pathname}${url.search}`);
+    function syncNavigation() {
+      const next = resolveAccountNavigation(new URL(window.location.href));
+      if (next.linked) {
+        setNotice('oidcLinked');
+        window.history.replaceState(window.history.state, '', next.href);
+      }
+      setNavigation(next);
     }
+    syncNavigation();
+    window.addEventListener('hashchange', syncNavigation);
+    window.addEventListener('popstate', syncNavigation);
+    return () => {
+      window.removeEventListener('hashchange', syncNavigation);
+      window.removeEventListener('popstate', syncNavigation);
+    };
   }, [auth.isHydrated]);
+
+  useEffect(() => {
+    if (previousLocaleRef.current === locale) return;
+    previousLocaleRef.current = locale;
+    // A locale Server Action can remove the fragment without a hashchange event.
+    // Keep the mounted category and its reload/deep-link target in sync.
+    if (navigation == null || window.location.hash) return;
+    const url = new URL(window.location.href);
+    url.hash = navigation.target;
+    window.history.replaceState(
+      window.history.state,
+      '',
+      `${url.pathname}${url.search}${url.hash}`,
+    );
+  }, [locale, navigation]);
+
+  useEffect(() => {
+    if (!auth.isAuthenticated || navigation == null || !navigation.target.endsWith('-heading'))
+      return;
+    // Legacy links point inside Security. Reveal the mounted panel before scrolling.
+    const frame = window.requestAnimationFrame(() => {
+      document.getElementById(navigation.target)?.scrollIntoView();
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [auth.isAuthenticated, navigation]);
 
   async function changePassword(input: ChangePasswordInput) {
     await auth.apiRequest('/auth/password/change', {
@@ -276,11 +323,6 @@ export default function AccountSecurityPage() {
         <Link className="account-security-back" href="/dashboard/map">
           <ArrowLeftIcon aria-hidden /> {t('back')}
         </Link>
-        <nav className="account-section-nav" aria-label={t('sections')}>
-          <a href="#sign-in-heading">{t('signIn')}</a>
-          <a href="#sessions-heading">{t('sessions')}</a>
-          <a href="#devices-heading">{t('devices')}</a>
-        </nav>
         <header className="account-security-header">
           <div>
             <h1>{t('title')}</h1>
@@ -288,186 +330,222 @@ export default function AccountSecurityPage() {
           </div>
         </header>
 
-        {error == null ? null : (
-          <div className="error account-security-feedback" role="alert">
-            {error.cause == null
-              ? t(error.key)
-              : errorMessage(error.cause, (key, values) =>
-                  ['unexpected', 'http', 'server'].includes(key)
+        <div className="account-settings-layout">
+          <nav className="account-settings-nav" aria-label={t('sections')}>
+            <a
+              href="#preferences"
+              aria-current={section === 'preferences' ? 'location' : undefined}
+            >
+              <GearIcon /> {t('preferences')}
+            </a>
+            <a href="#security" aria-current={section === 'security' ? 'location' : undefined}>
+              <LockClosedIcon /> {t('security')}
+              {error == null ? null : (
+                <span
+                  className="account-settings-error"
+                  role="img"
+                  aria-label={t('securityError')}
+                  title={t('securityError')}
+                >
+                  !
+                </span>
+              )}
+            </a>
+          </nav>
+          <div className="account-settings-content">
+            <div id="preferences" hidden={section !== 'preferences'}>
+              <AccountPreferences />
+            </div>
+            {/* Keep Security mounted: category changes must not reset password or QR state. */}
+            <section id="security" hidden={section !== 'security'} aria-label={t('security')}>
+              {error == null ? null : (
+                <div className="error account-security-feedback" role="alert">
+                  {error.cause == null
                     ? t(error.key)
-                    : errorT(key, values),
-                )}
-          </div>
-        )}
-        {notice == null ? null : (
-          <div className="success account-security-feedback" role="status">
-            {typeof notice === 'string'
-              ? t(notice)
-              : t('revokedNotice', { target: describeAction(notice.action, t) })}
-          </div>
-        )}
-
-        <LanguageSelector />
-
-        <div className="account-security-grid">
-          <section
-            className="panel account-security-panel account-security-sign-in"
-            aria-labelledby="sign-in-heading"
-          >
-            <div className="account-security-section-header">
-              <div>
-                <h2 id="sign-in-heading">{t('signIn')}</h2>
-              </div>
-              {oidcLinkStatus?.linked ? (
-                <span className="chip remote-chip-online">{t('linked')}</span>
-              ) : null}
-            </div>
-            {isOidcLinkStatusLoading || oidcLinkStatus == null ? (
-              <p className="muted">{t('loadingSignIn')}</p>
-            ) : !oidcLinkStatus.enabled ? (
-              <p className="muted">{t('oidcUnavailable')}</p>
-            ) : oidcLinkStatus.linked ? (
-              <p className="muted">
-                {t('providerLinked', { provider: oidcLinkStatus.displayName })}
-              </p>
-            ) : (
-              <>
-                <p className="muted">{t('linkHelp', { provider: oidcLinkStatus.displayName })}</p>
-                <div className="account-security-actions">
-                  <Button
-                    className="secondary"
-                    disabled={isSubmitting}
-                    type="button"
-                    onClick={() => setIsOidcLinkOpen(true)}
-                  >
-                    {t('linkProvider', { provider: oidcLinkStatus.displayName })}
-                  </Button>
+                    : errorMessage(error.cause, (key, values) =>
+                        ['unexpected', 'http', 'server'].includes(key)
+                          ? t(error.key)
+                          : errorT(key, values),
+                      )}
                 </div>
-              </>
-            )}
-            <div className="account-password-row">
-              <div>
-                <h3>{t('password')}</h3>
-                <p className="muted no-margin">{t('passwordHelp')}</p>
-              </div>
-              <Button
-                ref={passwordTriggerRef}
-                className="secondary"
-                type="button"
-                aria-expanded={isPasswordOpen}
-                aria-controls="account-password-form"
-                disabled={isPasswordSaving}
-                onClick={() => setIsPasswordOpen((open) => !open)}
-              >
-                {t('changePassword')}
-              </Button>
-            </div>
-            {isPasswordOpen ? (
-              <div id="account-password-form" className="account-password-expansion">
-                <ChangePasswordForm
+              )}
+              {notice == null ? null : (
+                <div className="success account-security-feedback" role="status">
+                  {typeof notice === 'string'
+                    ? t(notice)
+                    : t('revokedNotice', { target: describeAction(notice.action, t) })}
+                </div>
+              )}
+
+              <div className="account-security-grid">
+                <section
+                  className="panel account-security-panel account-security-sign-in"
+                  aria-labelledby="sign-in-heading"
+                >
+                  <div className="account-security-section-header">
+                    <div>
+                      <h2 id="sign-in-heading">{t('signIn')}</h2>
+                    </div>
+                    {oidcLinkStatus?.linked ? (
+                      <span className="chip remote-chip-online">{t('linked')}</span>
+                    ) : null}
+                  </div>
+                  {isOidcLinkStatusLoading || oidcLinkStatus == null ? (
+                    <p className="muted">{t('loadingSignIn')}</p>
+                  ) : !oidcLinkStatus.enabled ? (
+                    <p className="muted">{t('oidcUnavailable')}</p>
+                  ) : oidcLinkStatus.linked ? (
+                    <p className="muted">
+                      {t('providerLinked', { provider: oidcLinkStatus.displayName })}
+                    </p>
+                  ) : (
+                    <>
+                      <p className="muted">
+                        {t('linkHelp', { provider: oidcLinkStatus.displayName })}
+                      </p>
+                      <div className="account-security-actions">
+                        <Button
+                          className="secondary"
+                          disabled={isSubmitting}
+                          type="button"
+                          onClick={() => setIsOidcLinkOpen(true)}
+                        >
+                          {t('linkProvider', { provider: oidcLinkStatus.displayName })}
+                        </Button>
+                      </div>
+                    </>
+                  )}
+                  <div className="account-password-row">
+                    <div>
+                      <h3>{t('password')}</h3>
+                      <p className="muted no-margin">{t('passwordHelp')}</p>
+                    </div>
+                    <Button
+                      ref={passwordTriggerRef}
+                      className="secondary"
+                      type="button"
+                      aria-expanded={isPasswordOpen}
+                      aria-controls="account-password-form"
+                      disabled={isPasswordSaving}
+                      onClick={() => setIsPasswordOpen((open) => !open)}
+                    >
+                      {t('changePassword')}
+                    </Button>
+                  </div>
+                  {isPasswordOpen ? (
+                    <div id="account-password-form" className="account-password-expansion">
+                      <ChangePasswordForm
+                        username={auth.session.user.username}
+                        onCancel={() => {
+                          shouldRestorePasswordFocusRef.current = true;
+                          setIsPasswordOpen(false);
+                        }}
+                        onSuccess={() => {
+                          shouldRestorePasswordFocusRef.current = true;
+                          setIsPasswordOpen(false);
+                          setNotice('passwordChanged');
+                        }}
+                        onChangePassword={async (input) => {
+                          setIsPasswordSaving(true);
+                          try {
+                            await changePassword(input);
+                          } finally {
+                            setIsPasswordSaving(false);
+                          }
+                        }}
+                      />
+                    </div>
+                  ) : null}
+                </section>
+
+                <section
+                  className="panel account-security-panel"
+                  aria-labelledby="sessions-heading"
+                >
+                  <div className="account-security-section-header">
+                    <div>
+                      <h2 id="sessions-heading">{t('sessions')}</h2>
+                    </div>
+                    <Button
+                      className="secondary"
+                      disabled={areSessionsLoading || otherSessionCount === 0 || isSubmitting}
+                      type="button"
+                      onClick={() => setPendingAction({ kind: 'others' })}
+                    >
+                      {t('revokeOthers')}
+                    </Button>
+                  </div>
+                  {areSessionsLoading ? <p className="muted">{t('loadingSessions')}</p> : null}
+                  {!areSessionsLoading && sessions.length === 0 ? (
+                    <p className="muted">{t('noSessions')}</p>
+                  ) : null}
+                  <div className="account-security-list">
+                    {visibleSessions.map((session) => (
+                      <SessionRow
+                        key={session.id}
+                        session={session}
+                        disabled={areSessionsLoading || isSubmitting}
+                        onRevoke={() => {
+                          if (session.isCurrent) {
+                            setIsSignOutOpen(true);
+                          } else {
+                            setPendingAction({
+                              id: session.id,
+                              kind: 'session',
+                              label: describeSession(session),
+                            });
+                          }
+                        }}
+                      />
+                    ))}
+                  </div>
+                  {sessions.length > 5 ? (
+                    <Button
+                      className="secondary account-security-show-more"
+                      type="button"
+                      onClick={() => setShowAllSessions((current) => !current)}
+                    >
+                      {showAllSessions
+                        ? t('showFewer')
+                        : t('showMore', { count: hiddenSessionCount })}
+                    </Button>
+                  ) : null}
+                </section>
+
+                <AndroidQrLoginPanel
+                  key={auth.session.session.id}
+                  apiRequest={auth.apiRequest}
+                  enabled={androidQrLoginEnabled}
                   username={auth.session.user.username}
-                  onCancel={() => {
-                    shouldRestorePasswordFocusRef.current = true;
-                    setIsPasswordOpen(false);
-                  }}
-                  onSuccess={() => {
-                    shouldRestorePasswordFocusRef.current = true;
-                    setIsPasswordOpen(false);
-                    setNotice('passwordChanged');
-                  }}
-                  onChangePassword={async (input) => {
-                    setIsPasswordSaving(true);
-                    try {
-                      await changePassword(input);
-                    } finally {
-                      setIsPasswordSaving(false);
-                    }
-                  }}
                 />
-              </div>
-            ) : null}
-          </section>
 
-          <section className="panel account-security-panel" aria-labelledby="sessions-heading">
-            <div className="account-security-section-header">
-              <div>
-                <h2 id="sessions-heading">{t('sessions')}</h2>
+                <section className="panel account-security-panel" aria-labelledby="devices-heading">
+                  <div className="account-security-section-header">
+                    <div>
+                      <h2 id="devices-heading">{t('devices')}</h2>
+                    </div>
+                  </div>
+                  <p className="muted">{t('deviceRevokeHelp')}</p>
+                  {areDevicesLoading ? <p className="muted">{t('loadingDevices')}</p> : null}
+                  {!areDevicesLoading && devices.length === 0 ? (
+                    <p className="muted">{t('noDevices')}</p>
+                  ) : null}
+                  <div className="account-security-list">
+                    {devices.map((device) => (
+                      <DeviceRow
+                        key={device.id}
+                        device={device}
+                        disabled={areDevicesLoading || isSubmitting}
+                        onRevoke={() =>
+                          setPendingAction({ id: device.id, kind: 'device', label: device.name })
+                        }
+                      />
+                    ))}
+                  </div>
+                </section>
               </div>
-              <Button
-                className="secondary"
-                disabled={areSessionsLoading || otherSessionCount === 0 || isSubmitting}
-                type="button"
-                onClick={() => setPendingAction({ kind: 'others' })}
-              >
-                {t('revokeOthers')}
-              </Button>
-            </div>
-            {areSessionsLoading ? <p className="muted">{t('loadingSessions')}</p> : null}
-            {!areSessionsLoading && sessions.length === 0 ? (
-              <p className="muted">{t('noSessions')}</p>
-            ) : null}
-            <div className="account-security-list">
-              {visibleSessions.map((session) => (
-                <SessionRow
-                  key={session.id}
-                  session={session}
-                  disabled={areSessionsLoading || isSubmitting}
-                  onRevoke={() => {
-                    if (session.isCurrent) {
-                      setIsSignOutOpen(true);
-                    } else {
-                      setPendingAction({
-                        id: session.id,
-                        kind: 'session',
-                        label: describeSession(session),
-                      });
-                    }
-                  }}
-                />
-              ))}
-            </div>
-            {sessions.length > 5 ? (
-              <Button
-                className="secondary account-security-show-more"
-                type="button"
-                onClick={() => setShowAllSessions((current) => !current)}
-              >
-                {showAllSessions ? t('showFewer') : t('showMore', { count: hiddenSessionCount })}
-              </Button>
-            ) : null}
-          </section>
-
-          <AndroidQrLoginPanel
-            key={auth.session.session.id}
-            apiRequest={auth.apiRequest}
-            enabled={androidQrLoginEnabled}
-            username={auth.session.user.username}
-          />
-
-          <section className="panel account-security-panel" aria-labelledby="devices-heading">
-            <div className="account-security-section-header">
-              <div>
-                <h2 id="devices-heading">{t('devices')}</h2>
-              </div>
-            </div>
-            <p className="muted">{t('deviceRevokeHelp')}</p>
-            {areDevicesLoading ? <p className="muted">{t('loadingDevices')}</p> : null}
-            {!areDevicesLoading && devices.length === 0 ? (
-              <p className="muted">{t('noDevices')}</p>
-            ) : null}
-            <div className="account-security-list">
-              {devices.map((device) => (
-                <DeviceRow
-                  key={device.id}
-                  device={device}
-                  disabled={areDevicesLoading || isSubmitting}
-                  onRevoke={() =>
-                    setPendingAction({ id: device.id, kind: 'device', label: device.name })
-                  }
-                />
-              ))}
-            </div>
-          </section>
+            </section>
+          </div>
         </div>
 
         <DialogFrame
