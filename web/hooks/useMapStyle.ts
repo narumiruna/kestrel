@@ -1,10 +1,10 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   DEFAULT_MAP_STYLE,
   getAvailableMapStyles,
-  getMapStyleLabel,
   getNextMapStyleName,
   isMapStyleName,
   type MapStyleName,
@@ -20,7 +20,16 @@ type MapStyleContextDetail = {
 
 export function useMapStyle() {
   const [styleName, setStyleNameState] = useState<MapStyleName>(DEFAULT_MAP_STYLE);
-  const availableStyles = useMemo(() => getAvailableMapStyles(), []);
+  const t = useTranslations('MapStyles');
+  const availableStyles = useMemo(
+    () =>
+      getAvailableMapStyles().map((option) => ({
+        ...option,
+        label: t(option.name),
+        description: t(`${option.name}Description`),
+      })),
+    [t],
+  );
 
   useEffect(() => {
     setStyleNameState(readStoredMapStyle() ?? DEFAULT_MAP_STYLE);
@@ -63,7 +72,7 @@ export function useMapStyle() {
   return {
     availableStyles,
     canToggle: availableStyles.length > 1,
-    label: getMapStyleLabel(styleName),
+    label: t(styleName),
     setStyleName,
     styleName,
     toggleStyleName,

@@ -3,7 +3,12 @@
 import type { Feature, LineString } from 'geojson';
 import type { GeoJSONSource, Map as MapLibreMap, Marker } from 'maplibre-gl';
 import * as maplibregl from 'maplibre-gl';
+import { useLocale, useTranslations } from 'next-intl';
 import { useEffect, useRef } from 'react';
+import {
+  getRouteMarkerText,
+  type RouteMarkerTranslator,
+} from '@/components/dashboard/routeMarkerLabels';
 import { getStyleByName } from '@/components/mapStyle';
 import { useMapStyle } from '@/hooks/useMapStyle';
 import type { RouteWaypoint } from '@/lib/api';
@@ -30,6 +35,10 @@ export default function RouteMapPreview({
   onReady,
   waypoints,
 }: Props) {
+  const t = useTranslations('routeMap');
+  const locale = useLocale();
+  const tRef = useRef(t);
+  const localeRef = useRef<string>(locale);
   const { styleName } = useMapStyle();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
@@ -38,6 +47,26 @@ export default function RouteMapPreview({
   const interactiveRef = useRef(interactive);
   const onReadyRef = useRef(onReady);
   const initialStyleNameRef = useRef(styleName);
+
+  useEffect(() => {
+    tRef.current = t;
+    localeRef.current = locale;
+    const map = mapRef.current;
+    if (map == null) return;
+    map.getCanvas().setAttribute('aria-label', t('title'));
+    const attribution = map
+      .getContainer()
+      .querySelector<HTMLElement>('.maplibregl-ctrl-attrib-button');
+    if (attribution != null) {
+      attribution.title = t('toggleAttribution');
+      attribution.setAttribute('aria-label', t('toggleAttribution'));
+    }
+    markersRef.current.forEach((marker, index) => {
+      const text = getRouteMarkerText(index, waypointsRef.current.length, false, locale, t);
+      marker.getElement().textContent = text.shortLabel;
+      marker.getElement().setAttribute('aria-label', text.ariaLabel);
+    });
+  }, [locale, t]);
 
   useEffect(() => {
     waypointsRef.current = waypoints;
@@ -59,6 +88,11 @@ export default function RouteMapPreview({
           ? [121.5654, 25.033]
           : [firstWaypoint.longitude, firstWaypoint.latitude],
       container: containerRef.current,
+      locale: {
+        'Map.Title': tRef.current('title'),
+        'AttributionControl.ToggleAttribution': tRef.current('toggleAttribution'),
+        'AttributionControl.MapFeedback': tRef.current('feedback'),
+      },
       interactive: interactiveRef.current,
       style: getStyleByName(initialStyleNameRef.current),
       zoom: firstWaypoint == null ? 11 : 14,
@@ -66,7 +100,7 @@ export default function RouteMapPreview({
 
     map.on('load', () => {
       syncLineLayer(map, waypointsRef.current);
-      syncMarkers(map, markersRef.current, waypointsRef.current);
+      syncMarkers(map, markersRef.current, waypointsRef.current, localeRef.current, tRef.current);
       fitWaypoints(map, waypointsRef.current, 0);
       onReadyRef.current?.({
         fit: () => fitWaypoints(map, waypointsRef.current, 350),
@@ -97,7 +131,7 @@ export default function RouteMapPreview({
 
     const update = () => {
       syncLineLayer(map, waypoints);
-      syncMarkers(map, markersRef.current, waypoints);
+      syncMarkers(map, markersRef.current, waypoints, localeRef.current, tRef.current);
       fitWaypoints(map, waypoints, 0);
     };
 
@@ -123,7 +157,7 @@ export default function RouteMapPreview({
     map.setStyle(getStyleByName(styleName));
     map.once('style.load', () => {
       syncLineLayer(map, waypointsRef.current);
-      syncMarkers(map, markersRef.current, waypointsRef.current);
+      syncMarkers(map, markersRef.current, waypointsRef.current, localeRef.current, tRef.current);
       map.jumpTo({ bearing, center, pitch, zoom });
     });
   }, [styleName]);
@@ -139,7 +173,13 @@ function createEmptyViewportControls(): MapViewportControls {
   };
 }
 
-function syncMarkers(map: MapLibreMap, existingMarkers: Marker[], waypoints: RouteWaypoint[]) {
+function syncMarkers(
+  map: MapLibreMap,
+  existingMarkers: Marker[],
+  waypoints: RouteWaypoint[],
+  locale: string,
+  t: RouteMarkerTranslator,
+) {
   existingMarkers.forEach((marker) => {
     marker.remove();
   });
@@ -147,7 +187,7 @@ function syncMarkers(map: MapLibreMap, existingMarkers: Marker[], waypoints: Rou
 
   waypoints.forEach((waypoint, index) => {
     const marker = new maplibregl.Marker({
-      element: createPreviewMarkerElement(index, waypoints.length),
+      element: createPreviewMarkerElement(index, waypoints.length, locale, t),
     })
       .setLngLat([waypoint.longitude, waypoint.latitude])
       .addTo(map);
@@ -156,24 +196,20 @@ function syncMarkers(map: MapLibreMap, existingMarkers: Marker[], waypoints: Rou
   });
 }
 
-function createPreviewMarkerElement(index: number, waypointCount: number) {
+function createPreviewMarkerElement(
+  index: number,
+  waypointCount: number,
+  locale: string,
+  t: RouteMarkerTranslator,
+) {
   const element = document.createElement('span');
   element.className = 'route-marker route-marker-preview';
-  element.textContent = getWaypointShortLabel(index, waypointCount);
+  const text = getRouteMarkerText(index, waypointCount, false, locale, t);
+  element.textContent = text.shortLabel;
+  element.setAttribute('role', 'img');
+  element.setAttribute('aria-label', text.ariaLabel);
 
   return element;
-}
-
-function getWaypointShortLabel(index: number, waypointCount: number): string {
-  if (index === 0) {
-    return 'S';
-  }
-
-  if (index === waypointCount - 1) {
-    return 'E';
-  }
-
-  return `${index + 1}`;
 }
 
 function fitWaypoints(map: MapLibreMap, waypoints: RouteWaypoint[], duration: number) {

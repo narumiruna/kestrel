@@ -15,6 +15,7 @@
 
     <application
         android:allowBackup="true"
+        android:localeConfig="@xml/locales_config"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:usesCleartextTraffic="true"
         android:fullBackupContent="@xml/backup_rules"
@@ -84,6 +85,12 @@
             </intent-filter>
         </activity>
 
+        <service
+            android:name="androidx.appcompat.app.AppLocalesMetadataHolderService"
+            android:enabled="false"
+            android:exported="false">
+            <meta-data android:name="autoStoreLocales" android:value="true" />
+        </service>
         <service
             android:name=".core.location.LocationService"
             android:exported="false"

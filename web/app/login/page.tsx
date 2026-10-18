@@ -2,10 +2,13 @@
 
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { type FormEvent, useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import { BrandMark } from '@/components/BrandMark';
+import { LanguageSelector } from '@/components/LanguageSelector';
 import { Button, CheckboxField, Tabs, TextInput } from '@/components/ui/radix-ui';
+import { type ErrorKey, getErrorKey } from '@/i18n/errors';
 import {
   ApiError,
   getAuthMethods,
@@ -17,6 +20,10 @@ import {
 } from '@/lib/api';
 
 type AuthTab = 'login' | 'register';
+type AuthOperation = 'signIn' | 'register' | 'totp';
+type LoginError =
+  | { key: ErrorKey; status: number }
+  | { key: 'errorCredentials' | 'errorRegistrationConflict' | 'errorTotpInvalid' };
 type TotpSetup = {
   qrCodeDataUrl: string;
   secret: string;
@@ -27,6 +34,8 @@ const DEV_DEFAULT_USERNAME = 'admin';
 const REGISTER_PASSWORD_MIN_LENGTH = 12;
 
 export default function LoginPage() {
+  const t = useTranslations('Auth');
+  const errorT = useTranslations('Errors');
   const auth = useAuth();
   const router = useRouter();
   const [tab, setTab] = useState<AuthTab>('login');
@@ -36,7 +45,7 @@ export default function LoginPage() {
   const [isRecoveryCode, setIsRecoveryCode] = useState(false);
   const [totpSetup, setTotpSetup] = useState<TotpSetup | null>(null);
   const [recoveryCodes, setRecoveryCodes] = useState<string[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<LoginError | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [oidcEnabled, setOidcEnabled] = useState(false);
   const [oidcDisplayName, setOidcDisplayName] = useState('OpenID Connect');
@@ -83,7 +92,7 @@ export default function LoginPage() {
       const { authorizationUrl } = await startOidc(authenticationAttemptId, 'web');
       window.location.assign(authorizationUrl);
     } catch (nextError) {
-      setError(formatError(nextError));
+      setError(loginError(nextError));
       setIsSubmitting(false);
     }
   }
@@ -108,7 +117,7 @@ export default function LoginPage() {
       await auth.saveSession(session, authenticationAttemptId);
       router.replace('/dashboard');
     } catch (nextError) {
-      setError(formatError(nextError));
+      setError(loginError(nextError, 'signIn'));
     } finally {
       setIsSubmitting(false);
     }
@@ -135,7 +144,7 @@ export default function LoginPage() {
         setRecoveryCodes(result.recoveryCodes);
       }
     } catch (nextError) {
-      setError(formatError(nextError));
+      setError(loginError(nextError, totpSetup == null ? 'register' : 'totp'));
     } finally {
       setIsSubmitting(false);
     }
@@ -153,7 +162,7 @@ export default function LoginPage() {
         secret: setup.secret,
       });
     } catch (nextError) {
-      setError(formatError(nextError));
+      setError(loginError(nextError, 'totp'));
     } finally {
       setIsSubmitting(false);
     }
@@ -174,11 +183,9 @@ export default function LoginPage() {
   return (
     <main className="auth-page">
       <section className="card auth-card stack">
-        <BrandMark
-          className="auth-brand"
-          subtitle="Edit places and routes for Android sync."
-          titleAs="h1"
-        />
+        <BrandMark className="auth-brand" subtitle={t('subtitle')} titleAs="h1" />
+
+        <LanguageSelector />
 
         <Tabs.Root
           className="auth-tabs-root"
@@ -186,12 +193,16 @@ export default function LoginPage() {
           onValueChange={(value) => setTab(value as AuthTab)}
         >
           <Tabs.List className="tabs" activateOnFocus>
-            <Tabs.Tab value="login">Login</Tabs.Tab>
-            <Tabs.Tab value="register">Register</Tabs.Tab>
+            <Tabs.Tab value="login">{t('loginTab')}</Tabs.Tab>
+            <Tabs.Tab value="register">{t('registerTab')}</Tabs.Tab>
             <Tabs.Indicator className="ui-tabs-indicator" />
           </Tabs.List>
 
-          {error == null ? null : <div className="error">{error}</div>}
+          {error == null ? null : (
+            <div className="error" role="alert">
+              {'status' in error ? errorT(error.key, { status: error.status }) : t(error.key)}
+            </div>
+          )}
 
           <Tabs.Panel className="auth-tab-panel" value="login">
             <form className="stack" onSubmit={submitLogin}>
@@ -202,26 +213,26 @@ export default function LoginPage() {
                 username={username}
               />
               <label htmlFor="radix-field-app-login-page-tsx-1">
-                {isRecoveryCode ? 'Recovery code' : 'TOTP code'}
+                {isRecoveryCode ? t('recoveryCode') : t('totpCode')}
                 <TextInput
                   id="radix-field-app-login-page-tsx-1"
                   autoComplete="one-time-code"
                   inputMode="numeric"
-                  placeholder="Optional when password-only login is allowed"
+                  placeholder={t('codePlaceholder')}
                   value={oneTimeCode}
                   onChange={(event) => setOneTimeCode(event.target.value)}
                 />
               </label>
               <CheckboxField checked={isRecoveryCode} onCheckedChange={setIsRecoveryCode}>
-                Use a recovery code instead
+                {t('useRecoveryCode')}
               </CheckboxField>
               <Button disabled={isSubmitting} type="submit">
-                {isSubmitting ? 'Signing in…' : 'Sign in'}
+                {isSubmitting ? t('signingIn') : t('signIn')}
               </Button>
               {oidcEnabled ? (
                 <>
                   <div className="auth-alternative" aria-hidden="true">
-                    <span>or</span>
+                    <span>{t('or')}</span>
                   </div>
                   <Button
                     className="secondary"
@@ -229,7 +240,7 @@ export default function LoginPage() {
                     type="button"
                     onClick={() => void beginOidcSignIn()}
                   >
-                    Continue with {oidcDisplayName}
+                    {t('continueWith', { provider: oidcDisplayName })}
                   </Button>
                 </>
               ) : null}
@@ -246,17 +257,12 @@ export default function LoginPage() {
               />
 
               {totpSetup == null ? (
-                <p className="muted">
-                  Passwords must be at least 12 characters. TOTP is optional; you can sign in with
-                  username and password only.
-                </p>
+                <p className="muted">{t('passwordHelp')}</p>
               ) : (
                 <div className="stack">
-                  <div className="success">
-                    Scan this QR code, then enter the current authenticator code.
-                  </div>
+                  <div className="success">{t('scanTotp')}</div>
                   <Image
-                    alt="TOTP QR code"
+                    alt={t('totpQrAlt')}
                     className="qr"
                     height={224}
                     src={totpSetup.qrCodeDataUrl}
@@ -264,7 +270,7 @@ export default function LoginPage() {
                     width={224}
                   />
                   <label htmlFor="radix-field-app-login-page-tsx-2">
-                    Secret
+                    {t('secret')}
                     <TextInput
                       id="radix-field-app-login-page-tsx-2"
                       readOnly
@@ -272,7 +278,7 @@ export default function LoginPage() {
                     />
                   </label>
                   <label htmlFor="radix-field-app-login-page-tsx-3">
-                    TOTP code
+                    {t('totpCode')}
                     <TextInput
                       id="radix-field-app-login-page-tsx-3"
                       autoComplete="one-time-code"
@@ -287,7 +293,7 @@ export default function LoginPage() {
 
               {recoveryCodes == null ? null : (
                 <div className="success stack">
-                  <strong>Save these recovery codes now. They will not be shown again.</strong>
+                  <strong>{t('saveRecoveryCodes')}</strong>
                   <div className="chip-row">
                     {recoveryCodes.map((code) => (
                       <code className="chip" key={code}>
@@ -299,7 +305,7 @@ export default function LoginPage() {
               )}
 
               <Button disabled={isSubmitting || recoveryCodes != null} type="submit">
-                {totpSetup == null ? 'Create account' : 'Verify TOTP'}
+                {totpSetup == null ? t('createAccount') : t('verifyTotp')}
               </Button>
               {totpSetup == null ? (
                 <Button
@@ -312,7 +318,7 @@ export default function LoginPage() {
                   type="button"
                   onClick={() => void startTotpSetup()}
                 >
-                  Create account + set up optional TOTP
+                  {t('createWithTotp')}
                 </Button>
               ) : null}
               {recoveryCodes == null ? null : (
@@ -326,7 +332,7 @@ export default function LoginPage() {
                     setTotpSetup(null);
                   }}
                 >
-                  Continue to login
+                  {t('continueToLogin')}
                 </Button>
               )}
             </form>
@@ -350,10 +356,11 @@ function CredentialsFields({
   setUsername: (value: string) => void;
   username: string;
 }) {
+  const t = useTranslations('Auth');
   return (
     <>
       <label htmlFor="radix-field-app-login-page-tsx-4">
-        Username
+        {t('username')}
         <TextInput
           id="radix-field-app-login-page-tsx-4"
           autoComplete="username"
@@ -363,7 +370,7 @@ function CredentialsFields({
         />
       </label>
       <label htmlFor="radix-field-app-login-page-tsx-5">
-        Password
+        {t('password')}
         <TextInput
           id="radix-field-app-login-page-tsx-5"
           autoComplete={passwordMinLength == null ? 'current-password' : 'new-password'}
@@ -384,10 +391,16 @@ function isLocalDevHost(): boolean {
   return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
 }
 
-function formatError(error: unknown): string {
-  if (error instanceof ApiError || error instanceof Error) {
-    return error.message;
+function loginError(error: unknown, operation?: AuthOperation): LoginError {
+  // Uncoded authentication responses need operation-specific guidance, not server prose.
+  if (error instanceof ApiError && !error.code) {
+    if (operation === 'signIn' && error.status === 401) return { key: 'errorCredentials' };
+    if (operation === 'register' && error.status === 409) {
+      return { key: 'errorRegistrationConflict' };
+    }
+    if (operation === 'totp' && [400, 401].includes(error.status)) {
+      return { key: 'errorTotpInvalid' };
+    }
   }
-
-  return 'Unexpected error';
+  return { key: getErrorKey(error), status: error instanceof ApiError ? error.status : 0 };
 }

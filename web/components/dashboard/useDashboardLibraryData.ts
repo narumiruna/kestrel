@@ -1,10 +1,11 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { useCallback, useEffect, useState } from 'react';
+import { errorMessage } from '@/i18n/errors';
 import type { Place, Route } from '@/lib/api';
 import { upsertRouteById } from './routeDraftState';
 import { useDashboardAuth } from './useDashboardAuth';
-import { formatError } from './utils';
 
 export function useDashboardLibraryData() {
   const auth = useDashboardAuth();
@@ -12,8 +13,14 @@ export function useDashboardLibraryData() {
   const [routes, setRoutes] = useState<Route[]>([]);
   const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
-  const [placesError, setPlacesError] = useState<string | null>(null);
-  const [routesError, setRoutesError] = useState<string | null>(null);
+  const t = useTranslations('LibraryData');
+  const te = useTranslations('Errors');
+  const [placesFailure, setPlacesError] = useState<unknown>(null);
+  const [routesFailure, setRoutesError] = useState<unknown>(null);
+  const placesError =
+    placesFailure == null ? null : t('placesError', { error: errorMessage(placesFailure, te) });
+  const routesError =
+    routesFailure == null ? null : t('routesError', { error: errorMessage(routesFailure, te) });
   const [isLoading, setIsLoading] = useState(true);
   const [lastLoadedAt, setLastLoadedAt] = useState<Date | null>(null);
 
@@ -34,7 +41,7 @@ export function useDashboardLibraryData() {
         nextPlaces.some((place) => place.id === current) ? current : (nextPlaces[0]?.id ?? null),
       );
     } else {
-      setPlacesError(`Saved places: ${formatError(placesResult.reason)}`);
+      setPlacesError(placesResult.reason);
     }
 
     if (routesResult.status === 'fulfilled') {
@@ -44,7 +51,7 @@ export function useDashboardLibraryData() {
         nextRoutes.some((route) => route.id === current) ? current : (nextRoutes[0]?.id ?? null),
       );
     } else {
-      setRoutesError(`Routes: ${formatError(routesResult.reason)}`);
+      setRoutesError(routesResult.reason);
     }
 
     if (placesResult.status === 'fulfilled' || routesResult.status === 'fulfilled') {
@@ -69,7 +76,7 @@ export function useDashboardLibraryData() {
       );
       setLastLoadedAt(new Date());
     } catch (nextError) {
-      setPlacesError(`Saved places: ${formatError(nextError)}`);
+      setPlacesError(nextError);
     }
   }, [auth]);
 
@@ -83,7 +90,7 @@ export function useDashboardLibraryData() {
       );
       setLastLoadedAt(new Date());
     } catch (nextError) {
-      setRoutesError(`Routes: ${formatError(nextError)}`);
+      setRoutesError(nextError);
     }
   }, [auth]);
 

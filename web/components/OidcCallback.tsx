@@ -2,11 +2,17 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import { BrandMark } from '@/components/BrandMark';
 import { Button } from '@/components/ui/radix-ui';
+import { type ErrorKey, getErrorKey } from '@/i18n/errors';
 import { ApiError, exchangeOidc } from '@/lib/api';
+
+type CallbackError =
+  | { kind: 'local'; key: 'incomplete' | 'saveFailed' | 'cancelled' | 'failed' }
+  | { kind: 'request'; key: ErrorKey; status: number };
 
 type PendingOidcExchange = {
   authenticationAttempt: string;
@@ -19,10 +25,12 @@ const EXCHANGE_VALUE_PATTERN = /^[A-Za-z0-9:._-]{16,128}$/;
 const TICKET_PATTERN = /^[A-Za-z0-9_-]{32,128}$/;
 
 export function OidcCallback() {
+  const t = useTranslations('AuthOidc');
+  const errorT = useTranslations('Errors');
   const auth = useAuth();
   const router = useRouter();
   const startedRef = useRef(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<CallbackError | null>(null);
   const [isCompleting, setIsCompleting] = useState(true);
   const [pendingExchange, setPendingExchange] = useState<PendingOidcExchange | null>(null);
 
@@ -41,7 +49,11 @@ export function OidcCallback() {
           clearPendingExchange();
           setPendingExchange(null);
         }
-        setError(nextError instanceof Error ? nextError.message : 'OIDC sign-in failed');
+        setError({
+          kind: 'request',
+          key: getErrorKey(nextError),
+          status: nextError instanceof ApiError ? nextError.status : 0,
+        });
       } finally {
         setIsCompleting(false);
       }
@@ -72,7 +84,10 @@ export function OidcCallback() {
         ) {
           window.history.replaceState(null, '', window.location.pathname);
           clearPendingExchange();
-          setError(describeCallbackError(errorCodes[0]));
+          setError({
+            kind: 'local',
+            key: errorCodes[0] === 'access_denied' ? 'cancelled' : 'failed',
+          });
           setIsCompleting(false);
           return;
         }
@@ -90,14 +105,14 @@ export function OidcCallback() {
           if (pending?.authenticationAttempt === authenticationAttempt) {
             setPendingExchange(pending);
           }
-          setError('OIDC returned an incomplete sign-in response. Please try again.');
+          setError({ kind: 'local', key: 'incomplete' });
           setIsCompleting(false);
           return;
         }
 
         const pending = { authenticationAttempt, ticket };
         if (!savePendingExchange(pending)) {
-          setError('Could not save the OIDC response. Reload this page to retry.');
+          setError({ kind: 'local', key: 'saveFailed' });
           setIsCompleting(false);
           return;
         }
@@ -110,7 +125,7 @@ export function OidcCallback() {
       const pending = readPendingExchange();
       if (pending == null || auth.getAuthenticationAttempt() !== pending.authenticationAttempt) {
         clearPendingExchange();
-        setError('OIDC returned an incomplete sign-in response. Please try again.');
+        setError({ kind: 'local', key: 'incomplete' });
         setIsCompleting(false);
         return;
       }
@@ -122,25 +137,25 @@ export function OidcCallback() {
   return (
     <main className="auth-page">
       <section className="card auth-card stack" aria-live="polite">
-        <BrandMark className="auth-brand" subtitle="Completing secure sign-in." titleAs="h1" />
+        <BrandMark className="auth-brand" subtitle={t('subtitle')} titleAs="h1" />
         {error == null ? (
-          <p className="muted">Completing OIDC sign-in…</p>
+          <p className="muted">{t('completing')}</p>
         ) : (
           <>
             <div className="error" role="alert">
-              {error}
+              {error.kind === 'local' ? t(error.key) : errorT(error.key, { status: error.status })}
             </div>
             {pendingExchange != null ? (
               <Button
                 disabled={isCompleting}
                 onClick={() => void completeExchange(pendingExchange)}
               >
-                Retry sign-in
+                {t('retry')}
               </Button>
             ) : null}
             <Button asChild className="secondary">
               <Link href="/login" onClick={clearPendingExchange}>
-                Return to login
+                {t('returnToLogin')}
               </Link>
             </Button>
           </>
@@ -215,11 +230,4 @@ function clearPendingExchange(): void {
   } catch {
     // There is no recoverable storage state to clear when tab storage is unavailable.
   }
-}
-
-function describeCallbackError(errorCode: string): string {
-  if (errorCode === 'access_denied') {
-    return 'OIDC sign-in was cancelled.';
-  }
-  return 'OIDC could not complete sign-in. Please try again.';
 }

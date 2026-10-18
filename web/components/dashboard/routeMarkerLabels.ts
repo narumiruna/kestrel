@@ -1,3 +1,34 @@
+export type RouteMarkerTranslator = (
+  key: 'waypoint' | 'startShort' | 'endShort',
+  values?: {
+    number: number;
+    position: 'both' | 'start' | 'end' | 'middle';
+    selected: 'yes' | 'no';
+  },
+) => string;
+
+/** Resolve marker text without changing geographic anchors or marker identity. */
+export function getRouteMarkerText(
+  index: number,
+  waypointCount: number,
+  selected: boolean,
+  locale: string,
+  t: RouteMarkerTranslator,
+) {
+  const isStart = index === 0;
+  const isEnd = index === waypointCount - 1;
+  const number = new Intl.NumberFormat(locale).format(index + 1);
+  return {
+    number,
+    shortLabel: isStart ? t('startShort') : isEnd ? t('endShort') : number,
+    ariaLabel: t('waypoint', {
+      number: index + 1,
+      position: isStart && isEnd ? 'both' : isStart ? 'start' : isEnd ? 'end' : 'middle',
+      selected: selected ? 'yes' : 'no',
+    }),
+  };
+}
+
 type Point = { x: number; y: number };
 
 const HIT_TARGET_SIZE = 44;

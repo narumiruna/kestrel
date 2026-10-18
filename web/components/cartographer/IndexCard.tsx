@@ -1,3 +1,6 @@
+'use client';
+
+import { useTranslations } from 'next-intl';
 import type { ReactNode } from 'react';
 
 type IndexCardProps = {
@@ -21,8 +24,9 @@ export function IndexCard({
   title,
   variant = 'place',
 }: IndexCardProps) {
+  const t = useTranslations('Common');
   return (
-    <section className={`index-card index-card-${variant}`} aria-label={`${title} index card`}>
+    <section className={`index-card index-card-${variant}`} aria-label={t('indexCard', { title })}>
       <span aria-hidden className="index-card-pin" />
       {eyebrow == null ? null : <div className="index-card-breadcrumb breadcrumb">{eyebrow}</div>}
       <header className="index-card-header">

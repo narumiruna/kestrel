@@ -1,5 +1,9 @@
 package dev.narumi.kestrel.feature.map
 
+import android.content.Context
+import dev.narumi.kestrel.R
+import dev.narumi.kestrel.core.i18n.coordinates
+import dev.narumi.kestrel.core.i18n.routeDetails
 import dev.narumi.kestrel.core.location.LatLng
 import dev.narumi.kestrel.core.location.MovementEngine
 import dev.narumi.kestrel.core.location.RuntimeState
@@ -7,6 +11,12 @@ import dev.narumi.kestrel.core.location.RuntimeState
 internal enum class MapWorkspaceMode { BottomSheet, SidePanel }
 
 internal fun mapWorkspaceMode(widthDp: Float): MapWorkspaceMode = if (widthDp >= 600f) MapWorkspaceMode.SidePanel else MapWorkspaceMode.BottomSheet
+
+// Keep collapsed actions visible when text grows; never exceed the available viewport.
+internal fun mapSheetPeekHeightDp(
+    fontScale: Float,
+    availableHeightDp: Float,
+): Float = (200f * fontScale.coerceAtLeast(1f)).coerceAtMost(availableHeightDp)
 
 internal enum class MapWorkflowPhase {
     Setup,
@@ -29,19 +39,21 @@ internal fun mapWorkflowPhase(
         else -> MapWorkflowPhase.Empty
     }
 
-internal fun currentMockSummary(runtime: RuntimeState): String =
+internal fun currentMockSummary(
+    context: Context,
+    runtime: RuntimeState,
+): String =
     when (runtime) {
         RuntimeState.Idle -> {
-            "No mock is active"
+            context.getString(R.string.no_mock_is_active)
         }
 
         is RuntimeState.Single -> {
-            "Point · %.5f, %.5f".format(runtime.point.lat, runtime.point.lng)
+            context.getString(R.string.point_summary, coordinates(runtime.point.lat, runtime.point.lng))
         }
 
         is RuntimeState.Route -> {
-            "Route · ${runtime.waypoints.size} waypoints · ${runtime.speedKmh.toWorkflowSpeed()} · " +
-                runtime.mode.toWorkflowLabel()
+            context.getString(R.string.route_summary, context.routeDetails(runtime.waypoints.size, runtime.speedKmh, runtime.mode))
         }
     }
 
@@ -68,21 +80,13 @@ internal fun runtimeMatchesDraft(
     }
 
 internal fun previewSummary(
+    context: Context,
     waypointCount: Int,
     speedKmh: Double,
     routeMode: MovementEngine.Mode,
 ): String =
     when (waypointCount) {
-        0 -> "No preview"
-        1 -> "Point preview"
-        else -> "Route preview · $waypointCount waypoints · ${speedKmh.toWorkflowSpeed()} · ${routeMode.toWorkflowLabel()}"
-    }
-
-private fun Double.toWorkflowSpeed(): String = if (this % 1.0 == 0.0) "${toInt()} km/h" else "$this km/h"
-
-private fun MovementEngine.Mode.toWorkflowLabel(): String =
-    when (this) {
-        MovementEngine.Mode.Once -> "Once"
-        MovementEngine.Mode.Loop -> "Loop"
-        MovementEngine.Mode.PingPong -> "Ping-pong"
+        0 -> context.getString(R.string.no_preview)
+        1 -> context.getString(R.string.point_preview)
+        else -> context.getString(R.string.route_preview_summary, context.routeDetails(waypointCount, speedKmh, routeMode))
     }

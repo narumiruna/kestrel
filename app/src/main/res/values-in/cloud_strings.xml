@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="cloud_request_failed">Permintaan cloud gagal. Coba lagi.</string>
+    <string name="cloud_sign_in_failed">Tidak dapat masuk. Periksa detail masuk Anda dan coba lagi.</string>
+    <string name="cloud_sync_failed">Sinkronisasi cloud gagal. Perubahan lokal Anda dipertahankan. Coba sinkronkan lagi.</string>
+    <string name="cloud_remote_failed">Kendali jarak jauh gagal. Periksa koneksi dan coba lagi.</string>
+    <string name="cloud_qr_failed">Masuk QR gagal. Coba lagi atau pindai kode baru.</string>
+    <string name="cloud_server_settings_failed">Server cloud ini tidak dapat digunakan. Periksa URL server dan coba lagi.</string>
+    <string name="cloud_network_error">Tidak dapat terhubung ke server cloud. Periksa koneksi dan coba lagi.</string>
+    <string name="cloud_invalid_response">Server cloud mengembalikan respons tidak valid. Coba lagi.</string>
+    <string name="cloud_invalid_input">Permintaan tidak valid. Periksa nilai yang dimasukkan dan coba lagi.</string>
+    <string name="cloud_invalid_credentials">Tidak dapat masuk. Periksa nama pengguna, kata sandi, dan kode verifikasi Anda.</string>
+    <string name="cloud_session_expired">Sesi Anda telah berakhir. Masuk lagi.</string>
+    <string name="cloud_permission_denied">Tindakan ini tidak diizinkan. Periksa akses akun Anda dan coba lagi.</string>
+    <string name="cloud_not_found">Item cloud tidak lagi tersedia. Muat ulang dan coba lagi.</string>
+    <string name="cloud_conflict">Data cloud telah berubah. Sinkronkan dan tinjau konflik sebelum mencoba lagi.</string>
+    <string name="cloud_expired_request">Permintaan ini kedaluwarsa. Mulai tindakan lagi.</string>
+    <string name="cloud_rate_limited">Terlalu banyak permintaan. Tunggu sebelum mencoba lagi.</string>
+    <string name="cloud_server_unavailable">Server cloud untuk sementara tidak tersedia. Coba lagi nanti.</string>
+    <string name="cloud_request_rejected">Permintaan cloud gagal (HTTP %1$s). Coba lagi.</string>
+    <string name="cloud_sync_cursor_expired">Sinkronisasi perlu memuat ulang data cloud. Coba sinkronkan lagi.</string>
+    <string name="cloud_sync_mutation_conflict">Perubahan sinkronisasi bertentangan dengan permintaan sebelumnya. Muat ulang dan tinjau perubahan yang tertunda.</string>
+    <string name="cloud_sync_upload_failed">Beberapa perubahan tidak dapat diunggah. Perubahan lokal Anda dipertahankan. Coba sinkronkan lagi.</string>
+    <string name="cloud_remote_enabled">Kendali jarak jauh diaktifkan untuk %1$s</string>
+    <string name="cloud_remote_disabled">Kendali jarak jauh dinonaktifkan</string>
+    <string name="cloud_remote_still_enabled">Kendali jarak jauh masih aktif di server</string>
+    <string name="cloud_remote_sign_in_required">Masuk ke cloud untuk menggunakan kendali jarak jauh web.</string>
+    <string name="cloud_remote_sign_in_to_disable">Masuk ke cloud untuk menonaktifkan kendali jarak jauh di server.</string>
+    <string name="cloud_remote_waiting">Menunggu perintah web</string>
+    <string name="cloud_remote_command_applied">Perintah web diterapkan</string>
+    <string name="cloud_remote_command_failed">Perintah web gagal. Periksa izin lokasi tiruan dan pengaturan perintah, lalu coba lagi.</string>
+    <string name="cloud_remote_command_invalid">Perintah web tidak valid. Periksa pengaturan lokasi atau rutenya dan kirim lagi.</string>
+    <string name="cloud_remote_command_timeout">Waktu perintah web habis. Periksa status lokasi tiruan saat ini sebelum mencoba lagi.</string>
+    <string name="cloud_mock_permission_required">Pilih Kestrel sebagai aplikasi lokasi tiruan di Opsi developer Android.</string>
+    <string name="cloud_sign_in_required">Masuk ke cloud terlebih dahulu.</string>
+    <string name="cloud_sign_out_required">Keluar sebelum mengganti server cloud atau memulai proses masuk lain.</string>
+    <string name="cloud_oidc_cancelled">Proses masuk browser dibatalkan. Mulai proses masuk lagi saat siap.</string>
+    <string name="cloud_oidc_restart">Proses masuk browser ini tidak lagi tertunda. Mulai proses masuk lagi.</string>
+    <string name="cloud_server_changed">Server cloud berubah saat proses masuk. Mulai proses masuk lagi.</string>
+    <string name="cloud_qr_restart">Proses masuk QR ini tidak lagi tertunda. Pindai kode baru.</string>
+    <string name="cloud_qr_invalid">Kode masuk QR ini tidak valid. Pindai kode baru dari halaman masuk web.</string>
+    <string name="cloud_scanner_failed">Kode QR tidak dapat dipindai. Coba pindai lagi.</string>
+    <string name="cloud_scanner_empty">Kode QR yang dipindai tidak berisi teks. Pindai kode masuk dari halaman web.</string>
+    <string name="cloud_storage_failed">Sesi cloud tidak dapat disimpan dengan aman. Periksa penyimpanan perangkat dan masuk lagi.</string>
+</resources>

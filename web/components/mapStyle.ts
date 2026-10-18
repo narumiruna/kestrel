@@ -15,27 +15,11 @@ export const DEFAULT_MAP_STYLE: MapStyleName = 'plain';
 const OSM_ATTRIBUTION = '© OpenStreetMap contributors';
 const OSM_TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 
-const MAP_STYLE_OPTIONS: Array<{ description: string; label: string; name: MapStyleName }> = [
-  {
-    description: 'Plain OSM raster tiles for troubleshooting and maximum familiarity.',
-    label: 'Plain',
-    name: 'plain',
-  },
-  {
-    description: 'No-key public satellite imagery for photo context.',
-    label: 'Satellite',
-    name: 'satellite',
-  },
-  {
-    description: 'Warm terrain-inspired OSM raster styling without a keyed provider.',
-    label: 'Terrain',
-    name: 'terrain',
-  },
-  {
-    description: 'Warm dusk OSM raster styling without a keyed provider.',
-    label: 'Dark',
-    name: 'dark',
-  },
+const MAP_STYLE_OPTIONS: Array<{ name: MapStyleName }> = [
+  { name: 'plain' },
+  { name: 'satellite' },
+  { name: 'terrain' },
+  { name: 'dark' },
 ];
 
 export function getAvailableMapStyles() {
@@ -51,10 +35,6 @@ export function getNextMapStyleName(styleName: MapStyleName): MapStyleName {
   const nextIndex = currentIndex < 0 ? 0 : (currentIndex + 1) % MAP_STYLE_OPTIONS.length;
 
   return MAP_STYLE_OPTIONS[nextIndex].name;
-}
-
-export function getMapStyleLabel(styleName: MapStyleName): string {
-  return MAP_STYLE_OPTIONS.find((option) => option.name === styleName)?.label ?? 'Map';
 }
 
 export function getStyleByName(styleName: MapStyleName): StyleSpecification {

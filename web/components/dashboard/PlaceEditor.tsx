@@ -1,15 +1,12 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { useShareLink } from '@/components/dashboard/useShareLink';
-import {
-  formatError,
-  normalizeNullable,
-  parseNumber,
-  toAbsolutePublicUrl,
-} from '@/components/dashboard/utils';
+import { normalizeNullable, parseNumber, toAbsolutePublicUrl } from '@/components/dashboard/utils';
 import { DEFAULT_MAP_CENTER } from '@/components/mapStyle';
 import { Button, DialogFrame, Disclosure, TextArea, TextInput } from '@/components/ui/radix-ui';
+import { errorMessage } from '@/i18n/errors';
 import type { Place, PlaceInput } from '@/lib/api';
 
 export default function PlaceEditor({
@@ -27,6 +24,7 @@ export default function PlaceEditor({
   onSave: (input: PlaceInput) => void;
   place: Place | null;
 }) {
+  const t = useTranslations('PlaceEditor');
   const [name, setName] = useState(place?.name ?? '');
   const [latitude, setLatitude] = useState(() =>
     formatCoordinateInput(place?.latitude ?? draftCoords?.latitude ?? DEFAULT_MAP_CENTER.latitude),
@@ -38,8 +36,9 @@ export default function PlaceEditor({
   );
   const [description, setDescription] = useState(place?.description ?? '');
   const [tags, setTags] = useState(place?.tags.join(', ') ?? '');
-  const [error, setError] = useState<string | null>(null);
-  const [saveNotice, setSaveNotice] = useState<string | null>(null);
+  const te = useTranslations('Errors');
+  const [error, setError] = useState<unknown>(null);
+  const [saveNotice, setSaveNotice] = useState<'savedNotice' | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const saveNoticeTimeoutRef = useRef<number | null>(null);
@@ -126,13 +125,13 @@ export default function PlaceEditor({
           .map((tag) => tag.trim())
           .filter(Boolean),
       });
-      setSaveNotice('Saved.');
+      setSaveNotice('savedNotice');
       saveNoticeTimeoutRef.current = window.setTimeout(() => {
         setSaveNotice(null);
         saveNoticeTimeoutRef.current = null;
       }, 1000);
     } catch (nextError) {
-      setError(formatError(nextError));
+      setError(nextError);
     } finally {
       setIsSaving(false);
     }
@@ -173,16 +172,16 @@ export default function PlaceEditor({
       <div className="place-editor-content stack">
         {error == null ? null : (
           <div className="error" role="alert">
-            {error}
+            {errorMessage(error, te)}
           </div>
         )}
         {saveNotice == null ? null : (
           <div className="success" role="status">
-            {saveNotice}
+            {t(saveNotice)}
           </div>
         )}
         <label htmlFor="radix-field-components-dashboard-placeeditor-tsx-1">
-          Name
+          {t('name')}
           <TextInput
             id="radix-field-components-dashboard-placeeditor-tsx-1"
             required
@@ -192,7 +191,7 @@ export default function PlaceEditor({
         </label>
         <div className="split">
           <label htmlFor="radix-field-components-dashboard-placeeditor-tsx-2">
-            Latitude
+            {t('latitude')}
             <TextInput
               id="radix-field-components-dashboard-placeeditor-tsx-2"
               required
@@ -202,7 +201,7 @@ export default function PlaceEditor({
             />
           </label>
           <label htmlFor="radix-field-components-dashboard-placeeditor-tsx-3">
-            Longitude
+            {t('longitude')}
             <TextInput
               id="radix-field-components-dashboard-placeeditor-tsx-3"
               required
@@ -212,10 +211,11 @@ export default function PlaceEditor({
             />
           </label>
         </div>
-        <Disclosure className="editor-more-details" summary="More details">
+        <p className="muted">{t('coordinateHelp')}</p>
+        <Disclosure className="editor-more-details" summary={t('moreDetails')}>
           <div className="stack">
             <label htmlFor="radix-field-components-dashboard-placeeditor-tsx-4">
-              Tags (comma separated)
+              {t('tagsCommaSeparated')}
               <TextInput
                 id="radix-field-components-dashboard-placeeditor-tsx-4"
                 value={tags}
@@ -223,7 +223,7 @@ export default function PlaceEditor({
               />
             </label>
             <label htmlFor="radix-field-components-dashboard-placeeditor-tsx-5">
-              Description
+              {t('description')}
               <TextArea
                 id="radix-field-components-dashboard-placeeditor-tsx-5"
                 value={description}
@@ -237,7 +237,7 @@ export default function PlaceEditor({
         <div className="place-editor-footer-actions">
           <div className="place-editor-danger-actions"></div>
           <div className="place-editor-save-actions">
-            {isDirty ? <span className="unsaved-changes-label">Unsaved changes</span> : null}
+            {isDirty ? <span className="unsaved-changes-label">{t('unsavedChanges')}</span> : null}
             {isDirty ? (
               <Button
                 className="secondary"
@@ -245,18 +245,18 @@ export default function PlaceEditor({
                 type="button"
                 onClick={discardChanges}
               >
-                Discard changes
+                {t('discardChanges')}
               </Button>
             ) : null}
             {place == null ? null : (
               <DialogFrame
                 className="place-action-dialog-card"
-                eyebrow="secondary action"
+                eyebrow={t('secondaryAction')}
                 open={isShareDialogOpen}
-                title="Share place"
+                title={t('sharePlace')}
                 trigger={
                   <Button className="secondary" type="button">
-                    Share
+                    {t('share')}
                   </Button>
                 }
                 onOpenChange={setIsShareDialogOpen}
@@ -265,7 +265,7 @@ export default function PlaceEditor({
               </DialogFrame>
             )}
             <Button disabled={isSaving} type="submit">
-              {isSaving ? 'Saving…' : saveNotice == null ? 'Save place' : 'Saved ✓'}
+              {isSaving ? t('saving') : saveNotice == null ? t('savePlace') : t('saved')}
             </Button>
           </div>
         </div>
@@ -322,9 +322,10 @@ function normalizeTagsInput(value: string): string {
 }
 
 function PlaceSharePanel({ place }: { place: Place | null }) {
+  const t = useTranslations('PlaceEditor');
   const { createShareLink, error, isLoading, isMutating, loadShareLink, setDisabled, shareLink } =
     useShareLink('places', place?.id ?? null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [notice, setNotice] = useState<'copied' | 'copyFailed' | null>(null);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: Reload for refreshed saved objects, even when their ID is unchanged.
   useEffect(() => {
@@ -339,29 +340,27 @@ function PlaceSharePanel({ place }: { place: Place | null }) {
 
     try {
       await navigator.clipboard.writeText(toAbsolutePublicUrl(shareLink.publicUrl));
-      setNotice('Share URL copied.');
+      setNotice('copied');
     } catch {
-      setNotice('Copy failed; select the URL manually.');
+      setNotice('copyFailed');
     }
   }
 
   if (place == null) {
-    return <p className="muted no-margin">Save this place before creating a public place link.</p>;
+    return <p className="muted no-margin">{t('saveThisPlaceBeforeCreatingAPublicPlaceLink')}</p>;
   }
 
   return (
     <section className="stack">
       <div className="route-share-header">
-        <h3>Share link</h3>
-        {isLoading ? <span className="muted">Loading…</span> : null}
+        <h3>{t('shareLink')}</h3>
+        {isLoading ? <span className="muted">{t('loading')}</span> : null}
       </div>
+      <p className="muted no-margin">{t('visitorsCanOpenThePublicPageWithoutLoginSignedIn')}</p>
       <p className="muted no-margin">
-        Visitors can open the public page without login. Signed-in users can copy this place into
-        their own library.
-      </p>
-      <p className="muted no-margin">
-        Public link:{' '}
-        {shareLink == null ? 'Not created' : shareLink.disabledAt == null ? 'Active' : 'Disabled'}
+        {t('publicLinkStatus', {
+          status: shareLink == null ? 'none' : shareLink.disabledAt == null ? 'active' : 'disabled',
+        })}
       </p>
       {error == null ? null : (
         <div className="error" role="alert">
@@ -370,7 +369,7 @@ function PlaceSharePanel({ place }: { place: Place | null }) {
       )}
       {notice == null ? null : (
         <div className="success" role="status">
-          {notice}
+          {t(notice)}
         </div>
       )}
       {shareLink == null ? (
@@ -384,13 +383,13 @@ function PlaceSharePanel({ place }: { place: Place | null }) {
               void createShareLink();
             }}
           >
-            {isMutating ? 'Creating…' : 'Create public link'}
+            {isMutating ? t('creating') : t('createPublicLink')}
           </Button>
         </div>
       ) : (
         <div className="stack">
           <label htmlFor="radix-field-components-dashboard-placeeditor-tsx-8">
-            Public URL
+            {t('publicURL')}
             <TextInput
               id="radix-field-components-dashboard-placeeditor-tsx-8"
               readOnly
@@ -399,18 +398,18 @@ function PlaceSharePanel({ place }: { place: Place | null }) {
           </label>
           <div className="chip-row">
             {shareLink.disabledAt == null ? (
-              <span className="chip">active</span>
+              <span className="chip">{t('active2')}</span>
             ) : (
-              <span className="chip">disabled</span>
+              <span className="chip">{t('disabled2')}</span>
             )}
-            <span className="chip">place</span>
+            <span className="chip">{t('place')}</span>
           </div>
           <div className="row">
             <Button className="secondary" type="button" onClick={() => void copyPublicUrl()}>
-              Copy URL
+              {t('copyURL')}
             </Button>
             <a href={shareLink.publicUrl} rel="noreferrer" target="_blank">
-              Open public page
+              {t('openPublicPage')}
             </a>
             <Button
               className={shareLink.disabledAt == null ? 'danger' : 'secondary'}
@@ -422,10 +421,10 @@ function PlaceSharePanel({ place }: { place: Place | null }) {
               }}
             >
               {isMutating
-                ? 'Saving…'
+                ? t('saving')
                 : shareLink.disabledAt == null
-                  ? 'Disable link'
-                  : 'Re-enable link'}
+                  ? t('disableLink')
+                  : t('reEnableLink')}
             </Button>
           </div>
         </div>

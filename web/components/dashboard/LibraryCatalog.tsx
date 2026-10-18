@@ -2,6 +2,7 @@
 
 import { IconButton, Select, TextField } from '@radix-ui/themes';
 import Link from 'next/link';
+import { useLocale, useTranslations } from 'next-intl';
 import { useId, useMemo, useRef, useState } from 'react';
 import DashboardShell from '@/components/dashboard/DashboardShell';
 import { LibraryItemActions } from '@/components/dashboard/LibraryItemActions';
@@ -35,6 +36,7 @@ import {
   Toggle,
   ToggleGroup,
 } from '@/components/ui/radix-ui';
+import { formatNumber, formatSpeed } from '@/i18n/format';
 import type { Place, Route } from '@/lib/api';
 
 export type LibraryFilter = 'all' | 'places' | 'routes';
@@ -44,6 +46,9 @@ export default function LibraryCatalog({
 }: {
   initialFilter?: LibraryFilter;
 }) {
+  const t = useTranslations('LibraryCatalog');
+  const locale = useLocale();
+  const tm = useTranslations('routeModes');
   const {
     auth,
     error,
@@ -59,14 +64,17 @@ export default function LibraryCatalog({
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState<LibrarySort>('name');
   const searchRef = useRef<HTMLInputElement | null>(null);
-  const normalizedQuery = query.trim().toLowerCase();
+  const normalizedQuery = query.trim().toLocaleLowerCase(locale);
   const filteredPlaces = useMemo(
-    () => places.filter((place) => matchesPlaceSearch(place, normalizedQuery)),
-    [normalizedQuery, places],
+    () => places.filter((place) => matchesPlaceSearch(place, normalizedQuery, locale)),
+    [normalizedQuery, places, locale],
   );
   const filteredRoutes = useMemo(
-    () => routes.filter((route) => matchesRouteSearch(route, normalizedQuery)),
-    [normalizedQuery, routes],
+    () =>
+      routes.filter((route) =>
+        matchesRouteSearch(route, normalizedQuery, locale, formatMode(route.mode, tm)),
+      ),
+    [normalizedQuery, routes, locale, tm],
   );
 
   const visibleEntries = useMemo(() => {
@@ -77,8 +85,8 @@ export default function LibraryCatalog({
     if (filter !== 'places') {
       entries.push(...filteredRoutes.map((item) => ({ kind: 'routes' as const, item })));
     }
-    return sortLibraryEntries(entries, sort);
-  }, [filter, filteredPlaces, filteredRoutes, sort]);
+    return sortLibraryEntries(entries, sort, locale);
+  }, [filter, filteredPlaces, filteredRoutes, sort, locale]);
 
   function clearSearch() {
     setQuery('');
@@ -89,7 +97,7 @@ export default function LibraryCatalog({
     return (
       <main className="library-page-shell">
         <p className="muted" role="status">
-          Loading library…
+          {t('loadingLibrary')}
         </p>
       </main>
     );
@@ -102,12 +110,14 @@ export default function LibraryCatalog({
   const totalVisible =
     (showPlaces ? filteredPlaces.length : 0) + (showRoutes ? filteredRoutes.length : 0);
   const activeError = (showPlaces && placesError != null) || (showRoutes && routesError != null);
-  const resultLabel = filter === 'all' ? 'item' : filter === 'places' ? 'place' : 'route';
   const resultSummary = isLoading
-    ? totalItems === 0
-      ? 'Loading library…'
-      : 'Updating library…'
-    : `${totalVisible} ${error == null ? '' : 'available '}${resultLabel}${totalVisible === 1 ? '' : 's'}${normalizedQuery.length > 0 ? ' found' : ''}`;
+    ? t(totalItems === 0 ? 'loadingLibrary' : 'updatingLibrary')
+    : t('resultSummary', {
+        count: totalVisible,
+        kind: filter,
+        available: error == null ? 'no' : 'yes',
+        searching: normalizedQuery.length > 0 ? 'yes' : 'no',
+      });
 
   return (
     <DashboardShell
@@ -121,14 +131,15 @@ export default function LibraryCatalog({
       <section className="library-catalog" aria-labelledby="library-heading">
         <header className="library-catalog-header">
           <div>
-            <h1 id="library-heading">Library</h1>
-            <p>Saved places and routes.</p>
+            <h1 id="library-heading">{t('library')}</h1>
+            <p>{t('savedPlacesAndRoutes')}</p>
           </div>
           <MenuSurface
             className="library-new-menu-content"
             trigger={
               <Button className="library-new-menu-trigger" type="button">
-                <PlusIcon aria-hidden /> New item <ChevronDownIcon aria-hidden />
+                <PlusIcon aria-hidden /> {t('newItem')}
+                <ChevronDownIcon aria-hidden />
               </Button>
             }
           >
@@ -136,24 +147,24 @@ export default function LibraryCatalog({
               className="ui-menu-link-item"
               render={<Link href="/dashboard/map?kind=places&new=1" />}
             >
-              <SewingPinIcon aria-hidden /> New place
+              <SewingPinIcon aria-hidden /> {t('newPlace')}
             </Menu.LinkItem>
             <Menu.LinkItem
               className="ui-menu-link-item"
               render={<Link href="/dashboard/map?kind=routes&new=1" />}
             >
-              <Share1Icon aria-hidden /> New route
+              <Share1Icon aria-hidden /> {t('newRoute')}
             </Menu.LinkItem>
           </MenuSurface>
         </header>
 
         <div className="library-toolbar">
           <label htmlFor="library-search" className="library-search">
-            <span className="sr-only">Search library</span>
+            <span className="sr-only">{t('searchLibrary')}</span>
             <TextInput
               id="library-search"
               ref={searchRef}
-              placeholder="Search names, notes, tags, or modes…"
+              placeholder={t('searchNamesNotesTagsOrModes')}
               type="search"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
@@ -164,7 +175,7 @@ export default function LibraryCatalog({
               {query.length === 0 ? null : (
                 <TextField.Slot side="right">
                   <IconButton
-                    aria-label="Clear search"
+                    aria-label={t('clearSearch')}
                     type="button"
                     variant="ghost"
                     onClick={clearSearch}
@@ -176,7 +187,7 @@ export default function LibraryCatalog({
             </TextInput>
           </label>
           <ToggleGroup
-            aria-label="Library item type"
+            aria-label={t('libraryItemType')}
             className="library-filter-tabs"
             type="single"
             value={filter}
@@ -187,20 +198,27 @@ export default function LibraryCatalog({
             }}
           >
             <Toggle value="all">
-              All <span>{isLoading || error != null ? '—' : totalItems}</span>
+              {t('all')}
+              <span>{isLoading || error != null ? '—' : formatNumber(totalItems, locale)}</span>
             </Toggle>
             <Toggle value="places">
-              Places <span>{isLoading || placesError != null ? '—' : places.length}</span>
+              {t('places')}
+              <span>
+                {isLoading || placesError != null ? '—' : formatNumber(places.length, locale)}
+              </span>
             </Toggle>
             <Toggle value="routes">
-              Routes <span>{isLoading || routesError != null ? '—' : routes.length}</span>
+              {t('routes')}
+              <span>
+                {isLoading || routesError != null ? '—' : formatNumber(routes.length, locale)}
+              </span>
             </Toggle>
           </ToggleGroup>
           <Select.Root value={sort} onValueChange={(value) => setSort(value as LibrarySort)}>
-            <Select.Trigger aria-label="Sort library" className="library-sort" />
+            <Select.Trigger aria-label={t('sortLibrary')} className="library-sort" />
             <Select.Content>
-              <Select.Item value="name">Name</Select.Item>
-              <Select.Item value="updated">Recently updated</Select.Item>
+              <Select.Item value="name">{t('name')}</Select.Item>
+              <Select.Item value="updated">{t('recentlyUpdated')}</Select.Item>
             </Select.Content>
           </Select.Root>
         </div>
@@ -209,13 +227,11 @@ export default function LibraryCatalog({
           <div className="library-load-error" role="alert">
             <div>
               <strong>
-                {didLibraryLoadFail
-                  ? 'Couldn’t load your library'
-                  : 'Some items couldn’t be updated'}
+                {didLibraryLoadFail ? t('couldnTLoadYourLibrary') : t('someItemsCouldnTBeUpdated')}
               </strong>
               <p>
                 {error}
-                {totalItems === 0 ? '' : ' Available items are still shown.'}
+                {totalItems === 0 ? '' : t('availableItemsAreStillShown')}
               </p>
             </div>
             <Button
@@ -224,7 +240,7 @@ export default function LibraryCatalog({
               type="button"
               onClick={() => void refresh()}
             >
-              Try again
+              {t('tryAgain')}
             </Button>
           </div>
         )}
@@ -240,12 +256,12 @@ export default function LibraryCatalog({
         <div className="library-column-headings" aria-hidden="true">
           <span />
           <div className="library-columns">
-            <span>Name</span>
-            <span>Type</span>
-            <span>Details</span>
+            <span>{t('name')}</span>
+            <span>{t('type')}</span>
+            <span>{t('details')}</span>
             <span />
           </div>
-          <span>Actions</span>
+          <span>{t('actions')}</span>
         </div>
         <div className="library-item-list" aria-busy={isLoading}>
           {visibleEntries.map((entry) =>
@@ -265,7 +281,11 @@ export default function LibraryCatalog({
           )}
         </div>
         <p className="library-results-summary" role="status" aria-atomic="true">
-          {resultSummary} · {totalItems} {error == null && !isLoading ? 'total' : 'loaded'} items
+          {resultSummary} ·{' '}
+          {t('totalSummary', {
+            count: totalItems,
+            state: error == null && !isLoading ? 'total' : 'loaded',
+          })}
         </p>
       </section>
     </DashboardShell>
@@ -281,6 +301,7 @@ function LibraryEmptyState({
   isSearching: boolean;
   onClearSearch: () => void;
 }) {
+  const t = useTranslations('LibraryCatalog');
   return (
     <div className="library-empty-state">
       <div className="library-empty-icon" aria-hidden>
@@ -293,36 +314,32 @@ function LibraryEmptyState({
         )}
       </div>
       <h2 className="library-empty-title">
-        {isSearching
-          ? `No matching ${filter === 'all' ? 'items' : filter}`
-          : filter === 'all'
-            ? 'No saved items yet'
-            : `No ${filter} yet`}
+        {isSearching ? t('noMatching', { kind: filter }) : t('noneYet', { kind: filter })}
       </h2>
       <p className="muted library-empty-copy">
         {isSearching
-          ? 'Try another name, note, tag, or mode, or clear your search to see saved items.'
+          ? t('tryAnotherNameNoteTagOrModeOrClearYour')
           : filter === 'places'
-            ? 'Save a location on the map to find it here whenever you need it.'
+            ? t('saveALocationOnTheMapToFindItHere')
             : filter === 'routes'
-              ? 'Connect points on the map and save a route to find it here.'
-              : 'Save a place for a single location, or build a route with multiple stops.'}
+              ? t('connectPointsOnTheMapAndSaveARouteTo')
+              : t('saveAPlaceForASingleLocationOrBuildA')}
       </p>
       <div className="library-empty-actions">
         {isSearching ? (
           <Button className="secondary" type="button" onClick={onClearSearch}>
-            Clear search
+            {t('clearSearch')}
           </Button>
         ) : (
           <>
             {filter === 'routes' ? null : (
               <Button asChild>
-                <Link href="/dashboard/map?kind=places&new=1">Create place</Link>
+                <Link href="/dashboard/map?kind=places&new=1">{t('createPlace')}</Link>
               </Button>
             )}
             {filter === 'places' ? null : (
               <Button asChild variant={filter === 'routes' ? 'solid' : 'soft'}>
-                <Link href="/dashboard/map?kind=routes&new=1">Create route</Link>
+                <Link href="/dashboard/map?kind=routes&new=1">{t('createRoute')}</Link>
               </Button>
             )}
           </>
@@ -333,6 +350,7 @@ function LibraryEmptyState({
 }
 
 function PlaceLibraryRow({ place, onDeleted }: { place: Place; onDeleted: () => Promise<void> }) {
+  const t = useTranslations('LibraryCatalog');
   return (
     <article className="library-item-row">
       <div className="library-item-type" aria-hidden="true">
@@ -341,17 +359,18 @@ function PlaceLibraryRow({ place, onDeleted }: { place: Place; onDeleted: () => 
       <Link
         className="library-item-main library-columns"
         href={`/dashboard/map?kind=places&selected=${encodeURIComponent(place.id)}`}
-        aria-label={`Open ${place.name} on map`}
+        aria-label={t('openItem', { name: place.name })}
       >
         <div className="library-item-title-row">
           <h3 title={place.name}>{place.name}</h3>
         </div>
-        <span className="library-item-kind">Place</span>
+        <span className="library-item-kind">{t('place')}</span>
         <p className="library-item-meta">
           {formatCoord(place.latitude)}, {formatCoord(place.longitude)}
         </p>
         <span className="library-open-label">
-          Open on map <ArrowRightIcon aria-hidden />
+          {t('openOnMap')}
+          <ArrowRightIcon aria-hidden />
         </span>
       </Link>
       <div className="library-row-actions">
@@ -368,6 +387,9 @@ function PlaceLibraryRow({ place, onDeleted }: { place: Place; onDeleted: () => 
 }
 
 function RouteLibraryRow({ route, onDeleted }: { route: Route; onDeleted: () => Promise<void> }) {
+  const t = useTranslations('LibraryCatalog');
+  const tm = useTranslations('routeModes');
+  const locale = useLocale();
   const waypointCount = route.currentRevision?.waypoints.length ?? 0;
 
   return (
@@ -378,22 +400,26 @@ function RouteLibraryRow({ route, onDeleted }: { route: Route; onDeleted: () => 
       <Link
         className="library-item-main library-columns"
         href={`/dashboard/map?kind=routes&selected=${encodeURIComponent(route.id)}`}
-        aria-label={`Open ${route.name} on map`}
+        aria-label={t('openItem', { name: route.name })}
       >
         <div className="library-item-title-row">
           <h3 title={route.name}>{route.name}</h3>
-          {route.isPublic ? <span className="chip">Public</span> : null}
+          {route.isPublic ? <span className="chip">{t('public')}</span> : null}
         </div>
-        <span className="library-item-kind">Route</span>
+        <span className="library-item-kind">{t('route')}</span>
         <p
           className="library-item-meta"
-          title={`${waypointCount} waypoints · ${route.defaultSpeedKmh} km/h`}
+          title={t('routeDetails', {
+            count: waypointCount,
+            speed: formatSpeed(route.defaultSpeedKmh, locale),
+          })}
         >
-          {formatRouteDistanceFromWaypoints(route.currentRevision?.waypoints ?? [])} ·{' '}
-          {formatMode(route.mode)}
+          {formatRouteDistanceFromWaypoints(route.currentRevision?.waypoints ?? [], locale)} ·{' '}
+          {formatMode(route.mode, tm)}
         </p>
         <span className="library-open-label">
-          Open on map <ArrowRightIcon aria-hidden />
+          {t('openOnMap')}
+          <ArrowRightIcon aria-hidden />
         </span>
       </Link>
       <div className="library-row-actions">
@@ -418,6 +444,7 @@ function LibraryNotes({
   description: string | null;
   tags?: string[];
 }) {
+  const t = useTranslations('LibraryCatalog');
   const [isOpen, setIsOpen] = useState(false);
   const referenceUrlId = useId();
   if (!description && tags.length === 0) return null;
@@ -425,12 +452,12 @@ function LibraryNotes({
   return (
     <PopoverFrame
       className="library-notes-popover"
-      title={`Notes for ${name}`}
+      title={t('notesFor', { name })}
       open={isOpen}
       onOpenChange={setIsOpen}
       trigger={
-        <Button aria-label={`View notes and tags for ${name}`} variant="ghost" type="button">
-          Notes
+        <Button aria-label={t('viewNotes', { name })} variant="ghost" type="button">
+          {t('notes')}
         </Button>
       }
     >
@@ -438,7 +465,7 @@ function LibraryNotes({
         <p>
           {link ? (
             <a href={link} title={link} target="_blank" rel="noopener noreferrer">
-              Link to reference
+              {t('linkToReference')}
             </a>
           ) : (
             description
@@ -447,18 +474,21 @@ function LibraryNotes({
       ) : null}
       {link == null ? null : (
         <label htmlFor={referenceUrlId}>
-          Reference URL
+          {t('referenceURL')}
           <TextInput id={referenceUrlId} readOnly value={link} />
         </label>
       )}
-      {tags.length === 0 ? null : <p className="muted">Tags: {tags.join(' · ')}</p>}
+      {tags.length === 0 ? null : (
+        <p className="muted">{t('tagsList', { tags: tags.join(' · ') })}</p>
+      )}
     </PopoverFrame>
   );
 }
 
 function LibrarySkeleton() {
+  const t = useTranslations('LibraryCatalog');
   return (
-    <div aria-label="Loading library items" className="library-skeleton" role="status">
+    <div aria-label={t('loadingLibraryItems')} className="library-skeleton" role="status">
       <span className="library-skeleton-line" />
       <span className="library-skeleton-line" />
       <span className="library-skeleton-line" />

@@ -72,7 +72,7 @@ class AuthorizedSessionRequestTest {
                             throw CloudApiException(401, message = "expired")
                         }
                     }
-                assertEquals("Session expired. Please sign in again.", result.exceptionOrNull()?.message)
+                assertEquals(CloudMessage(CloudMessageId.SessionExpired), result.exceptionOrNull()?.toCloudMessage())
                 assertEquals(1, requests)
                 assertEquals(1, auth.refreshes)
             }

@@ -67,7 +67,7 @@ internal class AndroidQrLoginCoordinator(
     }
 
     suspend fun confirm(): AndroidQrLoginProgress {
-        val attempt = attemptStore.load() ?: error("No Android QR sign-in is pending")
+        val attempt = attemptStore.load() ?: throw CloudMessageException(CloudMessage(CloudMessageId.QrRestart))
         if (attempt.isLocallyExpired(nowMillis())) {
             attemptStore.compareAndClear(attempt)
             return AndroidQrLoginProgress.Expired
@@ -76,15 +76,13 @@ internal class AndroidQrLoginCoordinator(
             "Android QR sign-in has not been claimed"
         }
         val confirmed = attempt.copy(confirmed = true)
-        check(attempt.confirmed || attemptStore.compareAndSet(attempt, confirmed)) {
-            "Android QR sign-in is no longer pending"
-        }
+        checkCloudState(attempt.confirmed || attemptStore.compareAndSet(attempt, confirmed), CloudMessageId.QrRestart)
         setApiBaseUrl(confirmed.apiBaseUrl)
         return exchange(confirmed)
     }
 
     suspend fun poll(): AndroidQrLoginProgress {
-        val attempt = attemptStore.load() ?: error("No Android QR sign-in is pending")
+        val attempt = attemptStore.load() ?: throw CloudMessageException(CloudMessage(CloudMessageId.QrRestart))
         check(attempt.confirmed) { "Confirm the Android QR sign-in first" }
         if (attempt.isLocallyExpired(nowMillis())) {
             attemptStore.compareAndClear(attempt)
@@ -131,9 +129,7 @@ internal class AndroidQrLoginCoordinator(
                     pollIntervalSeconds = response.pollIntervalSeconds,
                     username = response.user.username,
                 )
-            check(attemptStore.compareAndSet(attempt, claimed)) {
-                "Android QR sign-in is no longer pending"
-            }
+            checkCloudState(attemptStore.compareAndSet(attempt, claimed), CloudMessageId.QrRestart)
             AndroidQrLoginProgress.Confirmation(claimed.toDetails())
         } catch (failure: CloudApiException) {
             handleTerminalFailure(attempt, failure)

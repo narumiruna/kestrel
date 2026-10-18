@@ -10,14 +10,15 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import dev.narumi.kestrel.R
 import dev.narumi.kestrel.core.cloud.AndroidQrLoginDetails
 import dev.narumi.kestrel.core.cloud.AndroidQrLoginMethod
 import dev.narumi.kestrel.ui.components.KestrelActionRow
-import java.util.Date
 
 internal sealed interface AndroidQrLoginUiState {
     data object Restoring : AndroidQrLoginUiState
@@ -42,7 +43,7 @@ internal sealed interface AndroidQrLoginUiState {
     ) : AndroidQrLoginUiState
 
     data class Error(
-        val message: String,
+        val message: OptionsMessage,
         val retryPendingAttempt: Boolean,
     ) : AndroidQrLoginUiState
 
@@ -69,20 +70,20 @@ internal fun shouldShowAndroidQrLoginDiscoveryNotice(
     state: AndroidQrLoginUiState,
 ): Boolean = !method.enabled && state == AndroidQrLoginUiState.Idle
 
-internal fun AndroidQrLoginUiState.summary(): String =
+internal fun AndroidQrLoginUiState.summary(): OptionsMessage =
     when (this) {
-        AndroidQrLoginUiState.Restoring -> "Checking saved QR sign-in"
-        AndroidQrLoginUiState.Idle -> "Ready to scan"
-        AndroidQrLoginUiState.OpeningScanner -> "Opening QR scanner"
-        AndroidQrLoginUiState.Claiming -> "Checking QR code"
-        is AndroidQrLoginUiState.Confirmation -> "Confirm ${details.username} on ${details.publicOrigin}"
-        is AndroidQrLoginUiState.Confirming -> "Confirming QR sign-in"
-        is AndroidQrLoginUiState.Waiting -> "Waiting for web approval"
+        AndroidQrLoginUiState.Restoring -> optionsMessage(R.string.options_qr_restoring)
+        AndroidQrLoginUiState.Idle -> optionsMessage(R.string.options_qr_ready)
+        AndroidQrLoginUiState.OpeningScanner -> optionsMessage(R.string.options_qr_opening)
+        AndroidQrLoginUiState.Claiming -> optionsMessage(R.string.options_qr_checking)
+        is AndroidQrLoginUiState.Confirmation -> optionsMessage(R.string.options_qr_confirm_summary, details.username, details.publicOrigin)
+        is AndroidQrLoginUiState.Confirming -> optionsMessage(R.string.options_qr_confirming)
+        is AndroidQrLoginUiState.Waiting -> optionsMessage(R.string.options_qr_waiting)
         is AndroidQrLoginUiState.Error -> message
-        AndroidQrLoginUiState.ScannerUnavailable -> "Google Play services unavailable"
-        AndroidQrLoginUiState.ScannerDownloadFailed -> "Scanner download failed"
-        AndroidQrLoginUiState.Denied -> "Sign-in denied"
-        AndroidQrLoginUiState.Expired -> "QR code expired"
+        AndroidQrLoginUiState.ScannerUnavailable -> optionsMessage(R.string.options_qr_unavailable)
+        AndroidQrLoginUiState.ScannerDownloadFailed -> optionsMessage(R.string.options_qr_download_failed)
+        AndroidQrLoginUiState.Denied -> optionsMessage(R.string.options_qr_denied)
+        AndroidQrLoginUiState.Expired -> optionsMessage(R.string.options_qr_expired)
     }
 
 @Composable
@@ -97,12 +98,12 @@ internal fun AndroidQrLoginContent(
 ) {
     HorizontalDivider()
     Text(
-        text = "Sign in from Kestrel Web",
+        text = stringResource(R.string.options_qr_title),
         style = MaterialTheme.typography.titleSmall,
     )
     if (shouldShowAndroidQrLoginDiscoveryNotice(method, state)) {
         Text(
-            text = "This server does not advertise QR sign-in. You can still scan a code from another Kestrel server.",
+            text = stringResource(R.string.options_qr_discovery),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -114,7 +115,7 @@ internal fun AndroidQrLoginContent(
     ) {
         when (state) {
             AndroidQrLoginUiState.Restoring -> {
-                StatusText("Checking for a saved QR sign-in…")
+                StatusText(stringResource(R.string.options_qr_restoring_detail))
             }
 
             AndroidQrLoginUiState.Idle -> {
@@ -122,11 +123,11 @@ internal fun AndroidQrLoginContent(
             }
 
             AndroidQrLoginUiState.OpeningScanner -> {
-                StatusText("Opening the QR scanner. Google Play services may download the scanner module.")
+                StatusText(stringResource(R.string.options_qr_scanner_opening_detail))
             }
 
             AndroidQrLoginUiState.Claiming -> {
-                StatusText("Checking the server and claiming this one-time code…")
+                StatusText(stringResource(R.string.options_qr_claiming_detail))
             }
 
             is AndroidQrLoginUiState.Confirmation -> {
@@ -157,28 +158,28 @@ internal fun AndroidQrLoginContent(
             }
 
             is AndroidQrLoginUiState.Error -> {
-                RetryQrLoginContent(state.message, enabled, onRetry, onCancel)
+                RetryQrLoginContent(state.message.text(), enabled, onRetry, onCancel)
             }
 
             AndroidQrLoginUiState.ScannerUnavailable -> {
-                ErrorText("Google Play services is unavailable. Use password or browser sign-in instead.")
-                OutlinedButton(onClick = onCancel, modifier = Modifier.fillMaxWidth()) { Text("Dismiss") }
+                ErrorText(stringResource(R.string.options_qr_unavailable_detail))
+                OutlinedButton(onClick = onCancel, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.options_dismiss)) }
             }
 
             AndroidQrLoginUiState.ScannerDownloadFailed -> {
-                ErrorText("The QR scanner could not download. Check Google Play services and your network, then retry.")
+                ErrorText(stringResource(R.string.options_qr_download_failed_detail))
                 KestrelActionRow {
-                    Button(onClick = onScan, enabled = enabled) { Text("Retry scanner") }
-                    OutlinedButton(onClick = onCancel) { Text("Dismiss") }
+                    Button(onClick = onScan, enabled = enabled) { Text(stringResource(R.string.options_qr_retry_scanner)) }
+                    OutlinedButton(onClick = onCancel) { Text(stringResource(R.string.options_dismiss)) }
                 }
             }
 
             AndroidQrLoginUiState.Denied -> {
-                TerminalQrLoginContent("The web sign-in was denied or cancelled.", enabled, onScan)
+                TerminalQrLoginContent(stringResource(R.string.options_qr_denied_detail), enabled, onScan)
             }
 
             AndroidQrLoginUiState.Expired -> {
-                TerminalQrLoginContent("This QR code expired.", enabled, onScan)
+                TerminalQrLoginContent(stringResource(R.string.options_qr_expired_detail), enabled, onScan)
             }
         }
     }
@@ -193,8 +194,8 @@ private fun RetryQrLoginContent(
 ) {
     ErrorText(message)
     KestrelActionRow {
-        Button(onClick = onRetry, enabled = enabled) { Text("Retry") }
-        OutlinedButton(onClick = onCancel) { Text("Cancel") }
+        Button(onClick = onRetry, enabled = enabled) { Text(stringResource(R.string.options_retry)) }
+        OutlinedButton(onClick = onCancel) { Text(stringResource(R.string.options_cancel)) }
     }
 }
 
@@ -204,15 +205,15 @@ private fun IdleQrLoginContent(
     onScan: () -> Unit,
 ) {
     Text(
-        text = "On the Web Account page, create an Android login code. Scan it here, then compare the account, server, and matching code on both screens.",
+        text = stringResource(R.string.options_qr_instructions),
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
     OutlinedButton(onClick = onScan, enabled = enabled, modifier = Modifier.fillMaxWidth()) {
-        Text("Scan Web login QR code")
+        Text(stringResource(R.string.options_qr_scan))
     }
     Text(
-        text = "Scanning uses Google Play services and does not grant Kestrel camera permission.",
+        text = stringResource(R.string.options_qr_permission_notice),
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
@@ -225,37 +226,42 @@ private fun QrLoginConfirmationContent(
     onConfirm: () -> Unit,
     onCancel: () -> Unit,
 ) {
-    Text("Account: ${details.username}", style = MaterialTheme.typography.titleSmall)
-    Text("Server: ${details.publicOrigin}", style = MaterialTheme.typography.bodyMedium)
+    Text(stringResource(R.string.options_qr_account, details.username), style = MaterialTheme.typography.titleSmall)
+    Text(stringResource(R.string.options_qr_server, details.publicOrigin), style = MaterialTheme.typography.bodyMedium)
     Text(
         text = details.matchingCode,
         style = MaterialTheme.typography.headlineMedium,
         color = MaterialTheme.colorScheme.primary,
     )
     Text(
-        text = "Device shown on Web: ${details.deviceName}${details.appVersion?.let { " · Kestrel $it" } ?: ""}",
+        text =
+            if (details.appVersion != null) {
+                stringResource(R.string.options_qr_device_version, details.deviceName, details.appVersion)
+            } else {
+                stringResource(R.string.options_qr_device, details.deviceName)
+            },
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
     Text(
-        text = "Code expires ${Date(details.expiresAt)}",
+        text = stringResource(R.string.options_qr_expires, optionsDate(details.expiresAt)),
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
     if (waiting) {
-        StatusText("Confirmed on this device. Waiting for approval from the Web session that created the code…")
+        StatusText(stringResource(R.string.options_qr_waiting_detail))
         OutlinedButton(onClick = onCancel, modifier = Modifier.fillMaxWidth()) {
-            Text("Cancel on this device")
+            Text(stringResource(R.string.options_qr_cancel_device))
         }
     } else {
         Text(
-            text = "Continue only if the Web page shows the same account, server, device, and matching code.",
+            text = stringResource(R.string.options_qr_confirmation_notice),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         KestrelActionRow {
-            Button(onClick = onConfirm) { Text("Confirm and wait") }
-            OutlinedButton(onClick = onCancel) { Text("Cancel") }
+            Button(onClick = onConfirm) { Text(stringResource(R.string.options_qr_confirm_wait)) }
+            OutlinedButton(onClick = onCancel) { Text(stringResource(R.string.options_cancel)) }
         }
     }
 }
@@ -268,7 +274,7 @@ private fun TerminalQrLoginContent(
 ) {
     StatusText(message)
     OutlinedButton(onClick = onScan, enabled = enabled, modifier = Modifier.fillMaxWidth()) {
-        Text("Scan a new code")
+        Text(stringResource(R.string.options_qr_scan_new))
     }
 }
 

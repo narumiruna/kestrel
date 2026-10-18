@@ -7,7 +7,7 @@ class AppNavigationTest {
     @Test
     fun navigationRemainsShallowAndUsesFinalTerminology() {
         assertEquals(
-            listOf("Map", "Favorites", "Settings"),
+            listOf(R.string.nav_map, R.string.nav_favorites, R.string.nav_settings),
             AppDestinations.entries.map(AppDestinations::label),
         )
     }

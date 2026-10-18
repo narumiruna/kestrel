@@ -1,11 +1,13 @@
 'use client';
 
 import Image from 'next/image';
+import { useFormatter, useTranslations } from 'next-intl';
 import { useEffect, useState } from 'react';
-import { formatError } from '@/components/dashboard/utils';
 import { Button } from '@/components/ui/radix-ui';
+import { type ErrorKey, getErrorKey } from '@/i18n/errors';
 import {
   type AndroidLoginAttempt,
+  ApiError,
   type AuthenticatedApiRequest,
   approveAndroidLoginAttempt,
   type CreatedAndroidLoginAttempt,
@@ -15,7 +17,6 @@ import {
 } from '@/lib/api';
 import {
   effectiveAndroidLoginStatus,
-  formatAndroidLoginTimeRemaining,
   secondsUntilAndroidLoginExpiry,
   shouldPollAndroidLogin,
 } from './androidQrLoginState';
@@ -30,11 +31,14 @@ type AndroidQrLoginPanelProps = {
 };
 
 export function AndroidQrLoginPanel({ apiRequest, enabled, username }: AndroidQrLoginPanelProps) {
+  const t = useTranslations('AndroidLogin');
+  const errorT = useTranslations('Errors');
+  const format = useFormatter();
   const [attempt, setAttempt] = useState<DisplayedAttempt | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<{ key: ErrorKey; status: number } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [now, setNow] = useState(() => Date.now());
-  const [serverHost, setServerHost] = useState('this Kestrel server');
+  const [serverHost, setServerHost] = useState<string | null>(null);
 
   const status =
     attempt == null ? null : effectiveAndroidLoginStatus(attempt.status, attempt.expiresAt, now);
@@ -66,7 +70,10 @@ export function AndroidQrLoginPanel({ apiRequest, enabled, username }: AndroidQr
         }
       } catch (nextError) {
         if (!cancelled && !abortController.signal.aborted) {
-          setError(formatError(nextError));
+          setError({
+            key: getErrorKey(nextError),
+            status: nextError instanceof ApiError ? nextError.status : 0,
+          });
         }
       }
     }, attempt.pollIntervalSeconds * 1_000);
@@ -100,7 +107,10 @@ export function AndroidQrLoginPanel({ apiRequest, enabled, username }: AndroidQr
         status: 'pending',
       });
     } catch (nextError) {
-      setError(formatError(nextError));
+      setError({
+        key: getErrorKey(nextError),
+        status: nextError instanceof ApiError ? nextError.status : 0,
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -116,7 +126,10 @@ export function AndroidQrLoginPanel({ apiRequest, enabled, username }: AndroidQr
       const approved = await approveAndroidLoginAttempt(apiRequest, attempt.attemptId);
       setAttempt((current) => (current == null ? null : { ...current, ...approved }));
     } catch (nextError) {
-      setError(formatError(nextError));
+      setError({
+        key: getErrorKey(nextError),
+        status: nextError instanceof ApiError ? nextError.status : 0,
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -132,7 +145,10 @@ export function AndroidQrLoginPanel({ apiRequest, enabled, username }: AndroidQr
       const denied = await denyAndroidLoginAttempt(apiRequest, attempt.attemptId);
       setAttempt((current) => (current == null ? null : { ...current, ...denied }));
     } catch (nextError) {
-      setError(formatError(nextError));
+      setError({
+        key: getErrorKey(nextError),
+        status: nextError instanceof ApiError ? nextError.status : 0,
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -147,44 +163,37 @@ export function AndroidQrLoginPanel({ apiRequest, enabled, username }: AndroidQr
     >
       <div className="account-security-section-header">
         <div>
-          <p className="eyebrow">Android sign-in</p>
-          <h2 id="android-login-heading">Sign in with a QR code</h2>
+          <p className="eyebrow">{t('eyebrow')}</p>
+          <h2 id="android-login-heading">{t('title')}</h2>
         </div>
-        {status == null ? null : <span className="chip">{status}</span>}
+        {status == null ? null : <span className="chip">{t(`status.${status}`)}</span>}
       </div>
 
-      {enabled == null ? <p className="muted">Checking QR login availability…</p> : null}
-      {enabled === false ? (
-        <p className="muted">
-          QR login is unavailable on this server. Existing Android sign-in methods still work.
-        </p>
-      ) : null}
-      {enabled === true && attempt == null ? (
-        <p className="muted">
-          Create a five-minute code, then scan it from the signed-out Kestrel Android app. Review
-          the account and matching code here before approving.
-        </p>
-      ) : null}
+      {enabled == null ? <p className="muted">{t('checking')}</p> : null}
+      {enabled === false ? <p className="muted">{t('unavailable')}</p> : null}
+      {enabled === true && attempt == null ? <p className="muted">{t('help')}</p> : null}
 
       {attempt == null ? null : (
         <div className="android-qr-login-layout">
           <div className="android-qr-login-code">
             <Image
-              alt="QR code for signing in to Kestrel on Android"
+              alt={t('qrAlt')}
               height={240}
               priority
               src={attempt.qrCodeDataUrl}
               unoptimized
               width={240}
             />
-            <p className="muted no-margin">{attemptTimingLabel(status, remainingSeconds)}</p>
+            <p className="muted no-margin">
+              {attemptTimingLabel(status, remainingSeconds, t, format)}
+            </p>
           </div>
           <div className="android-qr-login-details" aria-live="polite">
             <p className="no-margin">
-              <strong>Account:</strong> {username}
+              <strong>{t('account')}</strong> {username}
             </p>
             <p className="no-margin">
-              <strong>Server:</strong> {serverHost}
+              <strong>{t('server')}</strong> {serverHost ?? t('defaultServer')}
             </p>
             <AttemptStatus attempt={attempt} status={status ?? attempt.status} />
           </div>
@@ -193,19 +202,19 @@ export function AndroidQrLoginPanel({ apiRequest, enabled, username }: AndroidQr
 
       {error == null ? null : (
         <div className="error android-qr-login-feedback" role="alert">
-          {error}
+          {errorT(error.key, { status: error.status })}
         </div>
       )}
 
       <div className="account-security-actions android-qr-login-actions">
         {error != null && attempt != null && status != null && shouldPollAndroidLogin(status) ? (
           <Button className="secondary" type="button" onClick={() => setError(null)}>
-            Retry status check
+            {t('retryStatus')}
           </Button>
         ) : null}
         {status === 'claimed' ? (
           <Button disabled={isSubmitting} type="button" onClick={() => void approveAttempt()}>
-            {isSubmitting ? 'Approving…' : 'Approve Android sign-in'}
+            {isSubmitting ? t('approving') : t('approve')}
           </Button>
         ) : null}
         {status != null && shouldPollAndroidLogin(status) ? (
@@ -215,16 +224,12 @@ export function AndroidQrLoginPanel({ apiRequest, enabled, username }: AndroidQr
             type="button"
             onClick={() => void cancelAttempt()}
           >
-            {isSubmitting ? 'Cancelling…' : 'Cancel code'}
+            {isSubmitting ? t('cancelling') : t('cancel')}
           </Button>
         ) : null}
         {canStart ? (
           <Button disabled={isSubmitting} type="button" onClick={() => void startAttempt()}>
-            {isSubmitting
-              ? 'Creating…'
-              : attempt == null
-                ? 'Create Android login code'
-                : 'Create a new code'}
+            {isSubmitting ? t('creating') : attempt == null ? t('create') : t('createNew')}
           </Button>
         ) : null}
       </div>
@@ -239,47 +244,60 @@ function AttemptStatus({
   attempt: DisplayedAttempt;
   status: AndroidLoginAttempt['status'];
 }) {
+  const t = useTranslations('AndroidLogin');
   if (status === 'pending') {
-    return <p className="muted">Waiting for the Android app to scan this code.</p>;
+    return <p className="muted">{t('pending')}</p>;
   }
   if (status === 'claimed') {
     return (
       <>
         <p className="muted">
-          Scanned by <strong>{attempt.device?.name ?? 'Android device'}</strong>
-          {attempt.device?.appVersion == null ? '' : ` · Kestrel ${attempt.device.appVersion}`}.
+          {attempt.device?.appVersion == null
+            ? t.rich('scanned', {
+                device: attempt.device?.name ?? t('defaultDevice'),
+                strong: (children) => <strong>{children}</strong>,
+              })
+            : t.rich('scannedWithVersion', {
+                device: attempt.device?.name ?? t('defaultDevice'),
+                version: attempt.device.appVersion,
+                strong: (children) => <strong>{children}</strong>,
+              })}
         </p>
         <p className="android-qr-login-matching-code">
-          Matching code <strong>{attempt.matchingCode}</strong>
+          {t.rich('matchingCode', {
+            code: attempt.matchingCode ?? '',
+            strong: (children) => <strong>{children}</strong>,
+          })}
         </p>
-        <p className="muted no-margin">
-          Confirm that this code, account, and server match the Android screen before approving.
-        </p>
+        <p className="muted no-margin">{t('confirm')}</p>
       </>
     );
   }
   if (status === 'approved') {
-    return <p className="success">Approved. Waiting for Android to finish signing in.</p>;
+    return <p className="success">{t('approved')}</p>;
   }
   if (status === 'consumed') {
-    return (
-      <p className="success">Android sign-in completed. The new session is now independent.</p>
-    );
+    return <p className="success">{t('consumed')}</p>;
   }
   if (status === 'denied') {
-    return <p className="muted">This Android sign-in was cancelled or denied.</p>;
+    return <p className="muted">{t('denied')}</p>;
   }
-  return <p className="muted">This code expired. Create a new code to try again.</p>;
+  return <p className="muted">{t('expired')}</p>;
 }
 
 function attemptTimingLabel(
   status: AndroidLoginAttempt['status'] | null,
   remainingSeconds: number,
+  t: ReturnType<typeof useTranslations<'AndroidLogin'>>,
+  format: ReturnType<typeof useFormatter>,
 ): string {
-  if (status === 'consumed') return 'Code used';
-  if (status === 'denied') return 'Code cancelled';
-  if (status === 'expired') return 'Code expired';
-  return `Expires in ${formatAndroidLoginTimeRemaining(remainingSeconds)}`;
+  if (status === 'consumed') return t('codeUsed');
+  if (status === 'denied') return t('codeCancelled');
+  if (status === 'expired') return t('codeExpired');
+  return t('expires', {
+    minutes: format.number(Math.floor(remainingSeconds / 60), { useGrouping: false }),
+    seconds: format.number(remainingSeconds % 60, { minimumIntegerDigits: 2, useGrouping: false }),
+  });
 }
 
 function isTerminal(status: AndroidLoginAttempt['status'] | null): boolean {

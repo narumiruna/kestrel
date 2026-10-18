@@ -5,7 +5,12 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import dev.narumi.kestrel.R
+import dev.narumi.kestrel.core.i18n.speed
 import dev.narumi.kestrel.core.location.MovementEngine
 import dev.narumi.kestrel.ui.components.KestrelCard
 
@@ -19,10 +24,12 @@ internal fun LiveRouteSettingsCard(
     onSpeedChange: (Double) -> Unit,
     onModeChange: (MovementEngine.Mode) -> Unit,
 ) {
+    val resources = LocalResources.current
+    val context = LocalContext.current
     KestrelCard {
-        SectionLabel("Playback settings")
+        SectionLabel(resources.getString(R.string.playback_settings))
         Text(
-            "Changes apply now without restarting the route.",
+            resources.getString(R.string.changes_apply_now_without_restarting_the_route),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -38,21 +45,23 @@ internal fun RouteSettingsChoices(
     onSpeedChange: (Double) -> Unit,
     onModeChange: (MovementEngine.Mode) -> Unit,
 ) {
-    SectionLabel("Speed")
+    val resources = LocalResources.current
+    val context = LocalContext.current
+    SectionLabel(resources.getString(R.string.speed))
     FlowRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         routeSpeedChoices(speedKmh).forEach { speed ->
             ChipChoice(
-                label = speed.toDisplaySpeed(),
+                label = context.speed(speed),
                 selected = speed == speedKmh,
                 enabled = enabled,
                 onClick = { onSpeedChange(speed) },
             )
         }
     }
-    SectionLabel("Mode")
+    SectionLabel(resources.getString(R.string.mode))
     FlowRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -67,5 +76,3 @@ internal fun RouteSettingsChoices(
         }
     }
 }
-
-internal fun Double.toDisplaySpeed(): String = if (this % 1.0 == 0.0) "${toInt()} km/h" else "$this km/h"

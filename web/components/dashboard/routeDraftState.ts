@@ -29,6 +29,29 @@ export type RouteDraftState = {
   pastPaths: RouteDraftWaypoint[][];
 };
 
+export type RouteDraftMessageKey =
+  | 'nameRequired'
+  | 'nameLength'
+  | 'descriptionLength'
+  | 'speed'
+  | 'moreWaypoints'
+  | 'waypointLimit'
+  | 'latitude'
+  | 'longitude'
+  | 'waypointSpeed'
+  | 'waypointPause'
+  | 'nameSet'
+  | 'nameChanged'
+  | 'pathAdded'
+  | 'pathChanged'
+  | 'playbackChanged'
+  | 'detailsChanged'
+  | 'visibilityChanged';
+export type RouteDraftTranslator = (
+  key: RouteDraftMessageKey,
+  values?: { count?: number; number?: number },
+) => string;
+
 export type RouteValidation = {
   isValid: boolean;
   saveDisabledReason: string | null;
@@ -319,48 +342,48 @@ export function upsertRouteById(routes: Route[], route: Route): Route[] {
   return routes.map((candidate, index) => (index === existingIndex ? route : candidate));
 }
 
-export function getRouteValidation(draft: RouteDraft): RouteValidation {
+export function getRouteValidation(draft: RouteDraft, t: RouteDraftTranslator): RouteValidation {
   const name = draft.name.trim();
   if (name.length === 0) {
-    return invalid('Enter a route name before saving.');
+    return invalid(t('nameRequired'));
   }
   if (name.length > MAX_NAME_LENGTH) {
-    return invalid(`Route name must be at most ${MAX_NAME_LENGTH} characters.`);
+    return invalid(t('nameLength', { count: MAX_NAME_LENGTH }));
   }
   if (draft.description.trim().length > MAX_DESCRIPTION_LENGTH) {
-    return invalid(`Description must be at most ${MAX_DESCRIPTION_LENGTH} characters.`);
+    return invalid(t('descriptionLength', { count: MAX_DESCRIPTION_LENGTH }));
   }
 
   const speedKmh = Number(draft.defaultSpeedKmh);
   if (!Number.isFinite(speedKmh) || speedKmh <= 0) {
-    return invalid('Enter a route speed greater than zero.');
+    return invalid(t('speed'));
   }
   if (draft.waypoints.length < MIN_WAYPOINT_COUNT) {
     const remaining = MIN_WAYPOINT_COUNT - draft.waypoints.length;
-    return invalid(`Add ${remaining} more waypoint${remaining === 1 ? '' : 's'} before saving.`);
+    return invalid(t('moreWaypoints', { count: remaining }));
   }
   if (draft.waypoints.length > MAX_WAYPOINT_COUNT) {
-    return invalid(`Routes can contain at most ${MAX_WAYPOINT_COUNT} waypoints.`);
+    return invalid(t('waypointLimit', { count: MAX_WAYPOINT_COUNT }));
   }
 
   for (const [index, waypoint] of draft.waypoints.entries()) {
     if (!isCoordinateValid(waypoint.latitude, -90, 90)) {
-      return invalid(`Waypoint ${index + 1} latitude must be between -90 and 90.`);
+      return invalid(t('latitude', { number: index + 1 }));
     }
     if (!isCoordinateValid(waypoint.longitude, -180, 180)) {
-      return invalid(`Waypoint ${index + 1} longitude must be between -180 and 180.`);
+      return invalid(t('longitude', { number: index + 1 }));
     }
     if (
       waypoint.speedKmh != null &&
       (!Number.isFinite(waypoint.speedKmh) || waypoint.speedKmh <= 0)
     ) {
-      return invalid(`Waypoint speed ${index + 1} must be greater than zero.`);
+      return invalid(t('waypointSpeed', { number: index + 1 }));
     }
     if (
       waypoint.pauseSeconds != null &&
       (!Number.isFinite(waypoint.pauseSeconds) || waypoint.pauseSeconds < 0)
     ) {
-      return invalid(`Waypoint pause ${index + 1} must be zero or greater.`);
+      return invalid(t('waypointPause', { number: index + 1 }));
     }
   }
 
@@ -371,27 +394,27 @@ export function isRouteDraftDirty(state: RouteDraftState): boolean {
   return !routeDraftsEqual(state.draft, state.baseline);
 }
 
-export function getRouteChangeSummary(state: RouteDraftState): string[] {
+export function getRouteChangeSummary(state: RouteDraftState, t: RouteDraftTranslator): string[] {
   const changes: string[] = [];
   const isNew = state.baseline.name.length === 0 && state.baseline.waypoints.length === 0;
 
   if (state.draft.name.trim() !== state.baseline.name.trim()) {
-    changes.push(isNew ? 'Name set' : 'Name changed');
+    changes.push(isNew ? t('nameSet') : t('nameChanged'));
   }
   if (!routePathsEqual(state.draft.waypoints, state.baseline.waypoints)) {
-    changes.push(isNew ? 'Path added' : 'Path changed');
+    changes.push(isNew ? t('pathAdded') : t('pathChanged'));
   }
   if (
     Number(state.draft.defaultSpeedKmh) !== Number(state.baseline.defaultSpeedKmh) ||
     state.draft.mode !== state.baseline.mode
   ) {
-    changes.push('Playback changed');
+    changes.push(t('playbackChanged'));
   }
   if (state.draft.description.trim() !== state.baseline.description.trim()) {
-    changes.push('Details changed');
+    changes.push(t('detailsChanged'));
   }
   if (state.draft.isPublic !== state.baseline.isPublic) {
-    changes.push('Visibility changed');
+    changes.push(t('visibilityChanged'));
   }
 
   return changes;

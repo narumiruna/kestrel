@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { createTranslator } from 'next-intl';
 import type { Route } from '../../lib/api.ts';
+import messages from '../../messages/en.json' with { type: 'json' };
 import {
   addRouteWaypoint,
   closeRouteLoop,
   createRouteDraftState,
-  getRouteChangeSummary,
-  getRouteValidation,
   getSelectedWaypointIndex,
   insertRouteWaypointAfter,
   isRouteDraftDirty,
@@ -18,11 +18,21 @@ import {
   resetRouteDraft,
   reverseRoute,
   setRouteDraftField,
+  getRouteChangeSummary as summarizeRoute,
   toRouteInput,
   undoRoutePath,
   updateRouteWaypoint,
   upsertRouteById,
+  getRouteValidation as validateRoute,
 } from './routeDraftState.ts';
+
+const t = createTranslator({ locale: 'en', messages, namespace: 'routeDraft' });
+function getRouteValidation(draft: Parameters<typeof validateRoute>[0]) {
+  return validateRoute(draft, t);
+}
+function getRouteChangeSummary(state: Parameters<typeof summarizeRoute>[0]) {
+  return summarizeRoute(state, t);
+}
 
 test('new routes default to 15 km/h and PingPong', () => {
   const state = createRouteDraftState(null);
@@ -245,7 +255,7 @@ test('accepts 1000 waypoints and rejects 1001', () => {
     ...validDraft,
     waypoints: [...waypoints, { ...waypoints[0], draftId: 'long:1000' }],
   };
-  assert.match(getRouteValidation(invalidDraft).saveDisabledReason ?? '', /at most 1000/i);
+  assert.match(getRouteValidation(invalidDraft).saveDisabledReason ?? '', /at most 1,000/i);
 });
 
 test('reset restores the baseline and clears path history', () => {
@@ -404,4 +414,84 @@ test('rejects invalid known waypoint metadata before serialization', () => {
 
   assert.match(getRouteValidation(invalidSpeed).saveDisabledReason ?? '', /waypoint speed/i);
   assert.match(getRouteValidation(invalidPause).saveDisabledReason ?? '', /pause/i);
+});
+
+test('validation uses ICU plural rules and locale numbers without changing serialized drafts', () => {
+  const pl = createTranslator({
+    locale: 'pl',
+    messages: {
+      routeDraft: {
+        ...messages.routeDraft,
+        moreWaypoints:
+          '{count, plural, one {Dodaj # punkt.} few {Dodaj # punkty.} many {Dodaj # punktów.} other {Dodaj # punktu.}}',
+      },
+    },
+    namespace: 'routeDraft',
+  });
+  let state = setRouteDraftField(createRouteDraftState(null), 'name', 'User route');
+  const before = JSON.stringify(toRouteInput(state.draft));
+  assert.equal(validateRoute(state.draft, pl).saveDisabledReason, 'Dodaj 2 punkty.');
+  assert.equal(JSON.stringify(toRouteInput(state.draft)), before);
+  state = addRouteWaypoint(state, { latitude: 25.033, longitude: 121.5654 });
+  assert.equal(validateRoute(state.draft, pl).saveDisabledReason, 'Dodaj 1 punkt.');
+  const de = createTranslator({ locale: 'de', messages, namespace: 'routeDraft' });
+  assert.equal(
+    validateRoute({ ...state.draft, name: 'x'.repeat(129) }, de).saveDisabledReason,
+    'Route name must be at most 128 characters.',
+  );
+  assert.equal(
+    validateRoute({ ...state.draft, description: 'x'.repeat(1025) }, de).saveDisabledReason,
+    'Description must be at most 1.024 characters.',
+  );
+});
+
+test('all validation reasons are supplied to the translator by stable keys', () => {
+  const state = createRouteDraftState(route);
+  const record = (key: string, values?: { count?: number; number?: number }) =>
+    JSON.stringify({ key, ...values });
+  const cases = [
+    [{ ...state.draft, name: '' }, 'nameRequired'],
+    [{ ...state.draft, defaultSpeedKmh: '0' }, 'speed'],
+    [
+      {
+        ...state.draft,
+        waypoints: [{ ...state.draft.waypoints[0], latitude: 91 }, state.draft.waypoints[1]],
+      },
+      'latitude',
+    ],
+    [
+      {
+        ...state.draft,
+        waypoints: [{ ...state.draft.waypoints[0], longitude: 181 }, state.draft.waypoints[1]],
+      },
+      'longitude',
+    ],
+    [
+      {
+        ...state.draft,
+        waypoints: [{ ...state.draft.waypoints[0], speedKmh: 0 }, state.draft.waypoints[1]],
+      },
+      'waypointSpeed',
+    ],
+    [
+      {
+        ...state.draft,
+        waypoints: [{ ...state.draft.waypoints[0], pauseSeconds: -1 }, state.draft.waypoints[1]],
+      },
+      'waypointPause',
+    ],
+  ] as const;
+  for (const [draft, key] of cases) {
+    const result = validateRoute({ ...draft, waypoints: [...draft.waypoints] }, record);
+    assert.equal(JSON.parse(result.saveDisabledReason ?? '{}').key, key);
+  }
+  const changed = setRouteDraftField(
+    setRouteDraftField(state, 'description', 'User description'),
+    'isPublic',
+    true,
+  );
+  assert.deepEqual(
+    summarizeRoute(changed, (key) => key),
+    ['detailsChanged', 'visibilityChanged'],
+  );
 });

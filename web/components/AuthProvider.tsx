@@ -82,7 +82,11 @@ async function withFallbackSessionLock<T>(action: () => T | Promise<T>): Promise
     await delay(SESSION_FALLBACK_LOCK_RETRY_MS);
   }
 
-  throw new ApiError('Timed out waiting for another tab to finish authentication', 503);
+  throw new ApiError(
+    'Timed out waiting for another tab to finish authentication',
+    503,
+    'AUTHENTICATION_BUSY',
+  );
 }
 
 function readFallbackLockLease(): { expiresAt: number; owner: string } | null {
@@ -283,7 +287,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (persistenceError instanceof Error) {
         throw persistenceError;
       }
-      throw new ApiError('A newer sign-in attempt replaced this one', 409);
+      throw new ApiError(
+        'A newer sign-in attempt replaced this one',
+        409,
+        'AUTHENTICATION_SUPERSEDED',
+      );
     },
     [persistSession],
   );
@@ -342,7 +350,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             persistSession(storedBeforeRefresh);
             return storedBeforeRefresh;
           }
-          throw new ApiError('Authentication changed while refreshing session', 401);
+          throw new ApiError(
+            'Authentication changed while refreshing session',
+            401,
+            'AUTHENTICATION_CHANGED',
+          );
         }
 
         const refreshedSession = await refreshSessionOnce(sessionToRefresh);
@@ -350,7 +362,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           (window.localStorage.getItem(AUTHENTICATION_EPOCH_KEY) ?? 'initial') !==
           authenticationEpoch
         ) {
-          throw new ApiError('Authentication changed while refreshing session', 401);
+          throw new ApiError(
+            'Authentication changed while refreshing session',
+            401,
+            'AUTHENTICATION_CHANGED',
+          );
         }
         const storedAfterRefresh = readStoredSession();
         const currentSession = sessionRef.current;
@@ -367,13 +383,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (replacementSession != null) {
           if (replacementSession.session.id !== sessionToRefresh.session.id) {
-            throw new ApiError('Authentication changed while refreshing session', 401);
+            throw new ApiError(
+              'Authentication changed while refreshing session',
+              401,
+              'AUTHENTICATION_CHANGED',
+            );
           }
           persistSession(replacementSession);
           return replacementSession;
         }
         if (storedAfterRefresh == null) {
-          throw new ApiError('Authentication changed while refreshing session', 401);
+          throw new ApiError(
+            'Authentication changed while refreshing session',
+            401,
+            'AUTHENTICATION_CHANGED',
+          );
         }
 
         const persistedRefreshedSession = {
@@ -386,7 +410,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           authenticationEpoch
         ) {
           clearSession(persistedRefreshedSession.refreshToken);
-          throw new ApiError('Authentication changed while refreshing session', 401);
+          throw new ApiError(
+            'Authentication changed while refreshing session',
+            401,
+            'AUTHENTICATION_CHANGED',
+          );
         }
         return persistedRefreshedSession;
       };
@@ -553,7 +581,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async <T,>(path: string, options: RequestInit = {}): Promise<T> => {
       const requestSession = sessionRef.current;
       if (requestSession == null) {
-        throw new ApiError('Not authenticated', 401);
+        throw new ApiError('Not authenticated', 401, 'NOT_AUTHENTICATED');
       }
 
       const requestForSession = async (activeSession: AuthSession) => {
@@ -562,7 +590,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           accessToken: activeSession.accessToken,
         });
         if (sessionRef.current?.session.id !== activeSession.session.id) {
-          throw new ApiError('Authentication changed while processing request', 401);
+          throw new ApiError(
+            'Authentication changed while processing request',
+            401,
+            'AUTHENTICATION_CHANGED',
+          );
         }
         return response;
       };
@@ -576,12 +608,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         const latestSession = sessionRef.current;
         if (latestSession == null) {
-          throw new ApiError('Not authenticated', 401);
+          throw new ApiError('Not authenticated', 401, 'NOT_AUTHENTICATED');
         }
 
         if (latestSession.refreshToken !== requestSession.refreshToken) {
           if (latestSession.session.id !== requestSession.session.id) {
-            throw new ApiError('Authentication changed while retrying request', 401);
+            throw new ApiError(
+              'Authentication changed while retrying request',
+              401,
+              'AUTHENTICATION_CHANGED',
+            );
           }
 
           return requestForSession(latestSession);
@@ -601,7 +637,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 replacementSession.refreshToken !== requestSession.refreshToken
               ) {
                 if (replacementSession.session.id !== requestSession.session.id) {
-                  throw new ApiError('Authentication changed while retrying request', 401);
+                  throw new ApiError(
+                    'Authentication changed while retrying request',
+                    401,
+                    'AUTHENTICATION_CHANGED',
+                  );
                 }
                 persistSession(replacementSession);
                 return requestForSession(replacementSession);
@@ -615,7 +655,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 storedSession.refreshToken !== requestSession.refreshToken
               ) {
                 if (storedSession.session.id !== requestSession.session.id) {
-                  throw new ApiError('Authentication changed while retrying request', 401);
+                  throw new ApiError(
+                    'Authentication changed while retrying request',
+                    401,
+                    'AUTHENTICATION_CHANGED',
+                  );
                 }
                 persistSession(storedSession);
                 return storedSession;

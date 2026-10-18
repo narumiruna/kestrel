@@ -35,9 +35,16 @@ KESTREL_API_BASE_URL=http://localhost:3300 npm run dev
 
 See the user-facing [Kestrel Cloud route editing guide](../docs/web-cloud-guide.md) for path tools, playback modes, draft/saved behavior, keyboard alternatives, and recovery.
 
+## Localization
+
+The UI supports 18 languages with English as the first-use and fallback language. Language selection is available in Account settings, on the login page, and on public share pages. It is stored in a site cookie, not in the account.
+
+See [internationalization rules and checks](../docs/i18n.md) before changing UI messages or translations. Existing URLs and sign-in callback paths do not use language prefixes.
+
 ## Validation
 
 ```bash
+just i18n-check
 just web-format
 just web-check
 just web-lint

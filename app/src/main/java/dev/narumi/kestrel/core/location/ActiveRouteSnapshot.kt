@@ -1,5 +1,6 @@
 package dev.narumi.kestrel.core.location
 
+import dev.narumi.kestrel.R
 import dev.narumi.kestrel.core.data.RouteState
 import java.util.UUID
 
@@ -17,8 +18,8 @@ internal class ActiveRouteSnapshot private constructor(
         speedKmh: Double?,
         mode: MovementEngine.Mode?,
     ): ActiveRouteSnapshot {
-        require(expectedPlaybackId == playbackId) { "The route has changed. Adjust the current route instead." }
-        require(speedKmh != null || mode != null) { "Choose a speed or playback mode to change." }
+        requireLocation(expectedPlaybackId == playbackId, R.string.location_route_changed)
+        requireLocation(speedKmh != null || mode != null, R.string.location_choose_setting)
         val nextSpeedKmh = speedKmh ?: this.speedKmh
         val nextMode = mode ?: this.mode
         engine.updateSettings(nextSpeedKmh / 3.6, nextMode)

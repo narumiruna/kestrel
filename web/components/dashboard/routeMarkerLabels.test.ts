@@ -1,6 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { getRouteMarkerLayout, getVisibleRouteLabels } from './routeMarkerLabels.ts';
+import { createTranslator } from 'next-intl';
+import messages from '../../messages/en.json' with { type: 'json' };
+import {
+  getRouteMarkerLayout,
+  getRouteMarkerText,
+  getVisibleRouteLabels,
+} from './routeMarkerLabels.ts';
 
 test('empty and single-point routes have valid labels', () => {
   assert.deepEqual([...getVisibleRouteLabels([], null, null)], []);
@@ -321,4 +327,39 @@ test('collision checks cross grid boundaries', () => {
     null,
   );
   assert.ok(!labels.has(1));
+});
+
+test('marker text localizes counts and complete accessible states without changing layout', () => {
+  const t = createTranslator({ locale: 'en', messages, namespace: 'routeMap' });
+  assert.deepEqual(getRouteMarkerText(0, 1, true, 'en', t), {
+    number: '1',
+    shortLabel: 'S',
+    ariaLabel: 'Waypoint 1, start and end, selected',
+  });
+  assert.equal(getRouteMarkerText(2, 3, false, 'en', t).ariaLabel, 'Waypoint 3, end');
+  assert.equal(getRouteMarkerText(1, 3, true, 'en', t).ariaLabel, 'Waypoint 2, selected');
+  const de = createTranslator({
+    locale: 'de',
+    messages: {
+      routeMap: {
+        ...messages.routeMap,
+        startShort: 'A',
+        endShort: 'Z',
+        waypoint: 'Punkt {number, number}',
+      },
+    } as Pick<typeof messages, 'routeMap'>,
+    namespace: 'routeMap',
+  });
+  assert.equal(getRouteMarkerText(0, 3, false, 'de', de).shortLabel, 'A');
+  assert.equal(getRouteMarkerText(2, 3, false, 'de', de).shortLabel, 'Z');
+  assert.equal(getRouteMarkerText(1233, 2000, false, 'de', de).number, '1.234');
+  assert.equal(getRouteMarkerText(1233, 2000, false, 'de', de).ariaLabel, 'Punkt 1.234');
+  const points = [
+    { x: 0, y: 0 },
+    { x: 40, y: 0 },
+    { x: 80, y: 0 },
+  ];
+  const before = getRouteMarkerLayout(points, 1, null);
+  getRouteMarkerText(1, 3, true, 'de', de);
+  assert.deepEqual(getRouteMarkerLayout(points, 1, null), before);
 });

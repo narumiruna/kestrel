@@ -14,6 +14,7 @@ import {
   Tooltip,
 } from '@radix-ui/themes';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { Collapsible, ToggleGroup as RadixToggleGroup } from 'radix-ui';
 import {
   type ComponentProps,
@@ -230,6 +231,7 @@ export function DialogFrame({
   title,
   trigger,
 }: DialogFrameProps) {
+  const t = useTranslations('Common');
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       {trigger == null ? null : <Dialog.Trigger>{trigger}</Dialog.Trigger>}
@@ -255,7 +257,7 @@ export function DialogFrame({
           </div>
           <Dialog.Close>
             <RadixButton className="secondary" type="button" variant="soft">
-              Close
+              {t('close')}
             </RadixButton>
           </Dialog.Close>
         </header>
@@ -281,11 +283,11 @@ type ConfirmDialogProps = {
 };
 
 export function ConfirmDialog({
-  cancelLabel = 'Cancel',
+  cancelLabel,
   confirmLabel,
   description,
   disabled,
-  eyebrow = 'Please confirm',
+  eyebrow,
   isConfirming: controlledIsConfirming,
   onConfirm,
   onOpenChange,
@@ -294,6 +296,7 @@ export function ConfirmDialog({
   title,
   trigger,
 }: ConfirmDialogProps) {
+  const t = useTranslations('Common');
   const [internalIsConfirming, setInternalIsConfirming] = useState(false);
   const cancelButtonRef = useRef<HTMLButtonElement | null>(null);
   const isConfirming = controlledIsConfirming ?? internalIsConfirming;
@@ -332,7 +335,7 @@ export function ConfirmDialog({
         }}
       >
         <div>
-          <p className="field-kicker font-mono">{eyebrow}</p>
+          <p className="field-kicker font-mono">{eyebrow ?? t('pleaseConfirm')}</p>
           <AlertDialog.Title className="ui-dialog-title font-serif">{title}</AlertDialog.Title>
           <AlertDialog.Description className="ui-dialog-description muted">
             {description}
@@ -346,7 +349,7 @@ export function ConfirmDialog({
                 type="button"
                 variant="soft"
               >
-                {cancelLabel}
+                {cancelLabel ?? t('cancel')}
               </RadixButton>
             </AlertDialog.Cancel>
             <AlertDialog.Action>
@@ -357,7 +360,7 @@ export function ConfirmDialog({
                 variant="solid"
                 onClick={() => void confirm()}
               >
-                {isConfirming ? 'Working…' : confirmLabel}
+                {isConfirming ? t('working') : confirmLabel}
               </RadixButton>
             </AlertDialog.Action>
           </div>

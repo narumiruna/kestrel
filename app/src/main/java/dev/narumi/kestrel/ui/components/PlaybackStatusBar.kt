@@ -14,6 +14,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.liveRegion
@@ -21,12 +24,15 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import dev.narumi.kestrel.R
+import dev.narumi.kestrel.core.i18n.coordinates
+import dev.narumi.kestrel.core.i18n.routeDetails
 import dev.narumi.kestrel.core.location.MovementEngine
 import dev.narumi.kestrel.core.location.RuntimeState
 
 internal data class PlaybackBarPresentation(
-    val title: String,
-    val details: String,
+    val title: Int,
+    val runtime: RuntimeState,
     val primaryAction: PlaybackBarAction?,
 )
 
@@ -40,18 +46,16 @@ internal fun playbackBarPresentation(runtime: RuntimeState): PlaybackBarPresenta
 
         is RuntimeState.Single -> {
             PlaybackBarPresentation(
-                title = "Mocking point",
-                details = "%.5f, %.5f".format(runtime.point.lat, runtime.point.lng),
+                title = R.string.mocking_point,
+                runtime = runtime,
                 primaryAction = null,
             )
         }
 
         is RuntimeState.Route -> {
             PlaybackBarPresentation(
-                title = if (runtime.paused) "Route paused" else "Route playing",
-                details =
-                    "${runtime.waypoints.size} waypoints · ${runtime.speedKmh.toBarSpeed()} · " +
-                        runtime.mode.toBarLabel(),
+                title = if (runtime.paused) R.string.route_paused else R.string.route_playing,
+                runtime = runtime,
                 primaryAction = if (runtime.paused) PlaybackBarAction.Resume else PlaybackBarAction.Pause,
             )
         }
@@ -68,7 +72,15 @@ fun PlaybackStatusBar(
     onStop: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val resources = LocalResources.current
     val presentation = playbackBarPresentation(runtime) ?: return
+    val context = LocalContext.current
+    val details =
+        when (runtime) {
+            is RuntimeState.Single -> coordinates(runtime.point.lat, runtime.point.lng)
+            is RuntimeState.Route -> context.routeDetails(runtime.waypoints.size, runtime.speedKmh, runtime.mode)
+            RuntimeState.Idle -> return
+        }
     Surface(
         modifier = modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite },
         shape = MaterialTheme.shapes.large,
@@ -83,20 +95,20 @@ fun PlaybackStatusBar(
                     modifier =
                         Modifier
                             .weight(1f)
-                            .clickable(role = Role.Button, onClickLabel = "View map", onClick = onViewMap)
+                            .clickable(role = Role.Button, onClickLabel = resources.getString(R.string.view_map), onClick = onViewMap)
                             .heightIn(min = 48.dp)
                             .padding(horizontal = 8.dp)
-                            .semantics { stateDescription = presentation.details },
+                            .semantics { stateDescription = details },
                     verticalArrangement = Arrangement.Center,
                 ) {
                     Text(
-                        presentation.title,
+                        resources.getString(presentation.title),
                         style = MaterialTheme.typography.titleSmall,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
                     Text(
-                        if (busy) "Applying playback change…" else "View map",
+                        if (busy) resources.getString(R.string.applying_playback_change) else resources.getString(R.string.view_map),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.primary,
                         maxLines = 1,
@@ -125,25 +137,18 @@ private fun PlaybackActions(
     onResume: () -> Unit,
     onStop: () -> Unit,
 ) {
+    val resources = LocalResources.current
+    val context = LocalContext.current
     if (primaryAction != null) {
         val paused = primaryAction == PlaybackBarAction.Resume
         IconButton(onClick = if (paused) onResume else onPause, enabled = !busy) {
             KestrelIcon(
                 imageVector = if (paused) KestrelIcons.Play else KestrelIcons.Pause,
-                contentDescription = if (paused) "Resume" else "Pause",
+                contentDescription = if (paused) resources.getString(R.string.resume) else resources.getString(R.string.pause),
             )
         }
     }
     IconButton(onClick = onStop, enabled = !busy) {
-        KestrelIcon(KestrelIcons.Stop, contentDescription = "Stop")
+        KestrelIcon(KestrelIcons.Stop, contentDescription = resources.getString(R.string.stop))
     }
 }
-
-private fun Double.toBarSpeed(): String = if (this % 1.0 == 0.0) "${toInt()} km/h" else "$this km/h"
-
-private fun MovementEngine.Mode.toBarLabel(): String =
-    when (this) {
-        MovementEngine.Mode.Once -> "Once"
-        MovementEngine.Mode.Loop -> "Loop"
-        MovementEngine.Mode.PingPong -> "Ping-pong"
-    }

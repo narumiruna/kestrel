@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import type { MouseEvent } from 'react';
 
 export type WorkspaceSection = 'library' | 'map' | 'account';
@@ -10,12 +11,13 @@ type WorkspaceTabsProps = {
   onBeforeChange?: (href: string) => boolean;
 };
 
-const sections: Array<{ href: string; key: WorkspaceSection; label: string }> = [
-  { href: '/dashboard/map', key: 'map', label: 'Map' },
-  { href: '/dashboard/library', key: 'library', label: 'Library' },
+const sections: Array<{ href: string; key: WorkspaceSection; label: 'map' | 'library' }> = [
+  { href: '/dashboard/map', key: 'map', label: 'map' },
+  { href: '/dashboard/library', key: 'library', label: 'library' },
 ];
 
 export function WorkspaceTabs({ activeSection, onBeforeChange }: WorkspaceTabsProps) {
+  const t = useTranslations('WorkspaceTabs');
   function handleChange(event: MouseEvent<HTMLAnchorElement>) {
     if (onBeforeChange?.(event.currentTarget.getAttribute('href') ?? '/') === false) {
       event.preventDefault();
@@ -23,7 +25,7 @@ export function WorkspaceTabs({ activeSection, onBeforeChange }: WorkspaceTabsPr
   }
 
   return (
-    <nav aria-label="Workspace tabs" className="workspace-tabs">
+    <nav aria-label={t('workspaceTabs')} className="workspace-tabs">
       {sections.map((section) => (
         <Link
           aria-current={activeSection === section.key ? 'page' : undefined}
@@ -32,7 +34,7 @@ export function WorkspaceTabs({ activeSection, onBeforeChange }: WorkspaceTabsPr
           key={section.key}
           onClick={handleChange}
         >
-          {section.label}
+          {t(section.label)}
         </Link>
       ))}
     </nav>

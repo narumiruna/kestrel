@@ -24,11 +24,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import dev.narumi.kestrel.R
 import dev.narumi.kestrel.core.data.FavoritesSortMode
 import dev.narumi.kestrel.core.data.KestrelPrefs
 import dev.narumi.kestrel.core.data.StartupPreference
+import dev.narumi.kestrel.core.i18n.UiMessage
+import dev.narumi.kestrel.core.i18n.labelResource
 import dev.narumi.kestrel.core.library.LibraryItemKind
 import dev.narumi.kestrel.core.library.LibraryItemWithContent
 import dev.narumi.kestrel.core.library.LibraryRepository
@@ -65,25 +70,26 @@ fun FavoritesScreen(
     val startup by prefs.startupPreference.collectAsStateWithLifecycle(StartupPreference())
     var selectedFilter by rememberSaveable { mutableStateOf(FavoritesFilter.All) }
     var query by rememberSaveable { mutableStateOf("") }
-    var editingName by remember { mutableStateOf<LibraryItemWithContent?>(null) }
-    var editingPoint by remember { mutableStateOf<LibraryItemWithContent?>(null) }
-    var editingRoute by remember { mutableStateOf<LibraryItemWithContent?>(null) }
-    var deletingItem by remember { mutableStateOf<LibraryItemWithContent?>(null) }
-    var renameText by remember { mutableStateOf("") }
-    var pointText by remember { mutableStateOf("") }
-    var routeSpeedText by remember { mutableStateOf("") }
-    var routeMode by remember { mutableStateOf(MovementEngine.Mode.Once) }
+    var editingName by rememberSaveable { mutableStateOf<LibraryItemWithContent?>(null) }
+    var editingPoint by rememberSaveable { mutableStateOf<LibraryItemWithContent?>(null) }
+    var editingRoute by rememberSaveable { mutableStateOf<LibraryItemWithContent?>(null) }
+    var deletingItem by rememberSaveable { mutableStateOf<LibraryItemWithContent?>(null) }
+    var renameText by rememberSaveable { mutableStateOf("") }
+    var pointText by rememberSaveable { mutableStateOf("") }
+    var routeSpeedText by rememberSaveable { mutableStateOf("") }
+    var routeMode by rememberSaveable { mutableStateOf(MovementEngine.Mode.Once) }
     var operationBusy by remember { mutableStateOf(false) }
-    var operationMessage by remember { mutableStateOf<String?>(null) }
-    var operationError by remember { mutableStateOf<String?>(null) }
+    var operationMessage by rememberSaveable { mutableStateOf<UiMessage?>(null) }
+    var operationError by rememberSaveable { mutableStateOf<UiMessage?>(null) }
 
+    val locale = androidx.compose.ui.platform.LocalConfiguration.current.locales[0]
     val visibleItems =
-        remember(items, query, selectedFilter, sortMode.mode) {
-            visibleFavorites(items, query, selectedFilter, sortMode.mode)
+        remember(items, query, selectedFilter, sortMode.mode, locale) {
+            visibleFavorites(items, query, selectedFilter, sortMode.mode, locale)
         }
 
     fun runFavoriteAction(
-        successMessage: String,
+        successMessage: UiMessage,
         onSuccess: () -> Unit = {},
         block: suspend () -> Unit,
     ) {
@@ -97,7 +103,7 @@ fun FavoritesScreen(
                     val result =
                         runPersistedAction(
                             failureMessage =
-                                "Could not update Favorites. Your previous saved value is unchanged; try again.",
+                                UiMessage(R.string.could_not_update_favorites_your_previous_saved_value_is_unchanged_try_ag),
                             block = block,
                         )
                 ) {
@@ -124,10 +130,10 @@ fun FavoritesScreen(
                     startup.libraryItemId == item.item.id,
             synced = item.item.remoteId != null,
             saving = operationBusy,
-            error = operationError,
+            error = operationError?.resolve(context),
             onConfirm = {
                 runFavoriteAction(
-                    successMessage = "Deleted ${item.name}.",
+                    successMessage = UiMessage(R.string.deleted_1_s, listOf((item.name).toString())),
                     onSuccess = { deletingItem = null },
                 ) {
                     libraryRepository.removeItem(item.item.id)
@@ -150,10 +156,10 @@ fun FavoritesScreen(
         onRouteSpeedTextChange = { routeSpeedText = it },
         onRouteModeChange = { routeMode = it },
         saving = operationBusy,
-        error = operationError,
+        error = operationError?.resolve(context),
         onRenameConfirm = { item, newName ->
             runFavoriteAction(
-                successMessage = "Renamed favorite to ${newName.trim()}.",
+                successMessage = UiMessage(R.string.renamed_favorite_to_1_s, listOf((newName.trim()).toString())),
                 onSuccess = {
                     editingName = null
                     renameText = ""
@@ -165,7 +171,7 @@ fun FavoritesScreen(
         onPointConfirm = { item, point ->
             val placeId = item.item.placeId ?: return@FavoriteEditDialogs
             runFavoriteAction(
-                successMessage = "Saved coordinates for ${item.name}.",
+                successMessage = UiMessage(R.string.saved_coordinates_for_1_s, listOf((item.name).toString())),
                 onSuccess = {
                     editingPoint = null
                     pointText = ""
@@ -177,7 +183,7 @@ fun FavoritesScreen(
         onRouteConfirm = { item, speed, mode ->
             val routeId = item.item.routeId ?: return@FavoriteEditDialogs
             runFavoriteAction(
-                successMessage = "Saved route settings for ${item.name}.",
+                successMessage = UiMessage(R.string.saved_route_settings_for_1_s, listOf((item.name).toString())),
                 onSuccess = {
                     editingRoute = null
                     routeSpeedText = ""
@@ -217,8 +223,8 @@ fun FavoritesScreen(
         query = query,
         selectedFilter = selectedFilter,
         sortMode = sortMode.mode,
-        operationMessage = operationMessage,
-        operationError = operationError,
+        operationMessage = operationMessage?.resolve(context),
+        operationError = operationError?.resolve(context),
         operationBusy = operationBusy,
         onQueryChange = { query = it },
         onFilterChange = { selectedFilter = it },
@@ -227,7 +233,7 @@ fun FavoritesScreen(
             selectedFilter = FavoritesFilter.All
         },
         onSortModeChange = { mode ->
-            runFavoriteAction("Sorted Favorites by ${mode.label()}.") {
+            runFavoriteAction(UiMessage(R.string.sorted_favorites)) {
                 libraryRepository.setSortMode(mode)
             }
         },
@@ -243,7 +249,7 @@ fun FavoritesScreen(
             if (item.kind == LibraryItemKind.Place) {
                 item.place?.let { place ->
                     editingPoint = item
-                    pointText = "%.5f, %.5f".format(place.lat, place.lng)
+                    pointText = "%.5f, %.5f".format(java.util.Locale.US, place.lat, place.lng)
                 }
             } else {
                 item.route?.let { route ->
@@ -256,7 +262,7 @@ fun FavoritesScreen(
             }
         },
         onMove = { item, toIndex ->
-            runFavoriteAction("Moved ${item.name}.") {
+            runFavoriteAction(UiMessage(R.string.moved_1_s, listOf((item.name).toString()))) {
                 libraryRepository.reorderItem(item.item.id, toIndex)
             }
         },
@@ -338,6 +344,7 @@ internal fun FavoriteRow(
     onMoveDown: () -> Unit,
     onDelete: () -> Unit,
 ) {
+    val context = LocalContext.current
     var menuExpanded by remember { mutableStateOf(false) }
     val actions = favoriteRowActions(item.kind, canReorder, canMoveUp, canMoveDown)
     KestrelCard {
@@ -359,7 +366,7 @@ internal fun FavoriteRow(
                     style = MaterialTheme.typography.titleSmall,
                 )
                 Text(
-                    text = item.description(),
+                    text = item.description(context),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -368,7 +375,7 @@ internal fun FavoriteRow(
                 IconButton(onClick = { menuExpanded = true }, enabled = enabled) {
                     KestrelIcon(
                         KestrelIcons.More,
-                        contentDescription = favoriteMoreActionsLabel(item.name),
+                        contentDescription = favoriteMoreActionsLabel(item.name).resolve(context),
                     )
                 }
                 FavoriteRowMenu(
@@ -383,9 +390,9 @@ internal fun FavoriteRow(
             }
         }
         KestrelActionRow {
-            FilledTonalButton(onClick = onApply, enabled = enabled) { Text("Preview on map") }
+            FilledTonalButton(onClick = onApply, enabled = enabled) { Text(stringResource(R.string.preview_on_map)) }
             TextButton(onClick = onEdit, enabled = enabled) {
-                Text(favoriteEditLabel(item.kind))
+                Text(stringResource(favoriteEditLabel(item.kind)))
             }
         }
     }
@@ -401,12 +408,13 @@ private fun FavoriteRowMenu(
     onMoveDown: () -> Unit,
     onDelete: () -> Unit,
 ) {
+    val context = LocalContext.current
     DropdownMenu(
         expanded = expanded,
         onDismissRequest = onDismiss,
     ) {
         DropdownMenuItem(
-            text = { Text("Rename") },
+            text = { Text(stringResource(R.string.rename)) },
             onClick = {
                 onDismiss()
                 onRename()
@@ -414,7 +422,7 @@ private fun FavoriteRowMenu(
         )
         if (FavoriteRowAction.MoveUp in actions) {
             DropdownMenuItem(
-                text = { Text("Move up") },
+                text = { Text(stringResource(R.string.move_up)) },
                 onClick = {
                     onDismiss()
                     onMoveUp()
@@ -423,7 +431,7 @@ private fun FavoriteRowMenu(
         }
         if (FavoriteRowAction.MoveDown in actions) {
             DropdownMenuItem(
-                text = { Text("Move down") },
+                text = { Text(stringResource(R.string.move_down)) },
                 onClick = {
                     onDismiss()
                     onMoveDown()
@@ -431,7 +439,7 @@ private fun FavoriteRowMenu(
             )
         }
         DropdownMenuItem(
-            text = { Text("Delete") },
+            text = { Text(stringResource(R.string.delete)) },
             onClick = {
                 onDismiss()
                 onDelete()
@@ -450,9 +458,11 @@ private fun ConfirmDeleteFavoriteDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val resources = LocalResources.current
+    val context = LocalContext.current
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Delete favorite?") },
+        title = { Text(stringResource(R.string.delete_favorite)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
@@ -462,16 +472,16 @@ private fun ConfirmDeleteFavoriteDialog(
                 Text(
                     text =
                         if (synced && item.kind == LibraryItemKind.Place) {
-                            "This removes the saved point here and from cloud sync."
+                            resources.getString(R.string.this_removes_the_saved_point_here_and_from_cloud_sync)
                         } else {
-                            "This removes the saved ${if (item.kind == LibraryItemKind.Place) "point" else "route"} from this device."
+                            if (item.kind == LibraryItemKind.Place) resources.getString(R.string.this_removes_the_saved_point_from_this_device) else resources.getString(R.string.this_removes_the_saved_route_from_this_device)
                         },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 if (resetsStartup) {
                     Text(
-                        text = "App opening will return to the last map view.",
+                        text = resources.getString(R.string.app_opening_will_return_to_the_last_map_view),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -483,10 +493,10 @@ private fun ConfirmDeleteFavoriteDialog(
         },
         confirmButton = {
             Button(onClick = onConfirm, enabled = !saving) {
-                Text(if (saving) "Deleting…" else "Delete")
+                Text(if (saving) resources.getString(R.string.deleting) else resources.getString(R.string.delete))
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss, enabled = !saving) { Text("Cancel") } },
+        dismissButton = { TextButton(onClick = onDismiss, enabled = !saving) { Text(stringResource(R.string.cancel)) } },
     )
 }
 
@@ -499,17 +509,19 @@ private fun RenameFavoriteDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val resources = LocalResources.current
+    val context = LocalContext.current
     val trimmedNameIsEmpty = name.trim().isEmpty()
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Rename favorite") },
+        title = { Text(stringResource(R.string.rename_favorite)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
                     value = name,
                     onValueChange = onNameChange,
-                    label = { Text("Name") },
-                    supportingText = { Text("Names do not have to be unique.") },
+                    label = { Text(stringResource(R.string.name)) },
+                    supportingText = { Text(stringResource(R.string.names_do_not_have_to_be_unique)) },
                     singleLine = true,
                     enabled = !saving,
                 )
@@ -518,10 +530,10 @@ private fun RenameFavoriteDialog(
         },
         confirmButton = {
             TextButton(enabled = !trimmedNameIsEmpty && !saving, onClick = onConfirm) {
-                Text(if (saving) "Renaming…" else "Rename")
+                Text(if (saving) resources.getString(R.string.renaming) else resources.getString(R.string.rename))
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss, enabled = !saving) { Text("Cancel") } },
+        dismissButton = { TextButton(onClick = onDismiss, enabled = !saving) { Text(stringResource(R.string.cancel)) } },
     )
 }
 
@@ -534,19 +546,21 @@ private fun EditPointDialog(
     onConfirm: (LatLng) -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val resources = LocalResources.current
+    val context = LocalContext.current
     val parsed = parseCoordInput(input)
     val showInvalid = input.isNotBlank() && parsed == null
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Edit coordinates") },
+        title = { Text(stringResource(R.string.edit_coordinates)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
                     value = input,
                     onValueChange = onInputChange,
-                    label = { Text("Coordinates") },
+                    label = { Text(stringResource(R.string.coordinates)) },
                     supportingText = {
-                        if (showInvalid) Text("Enter valid latitude and longitude values.")
+                        if (showInvalid) Text(stringResource(R.string.enter_valid_latitude_and_longitude_values))
                     },
                     isError = showInvalid,
                     singleLine = true,
@@ -557,10 +571,10 @@ private fun EditPointDialog(
         },
         confirmButton = {
             TextButton(enabled = parsed != null && !saving, onClick = { parsed?.let(onConfirm) }) {
-                Text(if (saving) "Saving…" else "Save")
+                Text(if (saving) resources.getString(R.string.saving) else resources.getString(R.string.save))
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss, enabled = !saving) { Text("Cancel") } },
+        dismissButton = { TextButton(onClick = onDismiss, enabled = !saving) { Text(stringResource(R.string.cancel)) } },
     )
 }
 
@@ -575,24 +589,26 @@ private fun EditRouteDialog(
     onConfirm: (Double, MovementEngine.Mode) -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val resources = LocalResources.current
+    val context = LocalContext.current
     val speed = speedText.toDoubleOrNull()
     val valid = speed != null && speed > 0
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Edit route") },
+        title = { Text(stringResource(R.string.edit_route)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
                     value = speedText,
                     onValueChange = { v -> onSpeedTextChange(v.filter { it.isDigit() || it == '.' }) },
-                    label = { Text("Speed (km/h)") },
+                    label = { Text(stringResource(R.string.speed_km_h)) },
                     isError = speedText.isNotBlank() && !valid,
                     singleLine = true,
                     enabled = !saving,
                 )
                 MovementEngine.Mode.entries.forEach { mode ->
                     TextButton(onClick = { onRouteModeChange(mode) }, enabled = !saving) {
-                        Text(if (mode == routeMode) "✓ ${mode.label()}" else mode.label())
+                        Text(if (mode == routeMode) resources.getString(R.string.message_1_s, (mode.label()).toString()) else mode.label())
                     }
                 }
                 error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
@@ -600,16 +616,12 @@ private fun EditRouteDialog(
         },
         confirmButton = {
             TextButton(enabled = valid && !saving, onClick = { speed?.let { onConfirm(it, routeMode) } }) {
-                Text(if (saving) "Saving…" else "Save")
+                Text(if (saving) resources.getString(R.string.saving) else resources.getString(R.string.save))
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss, enabled = !saving) { Text("Cancel") } },
+        dismissButton = { TextButton(onClick = onDismiss, enabled = !saving) { Text(stringResource(R.string.cancel)) } },
     )
 }
 
-private fun MovementEngine.Mode.label(): String =
-    when (this) {
-        MovementEngine.Mode.Once -> "Once"
-        MovementEngine.Mode.Loop -> "Loop"
-        MovementEngine.Mode.PingPong -> "Ping-pong"
-    }
+@Composable
+private fun MovementEngine.Mode.label(): String = stringResource(labelResource())

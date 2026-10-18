@@ -7,6 +7,11 @@ import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import dev.narumi.kestrel.R
+import dev.narumi.kestrel.core.i18n.appString
+import dev.narumi.kestrel.core.i18n.appTestContext
+import dev.narumi.kestrel.core.i18n.displayNumber
+import dev.narumi.kestrel.core.i18n.setAppContent
 import dev.narumi.kestrel.core.location.MovementEngine
 import dev.narumi.kestrel.feature.map.LiveRouteSettingsCard
 import dev.narumi.kestrel.ui.theme.KestrelTheme
@@ -22,7 +27,7 @@ class LiveRouteSettingsInteractionTest {
     fun choicesDispatchChangesButStayOnConfirmedRuntimeValues() {
         val speeds = mutableListOf<Double>()
         val modes = mutableListOf<MovementEngine.Mode>()
-        composeRule.setContent {
+        composeRule.setAppContent {
             KestrelTheme {
                 Surface {
                     LiveRouteSettingsCard(
@@ -35,21 +40,21 @@ class LiveRouteSettingsInteractionTest {
                 }
             }
         }
-        composeRule.onNodeWithText("20 km/h").performClick()
-        composeRule.onNodeWithText("Loop").performClick()
+        composeRule.onNodeWithText(appString(R.string.display_speed, appTestContext.displayNumber(20.0))).performClick()
+        composeRule.onNodeWithText(appString(R.string.playback_loop)).performClick()
         composeRule.runOnIdle {
             assertEquals(listOf(20.0), speeds)
             assertEquals(listOf(MovementEngine.Mode.Loop), modes)
         }
-        composeRule.onNodeWithText("12 km/h").assertIsSelected()
-        composeRule.onNodeWithText("Once").assertIsSelected()
-        composeRule.onNodeWithText("20 km/h").assertIsNotSelected()
-        composeRule.onNodeWithText("Loop").assertIsNotSelected()
+        composeRule.onNodeWithText(appString(R.string.display_speed, appTestContext.displayNumber(12.0))).assertIsSelected()
+        composeRule.onNodeWithText(appString(R.string.playback_once)).assertIsSelected()
+        composeRule.onNodeWithText(appString(R.string.display_speed, appTestContext.displayNumber(20.0))).assertIsNotSelected()
+        composeRule.onNodeWithText(appString(R.string.playback_loop)).assertIsNotSelected()
     }
 
     @Test
     fun pendingOperationDisablesSpeedAndModeChanges() {
-        composeRule.setContent {
+        composeRule.setAppContent {
             KestrelTheme {
                 Surface {
                     LiveRouteSettingsCard(
@@ -62,9 +67,12 @@ class LiveRouteSettingsInteractionTest {
                 }
             }
         }
-        listOf("5 km/h", "10 km/h", "15 km/h", "20 km/h", "Once", "Loop", "Ping-pong").forEach { label ->
-            composeRule.onNodeWithText(label).assertIsNotEnabled()
+        listOf(5.0, 10.0, 15.0, 20.0).forEach { speed ->
+            composeRule.onNodeWithText(appString(R.string.display_speed, appTestContext.displayNumber(speed))).assertIsNotEnabled()
         }
-        composeRule.onNodeWithText("Ping-pong").assertIsSelected()
+        listOf(R.string.playback_once, R.string.playback_loop, R.string.playback_ping_pong).forEach { mode ->
+            composeRule.onNodeWithText(appString(mode)).assertIsNotEnabled()
+        }
+        composeRule.onNodeWithText(appString(R.string.playback_ping_pong)).assertIsSelected()
     }
 }

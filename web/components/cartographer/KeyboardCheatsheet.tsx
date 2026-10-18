@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { DialogFrame } from '@/components/ui/radix-ui';
 
 type KeyboardCheatsheetProps = {
@@ -8,23 +9,24 @@ type KeyboardCheatsheetProps = {
 };
 
 const shortcuts = [
-  ['g m', 'Go to Map'],
-  ['g l', 'Go to Library'],
-  ['g p', 'Go to Library / Places'],
-  ['g r', 'Go to Library / Routes'],
-  ['n', 'Create a new entry'],
-  ['/', 'Focus notebook search'],
-  ['?', 'Show or hide this sheet'],
-  ['Esc', 'Close overlays'],
-];
+  ['g m', 'goMap'],
+  ['g l', 'goLibrary'],
+  ['g p', 'goPlaces'],
+  ['g r', 'goRoutes'],
+  ['n', 'createEntry'],
+  ['/', 'focusSearch'],
+  ['?', 'toggleHelp'],
+  ['Esc', 'closeOverlays'],
+] as const;
 
 export function KeyboardCheatsheet({ isOpen, onClose }: KeyboardCheatsheetProps) {
+  const t = useTranslations('KeyboardCheatsheet');
   return (
     <DialogFrame
       className="keyboard-cheatsheet-card"
-      eyebrow="shortcuts"
+      eyebrow={t('shortcuts')}
       open={isOpen}
-      title="Keyboard field notes"
+      title={t('keyboardFieldNotes')}
       onOpenChange={(open) => {
         if (!open) {
           onClose();
@@ -35,7 +37,7 @@ export function KeyboardCheatsheet({ isOpen, onClose }: KeyboardCheatsheetProps)
         {shortcuts.map(([keys, label]) => (
           <div key={keys}>
             <dt className="font-mono">{keys}</dt>
-            <dd>{label}</dd>
+            <dd>{t(label)}</dd>
           </div>
         ))}
       </dl>

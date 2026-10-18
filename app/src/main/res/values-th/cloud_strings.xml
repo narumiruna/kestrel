@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="cloud_request_failed">คำขอคลาวด์ล้มเหลว ลองอีกครั้ง</string>
+    <string name="cloud_sign_in_failed">ลงชื่อเข้าใช้ไม่ได้ ตรวจสอบข้อมูลลงชื่อเข้าใช้แล้วลองอีกครั้ง</string>
+    <string name="cloud_sync_failed">ซิงค์บนคลาวด์ไม่สำเร็จ เก็บการเปลี่ยนแปลงในเครื่องไว้แล้ว ลองซิงค์อีกครั้ง</string>
+    <string name="cloud_remote_failed">การควบคุมระยะไกลล้มเหลว ตรวจสอบการเชื่อมต่อแล้วลองอีกครั้ง</string>
+    <string name="cloud_qr_failed">ลงชื่อเข้าใช้ด้วยคิวอาร์โค้ดไม่สำเร็จ ลองอีกครั้งหรือสแกนรหัสใหม่</string>
+    <string name="cloud_server_settings_failed">ใช้เซิร์ฟเวอร์คลาวด์นี้ไม่ได้ ตรวจสอบ URL เซิร์ฟเวอร์แล้วลองอีกครั้ง</string>
+    <string name="cloud_network_error">เชื่อมต่อเซิร์ฟเวอร์คลาวด์ไม่ได้ ตรวจสอบการเชื่อมต่อแล้วลองอีกครั้ง</string>
+    <string name="cloud_invalid_response">เซิร์ฟเวอร์คลาวด์ส่งการตอบกลับที่ไม่ถูกต้อง ลองอีกครั้ง</string>
+    <string name="cloud_invalid_input">คำขอไม่ถูกต้อง ตรวจสอบค่าที่ป้อนแล้วลองอีกครั้ง</string>
+    <string name="cloud_invalid_credentials">ลงชื่อเข้าใช้ไม่ได้ ตรวจสอบชื่อผู้ใช้ รหัสผ่าน และรหัสยืนยัน</string>
+    <string name="cloud_session_expired">เซสชันของคุณหมดอายุแล้ว ลงชื่อเข้าใช้อีกครั้ง</string>
+    <string name="cloud_permission_denied">ไม่อนุญาตให้ดำเนินการนี้ ตรวจสอบสิทธิ์บัญชีของคุณแล้วลองอีกครั้ง</string>
+    <string name="cloud_not_found">รายการบนคลาวด์ไม่พร้อมใช้งานแล้ว รีเฟรชแล้วลองอีกครั้ง</string>
+    <string name="cloud_conflict">ข้อมูลบนคลาวด์เปลี่ยนไปแล้ว ซิงค์และตรวจสอบข้อขัดแย้งก่อนลองอีกครั้ง</string>
+    <string name="cloud_expired_request">คำขอนี้หมดอายุแล้ว เริ่มการดำเนินการใหม่</string>
+    <string name="cloud_rate_limited">มีคำขอมากเกินไป รอก่อนลองอีกครั้ง</string>
+    <string name="cloud_server_unavailable">เซิร์ฟเวอร์คลาวด์ไม่พร้อมใช้งานชั่วคราว ลองอีกครั้งภายหลัง</string>
+    <string name="cloud_request_rejected">คำขอคลาวด์ล้มเหลว (HTTP %1$s) ลองอีกครั้ง</string>
+    <string name="cloud_sync_cursor_expired">การซิงค์ต้องรีเฟรชข้อมูลบนคลาวด์ ลองซิงค์อีกครั้ง</string>
+    <string name="cloud_sync_mutation_conflict">การเปลี่ยนแปลงในการซิงค์ขัดแย้งกับคำขอก่อนหน้า รีเฟรชและตรวจสอบการเปลี่ยนแปลงที่รอดำเนินการ</string>
+    <string name="cloud_sync_upload_failed">อัปโหลดการเปลี่ยนแปลงบางส่วนไม่ได้ เก็บการเปลี่ยนแปลงในเครื่องไว้แล้ว ลองซิงค์อีกครั้ง</string>
+    <string name="cloud_remote_enabled">เปิดการควบคุมระยะไกลสำหรับ %1$s แล้ว</string>
+    <string name="cloud_remote_disabled">ปิดการควบคุมระยะไกลแล้ว</string>
+    <string name="cloud_remote_still_enabled">การควบคุมระยะไกลยังเปิดอยู่บนเซิร์ฟเวอร์</string>
+    <string name="cloud_remote_sign_in_required">ลงชื่อเข้าใช้คลาวด์เพื่อใช้การควบคุมระยะไกลผ่านเว็บ</string>
+    <string name="cloud_remote_sign_in_to_disable">ลงชื่อเข้าใช้คลาวด์เพื่อปิดการควบคุมระยะไกลบนเซิร์ฟเวอร์</string>
+    <string name="cloud_remote_waiting">กำลังรอคำสั่งจากเว็บ</string>
+    <string name="cloud_remote_command_applied">นำคำสั่งจากเว็บไปใช้แล้ว</string>
+    <string name="cloud_remote_command_failed">คำสั่งจากเว็บล้มเหลว ตรวจสอบสิทธิ์ตำแหน่งจำลองและการตั้งค่าคำสั่ง แล้วลองอีกครั้ง</string>
+    <string name="cloud_remote_command_invalid">คำสั่งจากเว็บไม่ถูกต้อง ตรวจสอบการตั้งค่าตำแหน่งหรือเส้นทาง แล้วส่งอีกครั้ง</string>
+    <string name="cloud_remote_command_timeout">คำสั่งจากเว็บหมดเวลารอ ตรวจสอบสถานะตำแหน่งจำลองปัจจุบันก่อนลองอีกครั้ง</string>
+    <string name="cloud_mock_permission_required">เลือก Kestrel เป็นแอปจำลองตำแหน่งในตัวเลือกสำหรับนักพัฒนาซอฟต์แวร์ของ Android</string>
+    <string name="cloud_sign_in_required">ลงชื่อเข้าใช้คลาวด์ก่อน</string>
+    <string name="cloud_sign_out_required">ออกจากระบบก่อนเปลี่ยนเซิร์ฟเวอร์คลาวด์หรือเริ่มลงชื่อเข้าใช้ใหม่</string>
+    <string name="cloud_oidc_cancelled">ยกเลิกการลงชื่อเข้าใช้ผ่านเบราว์เซอร์แล้ว เริ่มลงชื่อเข้าใช้ใหม่เมื่อพร้อม</string>
+    <string name="cloud_oidc_restart">การลงชื่อเข้าใช้ผ่านเบราว์เซอร์นี้ไม่ได้อยู่ระหว่างรอดำเนินการแล้ว เริ่มลงชื่อเข้าใช้ใหม่</string>
+    <string name="cloud_server_changed">เซิร์ฟเวอร์คลาวด์เปลี่ยนระหว่างลงชื่อเข้าใช้ เริ่มลงชื่อเข้าใช้ใหม่</string>
+    <string name="cloud_qr_restart">การลงชื่อเข้าใช้ด้วยคิวอาร์โค้ดนี้ไม่ได้อยู่ระหว่างรอดำเนินการแล้ว สแกนรหัสใหม่</string>
+    <string name="cloud_qr_invalid">รหัสลงชื่อเข้าใช้ด้วยคิวอาร์โค้ดนี้ไม่ถูกต้อง สแกนรหัสใหม่จากหน้าลงชื่อเข้าใช้เว็บ</string>
+    <string name="cloud_scanner_failed">สแกนคิวอาร์โค้ดไม่ได้ ลองสแกนอีกครั้ง</string>
+    <string name="cloud_scanner_empty">คิวอาร์โค้ดที่สแกนไม่มีข้อความ สแกนรหัสลงชื่อเข้าใช้จากหน้าเว็บ</string>
+    <string name="cloud_storage_failed">บันทึกเซสชันคลาวด์อย่างปลอดภัยไม่ได้ ตรวจสอบพื้นที่จัดเก็บอุปกรณ์แล้วลงชื่อเข้าใช้อีกครั้ง</string>
+</resources>

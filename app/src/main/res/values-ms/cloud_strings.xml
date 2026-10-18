@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="cloud_request_failed">Permintaan awan gagal. Cuba lagi.</string>
+    <string name="cloud_sign_in_failed">Tidak dapat log masuk. Semak butiran log masuk anda dan cuba lagi.</string>
+    <string name="cloud_sync_failed">Penyegerakan awan gagal. Perubahan setempat anda dikekalkan. Cuba segerakkan lagi.</string>
+    <string name="cloud_remote_failed">Kawalan jauh gagal. Semak sambungan dan cuba lagi.</string>
+    <string name="cloud_qr_failed">Log masuk QR gagal. Cuba lagi atau imbas kod baharu.</string>
+    <string name="cloud_server_settings_failed">Pelayan awan ini tidak dapat digunakan. Semak URL pelayan dan cuba lagi.</string>
+    <string name="cloud_network_error">Tidak dapat disambungkan ke pelayan awan. Semak sambungan anda dan cuba lagi.</string>
+    <string name="cloud_invalid_response">Pelayan awan mengembalikan respons tidak sah. Cuba lagi.</string>
+    <string name="cloud_invalid_input">Permintaan tidak sah. Semak nilai yang dimasukkan dan cuba lagi.</string>
+    <string name="cloud_invalid_credentials">Tidak dapat log masuk. Semak nama pengguna, kata laluan dan kod pengesahan anda.</string>
+    <string name="cloud_session_expired">Sesi anda telah tamat tempoh. Log masuk semula.</string>
+    <string name="cloud_permission_denied">Tindakan ini tidak dibenarkan. Semak akses akaun anda dan cuba lagi.</string>
+    <string name="cloud_not_found">Item awan tidak lagi tersedia. Muat semula dan cuba lagi.</string>
+    <string name="cloud_conflict">Data awan telah berubah. Segerakkan dan semak sebarang konflik sebelum mencuba lagi.</string>
+    <string name="cloud_expired_request">Permintaan ini telah tamat tempoh. Mulakan tindakan semula.</string>
+    <string name="cloud_rate_limited">Terlalu banyak permintaan. Tunggu sebelum mencuba lagi.</string>
+    <string name="cloud_server_unavailable">Pelayan awan tidak tersedia buat sementara waktu. Cuba lagi kemudian.</string>
+    <string name="cloud_request_rejected">Permintaan awan gagal (HTTP %1$s). Cuba lagi.</string>
+    <string name="cloud_sync_cursor_expired">Penyegerakan perlu memuat semula data awan. Cuba segerakkan lagi.</string>
+    <string name="cloud_sync_mutation_conflict">Perubahan penyegerakan bercanggah dengan permintaan terdahulu. Muat semula dan semak perubahan tertunda anda.</string>
+    <string name="cloud_sync_upload_failed">Sesetengah perubahan tidak dapat dimuat naik. Perubahan setempat anda dikekalkan. Cuba segerakkan lagi.</string>
+    <string name="cloud_remote_enabled">Kawalan jauh didayakan untuk %1$s</string>
+    <string name="cloud_remote_disabled">Kawalan jauh dinyahdayakan</string>
+    <string name="cloud_remote_still_enabled">Kawalan jauh masih didayakan pada pelayan</string>
+    <string name="cloud_remote_sign_in_required">Log masuk ke awan untuk menggunakan kawalan jauh web.</string>
+    <string name="cloud_remote_sign_in_to_disable">Log masuk ke awan untuk menyahdayakan kawalan jauh pada pelayan.</string>
+    <string name="cloud_remote_waiting">Menunggu arahan web</string>
+    <string name="cloud_remote_command_applied">Arahan web digunakan</string>
+    <string name="cloud_remote_command_failed">Arahan web gagal. Semak kebenaran lokasi simulasi dan tetapan arahan, kemudian cuba lagi.</string>
+    <string name="cloud_remote_command_invalid">Arahan web tidak sah. Semak tetapan lokasi atau laluannya dan hantar semula.</string>
+    <string name="cloud_remote_command_timeout">Arahan web tamat masa. Semak keadaan lokasi simulasi semasa sebelum mencuba lagi.</string>
+    <string name="cloud_mock_permission_required">Pilih Kestrel sebagai aplikasi lokasi simulasi dalam Pilihan pembangun Android.</string>
+    <string name="cloud_sign_in_required">Log masuk ke awan dahulu.</string>
+    <string name="cloud_sign_out_required">Log keluar sebelum menukar pelayan awan atau memulakan log masuk lain.</string>
+    <string name="cloud_oidc_cancelled">Log masuk pelayar dibatalkan. Mulakan log masuk semula apabila sedia.</string>
+    <string name="cloud_oidc_restart">Log masuk pelayar ini tidak lagi tertunda. Mulakan log masuk semula.</string>
+    <string name="cloud_server_changed">Pelayan awan berubah semasa log masuk. Mulakan log masuk semula.</string>
+    <string name="cloud_qr_restart">Log masuk QR ini tidak lagi tertunda. Imbas kod baharu.</string>
+    <string name="cloud_qr_invalid">Kod log masuk QR ini tidak sah. Imbas kod baharu daripada halaman log masuk web.</string>
+    <string name="cloud_scanner_failed">Kod QR tidak dapat diimbas. Cuba imbas semula.</string>
+    <string name="cloud_scanner_empty">Kod QR yang diimbas tiada teks. Imbas kod log masuk daripada halaman web.</string>
+    <string name="cloud_storage_failed">Sesi awan tidak dapat disimpan dengan selamat. Semak storan peranti dan log masuk semula.</string>
+</resources>

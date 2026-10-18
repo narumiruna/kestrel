@@ -1,6 +1,7 @@
-import { ApiError } from '@/lib/api';
+import { formatDistance } from '../../i18n/format.ts';
+import { ApiError } from '../../lib/api.ts';
 
-export { formatMode } from './formatMode';
+export { formatMode } from './formatMode.ts';
 
 type Coordinate = {
   latitude: number;
@@ -11,7 +12,11 @@ export function parseNumber(value: string, label: string): number {
   const parsedValue = Number(value);
 
   if (!Number.isFinite(parsedValue)) {
-    throw new Error(`${label} must be a finite number`);
+    throw new ApiError(
+      'Invalid coordinate',
+      400,
+      label === 'latitude' ? 'INVALID_LATITUDE' : 'INVALID_LONGITUDE',
+    );
   }
 
   return parsedValue;
@@ -27,14 +32,14 @@ export function formatCoord(value: number): string {
   return value.toFixed(6);
 }
 
-export function formatRouteDistanceFromWaypoints(waypoints: Coordinate[]): string {
+export function formatRouteDistanceFromWaypoints(waypoints: Coordinate[], locale = 'en'): string {
   const distanceKm = waypoints.slice(1).reduce((totalDistance, waypoint, index) => {
     const previousWaypoint = waypoints[index];
 
     return totalDistance + getDistanceKm(previousWaypoint, waypoint);
   }, 0);
 
-  return distanceKm < 10 ? `${distanceKm.toFixed(1)} km` : `${Math.round(distanceKm)} km`;
+  return formatDistance(distanceKm, locale);
 }
 
 function getDistanceKm(from: Coordinate, to: Coordinate): number {
@@ -52,14 +57,6 @@ function getDistanceKm(from: Coordinate, to: Coordinate): number {
 
 function toRadians(degrees: number): number {
   return (degrees * Math.PI) / 180;
-}
-
-export function formatError(error: unknown): string {
-  if (error instanceof ApiError || error instanceof Error) {
-    return error.message;
-  }
-
-  return 'Unexpected error';
 }
 
 export function toAbsolutePublicUrl(publicUrl: string): string {

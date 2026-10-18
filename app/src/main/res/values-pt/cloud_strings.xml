@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="cloud_request_failed">O pedido à nuvem falhou. Tente novamente.</string>
+    <string name="cloud_sign_in_failed">Não foi possível iniciar sessão. Verifique os dados de acesso e tente novamente.</string>
+    <string name="cloud_sync_failed">A sincronização na nuvem falhou. As alterações locais são mantidas. Tente sincronizar novamente.</string>
+    <string name="cloud_remote_failed">O controlo remoto falhou. Verifique a ligação e tente novamente.</string>
+    <string name="cloud_qr_failed">O início de sessão por QR falhou. Tente novamente ou leia um novo código.</string>
+    <string name="cloud_server_settings_failed">Não foi possível utilizar este servidor na nuvem. Verifique o URL do servidor e tente novamente.</string>
+    <string name="cloud_network_error">Não foi possível estabelecer ligação ao servidor na nuvem. Verifique a ligação e tente novamente.</string>
+    <string name="cloud_invalid_response">O servidor na nuvem devolveu uma resposta inválida. Tente novamente.</string>
+    <string name="cloud_invalid_input">O pedido é inválido. Verifique os valores introduzidos e tente novamente.</string>
+    <string name="cloud_invalid_credentials">Não foi possível iniciar sessão. Verifique o nome de utilizador, a senha e o código de verificação.</string>
+    <string name="cloud_session_expired">A sessão expirou. Inicie sessão novamente.</string>
+    <string name="cloud_permission_denied">Esta ação não é permitida. Verifique o acesso da conta e tente novamente.</string>
+    <string name="cloud_not_found">O item na nuvem já não está disponível. Atualize e tente novamente.</string>
+    <string name="cloud_conflict">Os dados na nuvem foram alterados. Sincronize e reveja os conflitos antes de tentar novamente.</string>
+    <string name="cloud_expired_request">Este pedido expirou. Inicie a ação novamente.</string>
+    <string name="cloud_rate_limited">Demasiados pedidos. Aguarde antes de tentar novamente.</string>
+    <string name="cloud_server_unavailable">O servidor na nuvem está temporariamente indisponível. Tente mais tarde.</string>
+    <string name="cloud_request_rejected">O pedido à nuvem falhou (HTTP %1$s). Tente novamente.</string>
+    <string name="cloud_sync_cursor_expired">A sincronização precisa de atualizar os dados na nuvem. Tente sincronizar novamente.</string>
+    <string name="cloud_sync_mutation_conflict">Uma alteração de sincronização entra em conflito com um pedido anterior. Atualize e reveja as alterações pendentes.</string>
+    <string name="cloud_sync_upload_failed">Não foi possível enviar algumas alterações. As alterações locais são mantidas. Tente sincronizar novamente.</string>
+    <string name="cloud_remote_enabled">Controlo remoto ativado para %1$s</string>
+    <string name="cloud_remote_disabled">Controlo remoto desativado</string>
+    <string name="cloud_remote_still_enabled">O controlo remoto continua ativado no servidor</string>
+    <string name="cloud_remote_sign_in_required">Inicie sessão na nuvem para utilizar o controlo remoto web.</string>
+    <string name="cloud_remote_sign_in_to_disable">Inicie sessão na nuvem para desativar o controlo remoto no servidor.</string>
+    <string name="cloud_remote_waiting">A aguardar comandos web</string>
+    <string name="cloud_remote_command_applied">Comando web aplicado</string>
+    <string name="cloud_remote_command_failed">O comando web falhou. Verifique as permissões de localização simulada e as definições do comando e tente novamente.</string>
+    <string name="cloud_remote_command_invalid">O comando web é inválido. Verifique as definições de localização ou rota e envie-o novamente.</string>
+    <string name="cloud_remote_command_timeout">O comando web excedeu o tempo limite. Verifique o estado atual da localização simulada antes de tentar novamente.</string>
+    <string name="cloud_mock_permission_required">Selecione o Kestrel como aplicação de localização simulada nas opções de programador do Android.</string>
+    <string name="cloud_sign_in_required">Inicie sessão na nuvem primeiro.</string>
+    <string name="cloud_sign_out_required">Termine sessão antes de mudar de servidor na nuvem ou de iniciar outra sessão.</string>
+    <string name="cloud_oidc_cancelled">O início de sessão pelo navegador foi cancelado. Inicie sessão novamente quando estiver pronto.</string>
+    <string name="cloud_oidc_restart">Este início de sessão pelo navegador já não está pendente. Inicie sessão novamente.</string>
+    <string name="cloud_server_changed">O servidor na nuvem mudou durante o início de sessão. Inicie sessão novamente.</string>
+    <string name="cloud_qr_restart">Este início de sessão por QR já não está pendente. Leia um novo código.</string>
+    <string name="cloud_qr_invalid">Este código QR de início de sessão é inválido. Leia um novo código da página web de início de sessão.</string>
+    <string name="cloud_scanner_failed">Não foi possível ler o código QR. Tente ler novamente.</string>
+    <string name="cloud_scanner_empty">O código QR lido não contém texto. Leia o código de início de sessão da página web.</string>
+    <string name="cloud_storage_failed">Não foi possível guardar a sessão na nuvem de forma segura. Verifique o armazenamento do dispositivo e inicie sessão novamente.</string>
+</resources>

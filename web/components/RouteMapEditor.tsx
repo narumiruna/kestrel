@@ -3,9 +3,14 @@
 import type { Feature, LineString } from 'geojson';
 import type { GeoJSONSource, Map as MapLibreMap, Marker } from 'maplibre-gl';
 import * as maplibregl from 'maplibre-gl';
+import { useLocale, useTranslations } from 'next-intl';
 import { useEffect, useRef, useState } from 'react';
 import { getRouteCameraAction } from '@/components/dashboard/routeCameraAction';
-import { getRouteMarkerLayout } from '@/components/dashboard/routeMarkerLabels';
+import {
+  getRouteMarkerLayout,
+  getRouteMarkerText,
+  type RouteMarkerTranslator,
+} from '@/components/dashboard/routeMarkerLabels';
 import { getRouteBounds, getRouteViewportPadding } from '@/components/dashboard/routeViewport';
 import { getStyleByName } from '@/components/mapStyle';
 import type { RouteMapCapability } from '@/components/routeMapCapability';
@@ -55,6 +60,10 @@ export default function RouteMapEditor({
   selectedWaypointIndex = null,
   waypoints,
 }: Props) {
+  const t = useTranslations('routeMap');
+  const locale = useLocale();
+  const tRef = useRef(t);
+  const localeRef = useRef<string>(locale);
   const { styleName } = useMapStyle();
   const [mapAttempt, setMapAttempt] = useState(0);
   const [mapStatus, setMapStatus] = useState<RouteMapCapability>('loading');
@@ -80,6 +89,31 @@ export default function RouteMapEditor({
   const lastFitRequestRef = useRef(0);
   const lastFocusTargetRef = useRef<RouteWaypoint | null>(null);
   const pendingResizeFitRef = useRef(false);
+
+  useEffect(() => {
+    tRef.current = t;
+    localeRef.current = locale;
+    const map = mapRef.current;
+    if (map == null) return;
+    map.getCanvas().setAttribute('aria-label', t('title'));
+    const attribution = map
+      .getContainer()
+      .querySelector<HTMLElement>('.maplibregl-ctrl-attrib-button');
+    if (attribution != null) {
+      attribution.title = t('toggleAttribution');
+      attribution.setAttribute('aria-label', t('toggleAttribution'));
+    }
+    updateMarkerDisplay(
+      markersRef.current,
+      selectedWaypointIndexRef.current,
+      hoveredWaypointIndexRef.current,
+      waypointsRef.current.length,
+      map,
+      isEditingRef.current,
+      locale,
+      t,
+    );
+  }, [locale, t]);
 
   useEffect(() => {
     onCapabilityChange?.(mapStatus);
@@ -135,6 +169,11 @@ export default function RouteMapEditor({
             ? [121.5654, 25.033]
             : [firstWaypoint.longitude, firstWaypoint.latitude],
         container: containerRef.current,
+        locale: {
+          'Map.Title': tRef.current('title'),
+          'AttributionControl.ToggleAttribution': tRef.current('toggleAttribution'),
+          'AttributionControl.MapFeedback': tRef.current('feedback'),
+        },
         style: getStyleByName(currentStyleNameRef.current),
         zoom: firstWaypoint == null ? 11 : 14,
       });
@@ -175,6 +214,8 @@ export default function RouteMapEditor({
       hasLoadedRef.current = true;
       try {
         syncRoutePreview({
+          locale: localeRef.current,
+          t: tRef.current,
           isEditing: isEditingRef.current,
           existingMarkers: markersRef.current,
           hoveredWaypointIndex: hoveredWaypointIndexRef.current,
@@ -213,6 +254,8 @@ export default function RouteMapEditor({
         waypointsRef.current.length,
         map,
         isEditingRef.current,
+        localeRef.current,
+        tRef.current,
       );
     };
     map.on('load', handleLoad);
@@ -272,6 +315,8 @@ export default function RouteMapEditor({
     const update = () => {
       try {
         syncRoutePreview({
+          locale: localeRef.current,
+          t: tRef.current,
           isEditing: isEditingRef.current,
           existingMarkers: markersRef.current,
           hoveredWaypointIndex: hoveredWaypointIndexRef.current,
@@ -331,6 +376,8 @@ export default function RouteMapEditor({
       waypoints.length,
       map,
       isEditing,
+      localeRef.current,
+      tRef.current,
     );
   }, [hoveredWaypointIndex, isEditing, selectedWaypointIndex, waypoints.length]);
 
@@ -406,6 +453,8 @@ export default function RouteMapEditor({
       window.clearTimeout(styleReadyTimeout);
       try {
         syncRoutePreview({
+          locale: localeRef.current,
+          t: tRef.current,
           isEditing: isEditingRef.current,
           existingMarkers: markersRef.current,
           hoveredWaypointIndex: hoveredWaypointIndexRef.current,
@@ -456,9 +505,9 @@ export default function RouteMapEditor({
       <div className="route-map-canvas" ref={containerRef} />
       {isAdding ? (
         <div className="route-map-add-notice" role="status">
-          <span>Click the map to add waypoints. Press Escape to finish.</span>
+          <span>{t('addHelp')}</span>
           <Button className="secondary" type="button" onClick={onCancelAdding}>
-            Cancel adding
+            {t('cancelAdding')}
           </Button>
         </div>
       ) : null}
@@ -468,23 +517,19 @@ export default function RouteMapEditor({
           role={mapStatus === 'loading' ? 'status' : 'alert'}
         >
           {mapStatus === 'loading' ? (
-            <span>Loading map…</span>
+            <span>{t('loading')}</span>
           ) : (
             <>
               <strong>
-                {mapStatus === 'unavailable' ? 'Map unavailable' : 'Route preview unavailable'}
+                {mapStatus === 'unavailable' ? t('unavailable') : t('previewUnavailable')}
               </strong>
-              <span>
-                {mapStatus === 'unavailable'
-                  ? 'Use saved places or exact coordinates while the map is unavailable.'
-                  : 'The basemap loaded, but the route line and markers could not be shown. Use the Route editor for precise changes.'}
-              </span>
+              <span>{mapStatus === 'unavailable' ? t('unavailableHelp') : t('previewHelp')}</span>
               <Button
                 className="secondary"
                 type="button"
                 onClick={() => setMapAttempt((value) => value + 1)}
               >
-                Retry map
+                {t('retry')}
               </Button>
             </>
           )}
@@ -495,6 +540,8 @@ export default function RouteMapEditor({
 }
 
 function syncRoutePreview({
+  locale,
+  t,
   isEditing,
   existingMarkers,
   hoveredWaypointIndex,
@@ -505,6 +552,8 @@ function syncRoutePreview({
   selectedWaypointIndex,
   waypoints,
 }: {
+  locale: string;
+  t: RouteMarkerTranslator;
   isEditing: boolean;
   existingMarkers: Marker[];
   hoveredWaypointIndex: number | null;
@@ -517,6 +566,8 @@ function syncRoutePreview({
 }) {
   syncLineLayer(map, waypoints);
   syncMarkers({
+    locale,
+    t,
     existingMarkers,
     map,
     onChange,
@@ -531,10 +582,14 @@ function syncRoutePreview({
     waypoints.length,
     map,
     isEditing,
+    locale,
+    t,
   );
 }
 
 function syncMarkers({
+  locale,
+  t,
   existingMarkers,
   map,
   onChange,
@@ -542,6 +597,8 @@ function syncMarkers({
   onSelectWaypoint,
   waypoints,
 }: {
+  locale: string;
+  t: RouteMarkerTranslator;
   existingMarkers: Marker[];
   map: MapLibreMap;
   onChange: (waypoints: RouteWaypoint[]) => void;
@@ -555,6 +612,8 @@ function syncMarkers({
     const marker = new maplibregl.Marker({
       draggable: true,
       element: createMarkerElement({
+        locale,
+        t,
         index,
         waypointCount: waypoints.length,
       }),
@@ -595,12 +654,23 @@ function syncMarkers({
   });
 }
 
-function createMarkerElement({ index, waypointCount }: { index: number; waypointCount: number }) {
+function createMarkerElement({
+  index,
+  waypointCount,
+  locale,
+  t,
+}: {
+  index: number;
+  waypointCount: number;
+  locale: string;
+  t: RouteMarkerTranslator;
+}) {
   const element = document.createElement('button');
-  const label = getWaypointShortLabel(index);
+  const text = getRouteMarkerText(index, waypointCount, false, locale, t);
+  const label = text.number;
   const positionClass = getWaypointMarkerPositionClass(index, waypointCount);
   element.className = `route-marker ${positionClass}${label.length >= 3 ? ' route-marker-wide' : ''}`;
-  element.dataset.label = index === 0 ? 'S' : index === waypointCount - 1 ? 'E' : label;
+  element.dataset.label = text.shortLabel;
   element.textContent = label;
   const leader = document.createElement('span');
   leader.className = 'route-marker-leader';
@@ -608,7 +678,7 @@ function createMarkerElement({ index, waypointCount }: { index: number; waypoint
   leader.hidden = true;
   element.append(leader);
   element.type = 'button';
-  element.setAttribute('aria-label', `Waypoint ${label}`);
+  element.setAttribute('aria-label', text.ariaLabel);
 
   return element;
 }
@@ -620,6 +690,8 @@ function updateMarkerDisplay(
   waypointCount: number,
   map: MapLibreMap,
   isEditing: boolean,
+  locale: string,
+  t: RouteMarkerTranslator,
 ) {
   const points = markers.map((marker) => map.project(marker.getLngLat()));
   const { offsets, visibleLabels, visiblePoints } = getRouteMarkerLayout(
@@ -654,22 +726,11 @@ function updateMarkerDisplay(
     element.classList.toggle('route-marker-compact', !visibleLabels.has(index));
     element.classList.toggle('hovered', isHovered);
     element.classList.toggle('selected', isSelected);
-    element.setAttribute(
-      'aria-label',
-      [
-        `Waypoint ${index + 1}`,
-        index === 0 ? 'start' : null,
-        index === waypointCount - 1 ? 'end' : null,
-        isSelected ? 'selected' : null,
-      ]
-        .filter(Boolean)
-        .join(', '),
-    );
+    const text = getRouteMarkerText(index, waypointCount, isSelected, locale, t);
+    if (element.firstChild?.nodeType === Node.TEXT_NODE) element.firstChild.nodeValue = text.number;
+    element.dataset.label = text.shortLabel;
+    element.setAttribute('aria-label', text.ariaLabel);
   });
-}
-
-function getWaypointShortLabel(index: number): string {
-  return `${index + 1}`;
 }
 
 function getWaypointMarkerPositionClass(index: number, waypointCount: number): string {

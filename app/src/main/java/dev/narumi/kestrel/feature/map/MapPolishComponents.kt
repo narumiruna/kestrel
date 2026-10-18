@@ -24,10 +24,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import dev.narumi.kestrel.R
+import dev.narumi.kestrel.core.i18n.displayNumber
+import dev.narumi.kestrel.core.i18n.speed
 import dev.narumi.kestrel.core.location.MovementEngine
 import dev.narumi.kestrel.ui.components.KestrelActionRow
 import dev.narumi.kestrel.ui.components.KestrelCard
@@ -40,6 +46,8 @@ internal fun MapTargetSearchBar(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val resources = LocalResources.current
+    val context = LocalContext.current
     Surface(
         onClick = onClick,
         modifier = modifier.fillMaxWidth(),
@@ -58,13 +66,15 @@ internal fun MapTargetSearchBar(
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
             )
-            Text("Choose target", style = MaterialTheme.typography.titleSmall)
+            Text(resources.getString(R.string.choose_target), style = MaterialTheme.typography.titleSmall)
         }
     }
 }
 
 @Composable
 internal fun MapHintPill(modifier: Modifier = Modifier) {
+    val resources = LocalResources.current
+    val context = LocalContext.current
     Surface(
         modifier = modifier,
         shape = MaterialTheme.shapes.medium,
@@ -73,7 +83,7 @@ internal fun MapHintPill(modifier: Modifier = Modifier) {
         shadowElevation = 1.dp,
     ) {
         Text(
-            text = "Tap to preview · Hold for actions",
+            text = resources.getString(R.string.tap_to_preview_hold_for_actions),
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
             style = MaterialTheme.typography.labelMedium,
         )
@@ -89,19 +99,21 @@ internal fun ReplacementPreviewCard(
     onUndoLast: () -> Unit,
     onCancelPreview: () -> Unit,
 ) {
+    val resources = LocalResources.current
+    val context = LocalContext.current
     KestrelCard {
-        SectionLabel("Preview")
+        SectionLabel(resources.getString(R.string.preview))
         Text(
-            text = "Current: $currentSummary",
+            text = resources.getString(R.string.current_1_s, (currentSummary).toString()),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Text(
-            text = "New: $previewSummary",
+            text = resources.getString(R.string.new_1_s, (previewSummary).toString()),
             style = MaterialTheme.typography.titleSmall,
         )
         Text(
-            text = "The current mock continues until you confirm replacement.",
+            text = resources.getString(R.string.the_current_mock_continues_until_you_confirm_replacement),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -111,14 +123,14 @@ internal fun ReplacementPreviewCard(
                 enabled = !applying,
                 modifier = Modifier.heightIn(min = 48.dp),
             ) {
-                Text("Undo last waypoint")
+                Text(stringResource(R.string.undo_last_waypoint))
             }
             OutlinedButton(
                 onClick = onCancelPreview,
                 enabled = !applying,
                 modifier = Modifier.heightIn(min = 48.dp),
             ) {
-                Text("Cancel preview")
+                Text(stringResource(R.string.cancel_preview))
             }
             androidx.compose.material3.Button(
                 onClick = onReplace,
@@ -129,7 +141,7 @@ internal fun ReplacementPreviewCard(
                         .onKeyboardActivate(onReplace)
                         .focusable(),
             ) {
-                Text(if (applying) "Replacing…" else "Replace current mock")
+                Text(if (applying) resources.getString(R.string.replacing) else resources.getString(R.string.replace_current_mock))
             }
         }
     }
@@ -162,17 +174,19 @@ internal fun DraftPreviewActionsCard(
     onSavePreview: () -> Unit,
     onGenerate: () -> Unit,
 ) {
+    val resources = LocalResources.current
+    val context = LocalContext.current
     var menuExpanded by remember { mutableStateOf(false) }
     KestrelCard {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                SectionLabel("Save for later")
+                SectionLabel(resources.getString(R.string.save_for_later))
                 Text(
                     text =
                         if (waypointCount == 1) {
-                            "Save this point, or tap the map to extend it into a route."
+                            resources.getString(R.string.save_this_point_or_tap_the_map_to_extend_it_into_a_route)
                         } else {
-                            "$waypointCount waypoints · Save this route to Favorites."
+                            resources.getQuantityString(R.plurals.save_route_waypoints, waypointCount, context.displayNumber(waypointCount, 0))
                         },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -180,11 +194,11 @@ internal fun DraftPreviewActionsCard(
             }
             Box {
                 IconButton(onClick = { menuExpanded = true }, enabled = enabled) {
-                    KestrelIcon(KestrelIcons.More, contentDescription = "More preview actions")
+                    KestrelIcon(KestrelIcons.More, contentDescription = resources.getString(R.string.more_preview_actions))
                 }
                 DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
                     DropdownMenuItem(
-                        text = { Text("Clear preview") },
+                        text = { Text(resources.getString(R.string.clear_preview)) },
                         enabled = enabled,
                         onClick = {
                             menuExpanded = false
@@ -192,7 +206,7 @@ internal fun DraftPreviewActionsCard(
                         },
                     )
                     DropdownMenuItem(
-                        text = { Text("Replace with random route") },
+                        text = { Text(resources.getString(R.string.replace_with_random_route)) },
                         enabled = enabled,
                         onClick = {
                             menuExpanded = false
@@ -208,10 +222,10 @@ internal fun DraftPreviewActionsCard(
                 enabled = enabled && waypointCount > 0,
                 modifier = Modifier.heightIn(min = 48.dp),
             ) {
-                Text(if (waypointCount == 1) "Save point" else "Save route")
+                Text(if (waypointCount == 1) resources.getString(R.string.save_point) else resources.getString(R.string.save_route))
             }
             TextButton(onClick = onUndoLast, enabled = enabled, modifier = Modifier.heightIn(min = 48.dp)) {
-                Text("Undo last waypoint")
+                Text(stringResource(R.string.undo_last_waypoint))
             }
         }
     }
@@ -226,8 +240,10 @@ internal fun RouteSettingsCard(
     onSpeedChange: (Double) -> Unit,
     onModeChange: (MovementEngine.Mode) -> Unit,
     enabled: Boolean = true,
-    title: String = "Route settings",
+    title: String? = null,
 ) {
+    val resources = LocalResources.current
+    val context = LocalContext.current
     KestrelCard {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -235,20 +251,20 @@ internal fun RouteSettingsCard(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                SectionLabel(title)
+                SectionLabel(title ?: resources.getString(R.string.route_settings))
                 Text(
-                    text = "${speedKmh.toDisplaySpeed()} · ${routeMode.label()}",
+                    text = resources.getString(R.string.speed_and_mode, context.speed(speedKmh), routeMode.label()),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             TextButton(onClick = { onExpandedChange(!expanded) }) {
-                Text(if (expanded) "Hide" else "Change")
+                Text(if (expanded) resources.getString(R.string.hide) else resources.getString(R.string.change))
             }
         }
         if (expanded) {
             Text(
-                text = "Speed and playback mode apply when the route starts.",
+                text = resources.getString(R.string.speed_and_playback_mode_apply_when_the_route_starts),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

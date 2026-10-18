@@ -1,65 +1,85 @@
 package dev.narumi.kestrel.feature.options
 
+import androidx.annotation.StringRes
+import dev.narumi.kestrel.R
 import dev.narumi.kestrel.core.data.MockPlaybackSettings
 import dev.narumi.kestrel.core.data.StartupPreference
 import dev.narumi.kestrel.core.library.LibraryItemKind
 
 internal enum class OptionsSection(
-    val title: String,
+    @param:StringRes val title: Int,
     val defaultExpanded: Boolean = false,
 ) {
-    Startup("When app opens"),
-    MapLinks("Map links"),
-    RandomRoute("Random routes"),
-    Playback("Route recovery"),
-    Cloud("Cloud sync"),
-    RemoteControl("Web remote control"),
+    Startup(R.string.options_startup_title),
+    MapLinks(R.string.options_map_links_title),
+    RandomRoute(R.string.options_random_route_title),
+    Playback(R.string.options_playback_title),
+    Cloud(R.string.options_cloud_title),
+    RemoteControl(R.string.options_remote_title),
 }
 
 internal fun startupSummary(
     mode: StartupPreference.Mode,
     favoriteName: String?,
-): String =
+): OptionsMessage =
     when (mode) {
-        StartupPreference.Mode.Last -> "Last map position"
-        StartupPreference.Mode.Current -> "Current device location"
-        StartupPreference.Mode.Favorite -> favoriteName?.let { "Favorite: $it" } ?: "Choose a favorite"
+        StartupPreference.Mode.Last -> {
+            optionsMessage(R.string.options_last_map_position)
+        }
+
+        StartupPreference.Mode.Current -> {
+            optionsMessage(R.string.options_current_location)
+        }
+
+        StartupPreference.Mode.Favorite -> {
+            favoriteName?.let { optionsMessage(R.string.options_favorite_named, it) }
+                ?: optionsMessage(R.string.options_choose_favorite)
+        }
     }
 
-internal fun startupFavoriteEffect(kind: LibraryItemKind): String =
+@StringRes
+internal fun startupFavoriteEffect(kind: LibraryItemKind): Int =
     when (kind) {
-        LibraryItemKind.Place -> "Starts mocking this saved point after launch."
-        LibraryItemKind.Route -> "Opens this saved route as a preview; playback does not start."
+        LibraryItemKind.Place -> R.string.options_startup_place_effect
+        LibraryItemKind.Route -> R.string.options_startup_route_effect
     }
 
-internal fun optionsDisclosureStateDescription(expanded: Boolean): String = if (expanded) "Expanded" else "Collapsed"
+@StringRes
+internal fun optionsDisclosureStateDescription(expanded: Boolean): Int = if (expanded) R.string.options_expanded else R.string.options_collapsed
 
-internal fun playbackSummary(seconds: Int): String =
-    when (seconds) {
-        1 -> "More accurate · can rewind up to 1 s"
-        MockPlaybackSettings.DEFAULT_PROGRESS_WRITE_INTERVAL_SECONDS -> "Balanced · can rewind up to 5 s"
-        15 -> "Fewer writes · can rewind up to 15 s"
-        else -> "Custom · can rewind up to $seconds s"
-    }
+internal fun playbackSummary(seconds: Int): OptionsMessage =
+    OptionsMessage.Plural(
+        when (seconds) {
+            1 -> R.plurals.options_recovery_accurate
+            MockPlaybackSettings.DEFAULT_PROGRESS_WRITE_INTERVAL_SECONDS -> R.plurals.options_recovery_balanced
+            15 -> R.plurals.options_recovery_fewer_writes
+            else -> R.plurals.options_recovery_custom
+        },
+        seconds,
+        listOf(seconds),
+    )
 
 internal fun randomRouteSummary(
     pointCount: Int,
     spacingMeters: Double,
     usesLastSettings: Boolean,
-): String =
-    "${if (usesLastSettings) "Last used" else "Default"}: $pointCount points · " +
-        "${spacingMeters.toOptionMeters()} spacing"
+): OptionsMessage =
+    OptionsMessage.Plural(
+        if (usesLastSettings) R.plurals.options_random_last_used else R.plurals.options_random_default,
+        pointCount,
+        listOf(pointCount, spacingMeters),
+    )
 
 internal fun cloudSummary(
     sessionLoaded: Boolean,
     username: String?,
     error: String?,
-): String =
+): OptionsMessage =
     when {
-        error != null -> "Action needed: $error"
-        !sessionLoaded -> "Checking sign-in…"
-        username != null -> "Signed in as $username"
-        else -> "Signed out"
+        error != null -> optionsMessage(R.string.options_action_needed, error)
+        !sessionLoaded -> optionsMessage(R.string.options_checking_sign_in)
+        username != null -> optionsMessage(R.string.options_signed_in_as, username)
+        else -> optionsMessage(R.string.options_signed_out)
     }
 
 internal fun remoteControlSummary(
@@ -67,12 +87,11 @@ internal fun remoteControlSummary(
     signedIn: Boolean,
     deviceName: String?,
     error: String?,
-): String =
+): OptionsMessage =
     when {
-        error != null -> "Action needed: $error"
-        !signedIn -> "Unavailable until cloud sign-in"
-        enabled -> "On · ${deviceName ?: "Registering device"}"
-        else -> "Off"
+        error != null -> optionsMessage(R.string.options_action_needed, error)
+        !signedIn -> optionsMessage(R.string.options_remote_unavailable)
+        enabled && deviceName != null -> optionsMessage(R.string.options_remote_on, deviceName)
+        enabled -> optionsMessage(R.string.options_remote_registering)
+        else -> optionsMessage(R.string.options_off)
     }
-
-private fun Double.toOptionMeters(): String = if (this % 1.0 == 0.0) "${toInt()} m" else "$this m"

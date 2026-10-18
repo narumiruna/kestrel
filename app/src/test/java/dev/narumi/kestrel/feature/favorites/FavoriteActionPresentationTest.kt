@@ -17,7 +17,11 @@ class FavoriteActionPresentationTest {
 
     @Test
     fun overflowHasItemSpecificAccessibleName() {
-        assertEquals("More actions for Taipei 101", favoriteMoreActionsLabel("Taipei 101"))
+        assertEquals(
+            dev.narumi.kestrel.core.i18n
+                .UiMessage(dev.narumi.kestrel.R.string.more_actions_for, listOf("Taipei 101")),
+            favoriteMoreActionsLabel("Taipei 101"),
+        )
     }
 
     @Test

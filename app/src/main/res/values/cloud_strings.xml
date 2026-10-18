@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="cloud_request_failed">The cloud request failed. Try again.</string>
+    <string name="cloud_sign_in_failed">Could not sign in. Check your sign-in details and try again.</string>
+    <string name="cloud_sync_failed">Cloud sync failed. Your local changes are kept. Try syncing again.</string>
+    <string name="cloud_remote_failed">Remote control failed. Check the connection and try again.</string>
+    <string name="cloud_qr_failed">QR sign-in failed. Try again or scan a new code.</string>
+    <string name="cloud_server_settings_failed">Could not use this cloud server. Check the server URL and try again.</string>
+    <string name="cloud_network_error">Could not connect to the cloud server. Check your connection and try again.</string>
+    <string name="cloud_invalid_response">The cloud server returned an invalid response. Try again.</string>
+    <string name="cloud_invalid_input">The request is invalid. Check the entered values and try again.</string>
+    <string name="cloud_invalid_credentials">Could not sign in. Check your username, password, and verification code.</string>
+    <string name="cloud_session_expired">Your session has expired. Sign in again.</string>
+    <string name="cloud_permission_denied">This action is not allowed. Check your account access and try again.</string>
+    <string name="cloud_not_found">The cloud item is no longer available. Refresh and try again.</string>
+    <string name="cloud_conflict">The cloud data has changed. Sync and review any conflicts before trying again.</string>
+    <string name="cloud_expired_request">This request has expired. Start the action again.</string>
+    <string name="cloud_rate_limited">Too many requests. Wait before trying again.</string>
+    <string name="cloud_server_unavailable">The cloud server is temporarily unavailable. Try again later.</string>
+    <string name="cloud_request_rejected">The cloud request failed (HTTP %1$s). Try again.</string>
+    <string name="cloud_sync_cursor_expired">Sync needs to refresh the cloud data. Try syncing again.</string>
+    <string name="cloud_sync_mutation_conflict">A sync change conflicts with an earlier request. Refresh and review your pending changes.</string>
+    <string name="cloud_sync_upload_failed">Some changes could not be uploaded. Your local changes are kept. Try syncing again.</string>
+    <string name="cloud_remote_enabled">Remote control enabled for %1$s</string>
+    <string name="cloud_remote_disabled">Remote control disabled</string>
+    <string name="cloud_remote_still_enabled">Remote control is still enabled on the server</string>
+    <string name="cloud_remote_sign_in_required">Sign in to cloud to use web remote control.</string>
+    <string name="cloud_remote_sign_in_to_disable">Sign in to cloud to disable remote control on the server.</string>
+    <string name="cloud_remote_waiting">Waiting for web commands</string>
+    <string name="cloud_remote_command_applied">Web command applied</string>
+    <string name="cloud_remote_command_failed">The web command failed. Check mock-location permissions and the command settings, then try again.</string>
+    <string name="cloud_remote_command_invalid">The web command is invalid. Check its location or route settings and send it again.</string>
+    <string name="cloud_remote_command_timeout">The web command timed out. Check the current mock-location state before trying again.</string>
+    <string name="cloud_mock_permission_required">Select Kestrel as the mock-location app in Android Developer options.</string>
+    <string name="cloud_sign_in_required">Sign in to cloud first.</string>
+    <string name="cloud_sign_out_required">Sign out before changing the cloud server or starting another sign-in.</string>
+    <string name="cloud_oidc_cancelled">Browser sign-in was cancelled. Start sign-in again when ready.</string>
+    <string name="cloud_oidc_restart">This browser sign-in is no longer pending. Start sign-in again.</string>
+    <string name="cloud_server_changed">The cloud server changed during sign-in. Start sign-in again.</string>
+    <string name="cloud_qr_restart">This QR sign-in is no longer pending. Scan a new code.</string>
+    <string name="cloud_qr_invalid">This QR sign-in code is invalid. Scan a new code from the web sign-in page.</string>
+    <string name="cloud_scanner_failed">Could not scan the QR code. Try scanning again.</string>
+    <string name="cloud_scanner_empty">The scanned QR code has no text. Scan the sign-in code from the web page.</string>
+    <string name="cloud_storage_failed">Could not save the cloud session securely. Check device storage and sign in again.</string>
+</resources>

@@ -76,7 +76,8 @@ class RemoteCommandExecutorTest {
             val result = RemoteCommandExecutor(applier).execute(command)
 
             assertEquals(RemoteCommandStatus.FAILED, result.status)
-            assertTrue(result.errorMessage!!.contains("at least 2"))
+            assertEquals("Route must have at least 2 waypoints", result.errorMessage)
+            assertEquals(CloudMessage(CloudMessageId.RemoteCommandInvalid), result.uiError)
             assertTrue(applier.calls.isEmpty())
         }
 
@@ -128,6 +129,7 @@ class RemoteCommandExecutorTest {
 
             assertEquals(RemoteCommandStatus.FAILED, result.status)
             assertEquals("service start failed", result.errorMessage)
+            assertEquals(CloudMessage(CloudMessageId.RemoteCommandFailed), result.uiError)
             assertEquals(listOf("stop"), applier.calls)
         }
 

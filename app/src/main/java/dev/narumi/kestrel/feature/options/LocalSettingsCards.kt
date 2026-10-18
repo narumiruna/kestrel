@@ -16,7 +16,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
+import dev.narumi.kestrel.R
 import dev.narumi.kestrel.core.data.MockPlaybackSettings
 import dev.narumi.kestrel.core.data.RandomRoutePreference
 import dev.narumi.kestrel.core.data.StartupPreference
@@ -39,14 +42,14 @@ internal fun StartupPreferenceCard(
     val selectedItem = items.firstOrNull { it.item.id == startup.libraryItemId }
 
     OptionsDisclosureCard(
-        title = OptionsSection.Startup.title,
+        title = stringResource(OptionsSection.Startup.title),
         icon = KestrelIcons.Explore,
-        subtitle = "Choose the map view or Favorite used after launch.",
+        subtitle = stringResource(R.string.options_startup_help),
         summary =
             if (itemsLoading && startup.mode == StartupPreference.Mode.Favorite) {
-                "Loading Favorite…"
+                stringResource(R.string.options_loading_favorite)
             } else {
-                startupSummary(startup.mode, selectedItem?.name)
+                startupSummary(startup.mode, selectedItem?.name).text()
             },
         expanded = editing,
         onExpandedChange = { expanded ->
@@ -99,24 +102,24 @@ private fun StartupPreferenceEditor(
     onSave: () -> Unit,
 ) {
     StartupRadioRow(
-        label = "Last map view",
-        supporting = "Returns to the map area you last viewed.",
+        label = stringResource(R.string.options_last_map_view),
+        supporting = stringResource(R.string.options_last_map_view_help),
         selected = mode == StartupPreference.Mode.Last,
         enabled = !saving,
         onSelect = { onModeChange(StartupPreference.Mode.Last) },
     )
     HorizontalDivider()
     StartupRadioRow(
-        label = "Current device location",
-        supporting = "Centers the map after a location fix is available.",
+        label = stringResource(R.string.options_current_location),
+        supporting = stringResource(R.string.options_current_location_help),
         selected = mode == StartupPreference.Mode.Current,
         enabled = !saving,
         onSelect = { onModeChange(StartupPreference.Mode.Current) },
     )
     HorizontalDivider()
     StartupRadioRow(
-        label = "A Favorite",
-        supporting = if (items.isEmpty()) "Create a Favorite on the map first." else "Choose one below before saving.",
+        label = stringResource(R.string.options_a_favorite),
+        supporting = if (items.isEmpty()) stringResource(R.string.options_create_favorite_first) else stringResource(R.string.options_choose_favorite_before_saving),
         selected = mode == StartupPreference.Mode.Favorite,
         enabled = !itemsLoading && items.isNotEmpty() && !saving,
         onSelect = { onModeChange(StartupPreference.Mode.Favorite) },
@@ -126,13 +129,13 @@ private fun StartupPreferenceEditor(
     }
     error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
     KestrelActionRow {
-        OutlinedButton(onClick = onCancel, enabled = !saving) { Text("Cancel") }
+        OutlinedButton(onClick = onCancel, enabled = !saving) { Text(stringResource(R.string.options_cancel)) }
         Button(
             enabled =
                 !saving &&
                     (mode != StartupPreference.Mode.Favorite || items.any { it.item.id == itemId }),
             onClick = onSave,
-        ) { Text(if (saving) "Saving…" else "Save changes") }
+        ) { Text(if (saving) stringResource(R.string.options_saving) else stringResource(R.string.options_save_changes)) }
     }
 }
 
@@ -147,7 +150,7 @@ private fun FavoriteStartupChoices(
         if (index > 0) HorizontalDivider()
         StartupRadioRow(
             label = item.name,
-            supporting = startupFavoriteEffect(item.kind),
+            supporting = stringResource(startupFavoriteEffect(item.kind)),
             selected = itemId == item.item.id,
             enabled = !saving,
             onSelect = { onItemChange(item.item.id) },
@@ -167,10 +170,10 @@ internal fun MockPlaybackSettingsCard(
     val seconds = settings.progressWriteIntervalSeconds
     var draftSeconds by rememberSaveable { mutableStateOf(seconds) }
     OptionsDisclosureCard(
-        title = OptionsSection.Playback.title,
+        title = stringResource(OptionsSection.Playback.title),
         icon = KestrelIcons.Restore,
-        subtitle = "Choose how much route progress may rewind after Android stops the service.",
-        summary = playbackSummary(seconds),
+        subtitle = stringResource(R.string.options_playback_help),
+        summary = playbackSummary(seconds).text(),
         expanded = expanded,
         onExpandedChange = { next ->
             if (!saving) {
@@ -200,34 +203,37 @@ private fun RecoveryEditor(
     onCancel: () -> Unit,
     onSave: () -> Unit,
 ) {
-    Text(text = playbackSummary(seconds), style = MaterialTheme.typography.titleSmall)
+    Text(text = playbackSummary(seconds).text(), style = MaterialTheme.typography.titleSmall)
     Text(
-        text = "This applies to the next route start or restore. Smaller values save progress more often.",
+        text = stringResource(R.string.options_playback_notice),
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
     KestrelActionRow {
-        listOf(1 to "More accurate", 5 to "Balanced", 15 to "Fewer writes").forEach { (value, label) ->
+        listOf(1 to stringResource(R.string.options_more_accurate), 5 to stringResource(R.string.options_balanced), 15 to stringResource(R.string.options_fewer_writes)).forEach { (value, label) ->
             OutlinedButton(onClick = { onSecondsChange(value) }, enabled = !saving) {
-                Text(if (seconds == value) "✓ $label" else label)
+                Text(if (seconds == value) stringResource(R.string.options_selected_value, label) else label)
             }
         }
     }
-    Text("Custom: $seconds seconds", style = MaterialTheme.typography.labelLarge)
+    Text(
+        pluralStringResource(R.plurals.options_custom_seconds, seconds, optionsNumber(seconds)),
+        style = MaterialTheme.typography.labelLarge,
+    )
     KestrelActionRow {
         OutlinedButton(
             onClick = { onSecondsChange(seconds - 1) },
             enabled = !saving && seconds > MockPlaybackSettings.MIN_PROGRESS_WRITE_INTERVAL_SECONDS,
-        ) { Text("− 1 second") }
+        ) { Text(stringResource(R.string.options_decrease_second)) }
         OutlinedButton(
             onClick = { onSecondsChange(seconds + 1) },
             enabled = !saving && seconds < MockPlaybackSettings.MAX_PROGRESS_WRITE_INTERVAL_SECONDS,
-        ) { Text("+ 1 second") }
+        ) { Text(stringResource(R.string.options_increase_second)) }
     }
     error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
     KestrelActionRow {
-        OutlinedButton(onClick = onCancel, enabled = !saving) { Text("Cancel") }
-        Button(onClick = onSave, enabled = !saving) { Text(if (saving) "Saving…" else "Save changes") }
+        OutlinedButton(onClick = onCancel, enabled = !saving) { Text(stringResource(R.string.options_cancel)) }
+        Button(onClick = onSave, enabled = !saving) { Text(if (saving) stringResource(R.string.options_saving) else stringResource(R.string.options_save_changes)) }
     }
 }
 
@@ -247,10 +253,10 @@ internal fun RandomRouteDefaultsCard(
 ) {
     var resetToRecommended by rememberSaveable { mutableStateOf(false) }
     OptionsDisclosureCard(
-        title = OptionsSection.RandomRoute.title,
+        title = stringResource(OptionsSection.RandomRoute.title),
         icon = KestrelIcons.RouteOutlined,
-        subtitle = "Choose the fallback shape used by the route generator.",
-        summary = randomRouteSummary(preference.effectivePointCount, preference.effectiveSpacingMeters, preference.usesLastSettings),
+        subtitle = stringResource(R.string.options_random_route_help),
+        summary = randomRouteSummary(preference.effectivePointCount, preference.effectiveSpacingMeters, preference.usesLastSettings).text(),
         expanded = expanded,
         onExpandedChange = { next ->
             if (!saving) {
@@ -309,9 +315,9 @@ private fun RandomRouteEditor(
     Text(
         text =
             if (preference.usesLastSettings) {
-                "The generator currently starts with your last-used values; these defaults remain the fallback."
+                stringResource(R.string.options_random_last_used_help)
             } else {
-                "These values appear when no previous generator choices exist."
+                stringResource(R.string.options_random_defaults_help)
             },
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -319,7 +325,7 @@ private fun RandomRouteEditor(
     OutlinedTextField(
         value = pointCount,
         onValueChange = onPointCountChange,
-        label = { Text("Point count (2–1000)") },
+        label = { Text(stringResource(R.string.options_point_count)) },
         isError = pointCount.isNotBlank() && !isValidPointCount(parsedPointCount),
         singleLine = true,
         enabled = !saving,
@@ -328,31 +334,33 @@ private fun RandomRouteEditor(
     OutlinedTextField(
         value = spacingMeters,
         onValueChange = onSpacingMetersChange,
-        label = { Text("Spacing meters (1–10000)") },
+        label = { Text(stringResource(R.string.options_spacing_meters)) },
+        supportingText = { Text(stringResource(R.string.options_decimal_input_help)) },
         isError = spacingMeters.isNotBlank() && !isValidSpacing(parsedSpacing),
         singleLine = true,
         enabled = !saving,
         modifier = Modifier.fillMaxWidth(),
     )
     Text(
-        text = "Estimated distance: ${estimatedDistance(parsedPointCount, parsedSpacing)}",
+        text = stringResource(R.string.options_estimated_distance, estimatedDistance(parsedPointCount, parsedSpacing)),
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
     if (resetToRecommended) {
-        Text("Recommended values are previewed. Save changes to apply them.", color = MaterialTheme.colorScheme.primary)
+        Text(stringResource(R.string.options_recommended_preview), color = MaterialTheme.colorScheme.primary)
     }
     error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
     KestrelActionRow {
-        OutlinedButton(onClick = onUseRecommended, enabled = !saving) { Text("Use recommended") }
-        OutlinedButton(onClick = onCancel, enabled = !saving) { Text("Cancel") }
+        OutlinedButton(onClick = onUseRecommended, enabled = !saving) { Text(stringResource(R.string.options_use_recommended)) }
+        OutlinedButton(onClick = onCancel, enabled = !saving) { Text(stringResource(R.string.options_cancel)) }
         Button(
             onClick = onSave,
             enabled = isValidRandomRoute(parsedPointCount, parsedSpacing) && !saving,
-        ) { Text(if (saving) "Saving…" else "Save changes") }
+        ) { Text(if (saving) stringResource(R.string.options_saving) else stringResource(R.string.options_save_changes)) }
     }
 }
 
+@Composable
 private fun estimatedDistance(
     pointCount: Int?,
     spacingMeters: Double?,
@@ -377,7 +385,13 @@ internal fun isValidRandomRoute(
 
 internal fun formatMeters(value: Double): String = if (value % 1.0 == 0.0) value.toInt().toString() else value.toString()
 
-private fun formatDistance(meters: Double): String = if (meters >= 1000.0) "%.1f km".format(meters / 1000.0) else "${formatMeters(meters)} m"
+@Composable
+private fun formatDistance(meters: Double): String =
+    if (meters >= 1000.0) {
+        stringResource(R.string.options_distance_kilometers, optionsNumber(kotlin.math.round(meters / 100.0) / 10.0))
+    } else {
+        stringResource(R.string.options_distance_meters, optionsNumber(meters))
+    }
 
 @Composable
 private fun StartupRadioRow(

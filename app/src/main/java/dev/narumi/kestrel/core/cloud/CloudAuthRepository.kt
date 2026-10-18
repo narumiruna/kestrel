@@ -48,7 +48,7 @@ internal class CloudAuthRepository private constructor(
 
     suspend fun prepareAndroidQrLogin(rawQrValue: String): AndroidQrLoginProgress =
         refreshMutex.withLock {
-            check(sessionStore.load() == null) { "Sign out before scanning an Android QR login" }
+            checkCloudState(sessionStore.load() == null, CloudMessageId.SignOutRequired)
             oidcAttemptStore.clear()
             androidQrCoordinator.prepare(
                 rawQrValue = rawQrValue,
@@ -68,13 +68,13 @@ internal class CloudAuthRepository private constructor(
 
     suspend fun confirmAndroidQrLogin(): AndroidQrLoginProgress =
         refreshMutex.withLock {
-            check(sessionStore.load() == null) { "Already signed in" }
+            checkCloudState(sessionStore.load() == null, CloudMessageId.SignOutRequired)
             androidQrCoordinator.confirm()
         }
 
     suspend fun pollAndroidQrLogin(): AndroidQrLoginProgress =
         refreshMutex.withLock {
-            check(sessionStore.load() == null) { "Already signed in" }
+            checkCloudState(sessionStore.load() == null, CloudMessageId.SignOutRequired)
             androidQrCoordinator.poll()
         }
 
@@ -111,27 +111,21 @@ internal class CloudAuthRepository private constructor(
 
     suspend fun completeOidcLogin(rawCallbackUri: String): CloudSession {
         val callback = parseOidcCallback(rawCallbackUri)
-        val attempt = oidcAttemptStore.load() ?: error("No OIDC sign-in is pending")
+        val attempt = oidcAttemptStore.load() ?: throw CloudMessageException(CloudMessage(CloudMessageId.OidcRestart))
         require(callback.matchesClientNonce(attempt.clientNonce)) {
             "OIDC callback does not match the pending sign-in"
         }
         return when (callback) {
             is OidcCallback.Error -> {
                 validateOidcAttemptServer(attempt, prefs, oidcAttemptStore)
-                check(oidcAttemptStore.compareAndClear(attempt)) {
-                    "OIDC sign-in is no longer pending"
-                }
-                if (callback.errorCode == "access_denied") {
-                    error("OIDC sign-in was cancelled")
-                }
-                error("OIDC sign-in failed")
+                checkCloudState(oidcAttemptStore.compareAndClear(attempt), CloudMessageId.OidcRestart)
+                val messageId = if (callback.errorCode == "access_denied") CloudMessageId.OidcCancelled else CloudMessageId.SignInFailed
+                throw CloudMessageException(CloudMessage(messageId))
             }
 
             is OidcCallback.Success -> {
                 val resumableAttempt = attempt.copy(exchangeTicket = callback.exchangeTicket)
-                check(oidcAttemptStore.compareAndSet(attempt, resumableAttempt)) {
-                    "OIDC sign-in is no longer pending"
-                }
+                checkCloudState(oidcAttemptStore.compareAndSet(attempt, resumableAttempt), CloudMessageId.OidcRestart)
                 completeOidcExchange(resumableAttempt)
             }
         }
@@ -145,7 +139,7 @@ internal class CloudAuthRepository private constructor(
 
     suspend fun setCloudApiBaseUrl(apiBaseUrl: String) {
         refreshMutex.withLock {
-            check(sessionStore.load() == null) { "Sign out before changing the cloud server" }
+            checkCloudState(sessionStore.load() == null, CloudMessageId.SignOutRequired)
             oidcAttemptStore.clear()
             androidQrCoordinator.cancel()
             prefs.setCloudApiBaseUrl(apiBaseUrl)
@@ -322,9 +316,7 @@ internal class CloudAuthRepository private constructor(
     private suspend fun completeOidcExchange(attempt: OidcAuthAttempt): CloudSession =
         try {
             refreshMutex.withLock {
-                check(oidcAttemptStore.load() == attempt) {
-                    "OIDC sign-in is no longer pending"
-                }
+                checkCloudState(oidcAttemptStore.load() == attempt, CloudMessageId.OidcRestart)
                 validateOidcAttemptServer(attempt, prefs, oidcAttemptStore)
                 val session =
                     exchangeOidcWithRetry(
@@ -416,6 +408,6 @@ private suspend fun validateOidcAttemptServer(
     val currentBaseUrl = normalizeCloudApiBaseUrl(prefs.cloudSettingsValue().apiBaseUrl)
     if (currentBaseUrl != attempt.apiBaseUrl) {
         attemptStore.compareAndClear(attempt)
-        error("Cloud server changed during OIDC sign-in")
+        throw CloudMessageException(CloudMessage(CloudMessageId.ServerChanged))
     }
 }
