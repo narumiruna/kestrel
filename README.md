@@ -150,7 +150,7 @@ Pushes to `main` always run all three.
 Version bumps, tagging, and signed release builds are automated by the `bump-version`, `tag-release`, and `release` workflows.
 `just release` builds a signed APK locally and requires the four `KESTREL_RELEASE_*` variables documented in [docs/operations.md](docs/operations.md).
 
-Contributor conventions live in [AGENTS.md](AGENTS.md).
+Contributor conventions live in [AGENTS.md](AGENTS.md). Localization rules, language coverage, and translation checks are in [docs/i18n.md](docs/i18n.md).
 
 ---
 

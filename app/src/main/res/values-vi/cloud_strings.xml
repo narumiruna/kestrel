@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="cloud_request_failed">Yêu cầu đám mây thất bại. Hãy thử lại.</string>
+    <string name="cloud_sign_in_failed">Không thể đăng nhập. Kiểm tra thông tin đăng nhập rồi thử lại.</string>
+    <string name="cloud_sync_failed">Đồng bộ đám mây thất bại. Thay đổi cục bộ được giữ lại. Hãy thử đồng bộ lại.</string>
+    <string name="cloud_remote_failed">Điều khiển từ xa thất bại. Kiểm tra kết nối rồi thử lại.</string>
+    <string name="cloud_qr_failed">Đăng nhập QR thất bại. Hãy thử lại hoặc quét mã mới.</string>
+    <string name="cloud_server_settings_failed">Không thể dùng máy chủ đám mây này. Kiểm tra URL máy chủ rồi thử lại.</string>
+    <string name="cloud_network_error">Không thể kết nối với máy chủ đám mây. Kiểm tra kết nối rồi thử lại.</string>
+    <string name="cloud_invalid_response">Máy chủ đám mây trả về phản hồi không hợp lệ. Hãy thử lại.</string>
+    <string name="cloud_invalid_input">Yêu cầu không hợp lệ. Kiểm tra các giá trị đã nhập rồi thử lại.</string>
+    <string name="cloud_invalid_credentials">Không thể đăng nhập. Kiểm tra tên người dùng, mật khẩu và mã xác minh.</string>
+    <string name="cloud_session_expired">Phiên của bạn đã hết hạn. Hãy đăng nhập lại.</string>
+    <string name="cloud_permission_denied">Không được phép thực hiện thao tác này. Kiểm tra quyền truy cập tài khoản rồi thử lại.</string>
+    <string name="cloud_not_found">Mục trên đám mây không còn khả dụng. Làm mới rồi thử lại.</string>
+    <string name="cloud_conflict">Dữ liệu đám mây đã thay đổi. Đồng bộ và xem xét các xung đột trước khi thử lại.</string>
+    <string name="cloud_expired_request">Yêu cầu này đã hết hạn. Hãy bắt đầu lại thao tác.</string>
+    <string name="cloud_rate_limited">Quá nhiều yêu cầu. Hãy đợi trước khi thử lại.</string>
+    <string name="cloud_server_unavailable">Máy chủ đám mây tạm thời không khả dụng. Hãy thử lại sau.</string>
+    <string name="cloud_request_rejected">Yêu cầu đám mây thất bại (HTTP %1$s). Hãy thử lại.</string>
+    <string name="cloud_sync_cursor_expired">Quá trình đồng bộ cần làm mới dữ liệu đám mây. Hãy thử đồng bộ lại.</string>
+    <string name="cloud_sync_mutation_conflict">Một thay đổi đồng bộ xung đột với yêu cầu trước đó. Làm mới và xem xét các thay đổi đang chờ.</string>
+    <string name="cloud_sync_upload_failed">Không thể tải lên một số thay đổi. Thay đổi cục bộ được giữ lại. Hãy thử đồng bộ lại.</string>
+    <string name="cloud_remote_enabled">Đã bật điều khiển từ xa cho %1$s</string>
+    <string name="cloud_remote_disabled">Đã tắt điều khiển từ xa</string>
+    <string name="cloud_remote_still_enabled">Điều khiển từ xa vẫn được bật trên máy chủ</string>
+    <string name="cloud_remote_sign_in_required">Đăng nhập đám mây để dùng điều khiển từ xa qua web.</string>
+    <string name="cloud_remote_sign_in_to_disable">Đăng nhập đám mây để tắt điều khiển từ xa trên máy chủ.</string>
+    <string name="cloud_remote_waiting">Đang đợi lệnh từ web</string>
+    <string name="cloud_remote_command_applied">Đã áp dụng lệnh web</string>
+    <string name="cloud_remote_command_failed">Lệnh web thất bại. Kiểm tra quyền vị trí giả lập và cài đặt lệnh rồi thử lại.</string>
+    <string name="cloud_remote_command_invalid">Lệnh web không hợp lệ. Kiểm tra cài đặt vị trí hoặc tuyến đường rồi gửi lại.</string>
+    <string name="cloud_remote_command_timeout">Lệnh web đã hết thời gian chờ. Kiểm tra trạng thái vị trí giả lập hiện tại trước khi thử lại.</string>
+    <string name="cloud_mock_permission_required">Chọn Kestrel làm ứng dụng vị trí giả lập trong Tùy chọn nhà phát triển Android.</string>
+    <string name="cloud_sign_in_required">Trước tiên hãy đăng nhập đám mây.</string>
+    <string name="cloud_sign_out_required">Đăng xuất trước khi đổi máy chủ đám mây hoặc bắt đầu lần đăng nhập khác.</string>
+    <string name="cloud_oidc_cancelled">Đăng nhập bằng trình duyệt đã bị hủy. Bắt đầu đăng nhập lại khi sẵn sàng.</string>
+    <string name="cloud_oidc_restart">Lần đăng nhập bằng trình duyệt này không còn chờ xử lý. Hãy bắt đầu đăng nhập lại.</string>
+    <string name="cloud_server_changed">Máy chủ đám mây đã thay đổi trong khi đăng nhập. Hãy bắt đầu đăng nhập lại.</string>
+    <string name="cloud_qr_restart">Lần đăng nhập QR này không còn chờ xử lý. Hãy quét mã mới.</string>
+    <string name="cloud_qr_invalid">Mã đăng nhập QR này không hợp lệ. Hãy quét mã mới từ trang đăng nhập web.</string>
+    <string name="cloud_scanner_failed">Không thể quét mã QR. Hãy thử quét lại.</string>
+    <string name="cloud_scanner_empty">Mã QR đã quét không có văn bản. Hãy quét mã đăng nhập từ trang web.</string>
+    <string name="cloud_storage_failed">Không thể lưu phiên đám mây an toàn. Kiểm tra bộ nhớ thiết bị rồi đăng nhập lại.</string>
+</resources>

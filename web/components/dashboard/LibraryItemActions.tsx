@@ -1,10 +1,11 @@
 'use client';
 
 import { IconButton } from '@radix-ui/themes';
+import { useTranslations } from 'next-intl';
 import { useEffect, useId, useRef, useState } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import { useShareLink } from '@/components/dashboard/useShareLink';
-import { formatError, toAbsolutePublicUrl } from '@/components/dashboard/utils';
+import { toAbsolutePublicUrl } from '@/components/dashboard/utils';
 import { DotsHorizontalIcon, Share2Icon, TrashIcon } from '@/components/ui/icons';
 import {
   Button,
@@ -26,6 +27,7 @@ type Props = {
 };
 
 export function LibraryItemActions({ itemId, itemKind, itemName, onDeleted }: Props) {
+  const t = useTranslations('LibraryItemActions');
   const auth = useAuth();
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -41,7 +43,7 @@ export function LibraryItemActions({ itemId, itemKind, itemName, onDeleted }: Pr
     setShareLink,
     shareLink,
   } = useShareLink(itemKind, itemId);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [notice, setNotice] = useState<'copied' | 'copyFailed' | null>(null);
   const moreButtonRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
@@ -61,9 +63,9 @@ export function LibraryItemActions({ itemId, itemKind, itemName, onDeleted }: Pr
 
     try {
       await navigator.clipboard.writeText(toAbsolutePublicUrl(shareLink.publicUrl));
-      setNotice('Share URL copied.');
+      setNotice('copied');
     } catch {
-      setNotice('Copy failed. Select the URL and copy it manually.');
+      setNotice('copyFailed');
     }
   }
 
@@ -75,7 +77,7 @@ export function LibraryItemActions({ itemId, itemKind, itemName, onDeleted }: Pr
       await auth.apiRequest(`/${itemKind}/${itemId}`, { method: 'DELETE' });
       await onDeleted();
     } catch (nextError) {
-      setError(formatError(nextError));
+      setError(nextError);
     } finally {
       setIsMutating(false);
     }
@@ -87,13 +89,17 @@ export function LibraryItemActions({ itemId, itemKind, itemName, onDeleted }: Pr
     <div className="library-item-actions">
       <DialogFrame
         className="place-action-dialog-card"
-        description={`Manage public read-only access to this ${itemLabel}.`}
-        eyebrow={`Share ${itemLabel}`}
+        description={t('manageAccess', { kind: itemLabel })}
+        eyebrow={t('shareKind', { kind: itemLabel })}
         open={isShareOpen}
         title={itemName}
         trigger={
-          <Button aria-label={`Share ${itemName}`} className="secondary" type="button">
-            <Share2Icon aria-hidden /> Share
+          <Button
+            aria-label={t('shareName', { name: itemName })}
+            className="secondary"
+            type="button"
+          >
+            <Share2Icon aria-hidden /> {t('share')}
           </Button>
         }
         onOpenChange={setIsShareOpen}
@@ -121,7 +127,7 @@ export function LibraryItemActions({ itemId, itemKind, itemName, onDeleted }: Pr
         trigger={
           <IconButton
             ref={moreButtonRef}
-            aria-label={`More actions for ${itemName}`}
+            aria-label={t('moreActions', { name: itemName })}
             className="secondary library-more-menu-trigger"
             type="button"
             variant="ghost"
@@ -135,16 +141,16 @@ export function LibraryItemActions({ itemId, itemKind, itemName, onDeleted }: Pr
           disabled={isMutating}
           onSelect={() => setIsDeleteOpen(true)}
         >
-          <TrashIcon aria-hidden /> Delete {itemLabel}…
+          <TrashIcon aria-hidden /> {t('deleteKind', { kind: itemLabel, menu: 'yes' })}
         </Menu.Item>
       </MenuSurface>
       <ConfirmDialog
-        confirmLabel={`Delete ${itemLabel}`}
-        description="This cannot be undone. The item and its share link will be permanently removed."
+        confirmLabel={t('deleteKind', { kind: itemLabel, menu: 'no' })}
+        description={t('thisCannotBeUndoneTheItemAndItsShareLink')}
         isConfirming={isMutating}
         open={isDeleteOpen}
         restoreFocusElement={moreButtonRef.current}
-        title={`Delete “${itemName}”?`}
+        title={t('deleteName', { name: itemName })}
         onConfirm={deleteItem}
         onOpenChange={setIsDeleteOpen}
       />
@@ -172,17 +178,18 @@ function ShareDialogContent({
   isLoadingShare: boolean;
   isMutating: boolean;
   itemLabel: string;
-  notice: string | null;
+  notice: 'copied' | 'copyFailed' | null;
   onCopyShareUrl: () => void;
   onCreateShareLink: () => void;
   onSetShareDisabled: (disabled: boolean) => void;
   shareLink: ShareLink | null;
 }) {
+  const t = useTranslations('LibraryItemActions');
   const shareUrlId = useId();
 
   return (
     <>
-      {isLoadingShare ? <p className="muted">Loading share settings…</p> : null}
+      {isLoadingShare ? <p className="muted">{t('loadingShareSettings')}</p> : null}
       {error == null ? null : (
         <div className="error" role="alert">
           {error}
@@ -190,35 +197,32 @@ function ShareDialogContent({
       )}
       {notice == null ? null : (
         <div className="success" role="status">
-          {notice}
+          {t(notice)}
         </div>
       )}
       {!isLoadingShare && shareLink == null ? (
         <div className="stack">
-          <p className="muted no-margin">
-            Create a public read-only link. Signed-in visitors can copy this {itemLabel} into their
-            own library.
-          </p>
+          <p className="muted no-margin">{t('createHelp', { kind: itemLabel })}</p>
           <Button disabled={isMutating} type="button" onClick={onCreateShareLink}>
-            {isMutating ? 'Creating…' : 'Create public link'}
+            {isMutating ? t('creating') : t('createPublicLink')}
           </Button>
         </div>
       ) : null}
       {shareLink == null ? null : (
         <div className="stack">
           <label htmlFor={shareUrlId}>
-            Public URL
+            {t('publicURL')}
             <TextInput id={shareUrlId} readOnly value={toAbsolutePublicUrl(shareLink.publicUrl)} />
           </label>
           <p className="muted no-margin">
-            Status: {shareLink.disabledAt == null ? 'Active' : 'Disabled'}
+            {t('linkStatus', { status: shareLink.disabledAt == null ? 'active' : 'disabled' })}
           </p>
           <div className="library-share-actions">
             <Button className="secondary" type="button" onClick={onCopyShareUrl}>
-              Copy URL
+              {t('copyURL')}
             </Button>
             <a href={shareLink.publicUrl} rel="noreferrer" target="_blank">
-              Open public page
+              {t('openPublicPage')}
             </a>
             <Button
               className={shareLink.disabledAt == null ? 'danger' : 'secondary'}
@@ -227,10 +231,10 @@ function ShareDialogContent({
               onClick={() => onSetShareDisabled(shareLink.disabledAt == null)}
             >
               {isMutating
-                ? 'Saving…'
+                ? t('saving')
                 : shareLink.disabledAt == null
-                  ? 'Disable link'
-                  : 'Re-enable link'}
+                  ? t('disableLink')
+                  : t('reEnableLink')}
             </Button>
           </div>
         </div>

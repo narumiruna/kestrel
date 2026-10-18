@@ -3,6 +3,7 @@
 import { IconButton, TextField } from '@radix-ui/themes';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
+import { useLocale, useTranslations } from 'next-intl';
 import { type RefObject, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { IndexCard } from '@/components/cartographer/IndexCard';
 import { KeyboardCheatsheet } from '@/components/cartographer/KeyboardCheatsheet';
@@ -38,6 +39,7 @@ import {
 import { CheckIcon, Cross2Icon, MagnifyingGlassIcon, PlusIcon } from '@/components/ui/icons';
 import { Button, ConfirmDialog, TextInput, Toggle, ToggleGroup } from '@/components/ui/radix-ui';
 import { WorkspaceHeader } from '@/components/WorkspaceHeader';
+import { formatRelativeUpdated } from '@/i18n/format';
 import type { Place, PlaceInput, Route, RouteInput, RouteWaypoint } from '@/lib/api';
 
 const CartographerPlaceMap = dynamic(
@@ -60,6 +62,9 @@ type ViewportControls = {
 type Coordinates = { latitude: number; longitude: number };
 
 export default function DashboardMapPage() {
+  const t = useTranslations('MapWorkspace');
+  const locale = useLocale();
+  const tm = useTranslations('routeModes');
   const {
     auth,
     error,
@@ -125,8 +130,14 @@ export default function DashboardMapPage() {
     (selectedPlace == null
       ? DEFAULT_MAP_CENTER
       : { latitude: selectedPlace.latitude, longitude: selectedPlace.longitude });
-  const filteredPlaces = useMemo(() => filterPlaces(places, query), [places, query]);
-  const filteredRoutes = useMemo(() => filterRoutes(routes, query), [query, routes]);
+  const filteredPlaces = useMemo(
+    () => filterPlaces(places, query, locale),
+    [places, query, locale],
+  );
+  const filteredRoutes = useMemo(
+    () => filterRoutes(routes, query, locale, tm),
+    [query, routes, locale, tm],
+  );
   const lastUpdatedLabel = useRelativeUpdatedLabel(lastLoadedAt);
   const isRouteDirty = isRouteDraftDirty(routeDraftState);
   const draftWaypoints = routeDraftState.draft.waypoints;
@@ -266,7 +277,7 @@ export default function DashboardMapPage() {
   if (!auth.isHydrated || !auth.isAuthenticated || auth.session == null) {
     return (
       <main className="shell">
-        <p className="muted">Loading session…</p>
+        <p className="muted">{t('loadingSession')}</p>
       </main>
     );
   }
@@ -477,11 +488,11 @@ export default function DashboardMapPage() {
   const selectedLabel =
     activeKind === 'places'
       ? isNewPlace
-        ? 'New place'
-        : (selectedPlace?.name ?? 'Choose a place')
+        ? t('newPlace')
+        : (selectedPlace?.name ?? t('choosePlace'))
       : isNewRoute
-        ? 'New route'
-        : (selectedRoute?.name ?? 'Choose a route');
+        ? t('newRoute')
+        : (selectedRoute?.name ?? t('chooseRoute'));
 
   return (
     <Stage
@@ -500,7 +511,7 @@ export default function DashboardMapPage() {
         activeSection="map"
         isRefreshing={isLoading}
         statusError={error}
-        statusLabel={lastUpdatedLabel == null ? null : `Updated ${lastUpdatedLabel}`}
+        statusLabel={lastUpdatedLabel == null ? null : t('updated', { time: lastUpdatedLabel })}
         username={auth.session.user.username}
         onBeforeWorkspaceChange={(href) => {
           navigateIfDraftSafe(href);
@@ -528,11 +539,11 @@ export default function DashboardMapPage() {
       />
       {activeKind === 'routes' ? (
         <IndexCard
-          eyebrow={<span>Map / Routes</span>}
+          eyebrow={<span>{t('mapRoutes')}</span>}
           stamp={
             selectedRoute?.currentRevision == null || isNewRoute
               ? undefined
-              : `Revision ${selectedRoute.currentRevision.revisionNumber}`
+              : t('revision', { count: selectedRoute.currentRevision.revisionNumber })
           }
           title={selectedLabel}
           variant="route"
@@ -597,14 +608,20 @@ export default function DashboardMapPage() {
               <PlaceRemoteControlAction key={selectedPlace.id} place={selectedPlace} />
             )
           }
-          eyebrow={<span>Map / Places</span>}
+          eyebrow={<span>{t('mapPlaces')}</span>}
           meta={
             <div className="index-card-coordinate-grid font-mono">
-              <span>lat {formatCoord(activePlaceCoords.latitude)}</span>
-              <span>lng {formatCoord(activePlaceCoords.longitude)}</span>
+              <span>
+                {t('lat')}
+                {formatCoord(activePlaceCoords.latitude)}
+              </span>
+              <span>
+                {t('lng')}
+                {formatCoord(activePlaceCoords.longitude)}
+              </span>
             </div>
           }
-          subtitle="Move the pin or enter exact coordinates, then save."
+          subtitle={t('moveThePinOrEnterExactCoordinatesThenSave')}
           title={selectedLabel}
           variant="place"
         >
@@ -634,7 +651,7 @@ export default function DashboardMapPage() {
         isMapFocused={isLibraryCollapsed && isInspectorCollapsed}
         viewportDisabled={activeKind === 'routes' && routeViewportControls.viewportDisabled}
         fitDisabled={activeKind === 'routes' && routeViewportControls.fitDisabled}
-        fitLabel={activeKind === 'routes' ? 'Show entire route' : 'Fit to all pins'}
+        fitLabel={activeKind === 'routes' ? t('showEntireRoute') : t('fitToAllPins')}
         onFit={() => {
           if (activeKind === 'routes') setFitRequest((request) => request + 1);
           else viewportControls?.fit();
@@ -650,17 +667,17 @@ export default function DashboardMapPage() {
       <ScaleBar hidden={activeKind === 'routes' && routeMapCapability !== 'ready'} />
       <KeyboardCheatsheet isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
       <ConfirmDialog
-        cancelLabel="Keep editing"
-        confirmLabel="Discard changes"
+        cancelLabel={t('keepEditing')}
+        confirmLabel={t('discardChanges')}
         description={
           isRouteSaving
-            ? 'Wait for the route save to finish before leaving this draft.'
-            : 'Your unsaved map edits will be lost. Save first if you want to keep them.'
+            ? t('waitForTheRouteSaveToFinishBeforeLeavingThis')
+            : t('yourUnsavedMapEditsWillBeLostSaveFirstIf')
         }
         disabled={isRouteSaving}
         open={pendingDraftAction != null}
         restoreFocusElement={pendingDraftRestoreFocusRef.current}
-        title="Discard unsaved changes?"
+        title={t('discardUnsavedChanges')}
         onConfirm={() => {
           const action = pendingDraftAction;
           setPendingDraftAction(null);
@@ -709,6 +726,9 @@ function MapLibraryPanel({
   selectedPlaceId: string | null;
   selectedRouteId: string | null;
 }) {
+  const t = useTranslations('MapWorkspace');
+  const tm = useTranslations('routeModes');
+  const locale = useLocale();
   const activeItems = activeKind === 'places' ? filteredPlaces : filteredRoutes;
   const isSearching = query.trim().length > 0;
 
@@ -718,10 +738,10 @@ function MapLibraryPanel({
   }
 
   return (
-    <aside className="field-notebook map-library-panel" aria-label="Map item picker">
+    <aside className="field-notebook map-library-panel" aria-label={t('mapItemPicker')}>
       <div aria-hidden className="field-notebook-spine" />
       <ToggleGroup
-        aria-label="Map item type"
+        aria-label={t('mapItemType')}
         className="sidebar-tabs"
         type="single"
         value={activeKind}
@@ -731,19 +751,19 @@ function MapLibraryPanel({
           }
         }}
       >
-        <Toggle value="places">Places</Toggle>
-        <Toggle value="routes">Routes</Toggle>
+        <Toggle value="places">{t('places')}</Toggle>
+        <Toggle value="routes">{t('routes')}</Toggle>
       </ToggleGroup>
       <div className="map-picker-tools">
         <label
           htmlFor="radix-field-app-dashboard-map-page-tsx-1"
           className="sidebar-search font-mono"
         >
-          <span className="sr-only">Search map items</span>
+          <span className="sr-only">{t('searchMapItems')}</span>
           <TextInput
             id="radix-field-app-dashboard-map-page-tsx-1"
             ref={searchRef}
-            placeholder={`Search ${activeKind}…`}
+            placeholder={t('searchKind', { kind: activeKind })}
             type="search"
             value={query}
             onChange={(event) => onQueryChange(event.target.value)}
@@ -754,7 +774,7 @@ function MapLibraryPanel({
             {query.length === 0 ? null : (
               <TextField.Slot side="right">
                 <IconButton
-                  aria-label="Clear map search"
+                  aria-label={t('clearMapSearch')}
                   type="button"
                   variant="ghost"
                   onClick={clearSearch}
@@ -766,12 +786,12 @@ function MapLibraryPanel({
           </TextInput>
         </label>
         <Button
-          aria-label={`New ${activeKind === 'places' ? 'place' : 'route'}`}
+          aria-label={t('newKind', { kind: activeKind })}
           className="map-picker-new"
           type="button"
           onClick={onNew}
         >
-          <PlusIcon aria-hidden /> New {activeKind === 'places' ? 'place' : 'route'}
+          <PlusIcon aria-hidden /> {t('newKind', { kind: activeKind })}
         </Button>
       </div>
       <div className="notebook-list" aria-busy={isLoading}>
@@ -813,8 +833,8 @@ function MapLibraryPanel({
                   {route.name}
                 </strong>
                 <span className="route-card-meta-line">
-                  {formatRouteDistanceFromWaypoints(route.currentRevision?.waypoints ?? [])} ·{' '}
-                  {formatMode(route.mode)}
+                  {formatRouteDistanceFromWaypoints(route.currentRevision?.waypoints ?? [], locale)}{' '}
+                  · {formatMode(route.mode, tm)}
                 </span>
               </Button>
             ))}
@@ -822,14 +842,14 @@ function MapLibraryPanel({
           <div className="notebook-empty">
             <p className="muted no-margin" role="status">
               {loadError != null
-                ? `Couldn’t load ${activeKind}. Use Refresh above to try again.`
+                ? t('loadFailed', { kind: activeKind })
                 : isSearching
-                  ? `No ${activeKind} match this search.`
-                  : `No ${activeKind} yet. Choose New to create your first ${activeKind === 'places' ? 'place' : 'route'}.`}
+                  ? t('noMatches', { kind: activeKind })
+                  : t('noneYet', { kind: activeKind })}
             </p>
             {isSearching ? (
               <Button className="secondary" type="button" onClick={clearSearch}>
-                Clear search
+                {t('clearSearch')}
               </Button>
             ) : null}
           </div>
@@ -840,28 +860,36 @@ function MapLibraryPanel({
 }
 
 function MapEmptySelection({ kind }: { kind: 'place' | 'route' }) {
+  const t = useTranslations('MapWorkspace');
   return (
     <div className="map-empty-selection">
-      <h3>Choose a {kind}</h3>
-      <p className="muted">Select one from the picker, or create a new {kind} to begin.</p>
+      <h3>{t('chooseKind', { kind })}</h3>
+      <p className="muted">{t('chooseKindHelp', { kind })}</p>
     </div>
   );
 }
 
-function filterPlaces(places: Place[], query: string): Place[] {
-  const normalizedQuery = query.trim().toLowerCase();
+function filterPlaces(places: Place[], query: string, locale: string): Place[] {
+  const normalizedQuery = query.trim().toLocaleLowerCase(locale);
 
   return normalizedQuery.length === 0
     ? places
-    : places.filter((place) => matchesPlaceSearch(place, normalizedQuery));
+    : places.filter((place) => matchesPlaceSearch(place, normalizedQuery, locale));
 }
 
-function filterRoutes(routes: Route[], query: string): Route[] {
-  const normalizedQuery = query.trim().toLowerCase();
+function filterRoutes(
+  routes: Route[],
+  query: string,
+  locale: string,
+  tm: Parameters<typeof formatMode>[1],
+): Route[] {
+  const normalizedQuery = query.trim().toLocaleLowerCase(locale);
 
   return normalizedQuery.length === 0
     ? routes
-    : routes.filter((route) => matchesRouteSearch(route, normalizedQuery));
+    : routes.filter((route) =>
+        matchesRouteSearch(route, normalizedQuery, locale, formatMode(route.mode, tm)),
+      );
 }
 
 function getRouteWaypoints(route: Route | null): RouteWaypoint[] {
@@ -874,8 +902,9 @@ function getRouteWaypoints(route: Route | null): RouteWaypoint[] {
 }
 
 function NotebookSkeleton() {
+  const t = useTranslations('MapWorkspace');
   return (
-    <div aria-label="Loading map items" className="skeleton-list" role="status">
+    <div aria-label={t('loadingMapItems')} className="skeleton-list" role="status">
       <span className="skeleton-line wide" />
       <span className="skeleton-line" />
       <span className="skeleton-line short" />
@@ -884,6 +913,7 @@ function NotebookSkeleton() {
 }
 
 function useRelativeUpdatedLabel(lastUpdatedAt: Date | null): string | null {
+  const locale = useLocale();
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -900,21 +930,5 @@ function useRelativeUpdatedLabel(lastUpdatedAt: Date | null): string | null {
     return null;
   }
 
-  const elapsedSeconds = Math.max(0, Math.floor((now - lastUpdatedAt.getTime()) / 1000));
-
-  if (elapsedSeconds < 10) {
-    return 'just now';
-  }
-
-  if (elapsedSeconds < 60) {
-    return `${elapsedSeconds}s ago`;
-  }
-
-  const elapsedMinutes = Math.floor(elapsedSeconds / 60);
-
-  if (elapsedMinutes < 60) {
-    return `${elapsedMinutes}m ago`;
-  }
-
-  return lastUpdatedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  return formatRelativeUpdated(lastUpdatedAt, now, locale);
 }

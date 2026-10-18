@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { useEffect, useState } from 'react';
 import { useShareLink } from '@/components/dashboard/useShareLink';
 import { toAbsolutePublicUrl } from '@/components/dashboard/utils';
@@ -7,9 +8,10 @@ import { Button, TextInput } from '@/components/ui/radix-ui';
 import type { Route } from '@/lib/api';
 
 export function RouteSharePanel({ route }: { route: Route | null }) {
+  const t = useTranslations('routeShare');
   const { createShareLink, error, isLoading, isMutating, loadShareLink, setDisabled, shareLink } =
     useShareLink('routes', route?.id ?? null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [notice, setNotice] = useState<'copied' | 'copyFailed' | null>(null);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: Reload for refreshed saved objects, even when their ID is unchanged.
   useEffect(() => {
@@ -24,31 +26,28 @@ export function RouteSharePanel({ route }: { route: Route | null }) {
 
     try {
       await navigator.clipboard.writeText(toAbsolutePublicUrl(shareLink.publicUrl));
-      setNotice('Share URL copied.');
+      setNotice('copied');
     } catch {
-      setNotice('Copy failed; select the URL manually.');
+      setNotice('copyFailed');
     }
   }
 
   if (route == null) {
-    return (
-      <p className="muted no-margin">Save this route before creating a public latest-route link.</p>
-    );
+    return <p className="muted no-margin">{t('saveFirst')}</p>;
   }
 
   return (
     <section className="stack">
       <div className="route-share-header">
-        <h3>Share link</h3>
-        {isLoading ? <span className="muted">Loading…</span> : null}
+        <h3>{t('title')}</h3>
+        {isLoading ? <span className="muted">{t('loading')}</span> : null}
       </div>
+      <p className="muted no-margin">{t('help')}</p>
       <p className="muted no-margin">
-        Visitors can open the public page without login. Signed-in users can copy the visible route
-        snapshot into their own library.
-      </p>
-      <p className="muted no-margin">
-        Public link:{' '}
-        {shareLink == null ? 'Not created' : shareLink.disabledAt == null ? 'Active' : 'Disabled'}
+        {t('status', {
+          state:
+            shareLink == null ? 'missing' : shareLink.disabledAt == null ? 'active' : 'disabled',
+        })}
       </p>
       {error == null ? null : (
         <div className="error" role="alert">
@@ -57,7 +56,7 @@ export function RouteSharePanel({ route }: { route: Route | null }) {
       )}
       {notice == null ? null : (
         <div className="success" role="status">
-          {notice}
+          {t(notice)}
         </div>
       )}
       {shareLink == null ? (
@@ -70,13 +69,13 @@ export function RouteSharePanel({ route }: { route: Route | null }) {
               void createShareLink();
             }}
           >
-            {isMutating ? 'Creating…' : 'Create public link'}
+            {isMutating ? t('creating') : t('create')}
           </Button>
         </div>
       ) : (
         <div className="stack">
           <label htmlFor="radix-field-components-dashboard-routesharepanel-tsx-1">
-            Public URL
+            {t('publicUrl')}
             <TextInput
               id="radix-field-components-dashboard-routesharepanel-tsx-1"
               readOnly
@@ -85,18 +84,18 @@ export function RouteSharePanel({ route }: { route: Route | null }) {
           </label>
           <div className="chip-row">
             {shareLink.disabledAt == null ? (
-              <span className="chip">active</span>
+              <span className="chip">{t('active')}</span>
             ) : (
-              <span className="chip">disabled</span>
+              <span className="chip">{t('disabled')}</span>
             )}
-            <span className="chip">latest route</span>
+            <span className="chip">{t('latest')}</span>
           </div>
           <div className="row">
             <Button className="secondary" type="button" onClick={() => void copyPublicUrl()}>
-              Copy URL
+              {t('copy')}
             </Button>
             <a href={shareLink.publicUrl} rel="noreferrer" target="_blank">
-              Open public page
+              {t('open')}
             </a>
             <Button
               className={shareLink.disabledAt == null ? 'danger' : 'secondary'}
@@ -107,11 +106,7 @@ export function RouteSharePanel({ route }: { route: Route | null }) {
                 void setDisabled(shareLink.disabledAt == null);
               }}
             >
-              {isMutating
-                ? 'Saving…'
-                : shareLink.disabledAt == null
-                  ? 'Disable link'
-                  : 'Re-enable link'}
+              {isMutating ? t('saving') : shareLink.disabledAt == null ? t('disable') : t('enable')}
             </Button>
           </div>
         </div>

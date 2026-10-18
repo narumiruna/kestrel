@@ -17,7 +17,7 @@ internal class LocationServiceMockCommandApplier(
 
     override suspend fun setPoint(point: LatLng): RemoteCommandExecutionResult {
         if (!hasMockPermission()) {
-            return RemoteCommandExecutionResult.failed(MOCK_PERMISSION_ERROR)
+            return RemoteCommandExecutionResult.failed(MOCK_PERMISSION_ERROR, CloudMessage(CloudMessageId.MockPermissionRequired))
         }
         return applyAndWait(
             action = { LocationService.setLocation(applicationContext, point) },
@@ -32,7 +32,7 @@ internal class LocationServiceMockCommandApplier(
         mode: MovementEngine.Mode,
     ): RemoteCommandExecutionResult {
         if (!hasMockPermission()) {
-            return RemoteCommandExecutionResult.failed(MOCK_PERMISSION_ERROR)
+            return RemoteCommandExecutionResult.failed(MOCK_PERMISSION_ERROR, CloudMessage(CloudMessageId.MockPermissionRequired))
         }
         return applyAndWait(
             action = { LocationService.startRoute(applicationContext, waypoints, speedKmh, mode) },
@@ -70,7 +70,7 @@ internal class LocationServiceMockCommandApplier(
                 LocationService.runtimeState.filter(matches).first()
             }
         return if (reached == null) {
-            RemoteCommandExecutionResult.failed(timeoutMessage)
+            RemoteCommandExecutionResult.failed(timeoutMessage, CloudMessage(CloudMessageId.RemoteCommandTimeout))
         } else {
             RemoteCommandExecutionResult.applied()
         }

@@ -50,7 +50,7 @@ class RemoteControlRepositoryTest {
             repository.pollOnce()
 
             assertEquals(0, api.pollCount)
-            assertEquals("Sign in to cloud to use web remote control", repository.runtimeStatus.value.error)
+            assertEquals(CloudMessage(CloudMessageId.RemoteSignInRequired), repository.runtimeStatus.value.error)
         }
 
     @Test
@@ -116,7 +116,7 @@ class RemoteControlRepositoryTest {
             assertTrue(store.settings.enabled)
             assertEquals(0, api.registerRequests.size)
             assertEquals(
-                "Sign in to cloud to disable remote control on the server",
+                CloudMessage(CloudMessageId.RemoteSignInToDisable),
                 repository.runtimeStatus.value.error,
             )
         }
@@ -279,7 +279,7 @@ class RemoteControlRepositoryTest {
             repository.pollOnce()
 
             assertEquals(null, auth.session)
-            assertEquals("Session expired. Please sign in again.", repository.runtimeStatus.value.error)
+            assertEquals(CloudMessage(CloudMessageId.SessionExpired), repository.runtimeStatus.value.error)
         }
 
     @Test

@@ -20,7 +20,9 @@ import './workspace-ux.css';
 import type { Metadata } from 'next';
 import { Inter, JetBrains_Mono } from 'next/font/google';
 import Script from 'next/script';
+import { getLocale, getMessages, getTranslations } from 'next-intl/server';
 import { AuthProvider } from '@/components/AuthProvider';
+import { I18nProvider } from '@/components/I18nProvider';
 import { ThemeProvider } from '@/components/ThemeProvider';
 
 const fontSans = Inter({
@@ -34,16 +36,19 @@ const fontMono = JetBrains_Mono({
   variable: '--font-mono',
 });
 
-export const metadata: Metadata = {
-  description: 'Web console for editing Kestrel cloud places and routes.',
-  title: 'Kestrel Cloud',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('Metadata');
+  return { title: t('title'), description: t('description') };
+}
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  const locale = await getLocale();
+  const messages = await getMessages();
+  const t = await getTranslations('Framework');
   return (
     <html
       className={`${fontSans.variable} ${fontMono.variable}`}
-      lang="en"
+      lang={locale}
       suppressHydrationWarning
       style={{ colorScheme: 'light dark' }}
     >
@@ -51,9 +56,11 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <Script id="kestrel-theme-init" strategy="beforeInteractive">
           {themeInitScript}
         </Script>
-        <ThemeProvider>
-          <AuthProvider>{children}</AuthProvider>
-        </ThemeProvider>
+        <I18nProvider locale={locale} messages={messages} fallbackMessage={t('messageUnavailable')}>
+          <ThemeProvider>
+            <AuthProvider>{children}</AuthProvider>
+          </ThemeProvider>
+        </I18nProvider>
       </body>
     </html>
   );

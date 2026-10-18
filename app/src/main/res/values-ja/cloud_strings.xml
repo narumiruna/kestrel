@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="cloud_request_failed">クラウドへのリクエストに失敗しました。もう一度お試しください。</string>
+    <string name="cloud_sign_in_failed">サインインできませんでした。サインイン情報を確認して、もう一度お試しください。</string>
+    <string name="cloud_sync_failed">クラウド同期に失敗しました。ローカルの変更は保持されています。同期をやり直してください。</string>
+    <string name="cloud_remote_failed">リモート操作に失敗しました。接続を確認して、もう一度お試しください。</string>
+    <string name="cloud_qr_failed">QR サインインに失敗しました。再試行するか、新しいコードを読み取ってください。</string>
+    <string name="cloud_server_settings_failed">このクラウドサーバーを利用できませんでした。サーバー URL を確認して、もう一度お試しください。</string>
+    <string name="cloud_network_error">クラウドサーバーに接続できませんでした。接続を確認して、もう一度お試しください。</string>
+    <string name="cloud_invalid_response">クラウドサーバーから無効な応答が返されました。もう一度お試しください。</string>
+    <string name="cloud_invalid_input">リクエストが無効です。入力内容を確認して、もう一度お試しください。</string>
+    <string name="cloud_invalid_credentials">サインインできませんでした。ユーザー名、パスワード、認証コードを確認してください。</string>
+    <string name="cloud_session_expired">セッションの有効期限が切れました。サインインし直してください。</string>
+    <string name="cloud_permission_denied">この操作は許可されていません。アカウントの権限を確認して、もう一度お試しください。</string>
+    <string name="cloud_not_found">このクラウド項目は利用できなくなりました。更新してから、もう一度お試しください。</string>
+    <string name="cloud_conflict">クラウドのデータが変更されました。同期して競合を確認してから、もう一度お試しください。</string>
+    <string name="cloud_expired_request">リクエストの有効期限が切れました。操作をやり直してください。</string>
+    <string name="cloud_rate_limited">リクエストが多すぎます。しばらくしてからお試しください。</string>
+    <string name="cloud_server_unavailable">クラウドサーバーを一時的に利用できません。しばらくしてからお試しください。</string>
+    <string name="cloud_request_rejected">クラウドへのリクエストに失敗しました（HTTP %1$s）。もう一度お試しください。</string>
+    <string name="cloud_sync_cursor_expired">同期にはクラウドデータの更新が必要です。同期をやり直してください。</string>
+    <string name="cloud_sync_mutation_conflict">同期の変更が以前のリクエストと競合しています。更新して保留中の変更を確認してください。</string>
+    <string name="cloud_sync_upload_failed">一部の変更をアップロードできませんでした。ローカルの変更は保持されています。同期をやり直してください。</string>
+    <string name="cloud_remote_enabled">%1$s のリモート操作を有効にしました</string>
+    <string name="cloud_remote_disabled">リモート操作は無効です</string>
+    <string name="cloud_remote_still_enabled">サーバーではリモート操作がまだ有効です</string>
+    <string name="cloud_remote_sign_in_required">Web リモート操作を使うには、クラウドにサインインしてください。</string>
+    <string name="cloud_remote_sign_in_to_disable">サーバーのリモート操作を無効にするには、クラウドにサインインしてください。</string>
+    <string name="cloud_remote_waiting">Web コマンドを待機中</string>
+    <string name="cloud_remote_command_applied">Web コマンドを適用しました</string>
+    <string name="cloud_remote_command_failed">Web コマンドに失敗しました。模擬位置情報の権限とコマンド設定を確認して、もう一度お試しください。</string>
+    <string name="cloud_remote_command_invalid">Web コマンドが無効です。位置やルートの設定を確認して、再送信してください。</string>
+    <string name="cloud_remote_command_timeout">Web コマンドがタイムアウトしました。現在の模擬位置情報の状態を確認してから、もう一度お試しください。</string>
+    <string name="cloud_mock_permission_required">Android の開発者向けオプションで、仮の現在地情報アプリに Kestrel を選んでください。</string>
+    <string name="cloud_sign_in_required">先にクラウドにサインインしてください。</string>
+    <string name="cloud_sign_out_required">クラウドサーバーを変更したり、別のサインインを始めたりする前に、サインアウトしてください。</string>
+    <string name="cloud_oidc_cancelled">ブラウザーでのサインインをキャンセルしました。準備ができたらやり直してください。</string>
+    <string name="cloud_oidc_restart">このブラウザーサインインはすでに待機状態ではありません。サインインをやり直してください。</string>
+    <string name="cloud_server_changed">サインイン中にクラウドサーバーが変更されました。サインインをやり直してください。</string>
+    <string name="cloud_qr_restart">この QR サインインはすでに待機状態ではありません。新しいコードを読み取ってください。</string>
+    <string name="cloud_qr_invalid">この QR サインインコードは無効です。Web のサインインページで新しいコードを読み取ってください。</string>
+    <string name="cloud_scanner_failed">QR コードを読み取れませんでした。もう一度読み取ってください。</string>
+    <string name="cloud_scanner_empty">読み取った QR コードにテキストがありません。Web ページのサインインコードを読み取ってください。</string>
+    <string name="cloud_storage_failed">クラウドセッションを安全に保存できませんでした。デバイスのストレージを確認し、サインインし直してください。</string>
+</resources>

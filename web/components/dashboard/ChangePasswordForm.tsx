@@ -1,11 +1,12 @@
 'use client';
 
 import { IconButton, TextField } from '@radix-ui/themes';
+import { useTranslations } from 'next-intl';
 import { type FormEvent, useState } from 'react';
-import { formatError } from '@/components/dashboard/utils';
 import { EyeClosedIcon, EyeOpenIcon } from '@/components/ui/icons';
 import { Button } from '@/components/ui/radix-ui';
-import type { ChangePasswordInput } from '@/lib/api';
+import { type ErrorKey, getErrorKey } from '@/i18n/errors';
+import { ApiError, type ChangePasswordInput } from '@/lib/api';
 
 type PasswordField = 'current' | 'new' | 'confirm';
 
@@ -20,6 +21,8 @@ export function ChangePasswordForm({
   onCancel?: () => void;
   onSuccess?: () => void;
 }) {
+  const t = useTranslations('ChangePassword');
+  const errorT = useTranslations('Errors');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -34,16 +37,14 @@ export function ChangePasswordForm({
     confirm: false,
   });
   const [isSaving, setIsSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [currentError, setCurrentError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [error, setError] = useState<{ key: ErrorKey; status: number } | null>(null);
+  const [notice, setNotice] = useState(false);
 
   const newPasswordValid = newPassword.length >= 12 && newPassword.length <= 256;
   const matches = confirmPassword === newPassword;
   const canSubmit =
     currentPassword.length > 0 && newPasswordValid && matches && confirmPassword.length > 0;
-  const currentFieldError =
-    currentError ?? (touched.current && !currentPassword ? 'Enter your current password.' : null);
+  const currentFieldError = touched.current && !currentPassword ? t('enterCurrent') : null;
   const newError = touched.new && !newPasswordValid;
   const confirmError = touched.confirm && (confirmPassword.length === 0 || !matches);
 
@@ -52,8 +53,7 @@ export function ChangePasswordForm({
     if (!canSubmit || isSaving) return;
 
     setError(null);
-    setCurrentError(null);
-    setNotice(null);
+    setNotice(false);
     setIsSaving(true);
     try {
       await onChangePassword({ currentPassword, newPassword });
@@ -62,15 +62,13 @@ export function ChangePasswordForm({
       setConfirmPassword('');
       setTouched({ current: false, new: false, confirm: false });
       setVisible({ current: false, new: false, confirm: false });
-      setNotice('Password changed successfully. Use your new password next time you sign in.');
+      setNotice(true);
       onSuccess?.();
     } catch (nextError) {
-      const message = formatError(nextError);
-      if (/invalid current password/i.test(message)) {
-        setCurrentError('Current password is incorrect. Please try again.');
-      } else {
-        setError(message);
-      }
+      setError({
+        key: getErrorKey(nextError),
+        status: nextError instanceof ApiError ? nextError.status : 0,
+      });
     } finally {
       setIsSaving(false);
     }
@@ -104,14 +102,13 @@ export function ChangePasswordForm({
           onBlur={() => setTouched((previous) => ({ ...previous, [key]: true }))}
           onChange={(event) => {
             onChange(event.target.value);
-            setNotice(null);
+            setNotice(false);
             setError(null);
-            if (key === 'current') setCurrentError(null);
           }}
         >
           <TextField.Slot side="right">
             <IconButton
-              aria-label={`${visible[key] ? 'Hide' : 'Show'} ${label.toLowerCase()}`}
+              aria-label={visible[key] ? t(`hide.${key}`) : t(`show.${key}`)}
               aria-pressed={visible[key]}
               className="password-visibility"
               disabled={isSaving}
@@ -138,20 +135,22 @@ export function ChangePasswordForm({
         tabIndex={-1}
         value={username}
       />
-      {notice == null ? null : (
+      {!notice ? null : (
         <div className="success" role="status">
-          {notice}
+          {t('success')}
         </div>
       )}
       {error == null ? null : (
         <div className="error" role="alert">
-          {error}
+          {error.key === 'unauthorized'
+            ? t('authenticationFailed')
+            : errorT(error.key, { status: error.status })}
         </div>
       )}
       <div>
         {field(
           'current',
-          'Current password',
+          t('current'),
           currentPassword,
           setCurrentPassword,
           'current-password',
@@ -167,7 +166,7 @@ export function ChangePasswordForm({
       <div>
         {field(
           'new',
-          'New password',
+          t('new'),
           newPassword,
           setNewPassword,
           'new-password',
@@ -175,13 +174,13 @@ export function ChangePasswordForm({
           'new-password-help',
         )}
         <p className={newError ? 'password-error' : 'password-hint'} id="new-password-help">
-          Use 12–256 characters for your new password.
+          {t('passwordHelp')}
         </p>
       </div>
       <div>
         {field(
           'confirm',
-          'Confirm new password',
+          t('confirm'),
           confirmPassword,
           setConfirmPassword,
           'new-password',
@@ -190,23 +189,21 @@ export function ChangePasswordForm({
         )}
         {confirmError ? (
           <p className="password-error" id="confirm-password-help" role="alert">
-            {confirmPassword.length === 0
-              ? 'Confirm your new password.'
-              : 'Passwords do not match.'}
+            {confirmPassword.length === 0 ? t('confirmRequired') : t('mismatch')}
           </p>
         ) : (
           <p className="password-hint" id="confirm-password-help">
-            Re-enter your new password to confirm.
+            {t('confirmHelp')}
           </p>
         )}
       </div>
       <div className="account-security-actions">
         <Button className="change-password-submit" disabled={!canSubmit || isSaving} type="submit">
-          {isSaving ? 'Updating password…' : 'Update password'}
+          {isSaving ? t('updating') : t('update')}
         </Button>
         {onCancel == null ? null : (
           <Button className="secondary" disabled={isSaving} type="button" onClick={onCancel}>
-            Cancel
+            {t('cancel')}
           </Button>
         )}
       </div>

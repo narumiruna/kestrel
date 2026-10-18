@@ -23,7 +23,10 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.unit.dp
+import dev.narumi.kestrel.R
 import dev.narumi.kestrel.core.data.FavoritesSortMode
+import dev.narumi.kestrel.core.i18n.appString
+import dev.narumi.kestrel.core.i18n.setAppContent
 import dev.narumi.kestrel.core.library.LibraryItem
 import dev.narumi.kestrel.core.library.LibraryItemKind
 import dev.narumi.kestrel.core.library.LibraryItemWithContent
@@ -43,7 +46,7 @@ class FavoritesPreviewInteractionTest {
     @Test
     fun searchCanBeClearedAndFiltersExposeSelection() {
         var query = ""
-        composeRule.setContent {
+        composeRule.setAppContent {
             var input by remember { mutableStateOf("") }
             var filter by remember { mutableStateOf(FavoritesFilter.All) }
             MaterialTheme {
@@ -63,18 +66,18 @@ class FavoritesPreviewInteractionTest {
                 )
             }
         }
-        composeRule.onNodeWithText("All").assertIsSelected()
-        composeRule.onNodeWithText("Search Favorites").performTextInput("Taipei")
+        composeRule.onNodeWithText(appString(R.string.filter_all)).assertIsSelected()
+        composeRule.onNodeWithText(appString(R.string.search_favorites)).performTextInput("Taipei")
         composeRule.runOnIdle { assertEquals("Taipei", query) }
-        composeRule.onNodeWithContentDescription("Clear search").performClick()
+        composeRule.onNodeWithContentDescription(appString(R.string.clear_search)).performClick()
         composeRule.runOnIdle { assertEquals("", query) }
-        composeRule.onNodeWithText("Routes").performClick().assertIsSelected()
+        composeRule.onNodeWithText(appString(R.string.filter_routes)).performClick().assertIsSelected()
     }
 
     @Test
     fun sortMenuKeepsCurrentChoiceVisibleAndOnlyWritesChanges() {
         val changes = mutableListOf<FavoritesSortMode.Mode>()
-        composeRule.setContent {
+        composeRule.setAppContent {
             MaterialTheme {
                 FavoritesToolbar(
                     query = "",
@@ -89,40 +92,40 @@ class FavoritesPreviewInteractionTest {
                 )
             }
         }
-        composeRule.onNodeWithText("Sort: Manual").performClick()
-        composeRule.onNodeWithText("Manual").performClick()
+        composeRule.onNodeWithText(appString(R.string.sort_1_s, appString(R.string.sort_manual))).performClick()
+        composeRule.onNodeWithText(appString(R.string.sort_manual)).performClick()
         composeRule.runOnIdle { assertEquals(emptyList<FavoritesSortMode.Mode>(), changes) }
-        composeRule.onNodeWithText("Sort: Manual").performClick()
-        composeRule.onNodeWithText("Recent").performClick()
+        composeRule.onNodeWithText(appString(R.string.sort_1_s, appString(R.string.sort_manual))).performClick()
+        composeRule.onNodeWithText(appString(R.string.sort_recent)).performClick()
         composeRule.runOnIdle { assertEquals(listOf(FavoritesSortMode.Mode.Recent), changes) }
     }
 
     @Test
     fun shortScreenCanScrollPastControlsToPreviewAction() {
         var previews = 0
-        composeRule.setContent {
+        composeRule.setAppContent {
             MaterialTheme {
                 Box(Modifier.width(320.dp).height(240.dp)) {
                     TestFavoritesContent(onApply = { previews++ })
                 }
             }
         }
-        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Preview on map"))
-        composeRule.onNodeWithText("Preview on map").assertIsDisplayed().performClick()
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText(appString(R.string.preview_on_map)))
+        composeRule.onNodeWithText(appString(R.string.preview_on_map)).assertIsDisplayed().performClick()
         composeRule.runOnIdle { assertEquals(1, previews) }
     }
 
     @Test
     fun errorFeedbackRemainsVisibleWithoutCoveringTheScrolledAction() {
-        composeRule.setContent {
+        composeRule.setAppContent {
             MaterialTheme {
                 Box(Modifier.width(320.dp).height(300.dp)) {
                     TestFavoritesContent(error = "Could not save. Try again.")
                 }
             }
         }
-        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Preview on map"))
-        val action = composeRule.onNodeWithText("Preview on map").assertIsDisplayed()
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText(appString(R.string.preview_on_map)))
+        val action = composeRule.onNodeWithText(appString(R.string.preview_on_map)).assertIsDisplayed()
         val feedback = composeRule.onNodeWithText("Could not save. Try again.").assertIsDisplayed()
 
         assertTrue(
@@ -133,20 +136,20 @@ class FavoritesPreviewInteractionTest {
 
     @Test
     fun noMatchesOffersResetInsteadOfLeavingFavorites() {
-        composeRule.setContent {
+        composeRule.setAppContent {
             MaterialTheme { TestFavoritesContent(initialQuery = "missing") }
         }
-        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Clear search and filters"))
-        composeRule.onNodeWithText("Clear search and filters").performClick()
-        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Preview on map"))
-        composeRule.onNodeWithText("Preview on map").assertIsDisplayed()
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText(appString(R.string.clear_search_and_filters)))
+        composeRule.onNodeWithText(appString(R.string.clear_search_and_filters)).performClick()
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText(appString(R.string.preview_on_map)))
+        composeRule.onNodeWithText(appString(R.string.preview_on_map)).assertIsDisplayed()
     }
 
     @Test
     fun pointCanBeSavedDirectlyAndSecondaryActionsStayInOverflow() {
         var saves = 0
         var clears = 0
-        composeRule.setContent {
+        composeRule.setAppContent {
             MaterialTheme {
                 DraftPreviewActionsCard(
                     waypointCount = 1,
@@ -158,20 +161,20 @@ class FavoritesPreviewInteractionTest {
                 )
             }
         }
-        composeRule.onNodeWithText("Save point").assertHeightIsAtLeast(48.dp).performClick()
-        composeRule.onNodeWithText("Clear preview").assertDoesNotExist()
-        composeRule.onNodeWithContentDescription("More preview actions").performClick()
+        composeRule.onNodeWithText(appString(R.string.save_point)).assertHeightIsAtLeast(48.dp).performClick()
+        composeRule.onNodeWithText(appString(R.string.clear_preview)).assertDoesNotExist()
+        composeRule.onNodeWithContentDescription(appString(R.string.more_preview_actions)).performClick()
         composeRule.runOnIdle {
             assertEquals(1, saves)
             assertEquals(0, clears)
         }
-        composeRule.onNodeWithText("Clear preview").performClick()
+        composeRule.onNodeWithText(appString(R.string.clear_preview)).performClick()
         composeRule.runOnIdle { assertEquals(1, clears) }
     }
 
     @Test
     fun applyingDraftDisablesSaveUndoAndOverflow() {
-        composeRule.setContent {
+        composeRule.setAppContent {
             MaterialTheme {
                 DraftPreviewActionsCard(
                     waypointCount = 2,
@@ -183,9 +186,9 @@ class FavoritesPreviewInteractionTest {
                 )
             }
         }
-        composeRule.onNodeWithText("Save route").assertIsNotEnabled()
-        composeRule.onNodeWithText("Undo last waypoint").assertIsNotEnabled()
-        composeRule.onNodeWithContentDescription("More preview actions").assertIsNotEnabled()
+        composeRule.onNodeWithText(appString(R.string.save_route)).assertIsNotEnabled()
+        composeRule.onNodeWithText(appString(R.string.undo_last_waypoint)).assertIsNotEnabled()
+        composeRule.onNodeWithContentDescription(appString(R.string.more_preview_actions)).assertIsNotEnabled()
     }
 }
 

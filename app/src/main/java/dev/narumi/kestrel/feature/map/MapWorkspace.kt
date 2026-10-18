@@ -12,9 +12,13 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.MultiplePermissionsState
+import dev.narumi.kestrel.R
 import dev.narumi.kestrel.core.data.CameraSnapshot
 import dev.narumi.kestrel.core.location.LatLng
 import dev.narumi.kestrel.core.map.KestrelMap
@@ -42,6 +46,8 @@ internal fun MapCanvas(
     onCenterOnMe: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val resources = LocalResources.current
+    val context = LocalContext.current
     Box(modifier = modifier.fillMaxSize()) {
         KestrelMap(
             modifier = Modifier.fillMaxSize(),
@@ -107,9 +113,9 @@ internal fun MapCanvas(
                     KestrelIcons.MyLocation,
                     contentDescription =
                         if (myLocation == null) {
-                            "Current location unavailable"
+                            resources.getString(R.string.current_location_unavailable)
                         } else {
-                            "Center on current location"
+                            resources.getString(R.string.center_on_current_location)
                         },
                 )
             }

@@ -3,14 +3,17 @@ import type { Place, Route } from '@/lib/api';
 export type LibrarySort = 'name' | 'updated';
 export type LibraryEntry = { kind: 'places'; item: Place } | { kind: 'routes'; item: Route };
 
-const names = new Intl.Collator('en', { numeric: true, sensitivity: 'base' });
-
 function updatedRank(entry: LibraryEntry): number {
   const timestamp = Date.parse(entry.item.updatedAt);
   return Number.isFinite(timestamp) ? timestamp : Number.NEGATIVE_INFINITY;
 }
 
-export function sortLibraryEntries(entries: LibraryEntry[], sort: LibrarySort): LibraryEntry[] {
+export function sortLibraryEntries(
+  entries: LibraryEntry[],
+  sort: LibrarySort,
+  locale = 'en',
+): LibraryEntry[] {
+  const names = new Intl.Collator(locale, { numeric: true, sensitivity: 'base' });
   return [...entries].sort((a, b) => {
     if (sort === 'updated') {
       const aRank = updatedRank(a);

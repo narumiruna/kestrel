@@ -8,8 +8,8 @@
     "build": "next build",
     "start": "next start --port 3301",
     "lint": "biome lint .",
-    "test": "node --experimental-strip-types --test components/dashboard/*.test.ts",
-    "typecheck": "next typegen && tsc --noEmit"
+    "test": "node --experimental-strip-types --test $(find app components i18n lib -name '*.test.ts')",
+    "typecheck": "next typegen && tsc --noEmit --incremental false"
   },
   "dependencies": {
     "@radix-ui/colors": "^3.0.0",
@@ -17,17 +17,20 @@
     "@radix-ui/themes": "^3.3.0",
     "maplibre-gl": "^6.14.0",
     "next": "^16.4.1",
+    "next-intl": "^4.14.9",
     "radix-ui": "^1.7.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.15",
+    "@formatjs/icu-messageformat-parser": "^3.5.21",
     "@types/geojson": "^7946.0.16",
     "@types/node": "^26.6.4",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@typescript/native": "npm:typescript@^7.0.2",
-    "typescript": "npm:typescript@^7.0.2"
+    "saxes": "^6.0.0",
+    "typescript": "npm:@typescript/typescript6@^6.0.2"
   }
 }

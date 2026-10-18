@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="cloud_request_failed">Żądanie do chmury nie powiodło się. Spróbuj ponownie.</string>
+    <string name="cloud_sign_in_failed">Nie udało się zalogować. Sprawdź dane logowania i spróbuj ponownie.</string>
+    <string name="cloud_sync_failed">Synchronizacja w chmurze nie powiodła się. Zachowano lokalne zmiany. Spróbuj zsynchronizować ponownie.</string>
+    <string name="cloud_remote_failed">Zdalne sterowanie nie powiodło się. Sprawdź połączenie i spróbuj ponownie.</string>
+    <string name="cloud_qr_failed">Logowanie kodem QR nie powiodło się. Spróbuj ponownie lub zeskanuj nowy kod.</string>
+    <string name="cloud_server_settings_failed">Nie udało się użyć tego serwera chmury. Sprawdź adres URL serwera i spróbuj ponownie.</string>
+    <string name="cloud_network_error">Nie udało się połączyć z serwerem chmury. Sprawdź połączenie i spróbuj ponownie.</string>
+    <string name="cloud_invalid_response">Serwer chmury zwrócił nieprawidłową odpowiedź. Spróbuj ponownie.</string>
+    <string name="cloud_invalid_input">Żądanie jest nieprawidłowe. Sprawdź wprowadzone wartości i spróbuj ponownie.</string>
+    <string name="cloud_invalid_credentials">Nie udało się zalogować. Sprawdź nazwę użytkownika, hasło i kod weryfikacyjny.</string>
+    <string name="cloud_session_expired">Sesja wygasła. Zaloguj się ponownie.</string>
+    <string name="cloud_permission_denied">To działanie jest niedozwolone. Sprawdź uprawnienia konta i spróbuj ponownie.</string>
+    <string name="cloud_not_found">Element w chmurze nie jest już dostępny. Odśwież i spróbuj ponownie.</string>
+    <string name="cloud_conflict">Dane w chmurze uległy zmianie. Zsynchronizuj i sprawdź konflikty przed kolejną próbą.</string>
+    <string name="cloud_expired_request">Żądanie wygasło. Rozpocznij działanie ponownie.</string>
+    <string name="cloud_rate_limited">Zbyt wiele żądań. Poczekaj przed kolejną próbą.</string>
+    <string name="cloud_server_unavailable">Serwer chmury jest tymczasowo niedostępny. Spróbuj ponownie później.</string>
+    <string name="cloud_request_rejected">Żądanie do chmury nie powiodło się (HTTP %1$s). Spróbuj ponownie.</string>
+    <string name="cloud_sync_cursor_expired">Synchronizacja musi odświeżyć dane z chmury. Spróbuj zsynchronizować ponownie.</string>
+    <string name="cloud_sync_mutation_conflict">Zmiana synchronizacji koliduje z wcześniejszym żądaniem. Odśwież i sprawdź oczekujące zmiany.</string>
+    <string name="cloud_sync_upload_failed">Nie udało się wysłać niektórych zmian. Zachowano lokalne zmiany. Spróbuj zsynchronizować ponownie.</string>
+    <string name="cloud_remote_enabled">Zdalne sterowanie włączone dla %1$s</string>
+    <string name="cloud_remote_disabled">Zdalne sterowanie wyłączone</string>
+    <string name="cloud_remote_still_enabled">Zdalne sterowanie jest nadal włączone na serwerze</string>
+    <string name="cloud_remote_sign_in_required">Zaloguj się do chmury, aby używać zdalnego sterowania przez przeglądarkę.</string>
+    <string name="cloud_remote_sign_in_to_disable">Zaloguj się do chmury, aby wyłączyć zdalne sterowanie na serwerze.</string>
+    <string name="cloud_remote_waiting">Oczekiwanie na polecenia z przeglądarki</string>
+    <string name="cloud_remote_command_applied">Zastosowano polecenie z przeglądarki</string>
+    <string name="cloud_remote_command_failed">Polecenie z przeglądarki nie powiodło się. Sprawdź uprawnienia pozorowania lokalizacji i ustawienia polecenia, a następnie spróbuj ponownie.</string>
+    <string name="cloud_remote_command_invalid">Polecenie z przeglądarki jest nieprawidłowe. Sprawdź ustawienia lokalizacji lub trasy i wyślij je ponownie.</string>
+    <string name="cloud_remote_command_timeout">Upłynął limit czasu polecenia z przeglądarki. Sprawdź bieżący stan pozorowania lokalizacji przed kolejną próbą.</string>
+    <string name="cloud_mock_permission_required">Wybierz Kestrel jako aplikację do pozorowania lokalizacji w opcjach programistycznych Android.</string>
+    <string name="cloud_sign_in_required">Najpierw zaloguj się do chmury.</string>
+    <string name="cloud_sign_out_required">Wyloguj się przed zmianą serwera chmury lub rozpoczęciem kolejnego logowania.</string>
+    <string name="cloud_oidc_cancelled">Logowanie przez przeglądarkę zostało anulowane. Rozpocznij je ponownie, gdy będziesz gotowy.</string>
+    <string name="cloud_oidc_restart">To logowanie przez przeglądarkę nie jest już oczekujące. Rozpocznij logowanie ponownie.</string>
+    <string name="cloud_server_changed">Serwer chmury zmienił się podczas logowania. Rozpocznij logowanie ponownie.</string>
+    <string name="cloud_qr_restart">To logowanie kodem QR nie jest już oczekujące. Zeskanuj nowy kod.</string>
+    <string name="cloud_qr_invalid">Ten kod QR logowania jest nieprawidłowy. Zeskanuj nowy kod ze strony logowania w przeglądarce.</string>
+    <string name="cloud_scanner_failed">Nie udało się zeskanować kodu QR. Spróbuj ponownie.</string>
+    <string name="cloud_scanner_empty">Zeskanowany kod QR nie zawiera tekstu. Zeskanuj kod logowania ze strony internetowej.</string>
+    <string name="cloud_storage_failed">Nie udało się bezpiecznie zapisać sesji w chmurze. Sprawdź pamięć urządzenia i zaloguj się ponownie.</string>
+</resources>

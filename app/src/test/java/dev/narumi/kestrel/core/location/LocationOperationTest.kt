@@ -1,96 +1,56 @@
 package dev.narumi.kestrel.core.location
 
+import dev.narumi.kestrel.R
+import dev.narumi.kestrel.core.i18n.UiMessage
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class LocationOperationTest {
     @Test
     fun routeValidationAcceptsSupportedBoundaryValues() {
-        assertNull(
-            validateRouteRequest(
-                waypoints = listOf(LatLng(-90.0, -180.0), LatLng(90.0, 180.0)),
-                speedKmh = Double.MIN_VALUE,
-            ),
-        )
+        assertNull(validateRouteRequest(listOf(LatLng(-90.0, -180.0), LatLng(90.0, 180.0)), Double.MIN_VALUE))
     }
 
     @Test
-    fun routeValidationRejectsIncompleteAndInvalidRequests() {
-        assertEquals(
-            "A route needs at least two waypoints.",
-            validateRouteRequest(listOf(LatLng(0.0, 0.0)), 10.0),
-        )
-        assertEquals(
-            "Every waypoint must contain valid latitude and longitude values.",
-            validateRouteRequest(listOf(LatLng(0.0, 0.0), LatLng(91.0, 0.0)), 10.0),
-        )
-        assertEquals(
-            "Route speed must be greater than zero.",
-            validateRouteRequest(listOf(LatLng(0.0, 0.0), LatLng(1.0, 1.0)), 0.0),
-        )
+    fun routeValidationRetainsResourceIdentityForLateResolution() {
+        assertEquals(UiMessage(R.string.location_two_waypoints), validateRouteRequest(listOf(LatLng(0.0, 0.0)), 10.0))
+        assertEquals(UiMessage(R.string.location_invalid_waypoint), validateRouteRequest(listOf(LatLng(0.0, 0.0), LatLng(91.0, 0.0)), 10.0))
+        assertEquals(UiMessage(R.string.location_positive_speed), validateRouteRequest(listOf(LatLng(0.0, 0.0), LatLng(1.0, 1.0)), 0.0))
     }
 
     @Test
     fun routeSettingsUpdateAcceptsSpeedAndModePartialUpdates() {
-        assertEquals(
-            RouteSettingsUpdate(speedKmh = 12.0, mode = null),
-            parseRouteSettingsUpdate(speedKmh = 12.0, modeName = null),
-        )
-        assertEquals(
-            RouteSettingsUpdate(speedKmh = null, mode = MovementEngine.Mode.PingPong),
-            parseRouteSettingsUpdate(speedKmh = null, modeName = MovementEngine.Mode.PingPong.name),
-        )
+        assertEquals(RouteSettingsUpdate(12.0, null), parseRouteSettingsUpdate(12.0, null))
+        assertEquals(RouteSettingsUpdate(null, MovementEngine.Mode.PingPong), parseRouteSettingsUpdate(null, MovementEngine.Mode.PingPong.name))
     }
 
     @Test
-    fun routeSettingsUpdateRejectsMalformedExtrasWithDomainMessages() {
+    fun routeSettingsUpdateRejectsMalformedExtrasWithTypedReasons() {
         listOf(0.0, -1.0, Double.NaN, Double.POSITIVE_INFINITY).forEach { speed ->
             assertEquals(
-                "Route speed must be a finite number greater than zero km/h.",
-                assertThrows(IllegalArgumentException::class.java) {
-                    parseRouteSettingsUpdate(speedKmh = speed, modeName = null)
-                }.message,
+                UiMessage(R.string.location_invalid_speed),
+                assertThrows(LocationRequestException::class.java) { parseRouteSettingsUpdate(speed, null) }.reason,
             )
         }
         assertEquals(
-            "Choose a valid playback mode.",
-            assertThrows(IllegalArgumentException::class.java) {
-                parseRouteSettingsUpdate(speedKmh = null, modeName = "unsupported")
-            }.message,
+            UiMessage(R.string.location_invalid_mode),
+            assertThrows(LocationRequestException::class.java) { parseRouteSettingsUpdate(null, "unsupported") }.reason,
         )
         assertEquals(
-            "Choose a speed or playback mode to change.",
-            assertThrows(IllegalArgumentException::class.java) {
-                parseRouteSettingsUpdate(speedKmh = null, modeName = null)
-            }.message,
+            UiMessage(R.string.location_choose_setting),
+            assertThrows(LocationRequestException::class.java) { parseRouteSettingsUpdate(null, null) }.reason,
         )
     }
 
     @Test
-    fun securityFailuresProduceActionableNonTechnicalMessage() {
-        val message =
-            mockOperationErrorMessage(
-                SecurityException("provider denied secret detail"),
-                previousMockActive = false,
-            )
-
-        assertTrue(message.contains("mock location"))
-        assertTrue(message.contains("permissions"))
-        assertTrue(!message.contains("secret detail"))
-    }
-
-    @Test
-    fun unexpectedFailuresDescribeWhetherPreviousMockWasPreserved() {
-        assertTrue(
-            mockOperationErrorMessage(IllegalStateException(), previousMockActive = true)
-                .contains("previous mock is still active"),
-        )
-        assertTrue(
-            mockOperationErrorMessage(IllegalStateException(), previousMockActive = false)
-                .contains("No mock was started"),
-        )
+    fun failuresNeverExposeExceptionProseAndKeepPreviousMockContext() {
+        assertEquals(UiMessage(R.string.location_permission_error), mockOperationErrorMessage(SecurityException("secret detail"), false))
+        assertEquals(UiMessage(R.string.location_invalid_request), mockOperationErrorMessage(IllegalArgumentException("secret detail"), false))
+        assertEquals(UiMessage(R.string.location_failed_previous_active), mockOperationErrorMessage(IllegalStateException(), true))
+        assertEquals(UiMessage(R.string.location_failed_no_mock), mockOperationErrorMessage(IllegalStateException(), false))
+        val reason = UiMessage(R.string.location_route_changed)
+        assertEquals(reason, mockOperationErrorMessage(LocationRequestException(reason), true))
     }
 }

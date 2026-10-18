@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useLocale, useTranslations } from 'next-intl';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { MagnifyingGlassIcon, PlusIcon, SewingPinIcon } from '@/components/ui/icons';
 import { Button, TextInput } from '@/components/ui/radix-ui';
@@ -19,22 +20,26 @@ export function FavoriteWaypointPicker({
   places: Place[];
   showHeading?: boolean;
 }) {
+  const t = useTranslations('FavoriteWaypointPicker');
+  const locale = useLocale();
   const [query, setQuery] = useState('');
   const [copiedPlaceId, setCopiedPlaceId] = useState<string | null>(null);
   const copiedTimeoutRef = useRef<number | null>(null);
   const filteredPlaces = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
+    const normalizedQuery = query.trim().toLocaleLowerCase(locale);
 
     if (normalizedQuery.length === 0) {
       return places;
     }
 
     return places.filter((place) => {
-      const haystack = [place.name, place.description ?? '', ...place.tags].join(' ').toLowerCase();
+      const haystack = [place.name, place.description ?? '', ...place.tags]
+        .join(' ')
+        .toLocaleLowerCase(locale);
 
       return haystack.includes(normalizedQuery);
     });
-  }, [places, query]);
+  }, [places, query, locale]);
 
   useEffect(
     () => () => {
@@ -64,7 +69,7 @@ export function FavoriteWaypointPicker({
   if (places.length === 0) {
     return (
       <div className="favorite-picker empty-state">
-        <p className="muted">No saved places yet.</p>
+        <p className="muted">{t('noSavedPlacesYet')}</p>
         <Link
           href="/dashboard/library/places"
           onClick={(event) => {
@@ -73,7 +78,7 @@ export function FavoriteWaypointPicker({
             }
           }}
         >
-          Create a saved place first
+          {t('createASavedPlaceFirst')}
         </Link>
       </div>
     );
@@ -83,11 +88,11 @@ export function FavoriteWaypointPicker({
     <section className="favorite-picker stack">
       {showHeading ? (
         <div>
-          <h3>Add from saved places</h3>
+          <h3>{t('addFromSavedPlaces')}</h3>
           <p className="muted">
             {mode === 'start'
-              ? 'Pick a saved place as the first waypoint, or click the map to start manually.'
-              : 'Append a saved place, or click the map to add a custom point.'}
+              ? t('pickASavedPlaceAsTheFirstWaypointOrClick')
+              : t('appendASavedPlaceOrClickTheMapToAdd')}
           </p>
         </div>
       ) : null}
@@ -95,12 +100,12 @@ export function FavoriteWaypointPicker({
         htmlFor="radix-field-components-dashboard-favoritewaypointpicker-tsx-1"
         className="favorite-search"
       >
-        Search saved places
+        {t('searchSavedPlaces')}
         <span className="favorite-search-box">
           <MagnifyingGlassIcon />
           <TextInput
             id="radix-field-components-dashboard-favoritewaypointpicker-tsx-1"
-            placeholder="Search saved places..."
+            placeholder={t('searchSavedPlaces2')}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
           />
@@ -119,18 +124,18 @@ export function FavoriteWaypointPicker({
                 onClick={() => onSelect(place)}
               >
                 <PlusIcon />
-                Add
+                {t('add')}
               </Button>
             </span>
             <Button
-              aria-label={`Copy coordinates for ${place.name}`}
+              aria-label={t('copyCoordinates', { name: place.name })}
               className="coordinate-copy muted mono"
               type="button"
               onClick={() => void copyFavoriteCoords(place)}
             >
               {formatFavoritePlaceCoords(place)}
               {copiedPlaceId === place.id ? (
-                <span className="coordinate-copy-tooltip">copied</span>
+                <span className="coordinate-copy-tooltip">{t('copied')}</span>
               ) : null}
             </Button>
             {place.tags.length === 0 ? null : (
@@ -144,7 +149,7 @@ export function FavoriteWaypointPicker({
             )}
           </div>
         ))}
-        {filteredPlaces.length === 0 ? <p className="muted">No saved places match.</p> : null}
+        {filteredPlaces.length === 0 ? <p className="muted">{t('noSavedPlacesMatch')}</p> : null}
       </div>
     </section>
   );

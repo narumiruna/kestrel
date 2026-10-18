@@ -15,15 +15,18 @@ export function getRouteViewportControlState(
   };
 }
 
-export function getRouteMapInstruction(capability: RouteMapCapability): string {
+export function getRouteMapInstruction(
+  capability: RouteMapCapability,
+  t: (key: 'loading' | 'ready' | 'previewError' | 'unavailable') => string,
+): string {
   switch (capability) {
     case 'loading':
-      return 'Map loading. Add a saved place or exact coordinates while you wait.';
+      return t('loading');
     case 'ready':
-      return 'Click the map, choose a saved place, or enter exact coordinates.';
+      return t('ready');
     case 'route-preview-error':
-      return 'Route preview unavailable. Use saved places, exact coordinates, or Manage all waypoints.';
+      return t('previewError');
     case 'unavailable':
-      return 'Map unavailable. Use saved places, exact coordinates, or Manage all waypoints.';
+      return t('unavailable');
   }
 }

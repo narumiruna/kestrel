@@ -18,7 +18,7 @@ data class CameraSnapshot(
     val lat: Double,
     val lng: Double,
     val zoom: Double,
-)
+) : java.io.Serializable
 
 @Serializable
 data class FavoritesSortMode(

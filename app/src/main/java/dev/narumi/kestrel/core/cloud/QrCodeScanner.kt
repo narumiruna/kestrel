@@ -25,6 +25,7 @@ internal sealed interface QrCodeScanResult {
 
     data class Failure(
         val message: String,
+        val uiMessage: CloudMessage = CloudMessage(CloudMessageId.ScannerFailed),
     ) : QrCodeScanResult
 }
 
@@ -57,7 +58,7 @@ internal class GoogleQrCodeScanner(
                     val rawValue = barcode.rawValue
                     continuation.resume(
                         if (rawValue.isNullOrBlank()) {
-                            QrCodeScanResult.Failure("The scanned QR code has no text")
+                            QrCodeScanResult.Failure("The scanned QR code has no text", CloudMessage(CloudMessageId.ScannerEmpty))
                         } else {
                             QrCodeScanResult.Success(rawValue)
                         },

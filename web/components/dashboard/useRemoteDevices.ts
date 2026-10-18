@@ -1,8 +1,9 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '@/components/AuthProvider';
-import { formatError } from '@/components/dashboard/utils';
+import { errorMessage } from '@/i18n/errors';
 import type {
   CreateRemoteCommandRequest,
   RemoteCommand,
@@ -22,12 +23,14 @@ export type PollCommandStatusOptions = {
 };
 
 export function useRemoteDevices() {
+  const t = useTranslations('Remote');
+  const errorT = useTranslations('Errors');
   const auth = useAuth();
   const isAuthReady = auth.isHydrated && auth.isAuthenticated;
   const mountedRef = useRef(false);
   const authReadyRef = useRef(isAuthReady);
   const [devices, setDevices] = useState<RemoteDevice[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<unknown>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   const controllableDevices = useMemo(
@@ -77,7 +80,7 @@ export function useRemoteDevices() {
         return response.devices;
       } catch (nextError) {
         if (mountedRef.current && authReadyRef.current) {
-          setError(formatError(nextError));
+          setError(nextError);
         }
 
         throw nextError;
@@ -103,7 +106,7 @@ export function useRemoteDevices() {
   const createCommand = useCallback(
     async (deviceId: string, request: CreateRemoteCommandRequest): Promise<RemoteCommand> => {
       const device = devices.find((currentDevice) => currentDevice.id === deviceId) ?? null;
-      const unavailableReason = getRemoteDeviceUnavailableReason(device);
+      const unavailableReason = getRemoteDeviceUnavailableReason(device, t);
 
       if (unavailableReason != null) {
         throw new Error(unavailableReason);
@@ -120,7 +123,7 @@ export function useRemoteDevices() {
 
       return command;
     },
-    [auth, devices, loadDevices],
+    [auth, devices, loadDevices, t],
   );
 
   const pollCommandStatus = useCallback(
@@ -163,7 +166,12 @@ export function useRemoteDevices() {
     controllableDevices,
     createCommand,
     devices,
-    error,
+    error:
+      error == null
+        ? null
+        : errorMessage(error, (key, values) =>
+            ['unexpected', 'http', 'server'].includes(key) ? t('loadError') : errorT(key, values),
+          ),
     isLoading,
     pollCommandStatus,
     refresh: loadDevices,
@@ -174,21 +182,24 @@ export function isRemoteDeviceCommandReady(device: RemoteDevice): boolean {
   return device.revokedAt == null && device.online && device.remoteControlEnabled;
 }
 
-export function getRemoteDeviceUnavailableReason(device: RemoteDevice | null): string | null {
+export function getRemoteDeviceUnavailableReason(
+  device: RemoteDevice | null,
+  t: ReturnType<typeof useTranslations<'Remote'>>,
+): string | null {
   if (device == null) {
-    return 'Select a registered Android device.';
+    return t('selectDevice');
   }
 
   if (device.revokedAt != null) {
-    return 'This Android device was revoked. Sign in on Android to register it again.';
+    return t('revokedDevice');
   }
 
   if (!device.remoteControlEnabled) {
-    return 'Enable web remote control in Kestrel Options.';
+    return t('enableRemote');
   }
 
   if (!device.online) {
-    return 'Open Kestrel on Android to receive commands.';
+    return t('openAndroid');
   }
 
   return null;

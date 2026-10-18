@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useLocale, useTranslations } from 'next-intl';
 import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { AndroidQrLoginPanel } from '@/components/dashboard/AndroidQrLoginPanel';
 import { ChangePasswordForm } from '@/components/dashboard/ChangePasswordForm';
@@ -10,10 +11,11 @@ import {
   saveOidcLinkAttempt,
 } from '@/components/dashboard/oidcLinkState';
 import { useDashboardAuth } from '@/components/dashboard/useDashboardAuth';
-import { formatError } from '@/components/dashboard/utils';
+import { LanguageSelector } from '@/components/LanguageSelector';
 import { ArrowLeftIcon } from '@/components/ui/icons';
 import { Button, ConfirmDialog, DialogFrame, TextInput } from '@/components/ui/radix-ui';
 import { WorkspaceHeader } from '@/components/WorkspaceHeader';
+import { errorMessage } from '@/i18n/errors';
 import type {
   AuthMethods,
   AuthSessionSummary,
@@ -23,11 +25,19 @@ import type {
   RemoteDevice,
   RemoteDevicesResponse,
 } from '@/lib/api';
+import { describeSession, formatDate } from './accountPresentation';
 
 type PendingAction =
   | { id: string; kind: 'device'; label: string }
-  | { id: string; kind: 'session'; label: string }
-  | { kind: 'others'; label: string };
+  | { id: string; kind: 'session'; label: 'browser' | 'android' | 'web' }
+  | { kind: 'others' };
+
+type AccountTranslator = ReturnType<typeof useTranslations<'Account'>>;
+type AccountError = {
+  key: 'loadError' | 'linkError' | 'revokeError' | 'storageError';
+  cause?: unknown;
+};
+type AccountNotice = 'oidcLinked' | 'passwordChanged' | { action: PendingAction };
 
 const UNAVAILABLE_OIDC_LINK_STATUS: OidcLinkStatus = {
   displayName: 'OpenID Connect',
@@ -36,6 +46,8 @@ const UNAVAILABLE_OIDC_LINK_STATUS: OidcLinkStatus = {
 };
 
 export default function AccountSecurityPage() {
+  const t = useTranslations('Account');
+  const errorT = useTranslations('Errors');
   const auth = useDashboardAuth();
   const [sessions, setSessions] = useState<AuthSessionSummary[]>([]);
   const [devices, setDevices] = useState<RemoteDevice[]>([]);
@@ -44,8 +56,8 @@ export default function AccountSecurityPage() {
   const [areSessionsLoading, setAreSessionsLoading] = useState(true);
   const [areDevicesLoading, setAreDevicesLoading] = useState(true);
   const [isOidcLinkStatusLoading, setIsOidcLinkStatusLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [error, setError] = useState<AccountError | null>(null);
+  const [notice, setNotice] = useState<AccountNotice | null>(null);
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const [currentPassword, setCurrentPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -88,7 +100,7 @@ export default function AccountSecurityPage() {
       })
       .catch((nextError) => {
         if (isCurrentLoad()) {
-          setError(formatError(nextError));
+          setError({ key: 'loadError', cause: nextError });
         }
       })
       .finally(() => {
@@ -105,7 +117,7 @@ export default function AccountSecurityPage() {
       })
       .catch((nextError) => {
         if (isCurrentLoad()) {
-          setError(formatError(nextError));
+          setError({ key: 'loadError', cause: nextError });
         }
       })
       .finally(() => {
@@ -156,7 +168,7 @@ export default function AccountSecurityPage() {
     }
     const url = new URL(window.location.href);
     if (url.searchParams.get('oidc') === 'linked') {
-      setNotice('OIDC sign-in is now linked to this account.');
+      setNotice('oidcLinked');
       url.searchParams.delete('oidc');
       window.history.replaceState(null, '', `${url.pathname}${url.search}`);
     }
@@ -181,9 +193,10 @@ export default function AccountSecurityPage() {
     const clientNonce = createOidcLinkNonce();
     try {
       if (!saveOidcLinkAttempt(clientNonce)) {
-        throw new Error(
-          'Session storage is unavailable. Enable it before linking a sign-in method.',
-        );
+        clearOidcLinkState();
+        setError({ key: 'storageError' });
+        setIsSubmitting(false);
+        return;
       }
       const { authorizationUrl } = await auth.apiRequest<{ authorizationUrl: string }>(
         '/auth/oidc/link/start',
@@ -195,7 +208,7 @@ export default function AccountSecurityPage() {
       window.location.assign(authorizationUrl);
     } catch (nextError) {
       clearOidcLinkState();
-      setError(formatError(nextError));
+      setError({ key: 'linkError', cause: nextError });
       setIsSubmitting(false);
     }
   }
@@ -227,12 +240,12 @@ export default function AccountSecurityPage() {
           method: 'POST',
         });
       }
-      setNotice(`${pendingAction.label} revoked.`);
+      setNotice({ action: pendingAction });
       setPendingAction(null);
       setCurrentPassword('');
       loadSecurityData();
     } catch (nextError) {
-      setError(formatError(nextError));
+      setError({ key: 'revokeError', cause: nextError });
     } finally {
       setIsSubmitting(false);
     }
@@ -241,7 +254,7 @@ export default function AccountSecurityPage() {
   if (!auth.isHydrated || !auth.isAuthenticated || auth.session == null) {
     return (
       <main className="account-security-shell">
-        <p className="muted">Loading account security…</p>
+        <p className="muted">{t('loading')}</p>
       </main>
     );
   }
@@ -261,32 +274,40 @@ export default function AccountSecurityPage() {
       />
       <div className="account-security-shell">
         <Link className="account-security-back" href="/dashboard/map">
-          <ArrowLeftIcon aria-hidden /> Back to workspace
+          <ArrowLeftIcon aria-hidden /> {t('back')}
         </Link>
-        <nav className="account-section-nav" aria-label="Account security sections">
-          <a href="#sign-in-heading">Sign-in methods</a>
-          <a href="#sessions-heading">Active sessions</a>
-          <a href="#devices-heading">Android devices</a>
+        <nav className="account-section-nav" aria-label={t('sections')}>
+          <a href="#sign-in-heading">{t('signIn')}</a>
+          <a href="#sessions-heading">{t('sessions')}</a>
+          <a href="#devices-heading">{t('devices')}</a>
         </nav>
         <header className="account-security-header">
           <div>
-            <h1>Account security</h1>
-            <p className="muted no-margin">
-              Manage sign-in methods, active sessions, and remote-control devices.
-            </p>
+            <h1>{t('title')}</h1>
+            <p className="muted no-margin">{t('description')}</p>
           </div>
         </header>
 
         {error == null ? null : (
           <div className="error account-security-feedback" role="alert">
-            {error}
+            {error.cause == null
+              ? t(error.key)
+              : errorMessage(error.cause, (key, values) =>
+                  ['unexpected', 'http', 'server'].includes(key)
+                    ? t(error.key)
+                    : errorT(key, values),
+                )}
           </div>
         )}
         {notice == null ? null : (
           <div className="success account-security-feedback" role="status">
-            {notice}
+            {typeof notice === 'string'
+              ? t(notice)
+              : t('revokedNotice', { target: describeAction(notice.action, t) })}
           </div>
         )}
+
+        <LanguageSelector />
 
         <div className="account-security-grid">
           <section
@@ -295,27 +316,23 @@ export default function AccountSecurityPage() {
           >
             <div className="account-security-section-header">
               <div>
-                <h2 id="sign-in-heading">Sign-in methods</h2>
+                <h2 id="sign-in-heading">{t('signIn')}</h2>
               </div>
               {oidcLinkStatus?.linked ? (
-                <span className="chip remote-chip-online">linked</span>
+                <span className="chip remote-chip-online">{t('linked')}</span>
               ) : null}
             </div>
             {isOidcLinkStatusLoading || oidcLinkStatus == null ? (
-              <p className="muted">Loading sign-in methods…</p>
+              <p className="muted">{t('loadingSignIn')}</p>
             ) : !oidcLinkStatus.enabled ? (
-              <p className="muted">OIDC account linking is unavailable on this server.</p>
+              <p className="muted">{t('oidcUnavailable')}</p>
             ) : oidcLinkStatus.linked ? (
               <p className="muted">
-                {oidcLinkStatus.displayName} is linked. You can use it to sign in to this Kestrel
-                account.
+                {t('providerLinked', { provider: oidcLinkStatus.displayName })}
               </p>
             ) : (
               <>
-                <p className="muted">
-                  Link {oidcLinkStatus.displayName} to this existing Kestrel account. You will
-                  confirm your current password before continuing to the provider.
-                </p>
+                <p className="muted">{t('linkHelp', { provider: oidcLinkStatus.displayName })}</p>
                 <div className="account-security-actions">
                   <Button
                     className="secondary"
@@ -323,15 +340,15 @@ export default function AccountSecurityPage() {
                     type="button"
                     onClick={() => setIsOidcLinkOpen(true)}
                   >
-                    Link {oidcLinkStatus.displayName}
+                    {t('linkProvider', { provider: oidcLinkStatus.displayName })}
                   </Button>
                 </div>
               </>
             )}
             <div className="account-password-row">
               <div>
-                <h3>Password</h3>
-                <p className="muted no-margin">Update the password you use to sign in.</p>
+                <h3>{t('password')}</h3>
+                <p className="muted no-margin">{t('passwordHelp')}</p>
               </div>
               <Button
                 ref={passwordTriggerRef}
@@ -342,7 +359,7 @@ export default function AccountSecurityPage() {
                 disabled={isPasswordSaving}
                 onClick={() => setIsPasswordOpen((open) => !open)}
               >
-                Change password
+                {t('changePassword')}
               </Button>
             </div>
             {isPasswordOpen ? (
@@ -356,9 +373,7 @@ export default function AccountSecurityPage() {
                   onSuccess={() => {
                     shouldRestorePasswordFocusRef.current = true;
                     setIsPasswordOpen(false);
-                    setNotice(
-                      'Password changed successfully. Use your new password next time you sign in.',
-                    );
+                    setNotice('passwordChanged');
                   }}
                   onChangePassword={async (input) => {
                     setIsPasswordSaving(true);
@@ -376,20 +391,20 @@ export default function AccountSecurityPage() {
           <section className="panel account-security-panel" aria-labelledby="sessions-heading">
             <div className="account-security-section-header">
               <div>
-                <h2 id="sessions-heading">Active sessions</h2>
+                <h2 id="sessions-heading">{t('sessions')}</h2>
               </div>
               <Button
                 className="secondary"
                 disabled={areSessionsLoading || otherSessionCount === 0 || isSubmitting}
                 type="button"
-                onClick={() => setPendingAction({ kind: 'others', label: 'Other sessions' })}
+                onClick={() => setPendingAction({ kind: 'others' })}
               >
-                Revoke all others
+                {t('revokeOthers')}
               </Button>
             </div>
-            {areSessionsLoading ? <p className="muted">Loading sessions…</p> : null}
+            {areSessionsLoading ? <p className="muted">{t('loadingSessions')}</p> : null}
             {!areSessionsLoading && sessions.length === 0 ? (
-              <p className="muted">No active sessions were returned.</p>
+              <p className="muted">{t('noSessions')}</p>
             ) : null}
             <div className="account-security-list">
               {visibleSessions.map((session) => (
@@ -417,9 +432,7 @@ export default function AccountSecurityPage() {
                 type="button"
                 onClick={() => setShowAllSessions((current) => !current)}
               >
-                {showAllSessions
-                  ? 'Show fewer sessions'
-                  : `Show ${hiddenSessionCount} more sessions`}
+                {showAllSessions ? t('showFewer') : t('showMore', { count: hiddenSessionCount })}
               </Button>
             ) : null}
           </section>
@@ -434,19 +447,13 @@ export default function AccountSecurityPage() {
           <section className="panel account-security-panel" aria-labelledby="devices-heading">
             <div className="account-security-section-header">
               <div>
-                <h2 id="devices-heading">Android devices</h2>
+                <h2 id="devices-heading">{t('devices')}</h2>
               </div>
             </div>
-            <p className="muted">
-              Revoking a device also revokes the Android session that last registered it. A command
-              already delivered to Android may still finish.
-            </p>
-            {areDevicesLoading ? <p className="muted">Loading devices…</p> : null}
+            <p className="muted">{t('deviceRevokeHelp')}</p>
+            {areDevicesLoading ? <p className="muted">{t('loadingDevices')}</p> : null}
             {!areDevicesLoading && devices.length === 0 ? (
-              <p className="muted">
-                No Android devices registered. Enable web remote control in Kestrel Options to add
-                one.
-              </p>
+              <p className="muted">{t('noDevices')}</p>
             ) : null}
             <div className="account-security-list">
               {devices.map((device) => (
@@ -464,10 +471,12 @@ export default function AccountSecurityPage() {
         </div>
 
         <DialogFrame
-          description={`Enter your current Kestrel password, then authenticate with ${oidcLinkStatus?.displayName ?? 'the OIDC provider'}.`}
-          eyebrow="Add sign-in method"
+          description={t('oidcDescription', {
+            provider: oidcLinkStatus?.displayName ?? t('oidcProvider'),
+          })}
+          eyebrow={t('addSignIn')}
           open={isOidcLinkOpen}
-          title={`Link ${oidcLinkStatus?.displayName ?? 'OIDC'}`}
+          title={t('linkProvider', { provider: oidcLinkStatus?.displayName ?? t('oidc') })}
           onOpenChange={(open) => {
             if (!isSubmitting) {
               setIsOidcLinkOpen(open);
@@ -479,7 +488,7 @@ export default function AccountSecurityPage() {
         >
           <form className="account-security-confirm-form" onSubmit={submitOidcLink}>
             <label htmlFor="radix-field-app-dashboard-account-page-tsx-oidc-password">
-              Current Kestrel password
+              {t('currentKestrelPassword')}
               <TextInput
                 id="radix-field-app-dashboard-account-page-tsx-oidc-password"
                 autoComplete="current-password"
@@ -499,29 +508,31 @@ export default function AccountSecurityPage() {
                   setOidcCurrentPassword('');
                 }}
               >
-                Cancel
+                {t('cancel')}
               </Button>
               <Button disabled={isSubmitting} type="submit">
-                {isSubmitting ? 'Continuing…' : 'Continue to provider'}
+                {isSubmitting ? t('continuing') : t('continueProvider')}
               </Button>
             </div>
           </form>
         </DialogFrame>
 
         <ConfirmDialog
-          confirmLabel="Sign out"
-          description="This browser session will end immediately. You will need to sign in again."
+          confirmLabel={t('signOut')}
+          description={t('signOutDescription')}
           open={isSignOutOpen}
-          title="Sign out this session?"
+          title={t('signOutTitle')}
           onConfirm={revokeCurrentSession}
           onOpenChange={setIsSignOutOpen}
         />
 
         <DialogFrame
-          description="Enter your current password. Existing credentials are accepted even if they predate the current password-length policy."
-          eyebrow="Confirm sensitive action"
+          description={t('sensitiveDescription')}
+          eyebrow={t('confirmSensitive')}
           open={pendingAction != null}
-          title={`Revoke ${pendingAction?.label ?? 'access'}`}
+          title={t('revokeTitle', {
+            target: pendingAction == null ? t('access') : describeAction(pendingAction, t),
+          })}
           onOpenChange={(open) => {
             if (!open && !isSubmitting) {
               setPendingAction(null);
@@ -531,7 +542,7 @@ export default function AccountSecurityPage() {
         >
           <form className="account-security-confirm-form" onSubmit={submitSensitiveAction}>
             <label htmlFor="radix-field-app-dashboard-account-page-tsx-1">
-              Current password
+              {t('currentPassword')}
               <TextInput
                 id="radix-field-app-dashboard-account-page-tsx-1"
                 autoComplete="current-password"
@@ -551,10 +562,10 @@ export default function AccountSecurityPage() {
                   setCurrentPassword('');
                 }}
               >
-                Cancel
+                {t('cancel')}
               </Button>
               <Button className="danger" disabled={isSubmitting} type="submit">
-                {isSubmitting ? 'Revoking…' : 'Revoke access'}
+                {isSubmitting ? t('revoking') : t('revokeAccess')}
               </Button>
             </div>
           </form>
@@ -573,21 +584,33 @@ function SessionRow({
   onRevoke: () => void;
   session: AuthSessionSummary;
 }) {
+  const t = useTranslations('Account');
+  const locale = useLocale();
   return (
     <article className="account-security-row">
       <div>
         <div className="account-security-row-title">
-          <strong>{describeSession(session)}</strong>
-          {session.isCurrent ? <span className="chip remote-chip-online">current</span> : null}
+          <strong>{t(`sessionKind.${describeSession(session)}`)}</strong>
+          {session.isCurrent ? (
+            <span className="chip remote-chip-online">{t('current')}</span>
+          ) : null}
         </div>
-        <p className="muted no-margin">{session.userAgent ?? 'Unknown client'}</p>
+        <p className="muted no-margin">{session.userAgent ?? t('unknownClient')}</p>
         <p className="muted no-margin">
-          Last used {formatDate(session.lastUsedAt)} · Expires {formatDate(session.expiresAt)}
-          {session.ipAddress == null ? '' : ` · ${session.ipAddress}`}
+          {session.ipAddress == null
+            ? t('sessionDates', {
+                lastUsed: formatDate(session.lastUsedAt, locale),
+                expires: formatDate(session.expiresAt, locale),
+              })
+            : t('sessionDatesWithIp', {
+                lastUsed: formatDate(session.lastUsedAt, locale),
+                expires: formatDate(session.expiresAt, locale),
+                ip: session.ipAddress,
+              })}
         </p>
       </div>
       <Button className="danger secondary" disabled={disabled} type="button" onClick={onRevoke}>
-        {session.isCurrent ? 'Sign out' : 'Revoke'}
+        {session.isCurrent ? t('signOut') : t('revoke')}
       </Button>
     </article>
   );
@@ -602,9 +625,11 @@ function DeviceRow({
   disabled: boolean;
   onRevoke: () => void;
 }) {
+  const t = useTranslations('Account');
+  const locale = useLocale();
   const isOnline = device.revokedAt == null && device.online;
   const status = device.revokedAt != null ? 'revoked' : isOnline ? 'online' : 'offline';
-  const playback = device.state?.playbackState.toLowerCase() ?? 'not reported';
+  const playback = t(`playback.${device.state?.playbackState ?? 'unknown'}`);
 
   return (
     <article className="account-security-row">
@@ -612,15 +637,19 @@ function DeviceRow({
         <div className="account-security-row-title">
           <strong>{device.name}</strong>
           <span className={`chip ${isOnline ? 'remote-chip-online' : 'remote-chip-offline'}`}>
-            {status}
+            {t(`deviceStatus.${status}`)}
           </span>
         </div>
         <p className="muted no-margin">
-          Playback: {playback} · Remote {device.remoteControlEnabled ? 'enabled' : 'disabled'}
+          {t('devicePlayback', { playback, enabled: device.remoteControlEnabled ? 'yes' : 'no' })}
         </p>
         <p className="muted no-margin">
-          Last seen {formatDate(device.lastSeenAt)}
-          {device.appVersion == null ? '' : ` · Kestrel ${device.appVersion}`}
+          {device.appVersion == null
+            ? t('lastSeen', { date: formatDate(device.lastSeenAt, locale) })
+            : t('lastSeenVersion', {
+                date: formatDate(device.lastSeenAt, locale),
+                version: device.appVersion,
+              })}
         </p>
       </div>
       <Button
@@ -629,27 +658,13 @@ function DeviceRow({
         type="button"
         onClick={onRevoke}
       >
-        {device.revokedAt == null ? 'Revoke' : 'Revoked'}
+        {device.revokedAt == null ? t('revoke') : t('revoked')}
       </Button>
     </article>
   );
 }
 
-function describeSession(session: AuthSessionSummary): string {
-  if (session.isCurrent) {
-    return 'This browser';
-  }
-
-  if (session.userAgent?.toLowerCase().includes('android')) {
-    return 'Android session';
-  }
-
-  return 'Web session';
-}
-
-function formatDate(value: string): string {
-  return new Intl.DateTimeFormat('en-US', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(new Date(value));
+function describeAction(action: PendingAction, t: AccountTranslator): string {
+  if (action.kind === 'others') return t('otherSessions');
+  return action.kind === 'device' ? action.label : t(`sessionKind.${action.label}`);
 }

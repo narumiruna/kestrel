@@ -35,7 +35,7 @@ class CloudSessionStore(
         val encodedValue = encrypt(json.encodeToString(CloudSession.serializer(), session))
         if (!prefs.edit().putString(KEY_SESSION, encodedValue).commit()) {
             prefs.edit().remove(KEY_SESSION).commit()
-            error("Failed to persist cloud session")
+            throw CloudMessageException(CloudMessage(CloudMessageId.StorageFailed))
         }
     }
 

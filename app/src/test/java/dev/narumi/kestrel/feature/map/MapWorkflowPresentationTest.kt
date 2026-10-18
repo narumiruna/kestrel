@@ -16,6 +16,14 @@ class MapWorkflowPresentationTest {
     }
 
     @Test
+    fun collapsedSheetScalesWithTextAndStaysInsideTheViewport() {
+        assertEquals(200f, mapSheetPeekHeightDp(1f, 600f), 0f)
+        assertEquals(300f, mapSheetPeekHeightDp(1.5f, 600f), 0f)
+        assertEquals(200f, mapSheetPeekHeightDp(0.85f, 600f), 0f)
+        assertEquals(240f, mapSheetPeekHeightDp(1.5f, 240f), 0f)
+    }
+
+    @Test
     fun phaseKeepsSetupAndActiveReplacementStateExplicit() {
         assertEquals(
             MapWorkflowPhase.Setup,
@@ -59,24 +67,6 @@ class MapWorkflowPresentationTest {
                 12.0,
                 MovementEngine.Mode.Loop,
             ),
-        )
-    }
-
-    @Test
-    fun summariesCompareCurrentAndPreviewWithoutImplementationTerms() {
-        val route =
-            RuntimeState.Route(
-                waypoints = listOf(LatLng(0.0, 0.0), LatLng(1.0, 1.0)),
-                speedKmh = 12.0,
-                mode = MovementEngine.Mode.Loop,
-                paused = false,
-                playbackId = "test-playback",
-            )
-
-        assertEquals("Route · 2 waypoints · 12 km/h · Loop", currentMockSummary(route))
-        assertEquals(
-            "Route preview · 3 waypoints · 10 km/h · Ping-pong",
-            previewSummary(3, 10.0, MovementEngine.Mode.PingPong),
         )
     }
 }

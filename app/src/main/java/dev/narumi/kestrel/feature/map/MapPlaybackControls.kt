@@ -13,7 +13,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import dev.narumi.kestrel.R
+import dev.narumi.kestrel.core.i18n.displayNumber
 import dev.narumi.kestrel.core.location.LatLng
 import dev.narumi.kestrel.core.location.MovementEngine
 import dev.narumi.kestrel.ui.components.KestrelIconBadge
@@ -49,20 +54,22 @@ private fun StatusRow(
     speedKmh: Double,
     routeMode: MovementEngine.Mode,
 ) {
+    val resources = LocalResources.current
+    val context = LocalContext.current
     val (statusIcon, title, subtitle) =
         when (runState) {
             RunState.Idle -> {
                 Triple(
                     if (waypointCount > 1) KestrelIcons.RouteFilled else KestrelIcons.MyLocation,
                     when (waypointCount) {
-                        0 -> "Choose a location"
-                        1 -> "Point preview"
-                        else -> "$waypointCount-waypoint route"
+                        0 -> resources.getString(R.string.choose_a_location)
+                        1 -> resources.getString(R.string.point_preview)
+                        else -> resources.getQuantityString(R.plurals.route_waypoint_title, waypointCount, context.displayNumber(waypointCount, 0))
                     },
                     when (waypointCount) {
-                        0 -> "Tap the map or choose a saved target."
-                        1 -> "Start here, or add another waypoint for a route."
-                        else -> "Preview only · Start when you’re ready."
+                        0 -> resources.getString(R.string.tap_the_map_or_choose_a_saved_target)
+                        1 -> resources.getString(R.string.start_here_or_add_another_waypoint_for_a_route)
+                        else -> resources.getString(R.string.preview_only_start_when_you_re_ready)
                     },
                 )
             }
@@ -70,24 +77,24 @@ private fun StatusRow(
             RunState.Single -> {
                 Triple(
                     KestrelIcons.MyLocation,
-                    "Mocking single point",
-                    mockNow?.let { "%.5f, %.5f".format(it.lat, it.lng) } ?: "—",
+                    resources.getString(R.string.mocking_single_point),
+                    mockNow?.let { "%.5f, %.5f".format(java.util.Locale.US, it.lat, it.lng) } ?: "—",
                 )
             }
 
             RunState.RoutePlaying -> {
                 Triple(
                     KestrelIcons.Play,
-                    "Route playing",
-                    formatRouteStatusDetails(waypointCount, speedKmh, routeMode),
+                    resources.getString(R.string.route_playing),
+                    formatRouteStatusDetails(context, waypointCount, speedKmh, routeMode),
                 )
             }
 
             RunState.RoutePaused -> {
                 Triple(
                     KestrelIcons.Pause,
-                    "Route paused",
-                    formatRouteStatusDetails(waypointCount, speedKmh, routeMode),
+                    resources.getString(R.string.route_paused),
+                    formatRouteStatusDetails(context, waypointCount, speedKmh, routeMode),
                 )
             }
         }
@@ -123,13 +130,15 @@ private fun PrimaryActionRow(
     onPrimary: () -> Unit,
     onStop: () -> Unit,
 ) {
+    val resources = LocalResources.current
+    val context = LocalContext.current
     when (runState) {
         RunState.Idle -> {
             val label =
                 when {
-                    waypointCount == 0 -> "Generate random route"
-                    waypointCount == 1 -> "Mock this point"
-                    else -> "Play route"
+                    waypointCount == 0 -> resources.getString(R.string.generate_random_route)
+                    waypointCount == 1 -> resources.getString(R.string.mock_this_point)
+                    else -> resources.getString(R.string.play_route)
                 }
             val enabled = !operationPending && ready
             Button(
@@ -139,8 +148,8 @@ private fun PrimaryActionRow(
             ) {
                 Text(
                     when {
-                        operationPending -> "Applying…"
-                        !ready -> "Finish setup above"
+                        operationPending -> resources.getString(R.string.applying)
+                        !ready -> resources.getString(R.string.finish_setup_above)
                         else -> label
                     },
                 )
@@ -152,7 +161,7 @@ private fun PrimaryActionRow(
                 onClick = onStop,
                 enabled = !operationPending,
                 modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
-            ) { Text(if (operationPending) "Stopping…" else "Stop mock") }
+            ) { Text(if (operationPending) resources.getString(R.string.stopping) else resources.getString(R.string.stop_mock)) }
         }
 
         RunState.RoutePlaying, RunState.RoutePaused -> {
@@ -164,9 +173,9 @@ private fun PrimaryActionRow(
                 ) {
                     Text(
                         when {
-                            operationPending -> "Applying…"
-                            runState == RunState.RoutePlaying -> "Pause"
-                            else -> "Resume"
+                            operationPending -> resources.getString(R.string.applying)
+                            runState == RunState.RoutePlaying -> resources.getString(R.string.pause)
+                            else -> resources.getString(R.string.resume)
                         },
                     )
                 }
@@ -174,7 +183,7 @@ private fun PrimaryActionRow(
                     onClick = onStop,
                     enabled = !operationPending,
                     modifier = Modifier.weight(1f).heightIn(min = 48.dp),
-                ) { Text("Stop") }
+                ) { Text(stringResource(R.string.stop)) }
             }
         }
     }

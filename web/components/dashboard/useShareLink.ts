@@ -1,15 +1,18 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { useCallback, useState } from 'react';
 import { useAuth } from '@/components/AuthProvider';
-import { formatError } from '@/components/dashboard/utils';
+import { errorMessage } from '@/i18n/errors';
 import { ApiError, type ShareLink } from '@/lib/api';
 
 export function useShareLink(itemKind: 'places' | 'routes', itemId: string | null) {
   const auth = useAuth();
   const path = itemId == null ? null : `/${itemKind}/${itemId}/share-link`;
   const [shareLink, setShareLink] = useState<ShareLink | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const te = useTranslations('Errors');
+  const [failure, setError] = useState<unknown>(null);
+  const error = failure == null ? null : errorMessage(failure, te);
   const [isLoading, setIsLoading] = useState(false);
   const [isMutating, setIsMutating] = useState(false);
 
@@ -29,7 +32,7 @@ export function useShareLink(itemKind: 'places' | 'routes', itemId: string | nul
       if (nextError instanceof ApiError && nextError.status === 404) {
         setShareLink(null);
       } else {
-        setError(formatError(nextError));
+        setError(nextError);
       }
     } finally {
       setIsLoading(false);
@@ -53,7 +56,7 @@ export function useShareLink(itemKind: 'places' | 'routes', itemId: string | nul
         ),
       );
     } catch (nextError) {
-      setError(formatError(nextError));
+      setError(nextError);
     } finally {
       setIsMutating(false);
     }

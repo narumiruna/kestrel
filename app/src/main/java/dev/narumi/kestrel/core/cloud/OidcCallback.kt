@@ -87,7 +87,7 @@ private fun Map<String, List<String>>.singleValue(name: String): String {
     return values.single()
 }
 
-private fun decode(value: String): String = URLDecoder.decode(value, StandardCharsets.UTF_8)
+private fun decode(value: String): String = URLDecoder.decode(value, StandardCharsets.UTF_8.name())
 
 private fun sha256Hex(value: String): String =
     MessageDigest

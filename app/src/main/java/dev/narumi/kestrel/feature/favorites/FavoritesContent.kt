@@ -22,10 +22,14 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import dev.narumi.kestrel.R
 import dev.narumi.kestrel.core.data.FavoritesSortMode
 import dev.narumi.kestrel.core.library.LibraryItemWithContent
 import dev.narumi.kestrel.ui.components.KestrelEmptyState
@@ -56,6 +60,8 @@ internal fun FavoritesContent(
     onDelete: (LibraryItemWithContent) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val resources = LocalResources.current
+    val context = LocalContext.current
     val indicesById = remember(items) { items.mapIndexed { index, item -> item.item.id to index }.toMap() }
     Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
         Column(modifier = Modifier.widthIn(max = 840.dp).fillMaxSize()) {
@@ -66,8 +72,8 @@ internal fun FavoritesContent(
             ) {
                 item(key = "header") {
                     KestrelScreenHeader(
-                        title = "Favorites",
-                        subtitle = "Your places. Your next route.",
+                        title = resources.getString(R.string.nav_favorites),
+                        subtitle = resources.getString(R.string.your_places_your_next_route),
                         icon = KestrelIcons.FavoriteOutlined,
                     )
                 }
@@ -173,13 +179,14 @@ private fun FavoritesFeedback(
 
 @Composable
 private fun FavoritesLoading() {
+    val context = LocalContext.current
     Column(
         modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         CircularProgressIndicator()
-        Text("Loading Favorites…")
+        Text(stringResource(R.string.loading_favorites))
     }
 }
 
@@ -188,19 +195,21 @@ private fun FavoritesEmptyResults(
     emptyLibrary: Boolean,
     onAction: () -> Unit,
 ) {
+    val resources = LocalResources.current
+    val context = LocalContext.current
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
         KestrelEmptyState(
             icon = if (emptyLibrary) KestrelIcons.FavoriteOutlined else KestrelIcons.Search,
-            title = if (emptyLibrary) "No favorites yet" else "No matching Favorites",
+            title = if (emptyLibrary) resources.getString(R.string.no_favorites_yet) else resources.getString(R.string.no_matching_favorites),
             message =
                 if (emptyLibrary) {
-                    "Choose a point or route on the map, then save its preview."
+                    resources.getString(R.string.choose_a_point_or_route_on_the_map_then_save_its_preview)
                 } else {
-                    "Try another name or clear your search and filters."
+                    resources.getString(R.string.try_another_name_or_clear_your_search_and_filters)
                 },
         )
         Button(onClick = onAction) {
-            Text(if (emptyLibrary) "Choose on map" else "Clear search and filters")
+            Text(if (emptyLibrary) resources.getString(R.string.choose_on_map) else resources.getString(R.string.clear_search_and_filters))
         }
     }
 }

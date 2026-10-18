@@ -61,6 +61,10 @@ android {
         sourceCompatibility = JavaVersion.VERSION_26
         targetCompatibility = JavaVersion.VERSION_26
     }
+    lint {
+        checkReleaseBuilds = true
+        error += setOf("MissingTranslation", "ExtraTranslation", "StringFormatInvalid", "StringFormatMatches")
+    }
     buildFeatures {
         compose = true
     }
@@ -95,6 +99,7 @@ tasks.matching { it.name == "preReleaseBuild" }.configureEach {
 dependencies {
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.appcompat)
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.material3.adaptive.navigation.suite)
     implementation(libs.androidx.compose.material.icons.extended)

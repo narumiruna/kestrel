@@ -1,5 +1,9 @@
 package dev.narumi.kestrel.core.location
 
+import androidx.annotation.StringRes
+import dev.narumi.kestrel.R
+import dev.narumi.kestrel.core.i18n.UiMessage
+
 enum class LocationOperationAction {
     SetPoint,
     StartRoute,
@@ -13,8 +17,24 @@ data class LocationOperationResult(
     val requestId: String,
     val action: LocationOperationAction,
     val succeeded: Boolean,
-    val message: String,
+    val message: UiMessage,
 )
+
+internal class LocationRequestException(
+    val reason: UiMessage,
+) : IllegalArgumentException()
+
+internal fun requireLocation(
+    condition: Boolean,
+    @StringRes message: Int,
+) {
+    if (!condition) throw LocationRequestException(UiMessage(message))
+}
+
+internal fun <T : Any> requireLocationNotNull(
+    value: T?,
+    @StringRes message: Int,
+): T = value ?: throw LocationRequestException(UiMessage(message))
 
 internal data class RouteSettingsUpdate(
     val speedKmh: Double?,
@@ -25,14 +45,12 @@ internal fun parseRouteSettingsUpdate(
     speedKmh: Double?,
     modeName: String?,
 ): RouteSettingsUpdate {
-    require(speedKmh != null || modeName != null) { "Choose a speed or playback mode to change." }
-    require(speedKmh == null || (speedKmh.isFinite() && speedKmh > 0.0)) {
-        "Route speed must be a finite number greater than zero km/h."
-    }
+    requireLocation(speedKmh != null || modeName != null, R.string.location_choose_setting)
+    requireLocation(speedKmh == null || (speedKmh.isFinite() && speedKmh > 0.0), R.string.location_invalid_speed)
     val mode =
         modeName?.let { name ->
             MovementEngine.Mode.entries.firstOrNull { it.name == name }
-                ?: throw IllegalArgumentException("Choose a valid playback mode.")
+                ?: throw LocationRequestException(UiMessage(R.string.location_invalid_mode))
         }
     return RouteSettingsUpdate(speedKmh, mode)
 }
@@ -40,18 +58,18 @@ internal fun parseRouteSettingsUpdate(
 internal fun validateRouteRequest(
     waypoints: List<LatLng>,
     speedKmh: Double,
-): String? =
+): UiMessage? =
     when {
         waypoints.size < 2 -> {
-            "A route needs at least two waypoints."
+            UiMessage(R.string.location_two_waypoints)
         }
 
         waypoints.any { !it.lat.isFinite() || !it.lng.isFinite() || it.lat !in -90.0..90.0 || it.lng !in -180.0..180.0 } -> {
-            "Every waypoint must contain valid latitude and longitude values."
+            UiMessage(R.string.location_invalid_waypoint)
         }
 
         !speedKmh.isFinite() || speedKmh <= 0.0 -> {
-            "Route speed must be greater than zero."
+            UiMessage(R.string.location_positive_speed)
         }
 
         else -> {
@@ -62,21 +80,10 @@ internal fun validateRouteRequest(
 internal fun mockOperationErrorMessage(
     error: Throwable,
     previousMockActive: Boolean,
-): String =
+): UiMessage =
     when (error) {
-        is SecurityException -> {
-            "Kestrel could not use mock location. Recheck permissions and the selected mock-location app."
-        }
-
-        is IllegalArgumentException -> {
-            error.message ?: "The mock-location request is invalid."
-        }
-
-        else -> {
-            if (previousMockActive) {
-                "Kestrel could not apply the mock location. The previous mock is still active; try again."
-            } else {
-                "Kestrel could not apply the mock location. No mock was started; try again."
-            }
-        }
+        is LocationRequestException -> error.reason
+        is SecurityException -> UiMessage(R.string.location_permission_error)
+        is IllegalArgumentException -> UiMessage(R.string.location_invalid_request)
+        else -> UiMessage(if (previousMockActive) R.string.location_failed_previous_active else R.string.location_failed_no_mock)
     }

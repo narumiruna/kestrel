@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import { BrandMark } from '@/components/BrandMark';
@@ -14,13 +15,21 @@ import {
   saveOidcLinkExchange,
 } from '@/components/dashboard/oidcLinkState';
 import { Button } from '@/components/ui/radix-ui';
+import { errorMessage } from '@/i18n/errors';
 import { ApiError } from '@/lib/api';
 
+type CallbackError = {
+  key: 'sessionExpired' | 'cancelled' | 'failed' | 'saveFailed' | 'incomplete' | 'exchangeFailed';
+  cause?: unknown;
+};
+
 export default function OidcLinkCallbackPage() {
+  const t = useTranslations('Account.oidcCallback');
+  const errorT = useTranslations('Errors');
   const auth = useAuth();
   const router = useRouter();
   const startedRef = useRef(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<CallbackError | null>(null);
   const [isCompleting, setIsCompleting] = useState(true);
   const [pendingExchange, setPendingExchange] = useState<PendingOidcLinkExchange | null>(null);
 
@@ -44,7 +53,7 @@ export default function OidcLinkCallbackPage() {
           clearOidcLinkState();
           setPendingExchange(null);
         }
-        setError(nextError instanceof Error ? nextError.message : 'OIDC linking failed');
+        setError({ key: 'exchangeFailed', cause: nextError });
       } finally {
         setIsCompleting(false);
       }
@@ -61,7 +70,7 @@ export default function OidcLinkCallbackPage() {
     void (async () => {
       if (!auth.isAuthenticated) {
         clearOidcLinkState();
-        setError('Your Kestrel session is no longer active. Sign in and start linking again.');
+        setError({ key: 'sessionExpired' });
         setIsCompleting(false);
         return;
       }
@@ -71,18 +80,14 @@ export default function OidcLinkCallbackPage() {
       if (callback.type === 'error') {
         window.history.replaceState(null, '', window.location.pathname);
         clearOidcLinkState();
-        setError(
-          callback.errorCode === 'access_denied'
-            ? 'OIDC linking was cancelled.'
-            : 'OIDC could not complete account linking. Please try again.',
-        );
+        setError({ key: callback.errorCode === 'access_denied' ? 'cancelled' : 'failed' });
         setIsCompleting(false);
         return;
       }
       if (callback.type === 'success' && clientNonce != null) {
         const pending = { clientNonce, exchangeTicket: callback.exchangeTicket };
         if (!saveOidcLinkExchange(pending)) {
-          setError('Could not save the OIDC response. Reload this page to retry.');
+          setError({ key: 'saveFailed' });
           setIsCompleting(false);
           return;
         }
@@ -102,7 +107,7 @@ export default function OidcLinkCallbackPage() {
 
       window.history.replaceState(null, '', window.location.pathname);
       clearOidcLinkState();
-      setError('OIDC returned an incomplete account-linking response. Please try again.');
+      setError({ key: 'incomplete' });
       setIsCompleting(false);
     })();
   }, [auth.isAuthenticated, auth.isHydrated, completeExchange]);
@@ -110,25 +115,31 @@ export default function OidcLinkCallbackPage() {
   return (
     <main className="auth-page">
       <section className="card auth-card stack" aria-live="polite">
-        <BrandMark className="auth-brand" subtitle="Linking a sign-in method." titleAs="h1" />
+        <BrandMark className="auth-brand" subtitle={t('title')} titleAs="h1" />
         {error == null ? (
-          <p className="muted">Completing OIDC account linking…</p>
+          <p className="muted">{t('loading')}</p>
         ) : (
           <>
             <div className="error" role="alert">
-              {error}
+              {error.cause == null
+                ? t(error.key)
+                : errorMessage(error.cause, (key, values) =>
+                    ['unexpected', 'http', 'server'].includes(key)
+                      ? t(error.key)
+                      : errorT(key, values),
+                  )}
             </div>
             {pendingExchange != null ? (
               <Button
                 disabled={isCompleting}
                 onClick={() => void completeExchange(pendingExchange)}
               >
-                Retry linking
+                {t('retry')}
               </Button>
             ) : null}
             <Button asChild className="secondary">
               <Link href="/dashboard/account" onClick={clearOidcLinkState}>
-                Return to account security
+                {t('back')}
               </Link>
             </Button>
           </>

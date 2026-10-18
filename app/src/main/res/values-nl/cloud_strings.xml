@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="cloud_request_failed">Het cloudverzoek is mislukt. Probeer het opnieuw.</string>
+    <string name="cloud_sign_in_failed">Inloggen is mislukt. Controleer je inloggegevens en probeer het opnieuw.</string>
+    <string name="cloud_sync_failed">Cloudsynchronisatie is mislukt. Je lokale wijzigingen blijven behouden. Probeer opnieuw te synchroniseren.</string>
+    <string name="cloud_remote_failed">Bediening op afstand is mislukt. Controleer de verbinding en probeer het opnieuw.</string>
+    <string name="cloud_qr_failed">QR-aanmelding is mislukt. Probeer het opnieuw of scan een nieuwe code.</string>
+    <string name="cloud_server_settings_failed">Deze cloudserver kon niet worden gebruikt. Controleer de server-URL en probeer het opnieuw.</string>
+    <string name="cloud_network_error">Verbinding met de cloudserver is mislukt. Controleer je verbinding en probeer het opnieuw.</string>
+    <string name="cloud_invalid_response">De cloudserver gaf een ongeldig antwoord. Probeer het opnieuw.</string>
+    <string name="cloud_invalid_input">Het verzoek is ongeldig. Controleer de ingevoerde waarden en probeer het opnieuw.</string>
+    <string name="cloud_invalid_credentials">Inloggen is mislukt. Controleer je gebruikersnaam, wachtwoord en verificatiecode.</string>
+    <string name="cloud_session_expired">Je sessie is verlopen. Log opnieuw in.</string>
+    <string name="cloud_permission_denied">Deze actie is niet toegestaan. Controleer de toegang van je account en probeer het opnieuw.</string>
+    <string name="cloud_not_found">Het clouditem is niet meer beschikbaar. Vernieuw en probeer het opnieuw.</string>
+    <string name="cloud_conflict">De cloudgegevens zijn gewijzigd. Synchroniseer en controleer eventuele conflicten voordat je het opnieuw probeert.</string>
+    <string name="cloud_expired_request">Dit verzoek is verlopen. Start de actie opnieuw.</string>
+    <string name="cloud_rate_limited">Te veel verzoeken. Wacht voordat je het opnieuw probeert.</string>
+    <string name="cloud_server_unavailable">De cloudserver is tijdelijk niet beschikbaar. Probeer het later opnieuw.</string>
+    <string name="cloud_request_rejected">Het cloudverzoek is mislukt (HTTP %1$s). Probeer het opnieuw.</string>
+    <string name="cloud_sync_cursor_expired">De synchronisatie moet de cloudgegevens vernieuwen. Probeer opnieuw te synchroniseren.</string>
+    <string name="cloud_sync_mutation_conflict">Een synchronisatiewijziging conflicteert met een eerder verzoek. Vernieuw en controleer je openstaande wijzigingen.</string>
+    <string name="cloud_sync_upload_failed">Sommige wijzigingen konden niet worden geüpload. Je lokale wijzigingen blijven behouden. Probeer opnieuw te synchroniseren.</string>
+    <string name="cloud_remote_enabled">Bediening op afstand ingeschakeld voor %1$s</string>
+    <string name="cloud_remote_disabled">Bediening op afstand uitgeschakeld</string>
+    <string name="cloud_remote_still_enabled">Bediening op afstand is nog ingeschakeld op de server</string>
+    <string name="cloud_remote_sign_in_required">Log in bij de cloud om webbediening op afstand te gebruiken.</string>
+    <string name="cloud_remote_sign_in_to_disable">Log in bij de cloud om bediening op afstand op de server uit te schakelen.</string>
+    <string name="cloud_remote_waiting">Wachten op webopdrachten</string>
+    <string name="cloud_remote_command_applied">Webopdracht toegepast</string>
+    <string name="cloud_remote_command_failed">De webopdracht is mislukt. Controleer de toestemmingen voor gesimuleerde locaties en de opdrachtinstellingen en probeer het opnieuw.</string>
+    <string name="cloud_remote_command_invalid">De webopdracht is ongeldig. Controleer de locatie- of route-instellingen en verstuur de opdracht opnieuw.</string>
+    <string name="cloud_remote_command_timeout">De webopdracht heeft de tijdslimiet overschreden. Controleer de huidige status van de gesimuleerde locatie voordat je het opnieuw probeert.</string>
+    <string name="cloud_mock_permission_required">Kies Kestrel als app voor gesimuleerde locaties in de ontwikkelaarsopties van Android.</string>
+    <string name="cloud_sign_in_required">Log eerst in bij de cloud.</string>
+    <string name="cloud_sign_out_required">Log uit voordat je de cloudserver wijzigt of een andere aanmelding start.</string>
+    <string name="cloud_oidc_cancelled">Aanmelding via de browser is geannuleerd. Start opnieuw wanneer je klaar bent.</string>
+    <string name="cloud_oidc_restart">Deze browseraanmelding staat niet meer open. Start de aanmelding opnieuw.</string>
+    <string name="cloud_server_changed">De cloudserver is tijdens het inloggen gewijzigd. Start de aanmelding opnieuw.</string>
+    <string name="cloud_qr_restart">Deze QR-aanmelding staat niet meer open. Scan een nieuwe code.</string>
+    <string name="cloud_qr_invalid">Deze QR-aanmeldcode is ongeldig. Scan een nieuwe code van de webaanmeldpagina.</string>
+    <string name="cloud_scanner_failed">De QR-code kon niet worden gescand. Probeer opnieuw te scannen.</string>
+    <string name="cloud_scanner_empty">De gescande QR-code bevat geen tekst. Scan de aanmeldcode van de webpagina.</string>
+    <string name="cloud_storage_failed">De cloudsessie kon niet veilig worden opgeslagen. Controleer de apparaatopslag en log opnieuw in.</string>
+</resources>

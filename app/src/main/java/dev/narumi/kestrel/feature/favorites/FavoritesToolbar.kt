@@ -23,13 +23,18 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import dev.narumi.kestrel.R
 import dev.narumi.kestrel.core.data.FavoritesSortMode
+import dev.narumi.kestrel.core.i18n.displayNumber
 import dev.narumi.kestrel.core.library.label
 import dev.narumi.kestrel.ui.components.KestrelIcon
 import dev.narumi.kestrel.ui.components.KestrelIcons
@@ -46,13 +51,15 @@ internal fun FavoritesToolbar(
     onFilterChange: (FavoritesFilter) -> Unit,
     onSortModeChange: (FavoritesSortMode.Mode) -> Unit,
 ) {
+    val resources = LocalResources.current
+    val context = LocalContext.current
     val keyboard = LocalSoftwareKeyboardController.current
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         OutlinedTextField(
             value = query,
             onValueChange = onQueryChange,
-            modifier = Modifier.fillMaxWidth().semantics { contentDescription = "Search Favorites" },
-            placeholder = { Text("Search Favorites") },
+            modifier = Modifier.fillMaxWidth().semantics { contentDescription = resources.getString(R.string.search_favorites) },
+            placeholder = { Text(stringResource(R.string.search_favorites)) },
             shape = MaterialTheme.shapes.large,
             colors =
                 OutlinedTextFieldDefaults.colors(
@@ -64,7 +71,7 @@ internal fun FavoritesToolbar(
             trailingIcon = {
                 if (query.isNotEmpty()) {
                     IconButton(onClick = { onQueryChange("") }) {
-                        KestrelIcon(KestrelIcons.Dismiss, contentDescription = "Clear search")
+                        KestrelIcon(KestrelIcons.Dismiss, contentDescription = resources.getString(R.string.clear_search))
                     }
                 }
             },
@@ -77,7 +84,7 @@ internal fun FavoritesToolbar(
                 FilterChip(
                     selected = filter == selectedFilter,
                     onClick = { onFilterChange(filter) },
-                    label = { Text(filter.label()) },
+                    label = { Text(stringResource(filter.label())) },
                     leadingIcon = {
                         if (filter == selectedFilter) {
                             KestrelIcon(KestrelIcons.Confirm, contentDescription = null)
@@ -94,7 +101,7 @@ internal fun FavoritesToolbar(
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             Text(
-                text = "$resultCount of $totalCount ${if (totalCount == 1) "Favorite" else "Favorites"}",
+                text = resources.getQuantityString(R.plurals.favorite_result_count, totalCount, context.displayNumber(resultCount, 0), context.displayNumber(totalCount, 0)),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -109,20 +116,22 @@ private fun FavoritesSortMenu(
     enabled: Boolean,
     onSortModeChange: (FavoritesSortMode.Mode) -> Unit,
 ) {
+    val resources = LocalResources.current
+    val context = LocalContext.current
     var expanded by remember { mutableStateOf(false) }
     Box {
         TextButton(onClick = { expanded = true }, enabled = enabled) {
-            Text("Sort: ${sortMode.label()}")
+            Text(resources.getString(R.string.sort_1_s, resources.getString(sortMode.label())))
             KestrelIcon(KestrelIcons.Sort, contentDescription = null)
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             FavoritesSortMode.Mode.entries.forEach { mode ->
                 DropdownMenuItem(
-                    text = { Text(mode.label()) },
+                    text = { Text(resources.getString(mode.label())) },
                     enabled = enabled,
                     modifier =
                         Modifier.semantics {
-                            stateDescription = if (mode == sortMode) "Selected" else "Not selected"
+                            stateDescription = if (mode == sortMode) resources.getString(R.string.selected) else resources.getString(R.string.not_selected)
                         },
                     trailingIcon = {
                         if (mode == sortMode) {

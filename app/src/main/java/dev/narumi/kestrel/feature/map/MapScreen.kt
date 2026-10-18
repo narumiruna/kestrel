@@ -55,6 +55,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -64,11 +67,19 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.MultiplePermissionsState
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
+import dev.narumi.kestrel.R
 import dev.narumi.kestrel.core.data.CameraSnapshot
 import dev.narumi.kestrel.core.data.FavoritesSortMode
 import dev.narumi.kestrel.core.data.KestrelPrefs
 import dev.narumi.kestrel.core.data.RandomRoutePreference
 import dev.narumi.kestrel.core.data.StartupPreference
+import dev.narumi.kestrel.core.i18n.UiMessage
+import dev.narumi.kestrel.core.i18n.displayNumber
+import dev.narumi.kestrel.core.i18n.distance
+import dev.narumi.kestrel.core.i18n.labelResource
+import dev.narumi.kestrel.core.i18n.routeDetails
+import dev.narumi.kestrel.core.i18n.speed
+import dev.narumi.kestrel.core.i18n.waypointCount
 import dev.narumi.kestrel.core.library.LibraryItemKind
 import dev.narumi.kestrel.core.library.LibraryItemWithContent
 import dev.narumi.kestrel.core.library.LibraryRepository
@@ -185,11 +196,11 @@ private val DraftWaypointsSaver: Saver<List<LatLng>, List<Double>> =
 private data class PendingLocationOperation(
     val requestId: String,
     val clearDraftOnSuccess: Boolean,
-)
+) : java.io.Serializable
 
 private enum class GoToFavoriteFilter { All, Points, Routes }
 
-private sealed interface PendingFavorite {
+private sealed interface PendingFavorite : java.io.Serializable {
     data class Point(
         val target: LatLng,
     ) : PendingFavorite
@@ -217,34 +228,15 @@ private fun isValidRandomRoute(
 
 private fun formatMeters(value: Double): String = if (value % 1.0 == 0.0) value.toInt().toString() else value.toString()
 
-private fun formatDistance(meters: Double): String =
-    if (meters >= 1000.0) {
-        "%.1f km".format(meters / 1000.0)
-    } else {
-        "${formatMeters(meters)} m"
-    }
-
-private fun formatWaypointCount(count: Int): String = if (count == 1) "1 waypoint" else "$count waypoints"
-
-private fun formatSpeedKmh(value: Double): String =
-    if (value % 1.0 == 0.0) {
-        "${value.toInt()} km/h"
-    } else {
-        "%.1f km/h".format(Locale.US, value)
-    }
-
 internal fun formatRouteStatusDetails(
+    context: Context,
     waypointCount: Int,
     speedKmh: Double,
     routeMode: MovementEngine.Mode,
-): String = "${formatWaypointCount(waypointCount)} · ${formatSpeedKmh(speedKmh)} · ${routeMode.label()}"
+): String = context.routeDetails(waypointCount, speedKmh, routeMode)
 
-internal fun MovementEngine.Mode.label(): String =
-    when (this) {
-        MovementEngine.Mode.Once -> "Once"
-        MovementEngine.Mode.Loop -> "Loop"
-        MovementEngine.Mode.PingPong -> "Ping-pong"
-    }
+@Composable
+internal fun MovementEngine.Mode.label(): String = stringResource(labelResource())
 
 @OptIn(ExperimentalPermissionsApi::class, ExperimentalMaterial3Api::class)
 @Suppress("CyclomaticComplexMethod", "LongMethod")
@@ -257,6 +249,7 @@ fun MapScreen(
     onMapLinkPointConsumed: () -> Unit = {},
     onViewAllFavorites: () -> Unit = {},
 ) {
+    val resources = LocalResources.current
     val context = LocalContext.current
     val permissions =
         remember {
@@ -286,22 +279,22 @@ fun MapScreen(
     }
     var speedKmh by rememberSaveable { mutableStateOf(15.0) }
     var routeMode by rememberSaveable { mutableStateOf(MovementEngine.Mode.PingPong) }
-    var pendingFavorite by remember { mutableStateOf<PendingFavorite?>(null) }
-    var pendingLongPressPoint by remember { mutableStateOf<LatLng?>(null) }
-    var favoriteName by remember { mutableStateOf("") }
-    var cameraTarget by remember { mutableStateOf<CameraSnapshot?>(null) }
-    var awaitCurrentForStartup by remember { mutableStateOf(false) }
-    var lastCameraCenter by remember { mutableStateOf<LatLng?>(null) }
-    var showGenerateDialog by remember { mutableStateOf(false) }
-    var showGoToSheet by remember { mutableStateOf(false) }
-    var startupResolved by remember { mutableStateOf(false) }
-    var firstCameraIdleSeen by remember { mutableStateOf(false) }
-    var pendingLocationOperation by remember { mutableStateOf<PendingLocationOperation?>(null) }
-    var operationMessage by remember { mutableStateOf<String?>(null) }
-    var operationError by remember { mutableStateOf<String?>(null) }
-    var showReplaceConfirmation by remember { mutableStateOf(false) }
+    var pendingFavorite by rememberSaveable { mutableStateOf<PendingFavorite?>(null) }
+    var pendingLongPressPoint by rememberSaveable { mutableStateOf<LatLng?>(null) }
+    var favoriteName by rememberSaveable { mutableStateOf("") }
+    var cameraTarget by rememberSaveable { mutableStateOf<CameraSnapshot?>(null) }
+    var awaitCurrentForStartup by rememberSaveable { mutableStateOf(false) }
+    var lastCameraCenter by rememberSaveable { mutableStateOf<LatLng?>(null) }
+    var showGenerateDialog by rememberSaveable { mutableStateOf(false) }
+    var showGoToSheet by rememberSaveable { mutableStateOf(false) }
+    var startupResolved by rememberSaveable { mutableStateOf(false) }
+    var firstCameraIdleSeen by rememberSaveable { mutableStateOf(false) }
+    var pendingLocationOperation by rememberSaveable { mutableStateOf<PendingLocationOperation?>(null) }
+    var operationMessage by rememberSaveable { mutableStateOf<UiMessage?>(null) }
+    var operationError by rememberSaveable { mutableStateOf<UiMessage?>(null) }
+    var showReplaceConfirmation by rememberSaveable { mutableStateOf(false) }
     var favoriteSaving by remember { mutableStateOf(false) }
-    var favoriteError by remember { mutableStateOf<String?>(null) }
+    var favoriteError by rememberSaveable { mutableStateOf<UiMessage?>(null) }
 
     val myLocation by rememberCurrentLocation(permissionState.allPermissionsGranted)
 
@@ -407,12 +400,12 @@ fun MapScreen(
                 pendingLocationOperation?.clearDraftOnSuccess == true &&
                 runtimeMatchesDraft(runtimeState, waypoints, speedKmh, routeMode)
             ) {
-                operationMessage = "Mock changed, but its confirmation was delayed."
+                operationMessage = UiMessage(R.string.mock_changed_but_its_confirmation_was_delayed)
                 operationError = null
                 waypoints = emptyList()
             } else {
                 operationMessage = null
-                operationError = "Kestrel did not confirm the change. Check the current playback state and try again."
+                operationError = UiMessage(R.string.kestrel_did_not_confirm_the_change_check_the_current_playback_state_and)
             }
             pendingLocationOperation = null
         }
@@ -514,7 +507,7 @@ fun MapScreen(
                 waypoints = RouteGenerator.generate(origin, count, meters)
                 scope.launch {
                     val result =
-                        runPersistedAction("Preview ready, but Kestrel could not save these as the last-used generator values.") {
+                        runPersistedAction(UiMessage(R.string.preview_ready_but_kestrel_could_not_save_these_as_the_last_used_generato)) {
                             prefs.setLastRandomRouteSettings(count, meters)
                         }
                     if (result is PersistedActionResult.Failure) operationError = result.message
@@ -545,14 +538,14 @@ fun MapScreen(
             pending = pending,
             name = favoriteName,
             saving = favoriteSaving,
-            error = favoriteError,
+            error = favoriteError?.resolve(context),
             onNameChange = {
                 favoriteName = it
                 favoriteError = null
             },
             onConfirm = {
                 if (favoriteSaving) return@SaveFavoriteDialog
-                val name = favoriteName.trim().ifEmpty { "Favorite ${libraryItems.size + 1}" }
+                val name = favoriteName.trim().ifEmpty { resources.getString(R.string.favorite_1_s, context.displayNumber(libraryItems.size + 1, 0)) }
                 favoriteSaving = true
                 favoriteError = null
                 scope.launch {
@@ -560,7 +553,7 @@ fun MapScreen(
                         when (
                             val result =
                                 runPersistedAction(
-                                    failureMessage = "Could not save the Favorite. Check storage and try again.",
+                                    failureMessage = UiMessage(R.string.could_not_save_the_favorite_check_storage_and_try_again),
                                 ) {
                                     when (pending) {
                                         is PendingFavorite.Point -> {
@@ -583,7 +576,7 @@ fun MapScreen(
                                 }
                         ) {
                             PersistedActionResult.Success -> {
-                                operationMessage = "Saved $name to Favorites."
+                                operationMessage = UiMessage(R.string.saved_1_s_to_favorites, listOf((name).toString()))
                                 pendingFavorite = null
                                 favoriteName = ""
                             }
@@ -630,8 +623,8 @@ fun MapScreen(
 
     if (showReplaceConfirmation) {
         ConfirmReplaceMockDialog(
-            currentSummary = currentMockSummary(runtimeState),
-            newSummary = previewSummary(waypoints.size, speedKmh, routeMode),
+            currentSummary = currentMockSummary(context, runtimeState),
+            newSummary = previewSummary(context, waypoints.size, speedKmh, routeMode),
             onConfirm = {
                 showReplaceConfirmation = false
                 startDraftOperation()
@@ -651,9 +644,9 @@ fun MapScreen(
             routeMode = renderedRouteMode,
             draftSpeedKmh = speedKmh,
             draftRouteMode = routeMode,
-            currentSummary = currentMockSummary(runtimeState),
+            currentSummary = currentMockSummary(context, runtimeState),
             operationPending = pendingLocationOperation != null,
-            feedbackMessage = operationError ?: operationMessage,
+            feedbackMessage = (operationError ?: operationMessage)?.resolve(context),
             feedbackIsError = operationError != null,
             onSpeedChange = { speedKmh = it },
             onModeChange = { routeMode = it },
@@ -744,7 +737,7 @@ fun MapScreen(
             BottomSheetScaffold(
                 modifier = Modifier.fillMaxSize(),
                 scaffoldState = scaffoldState,
-                sheetPeekHeight = 200.dp,
+                sheetPeekHeight = mapSheetPeekHeightDp(LocalDensity.current.fontScale, maxHeight.value).dp,
                 sheetContainerColor = MaterialTheme.colorScheme.background,
                 sheetShadowElevation = 8.dp,
                 containerColor = MaterialTheme.colorScheme.background,
@@ -767,7 +760,9 @@ private fun GoToSheet(
     onViewAllFavorites: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    var input by remember { mutableStateOf("") }
+    val resources = LocalResources.current
+    val context = LocalContext.current
+    var input by rememberSaveable { mutableStateOf("") }
     var filter by rememberSaveable { mutableStateOf(GoToFavoriteFilter.All) }
     val parsed = parseCoordInput(input)
     val showInvalid = input.isNotBlank() && parsed == null
@@ -785,18 +780,18 @@ private fun GoToSheet(
                     .imePadding(),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text("Choose location or route", style = MaterialTheme.typography.titleLarge)
+            Text(resources.getString(R.string.choose_location_or_route), style = MaterialTheme.typography.titleLarge)
             Text(
-                text = "Preview a coordinate, Maps link, saved point, or saved route before starting it.",
+                text = resources.getString(R.string.preview_a_coordinate_maps_link_saved_point_or_saved_route_before_startin),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodyMedium,
             )
             OutlinedTextField(
                 value = input,
                 onValueChange = { input = it },
-                label = { Text("Coordinates or Maps URL") },
+                label = { Text(stringResource(R.string.coordinates_or_maps_url)) },
                 supportingText = {
-                    if (showInvalid) Text("Enter valid latitude and longitude values.")
+                    Text(stringResource(if (showInvalid) R.string.enter_valid_latitude_and_longitude_values else R.string.coordinate_decimal_hint))
                 },
                 isError = showInvalid,
                 singleLine = true,
@@ -806,7 +801,7 @@ private fun GoToSheet(
                 onClick = { parsed?.let(onApplyPoint) },
                 enabled = parsed != null,
                 modifier = Modifier.fillMaxWidth(),
-            ) { Text("Preview on map") }
+            ) { Text(stringResource(R.string.preview_on_map)) }
             GoToFavoritesSection(
                 items = items,
                 itemsLoading = itemsLoading,
@@ -828,6 +823,8 @@ private fun GoToFavoritesSection(
     onApplyItem: (LibraryItemWithContent) -> Unit,
     onViewAllFavorites: () -> Unit,
 ) {
+    val resources = LocalResources.current
+    val context = LocalContext.current
     val filteredItems =
         items
             .sortedFor(FavoritesSortMode.Mode.Recent)
@@ -836,11 +833,18 @@ private fun GoToFavoritesSection(
                     (filter == GoToFavoriteFilter.Points && it.kind == LibraryItemKind.Place) ||
                     (filter == GoToFavoriteFilter.Routes && it.kind == LibraryItemKind.Route)
             }
-    SectionLabel("Recent Favorites")
+    SectionLabel(resources.getString(R.string.recent_favorites))
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         GoToFavoriteFilter.entries.forEach { option ->
             ChipChoice(
-                label = option.name,
+                label =
+                    resources.getString(
+                        when (option) {
+                            GoToFavoriteFilter.All -> R.string.filter_all
+                            GoToFavoriteFilter.Points -> R.string.filter_points
+                            GoToFavoriteFilter.Routes -> R.string.filter_routes
+                        },
+                    ),
                 selected = filter == option,
                 enabled = true,
                 onClick = { onFilterChange(option) },
@@ -849,12 +853,12 @@ private fun GoToFavoritesSection(
     }
     when {
         itemsLoading -> {
-            Text("Loading Favorites…", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(resources.getString(R.string.loading_favorites), color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
 
         filteredItems.isEmpty() -> {
             Text(
-                "No Favorites match this filter. Choose a point on the map to create one.",
+                resources.getString(R.string.no_favorites_match_this_filter_choose_a_point_on_the_map_to_create_one),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
@@ -870,7 +874,7 @@ private fun GoToFavoritesSection(
     OutlinedButton(
         onClick = onViewAllFavorites,
         modifier = Modifier.fillMaxWidth(),
-    ) { Text("View all Favorites") }
+    ) { Text(stringResource(R.string.view_all_favorites)) }
 }
 
 @Composable
@@ -878,6 +882,7 @@ private fun GoToFavoriteRow(
     item: LibraryItemWithContent,
     onClick: () -> Unit,
 ) {
+    val context = LocalContext.current
     Row(
         modifier =
             Modifier
@@ -895,7 +900,7 @@ private fun GoToFavoriteRow(
         Column(modifier = Modifier.weight(1f)) {
             Text(item.name, style = MaterialTheme.typography.titleMedium)
             Text(
-                text = item.description(),
+                text = item.description(context),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -960,6 +965,8 @@ internal fun MapSheet(
     onPlayingSpeedChange: (Double) -> Unit = {},
     onPlayingModeChange: (MovementEngine.Mode) -> Unit = {},
 ) {
+    val resources = LocalResources.current
+    val context = LocalContext.current
     val runtimeActive = runState != RunState.Idle
     val statusWaypointCount = if (runtimeActive) waypointCount else draftWaypointCount
     var routeSettingsExpanded by rememberSaveable { mutableStateOf(false) }
@@ -1007,7 +1014,7 @@ internal fun MapSheet(
         if (runtimeActive && draftWaypointCount > 0) {
             ReplacementPreviewCard(
                 currentSummary = currentSummary,
-                previewSummary = previewSummary(draftWaypointCount, draftSpeedKmh, draftRouteMode),
+                previewSummary = previewSummary(context, draftWaypointCount, draftSpeedKmh, draftRouteMode),
                 applying = operationPending,
                 onReplace = onReplace,
                 onUndoLast = onUndoLast,
@@ -1029,7 +1036,7 @@ internal fun MapSheet(
                 onSpeedChange = onSpeedChange,
                 onModeChange = onModeChange,
                 enabled = !operationPending,
-                title = if (runtimeActive) "Preview route settings" else "Route settings",
+                title = if (runtimeActive) resources.getString(R.string.preview_route_settings) else resources.getString(R.string.route_settings),
             )
         }
         Spacer(Modifier.size(4.dp))
@@ -1083,24 +1090,26 @@ internal fun StatusBanner(
     onOpenDeveloperOptions: () -> Unit,
     onRefreshMockCheck: () -> Unit,
 ) {
+    val resources = LocalResources.current
+    val context = LocalContext.current
     val title =
         when (setupStep) {
-            MapSetupStep.Permissions -> "Permission needed"
-            MapSetupStep.MockLocationApp -> "Select Kestrel for mock location"
+            MapSetupStep.Permissions -> resources.getString(R.string.permission_needed)
+            MapSetupStep.MockLocationApp -> resources.getString(R.string.select_kestrel_for_mock_location)
             MapSetupStep.Ready -> return
         }
     val message =
         when (setupStep) {
             MapSetupStep.Permissions -> {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    "Allow location and notifications so mock GPS can run."
+                    resources.getString(R.string.allow_location_and_notifications_so_mock_gps_can_run)
                 } else {
-                    "Allow location so mock GPS can run."
+                    resources.getString(R.string.allow_location_so_mock_gps_can_run)
                 }
             }
 
             MapSetupStep.MockLocationApp -> {
-                "Open developer options and choose Kestrel as the mock location app."
+                resources.getString(R.string.open_developer_options_and_choose_kestrel_as_the_mock_location_app)
             }
 
             MapSetupStep.Ready -> {
@@ -1128,6 +1137,7 @@ internal fun SetupPromptCard(
     onOpenDeveloperOptions: () -> Unit = {},
     onRefreshMockCheck: () -> Unit = {},
 ) {
+    val context = LocalContext.current
     Card(
         modifier = modifier,
         colors =
@@ -1146,16 +1156,16 @@ internal fun SetupPromptCard(
                 when (setupStep) {
                     MapSetupStep.Permissions -> {
                         Button(onClick = onAllowPermissions) {
-                            Text("Allow permissions")
+                            Text(stringResource(R.string.allow_permissions))
                         }
                     }
 
                     MapSetupStep.MockLocationApp -> {
                         Button(onClick = onOpenDeveloperOptions) {
-                            Text("Open developer options")
+                            Text(stringResource(R.string.open_developer_options))
                         }
                         OutlinedButton(onClick = onRefreshMockCheck) {
-                            Text("Recheck")
+                            Text(stringResource(R.string.recheck))
                         }
                     }
 
@@ -1177,14 +1187,15 @@ private fun GenerateRouteDialog(
     onConfirm: (count: Int, meters: Double) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    var count by remember { mutableStateOf(initialPointCount.toString()) }
-    var meters by remember { mutableStateOf(formatMeters(initialSpacingMeters)) }
+    val context = LocalContext.current
+    var count by rememberSaveable { mutableStateOf(initialPointCount.toString()) }
+    var meters by rememberSaveable { mutableStateOf(formatMeters(initialSpacingMeters)) }
     val parsedCount = count.toIntOrNull()
     val parsedMeters = meters.toDoubleOrNull()
     val valid = isValidRandomRoute(parsedCount, parsedMeters)
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Generate random route") },
+        title = { Text(stringResource(R.string.generate_random_route)) },
         text = {
             GenerateRouteDialogContent(
                 count = count,
@@ -1201,10 +1212,10 @@ private fun GenerateRouteDialog(
             TextButton(
                 enabled = valid,
                 onClick = { onConfirm(parsedCount!!, parsedMeters!!) },
-            ) { Text("Preview route") }
+            ) { Text(stringResource(R.string.preview_route)) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
         },
     )
 }
@@ -1221,33 +1232,34 @@ private fun GenerateRouteDialogContent(
     onCountChange: (String) -> Unit,
     onMetersChange: (String) -> Unit,
 ) {
+    val resources = LocalResources.current
+    val context = LocalContext.current
     Column(
         modifier = Modifier.heightIn(max = 480.dp).verticalScroll(rememberScrollState()).imePadding(),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Text(
-            text = "Smooth random walk from the current map center.",
+            text = resources.getString(R.string.smooth_random_walk_from_the_current_map_center),
             style = MaterialTheme.typography.bodySmall,
         )
         Text(
-            text = if (usingLastSettings) "Using last used settings" else "Using default settings",
+            text = if (usingLastSettings) resources.getString(R.string.using_last_used_settings) else resources.getString(R.string.using_default_settings),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         if (existingDraftCount > 0) {
             Text(
                 text =
-                    "Previewing a generated route replaces your current " +
-                        "${formatWaypointCount(existingDraftCount)} draft. Active playback is unchanged.",
+                    resources.getString(R.string.previewing_a_generated_route_replaces_your_current_1_s_draft_active_play, (context.waypointCount(existingDraftCount)).toString()),
                 color = MaterialTheme.colorScheme.tertiary,
                 style = MaterialTheme.typography.bodySmall,
             )
         }
-        SectionLabel("Point count")
+        SectionLabel(resources.getString(R.string.point_count))
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf(20, 50, 100, 200).forEach { preset ->
                 ChipChoice(
-                    label = preset.toString(),
+                    label = context.displayNumber(preset, 0),
                     selected = parsedCount == preset,
                     enabled = true,
                     onClick = { onCountChange(preset.toString()) },
@@ -1257,15 +1269,15 @@ private fun GenerateRouteDialogContent(
         OutlinedTextField(
             value = count,
             onValueChange = { onCountChange(it.filter(Char::isDigit).take(4)) },
-            label = { Text("Point count (2–1000)") },
+            label = { Text(stringResource(R.string.point_count_2_1000)) },
             isError = count.isNotBlank() && !isValidPointCount(parsedCount),
             singleLine = true,
         )
-        SectionLabel("Spacing")
+        SectionLabel(resources.getString(R.string.spacing))
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf(50.0, 100.0, 500.0, 1000.0).forEach { preset ->
                 ChipChoice(
-                    label = formatDistance(preset),
+                    label = context.distance(preset),
                     selected = parsedMeters == preset,
                     enabled = true,
                     onClick = { onMetersChange(formatMeters(preset)) },
@@ -1275,12 +1287,12 @@ private fun GenerateRouteDialogContent(
         OutlinedTextField(
             value = meters,
             onValueChange = { onMetersChange(it.filter { ch -> ch.isDigit() || ch == '.' }.take(7)) },
-            label = { Text("Spacing meters (1–10000)") },
+            label = { Text(stringResource(R.string.spacing_meters_1_10000)) },
             isError = meters.isNotBlank() && !isValidSpacing(parsedMeters),
             singleLine = true,
         )
         Text(
-            text = "Estimated distance: ${estimatedRouteDistance(parsedCount, parsedMeters)}",
+            text = resources.getString(R.string.estimated_distance_1_s, (estimatedRouteDistance(context, parsedCount, parsedMeters)).toString()),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -1288,11 +1300,12 @@ private fun GenerateRouteDialogContent(
 }
 
 private fun estimatedRouteDistance(
+    context: Context,
     pointCount: Int?,
     spacingMeters: Double?,
 ): String =
     if (pointCount != null && spacingMeters != null) {
-        formatDistance((pointCount - 1).coerceAtLeast(0) * spacingMeters)
+        context.distance((pointCount - 1).coerceAtLeast(0) * spacingMeters)
     } else {
         "—"
     }
@@ -1307,15 +1320,17 @@ private fun SaveFavoriteDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val resources = LocalResources.current
+    val context = LocalContext.current
     val (title, supporting) =
         when (pending) {
             is PendingFavorite.Point -> {
-                "Save favorite" to "%.5f, %.5f".format(pending.target.lat, pending.target.lng)
+                resources.getString(R.string.save_favorite) to "%.5f, %.5f".format(java.util.Locale.US, pending.target.lat, pending.target.lng)
             }
 
             is PendingFavorite.Route -> {
-                "Save route" to
-                    "${pending.waypoints.size} waypoints · ${pending.speedKmh.toInt()} km/h"
+                resources.getString(R.string.save_route) to
+                    resources.getString(R.string.speed_and_mode, context.waypointCount(pending.waypoints.size), context.speed(pending.speedKmh))
             }
         }
     AlertDialog(
@@ -1327,7 +1342,7 @@ private fun SaveFavoriteDialog(
                 OutlinedTextField(
                     value = name,
                     onValueChange = onNameChange,
-                    label = { Text("Name") },
+                    label = { Text(stringResource(R.string.name)) },
                     enabled = !saving,
                 )
                 error?.let {
@@ -1341,10 +1356,10 @@ private fun SaveFavoriteDialog(
         },
         confirmButton = {
             TextButton(onClick = onConfirm, enabled = !saving) {
-                Text(if (saving) "Saving…" else "Save")
+                Text(if (saving) resources.getString(R.string.saving) else resources.getString(R.string.save))
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss, enabled = !saving) { Text("Cancel") } },
+        dismissButton = { TextButton(onClick = onDismiss, enabled = !saving) { Text(stringResource(R.string.cancel)) } },
     )
 }
 
@@ -1355,22 +1370,24 @@ private fun ConfirmReplaceMockDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val resources = LocalResources.current
+    val context = LocalContext.current
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Replace current mock?") },
+        title = { Text(stringResource(R.string.replace_current_mock_2)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Current: $currentSummary")
-                Text("New: $newSummary", style = MaterialTheme.typography.titleSmall)
+                Text(resources.getString(R.string.current_1_s, (currentSummary).toString()))
+                Text(resources.getString(R.string.new_1_s, (newSummary).toString()), style = MaterialTheme.typography.titleSmall)
                 Text(
-                    text = "The current mock keeps running unless you confirm.",
+                    text = resources.getString(R.string.the_current_mock_keeps_running_unless_you_confirm),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
         },
-        confirmButton = { Button(onClick = onConfirm) { Text("Replace current mock") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        confirmButton = { Button(onClick = onConfirm) { Text(stringResource(R.string.replace_current_mock)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
     )
 }
 
@@ -1382,25 +1399,27 @@ private fun LongPressActionDialog(
     onMockPoint: () -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val resources = LocalResources.current
+    val context = LocalContext.current
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Choose action") },
+        title = { Text(stringResource(R.string.choose_action)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Latitude: %.5f".format(Locale.US, point.lat))
-                Text("Longitude: %.5f".format(Locale.US, point.lng))
+                Text(resources.getString(R.string.coordinate_latitude, "%.5f".format(Locale.US, point.lat)))
+                Text(resources.getString(R.string.coordinate_longitude, "%.5f".format(Locale.US, point.lng)))
                 OutlinedButton(
                     onClick = onSaveFavorite,
                     modifier = Modifier.fillMaxWidth(),
-                ) { Text("Save favorite") }
+                ) { Text(stringResource(R.string.save_favorite)) }
                 OutlinedButton(
                     onClick = onMockPoint,
                     enabled = ready,
                     modifier = Modifier.fillMaxWidth(),
-                ) { Text("Mock this point") }
+                ) { Text(stringResource(R.string.mock_this_point)) }
             }
         },
         confirmButton = {},
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
     )
 }

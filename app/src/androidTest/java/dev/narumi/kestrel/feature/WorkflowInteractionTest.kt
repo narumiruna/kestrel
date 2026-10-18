@@ -6,7 +6,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.input.InputMode
+import androidx.compose.ui.input.InputModeManager
 import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.platform.LocalInputModeManager
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
@@ -24,10 +27,14 @@ import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.test.requestFocus
 import androidx.compose.ui.unit.dp
 import androidx.test.espresso.Espresso
+import dev.narumi.kestrel.R
+import dev.narumi.kestrel.core.i18n.appString
+import dev.narumi.kestrel.core.i18n.setAppContent
 import dev.narumi.kestrel.feature.map.MapFeedbackCard
 import dev.narumi.kestrel.feature.map.ReplacementPreviewCard
 import dev.narumi.kestrel.feature.options.OptionsDisclosureCard
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 
@@ -38,7 +45,7 @@ class WorkflowInteractionTest {
     fun replacementPreviewSeparatesConfirmAndCancelWithAccessibleTargets() {
         var replacements = 0
         var cancellations = 0
-        composeRule.setContent {
+        composeRule.setAppContent {
             MaterialTheme {
                 ReplacementPreviewCard(
                     currentSummary = "Route · 3 waypoints",
@@ -52,12 +59,12 @@ class WorkflowInteractionTest {
         }
 
         composeRule
-            .onNodeWithText("Replace current mock")
+            .onNodeWithText(appString(R.string.replace_current_mock))
             .assertHeightIsAtLeast(48.dp)
             .requestFocus()
             .assertIsFocused()
             .performKeyInput { pressKey(Key.Enter) }
-        composeRule.onNodeWithText("Cancel preview").assertHeightIsAtLeast(48.dp).performClick()
+        composeRule.onNodeWithText(appString(R.string.cancel_preview)).assertHeightIsAtLeast(48.dp).performClick()
 
         composeRule.runOnIdle {
             assertEquals(1, replacements)
@@ -67,7 +74,7 @@ class WorkflowInteractionTest {
 
     @Test
     fun applyingReplacementExplainsWhyThePrimaryActionIsDisabled() {
-        composeRule.setContent {
+        composeRule.setAppContent {
             MaterialTheme {
                 ReplacementPreviewCard(
                     currentSummary = "Route · 3 waypoints",
@@ -80,12 +87,14 @@ class WorkflowInteractionTest {
             }
         }
 
-        composeRule.onNodeWithText("Replacing…").assertIsNotEnabled()
+        composeRule.onNodeWithText(appString(R.string.replacing)).assertIsNotEnabled()
     }
 
     @Test
     fun backClosesASettingsDraftBeforeLeavingTheScreen() {
-        composeRule.setContent {
+        lateinit var inputModeManager: InputModeManager
+        composeRule.setAppContent {
+            inputModeManager = LocalInputModeManager.current
             var expanded by remember { mutableStateOf(false) }
             MaterialTheme {
                 OptionsDisclosureCard(
@@ -100,16 +109,22 @@ class WorkflowInteractionTest {
             }
         }
 
-        composeRule.onNodeWithText("Change").performClick()
+        // Focus restoration applies to keyboard navigation, not touch-mode buttons.
+        composeRule.runOnIdle { assertTrue(inputModeManager.requestInputMode(InputMode.Keyboard)) }
+        composeRule
+            .onNodeWithText(appString(R.string.change))
+            .requestFocus()
+            .assertIsFocused()
+            .performKeyInput { pressKey(Key.Enter) }
         composeRule.onAllNodesWithText("Draft controls").assertCountEquals(1)
         Espresso.pressBack()
         composeRule.onAllNodesWithText("Draft controls").assertCountEquals(0)
-        composeRule.onNodeWithText("Change").assertIsFocused()
+        composeRule.onNodeWithText(appString(R.string.change)).assertIsFocused()
     }
 
     @Test
     fun feedbackUsesUrgencyAppropriateLiveRegions() {
-        composeRule.setContent {
+        composeRule.setAppContent {
             MaterialTheme {
                 MapFeedbackCard(message = "Route playback started.", isError = false)
             }
@@ -122,7 +137,7 @@ class WorkflowInteractionTest {
 
     @Test
     fun errorFeedbackIsAnnouncedAsAnAssertiveLiveRegion() {
-        composeRule.setContent {
+        composeRule.setAppContent {
             MaterialTheme {
                 MapFeedbackCard(message = "Mock replacement failed.", isError = true)
             }

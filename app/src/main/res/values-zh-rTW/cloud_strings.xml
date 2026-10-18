@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="cloud_request_failed">雲端請求失敗。請再試一次。</string>
+    <string name="cloud_sign_in_failed">無法登入。請檢查登入資料後再試一次。</string>
+    <string name="cloud_sync_failed">雲端同步失敗。本機變更已保留。請重新同步。</string>
+    <string name="cloud_remote_failed">遠端控制失敗。請檢查連線後再試一次。</string>
+    <string name="cloud_qr_failed">QR code 登入失敗。請重試或掃描新代碼。</string>
+    <string name="cloud_server_settings_failed">無法使用此雲端伺服器。請檢查伺服器網址後再試一次。</string>
+    <string name="cloud_network_error">無法連線至雲端伺服器。請檢查網路連線後再試一次。</string>
+    <string name="cloud_invalid_response">雲端伺服器傳回無效的回應。請再試一次。</string>
+    <string name="cloud_invalid_input">請求無效。請檢查輸入內容後再試一次。</string>
+    <string name="cloud_invalid_credentials">無法登入。請檢查使用者名稱、密碼及驗證碼。</string>
+    <string name="cloud_session_expired">工作階段已過期。請重新登入。</string>
+    <string name="cloud_permission_denied">無法執行此操作。請檢查帳號的存取權限後再試一次。</string>
+    <string name="cloud_not_found">此雲端項目已無法使用。請重新整理後再試一次。</string>
+    <string name="cloud_conflict">雲端資料已變更。請同步並檢查衝突後再試一次。</string>
+    <string name="cloud_expired_request">此請求已過期。請重新執行操作。</string>
+    <string name="cloud_rate_limited">請求過多。請稍候再試。</string>
+    <string name="cloud_server_unavailable">雲端伺服器暫時無法使用。請稍後再試。</string>
+    <string name="cloud_request_rejected">雲端請求失敗（HTTP %1$s）。請再試一次。</string>
+    <string name="cloud_sync_cursor_expired">同步需要更新雲端資料。請重新同步。</string>
+    <string name="cloud_sync_mutation_conflict">同步變更與先前的請求衝突。請重新整理並檢查待處理的變更。</string>
+    <string name="cloud_sync_upload_failed">部分變更無法上傳。本機變更已保留。請重新同步。</string>
+    <string name="cloud_remote_enabled">已為 %1$s 啟用遠端控制</string>
+    <string name="cloud_remote_disabled">遠端控制已停用</string>
+    <string name="cloud_remote_still_enabled">伺服器上的遠端控制仍處於啟用狀態</string>
+    <string name="cloud_remote_sign_in_required">請登入雲端以使用網頁遠端控制。</string>
+    <string name="cloud_remote_sign_in_to_disable">請登入雲端以停用伺服器上的遠端控制。</string>
+    <string name="cloud_remote_waiting">等待網頁指令</string>
+    <string name="cloud_remote_command_applied">已套用網頁指令</string>
+    <string name="cloud_remote_command_failed">網頁指令失敗。請檢查模擬定位權限及指令設定後再試一次。</string>
+    <string name="cloud_remote_command_invalid">網頁指令無效。請檢查其位置或路線設定後重新傳送。</string>
+    <string name="cloud_remote_command_timeout">網頁指令逾時。請先檢查目前的模擬定位狀態，再試一次。</string>
+    <string name="cloud_mock_permission_required">請在 Android 開發人員選項中，選取 Kestrel 作為模擬定位應用程式。</string>
+    <string name="cloud_sign_in_required">請先登入雲端。</string>
+    <string name="cloud_sign_out_required">變更雲端伺服器或開始另一次登入前，請先登出。</string>
+    <string name="cloud_oidc_cancelled">瀏覽器登入已取消。準備好後可重新登入。</string>
+    <string name="cloud_oidc_restart">此瀏覽器登入已不再等待處理。請重新登入。</string>
+    <string name="cloud_server_changed">登入期間雲端伺服器已變更。請重新登入。</string>
+    <string name="cloud_qr_restart">此 QR code 登入已不再等待處理。請掃描新代碼。</string>
+    <string name="cloud_qr_invalid">此 QR code 登入代碼無效。請從網頁登入頁面掃描新代碼。</string>
+    <string name="cloud_scanner_failed">無法掃描 QR code。請重新掃描。</string>
+    <string name="cloud_scanner_empty">掃描的 QR code 沒有文字內容。請掃描網頁上的登入代碼。</string>
+    <string name="cloud_storage_failed">無法安全儲存雲端工作階段。請檢查裝置儲存空間，並重新登入。</string>
+</resources>

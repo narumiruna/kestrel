@@ -10,7 +10,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.test.assertHeightIsAtLeast
+import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertHeightIsEqualTo
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -23,8 +23,12 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import dev.narumi.kestrel.R
 import dev.narumi.kestrel.core.data.FavoritesSortMode
+import dev.narumi.kestrel.core.i18n.appString
+import dev.narumi.kestrel.core.i18n.setAppContent
 import dev.narumi.kestrel.core.library.LibraryItem
 import dev.narumi.kestrel.core.library.LibraryItemKind
 import dev.narumi.kestrel.core.library.LibraryItemWithContent
@@ -36,6 +40,7 @@ import dev.narumi.kestrel.feature.favorites.FavoritesFilter
 import dev.narumi.kestrel.feature.favorites.FavoritesToolbar
 import dev.narumi.kestrel.ui.components.PlaybackStatusBar
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 
@@ -44,7 +49,7 @@ class FavoritesLayoutInteractionTest {
 
     @Test
     fun toolbarShowsSelectionsAndDisablesSortingWhileSaving() {
-        composeRule.setContent {
+        composeRule.setAppContent {
             var filter by remember { mutableStateOf(FavoritesFilter.All) }
             var sort by remember { mutableStateOf(FavoritesSortMode.Mode.Manual) }
             var busy by remember { mutableStateOf(false) }
@@ -66,11 +71,11 @@ class FavoritesLayoutInteractionTest {
             }
         }
 
-        composeRule.onNodeWithText("All").assertIsSelected()
-        composeRule.onNodeWithText("Points").performClick().assertIsSelected()
-        composeRule.onNodeWithText("Sort: Manual").assertHeightIsAtLeast(48.dp).performClick()
-        composeRule.onNodeWithText("Alphabetical").performClick()
-        composeRule.onNodeWithText("Sort: Alphabetical").assertIsNotEnabled()
+        composeRule.onNodeWithText(appString(R.string.filter_all)).assertIsSelected()
+        composeRule.onNodeWithText(appString(R.string.filter_points)).performClick().assertIsSelected()
+        composeRule.onNodeWithText(appString(R.string.sort_1_s, appString(R.string.sort_manual))).assertTouchHeightIsAtLeast(48.dp).performClick()
+        composeRule.onNodeWithText(appString(R.string.sort_alphabetical)).performClick()
+        composeRule.onNodeWithText(appString(R.string.sort_1_s, appString(R.string.sort_alphabetical))).assertIsNotEnabled()
     }
 
     @Test
@@ -79,7 +84,7 @@ class FavoritesLayoutInteractionTest {
         var pauses = 0
         var resumes = 0
         var stops = 0
-        composeRule.setContent {
+        composeRule.setAppContent {
             var runtime by remember { mutableStateOf(playingRoute) }
             var busy by remember { mutableStateOf(false) }
             MaterialTheme {
@@ -106,14 +111,14 @@ class FavoritesLayoutInteractionTest {
         }
 
         composeRule.onNodeWithTag("playback").assertHeightIsEqualTo(56.dp)
-        composeRule.onNodeWithText("View map").assertHeightIsAtLeast(48.dp).performClick()
-        composeRule.onNodeWithContentDescription("Pause").assertHeightIsAtLeast(48.dp).performClick()
-        composeRule.onNodeWithText("Route paused").assertIsDisplayed()
-        composeRule.onNodeWithContentDescription("Resume").assertHeightIsAtLeast(48.dp).performClick()
-        composeRule.onNodeWithText("Route playing").assertIsDisplayed()
-        composeRule.onNodeWithContentDescription("Stop").assertHeightIsAtLeast(48.dp).performClick()
-        composeRule.onNodeWithContentDescription("Pause").assertIsNotEnabled()
-        composeRule.onNodeWithContentDescription("Stop").assertIsNotEnabled()
+        composeRule.onNodeWithText(appString(R.string.view_map)).assertTouchHeightIsAtLeast(48.dp).performClick()
+        composeRule.onNodeWithContentDescription(appString(R.string.pause)).assertTouchHeightIsAtLeast(48.dp).performClick()
+        composeRule.onNodeWithText(appString(R.string.route_paused)).assertIsDisplayed()
+        composeRule.onNodeWithContentDescription(appString(R.string.resume)).assertTouchHeightIsAtLeast(48.dp).performClick()
+        composeRule.onNodeWithText(appString(R.string.route_playing)).assertIsDisplayed()
+        composeRule.onNodeWithContentDescription(appString(R.string.stop)).assertTouchHeightIsAtLeast(48.dp).performClick()
+        composeRule.onNodeWithContentDescription(appString(R.string.pause)).assertIsNotEnabled()
+        composeRule.onNodeWithContentDescription(appString(R.string.stop)).assertIsNotEnabled()
         composeRule.runOnIdle {
             assertEquals(listOf(1, 1, 1, 1), listOf(mapViews, pauses, resumes, stops))
         }
@@ -136,7 +141,7 @@ class FavoritesLayoutInteractionTest {
                     kind = LibraryItemKind.Place,
                 )
             }
-        composeRule.setContent {
+        composeRule.setAppContent {
             MaterialTheme {
                 Column(Modifier.size(width = 320.dp, height = 360.dp)) {
                     PlaybackStatusBar(
@@ -177,12 +182,20 @@ class FavoritesLayoutInteractionTest {
         composeRule.onNodeWithText("Favorite 0").assertIsDisplayed()
         composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Favorite 19"))
         composeRule.onNodeWithText("Favorite 19").assertIsDisplayed()
-        composeRule.onNodeWithContentDescription("Pause").assertIsDisplayed()
-        composeRule.onNodeWithContentDescription("Stop").assertIsDisplayed()
-        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Search Favorites"))
-        composeRule.onNodeWithText("Search Favorites").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription(appString(R.string.pause)).assertIsDisplayed()
+        composeRule.onNodeWithContentDescription(appString(R.string.stop)).assertIsDisplayed()
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText(appString(R.string.search_favorites)))
+        composeRule.onNodeWithText(appString(R.string.search_favorites)).assertIsDisplayed()
     }
 }
+
+/** Material 3 can draw a 40dp control while retaining its 48dp touch target. */
+private fun SemanticsNodeInteraction.assertTouchHeightIsAtLeast(minimum: Dp): SemanticsNodeInteraction =
+    apply {
+        val node = fetchSemanticsNode()
+        val height = with(node.layoutInfo.density) { node.touchBoundsInRoot.height.toDp() }
+        assertTrue("Touch height is $height, expected at least $minimum", height >= minimum - 0.5.dp)
+    }
 
 private val playingRoute =
     RuntimeState.Route(

@@ -11,6 +11,7 @@ import dev.narumi.kestrel.core.library.db.PendingSyncChangeEntity
 import dev.narumi.kestrel.core.library.db.SyncConflictEntity
 import dev.narumi.kestrel.core.library.db.SyncStateEntity
 import dev.narumi.kestrel.core.library.toPendingPlaceSyncPayload
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
@@ -19,7 +20,6 @@ import kotlinx.serialization.SerializationException
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import java.io.IOException
 import java.util.UUID
 
 private val CLOUD_SYNC_STATE_KEYS =
@@ -33,7 +33,7 @@ private val CLOUD_SYNC_STATE_KEYS =
 data class CloudSyncState(
     val cursor: String? = null,
     val lastSyncedAt: Long? = null,
-    val lastError: String? = null,
+    val lastError: CloudMessage? = null,
     val userId: String? = null,
 )
 
@@ -156,8 +156,12 @@ class CloudSyncRepository internal constructor(
         } else {
             changes(checkNotNull(state.cursor))
         }
-        uploadPendingPlaceChanges()
-        loadSyncState().cursor?.let { changes(it) }
+        val uploadError = uploadPendingPlaceChanges()
+        finishSyncAfterUpload(
+            uploadError = uploadError,
+            fetchChanges = { loadSyncState().cursor?.let { changes(it) } },
+            storeError = ::storeSyncError,
+        )
     }
 
     private suspend fun bootstrap() {
@@ -209,14 +213,12 @@ class CloudSyncRepository internal constructor(
                 )
             }
         } catch (error: CloudApiException) {
-            if (error.isRecoverableCursorError()) {
+            recoverSyncCursor(error) {
                 database.withTransaction {
                     dao.deleteSyncState(SyncStateKeys.CURSOR)
                 }
                 bootstrap()
-                return
             }
-            throw error
         }
     }
 
@@ -266,23 +268,19 @@ class CloudSyncRepository internal constructor(
         }
     }
 
-    private suspend fun uploadPendingPlaceChanges() {
+    private suspend fun uploadPendingPlaceChanges(): CloudMessage? {
         val pendingChanges = dao.getPendingSyncChanges().filter { it.type.startsWith("PLACE_") }
         val uploadChanges = pendingChanges.mapNotNull(::toUploadChange)
         if (uploadChanges.isEmpty()) {
-            return
+            return null
         }
 
         val response = withAuthorizedSession { apiClient.upload(it.accessToken, CloudSyncUploadRequest(uploadChanges)) }
         database.withTransaction {
             response.uploaded.forEach { uploaded -> applyUploadedPlace(pendingChanges, uploaded) }
             response.conflicts.forEach { conflict -> persistConflict(pendingChanges, conflict) }
-            if (response.failed.isNotEmpty()) {
-                dao.upsertSyncStates(
-                    listOf(SyncStateEntity(SyncStateKeys.LAST_ERROR, response.failed.first().message)),
-                )
-            }
         }
+        return if (response.failed.isNotEmpty()) CloudMessage(CloudMessageId.SyncUploadFailed) else null
     }
 
     private suspend fun applyUploadedPlace(
@@ -557,7 +555,7 @@ class CloudSyncRepository internal constructor(
 
     private suspend fun <T> withAuthorizedSession(block: suspend (CloudSession) -> T): T = withAuthorizedSession(authRepository, requireSession(), block)
 
-    private fun requireSession(): CloudSession = authRepository.currentSession() ?: error("Not signed in")
+    private fun requireSession(): CloudSession = authRepository.currentSession() ?: throw CloudMessageException(CloudMessage(CloudMessageId.SignInRequired))
 
     private suspend fun loadSyncState(): CloudSyncState = dao.getSyncStates(CLOUD_SYNC_STATE_KEYS).toCloudSyncState()
 
@@ -576,21 +574,15 @@ class CloudSyncRepository internal constructor(
         )
     }
 
-    private suspend fun storeSyncError(message: String) {
+    private suspend fun storeSyncError(message: CloudMessage) {
         database.withTransaction {
-            dao.upsertSyncStates(listOf(SyncStateEntity(SyncStateKeys.LAST_ERROR, message)))
+            dao.upsertSyncStates(listOf(SyncStateEntity(SyncStateKeys.LAST_ERROR, message.toStoredSyncError())))
         }
     }
 
     private suspend fun handleSyncFailure(error: Throwable): Nothing {
-        val message =
-            when (error) {
-                is CloudApiException -> error.message
-                is IOException -> error.message ?: "Cloud sync failed"
-                is IllegalStateException -> error.message ?: "Cloud sync failed"
-                else -> "Cloud sync failed"
-            }
-        storeSyncError(message)
+        if (error is CancellationException) throw error
+        storeSyncError(error.toCloudMessage(CloudErrorContext.Sync))
         throw error
     }
 
@@ -624,18 +616,38 @@ private object SyncStateKeys {
 }
 
 private const val SYNC_CURSOR_EXPIRED_CODE = "SYNC_CURSOR_EXPIRED"
-private const val SYNC_CURSOR_AHEAD_MESSAGE = "since cursor is ahead of server state"
 
-private fun CloudApiException.isRecoverableCursorError(): Boolean =
-    (statusCode == 410 && code == SYNC_CURSOR_EXPIRED_CODE) ||
-        (statusCode == 400 && message == SYNC_CURSOR_AHEAD_MESSAGE)
+// A successful delta fetch clears the stored error. Retain a partial upload
+// failure after that fetch, without changing its pending mutations or cursor.
+internal suspend fun finishSyncAfterUpload(
+    uploadError: CloudMessage?,
+    fetchChanges: suspend () -> Unit,
+    storeError: suspend (CloudMessage) -> Unit,
+) {
+    fetchChanges()
+    if (uploadError != null) storeError(uploadError)
+}
+
+// /sync/changes has an uncoded 400 for invalid or ahead-of-server cursors. The
+// cursor comes from sync state, not user input. Recover once through bootstrap;
+// bootstrap errors propagate and never re-enter changes, so this cannot loop.
+internal suspend fun recoverSyncCursor(
+    error: CloudApiException,
+    bootstrap: suspend () -> Unit,
+) {
+    if ((error.statusCode == 410 && error.code == SYNC_CURSOR_EXPIRED_CODE) || error.statusCode == 400) {
+        bootstrap()
+    } else {
+        throw error
+    }
+}
 
 private fun List<SyncStateEntity>.toCloudSyncState(): CloudSyncState {
     val values = associate { it.key to it.value }
     return CloudSyncState(
         cursor = values[SyncStateKeys.CURSOR]?.takeIf(String::isNotBlank),
         lastSyncedAt = values[SyncStateKeys.LAST_SYNCED_AT]?.toLongOrNull(),
-        lastError = values[SyncStateKeys.LAST_ERROR]?.takeIf(String::isNotBlank),
+        lastError = storedSyncError(values[SyncStateKeys.LAST_ERROR]),
         userId = values[SyncStateKeys.USER_ID]?.takeIf(String::isNotBlank),
     )
 }

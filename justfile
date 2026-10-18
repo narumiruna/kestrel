@@ -23,6 +23,7 @@ help:
 # verify every workspace without writing source files
 [group('Quality')]
 verify:
+    just i18n-check
     just android-verify
     just backend-check
     just web-verify
@@ -44,6 +45,12 @@ check:
 lint:
     just android-lint
     just web-lint
+
+# validate both complete locale catalogs and run negative regression fixtures
+[group('Quality')]
+i18n-check: _require-web-deps
+    node --experimental-strip-types --test scripts/check-i18n.test.mjs
+    node --experimental-strip-types scripts/check-i18n.mjs
 
 # regenerate Web and Android brand icon assets from the shared manifest
 [group('Branding')]
@@ -93,6 +100,11 @@ android-check: icons-check
 android-lint:
     {{ gradle }} detekt
 
+# check Android resource translations and format strings with Android Lint
+[group('Android')]
+android-resource-lint: _require-android-sdk
+    {{ gradle }} :app:lintDebug
+
 # run Android debug-variant JVM unit tests
 [group('Android')]
 test: android-test
@@ -118,6 +130,7 @@ android-ui-update: _require-android-sdk
 android-verify:
     just android-check
     just android-lint
+    just android-resource-lint
     just android-test
     just android-ui
     just android-build
@@ -174,10 +187,17 @@ web-typecheck: _require-web-deps
 web-build: _require-web-deps
     npm run build
 
+# run Web regression tests
+[group('Web')]
+[working-directory('web')]
+web-test: _require-web-deps
+    npm test
+
 # run all Web quality gates
 [group('Web')]
 web-verify:
     just web-check
+    just web-test
     just web-typecheck
     just web-build
 

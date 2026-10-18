@@ -53,6 +53,16 @@ test('saved route matching includes formatted mode, null descriptions and order'
   }
 });
 
+test('protocol aliases remain invariant under Turkish locale folding', () => {
+  const ping = routes.find((item) => item.mode === 'PING_PONG');
+  assert.ok(ping);
+  for (const query of ['ping-pong', 'PING-PONG', 'PingPong', 'back and forth']) {
+    assert.equal(matchesRouteSearch(ping, query.toLocaleLowerCase('tr'), 'tr', 'İleri geri'), true);
+  }
+  assert.equal(matchesRouteSearch(ping, 'ileri geri', 'tr', 'İleri geri'), true);
+  assert.equal(matchesRouteSearch(ping, 'missing', 'tr', 'İleri geri'), false);
+});
+
 test('both screens normalize surrounding whitespace before matching', () => {
   const query = '  NIGHT MARKET  '.trim().toLowerCase();
   assert.deepEqual(

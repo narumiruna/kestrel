@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="cloud_request_failed">क्लाउड अनुरोध विफल रहा। फिर से कोशिश करें।</string>
+    <string name="cloud_sign_in_failed">साइन इन नहीं हो सका। साइन-इन विवरण जाँचें और फिर से कोशिश करें।</string>
+    <string name="cloud_sync_failed">क्लाउड सिंक विफल रहा। स्थानीय बदलाव सुरक्षित हैं। फिर से सिंक करें।</string>
+    <string name="cloud_remote_failed">रिमोट कंट्रोल विफल रहा। कनेक्शन जाँचें और फिर से कोशिश करें।</string>
+    <string name="cloud_qr_failed">QR साइन इन विफल रहा। फिर से कोशिश करें या नया कोड स्कैन करें।</string>
+    <string name="cloud_server_settings_failed">यह क्लाउड सर्वर इस्तेमाल नहीं हो सका। सर्वर URL जाँचें और फिर से कोशिश करें।</string>
+    <string name="cloud_network_error">क्लाउड सर्वर से कनेक्ट नहीं हो सका। कनेक्शन जाँचें और फिर से कोशिश करें।</string>
+    <string name="cloud_invalid_response">क्लाउड सर्वर ने अमान्य जवाब दिया। फिर से कोशिश करें।</string>
+    <string name="cloud_invalid_input">अनुरोध अमान्य है। दर्ज किए गए मान जाँचें और फिर से कोशिश करें।</string>
+    <string name="cloud_invalid_credentials">साइन इन नहीं हो सका। उपयोगकर्ता नाम, पासवर्ड और सत्यापन कोड जाँचें।</string>
+    <string name="cloud_session_expired">आपका सत्र समाप्त हो गया है। फिर से साइन इन करें।</string>
+    <string name="cloud_permission_denied">इस कार्रवाई की अनुमति नहीं है। खाते की पहुँच जाँचें और फिर से कोशिश करें।</string>
+    <string name="cloud_not_found">क्लाउड का यह आइटम अब उपलब्ध नहीं है। रीफ़्रेश करें और फिर से कोशिश करें।</string>
+    <string name="cloud_conflict">क्लाउड डेटा बदल गया है। फिर कोशिश करने से पहले सिंक करें और टकराव जाँचें।</string>
+    <string name="cloud_expired_request">इस अनुरोध की समय-सीमा समाप्त हो गई है। कार्रवाई फिर शुरू करें।</string>
+    <string name="cloud_rate_limited">बहुत अधिक अनुरोध किए गए। फिर कोशिश करने से पहले प्रतीक्षा करें।</string>
+    <string name="cloud_server_unavailable">क्लाउड सर्वर कुछ समय के लिए उपलब्ध नहीं है। बाद में फिर कोशिश करें।</string>
+    <string name="cloud_request_rejected">क्लाउड अनुरोध विफल रहा (HTTP %1$s)। फिर से कोशिश करें।</string>
+    <string name="cloud_sync_cursor_expired">सिंक के लिए क्लाउड डेटा रीफ़्रेश करना ज़रूरी है। फिर से सिंक करें।</string>
+    <string name="cloud_sync_mutation_conflict">सिंक का एक बदलाव पहले के अनुरोध से टकराता है। रीफ़्रेश करें और लंबित बदलाव जाँचें।</string>
+    <string name="cloud_sync_upload_failed">कुछ बदलाव अपलोड नहीं हो सके। स्थानीय बदलाव सुरक्षित हैं। फिर से सिंक करें।</string>
+    <string name="cloud_remote_enabled">%1$s के लिए रिमोट कंट्रोल सक्षम हुआ</string>
+    <string name="cloud_remote_disabled">रिमोट कंट्रोल अक्षम हुआ</string>
+    <string name="cloud_remote_still_enabled">सर्वर पर रिमोट कंट्रोल अब भी सक्षम है</string>
+    <string name="cloud_remote_sign_in_required">वेब रिमोट कंट्रोल इस्तेमाल करने के लिए क्लाउड में साइन इन करें।</string>
+    <string name="cloud_remote_sign_in_to_disable">सर्वर पर रिमोट कंट्रोल अक्षम करने के लिए क्लाउड में साइन इन करें।</string>
+    <string name="cloud_remote_waiting">वेब कमांड की प्रतीक्षा है</string>
+    <string name="cloud_remote_command_applied">वेब कमांड लागू हुआ</string>
+    <string name="cloud_remote_command_failed">वेब कमांड विफल रहा। नकली स्थिति की अनुमतियाँ और कमांड की सेटिंग जाँचें, फिर से कोशिश करें।</string>
+    <string name="cloud_remote_command_invalid">वेब कमांड अमान्य है। उसकी स्थिति या मार्ग सेटिंग जाँचें और फिर भेजें।</string>
+    <string name="cloud_remote_command_timeout">वेब कमांड का समय समाप्त हुआ। फिर से कोशिश करने से पहले मौजूदा नकली स्थिति जाँचें।</string>
+    <string name="cloud_mock_permission_required">Android के डेवलपर विकल्प में Kestrel को नकली स्थिति ऐप के रूप में चुनें।</string>
+    <string name="cloud_sign_in_required">पहले क्लाउड में साइन इन करें।</string>
+    <string name="cloud_sign_out_required">क्लाउड सर्वर बदलने या दूसरा साइन इन शुरू करने से पहले साइन आउट करें।</string>
+    <string name="cloud_oidc_cancelled">ब्राउज़र साइन इन रद्द हुआ। तैयार होने पर साइन इन फिर शुरू करें।</string>
+    <string name="cloud_oidc_restart">यह ब्राउज़र साइन इन अब लंबित नहीं है। साइन इन फिर शुरू करें।</string>
+    <string name="cloud_server_changed">साइन इन के दौरान क्लाउड सर्वर बदल गया। साइन इन फिर शुरू करें।</string>
+    <string name="cloud_qr_restart">यह QR साइन इन अब लंबित नहीं है। नया कोड स्कैन करें।</string>
+    <string name="cloud_qr_invalid">यह QR साइन-इन कोड अमान्य है। वेब साइन-इन पेज से नया कोड स्कैन करें।</string>
+    <string name="cloud_scanner_failed">QR कोड स्कैन नहीं हो सका। फिर से स्कैन करें।</string>
+    <string name="cloud_scanner_empty">स्कैन किए गए QR कोड में कोई टेक्स्ट नहीं है। वेब पेज से साइन-इन कोड स्कैन करें।</string>
+    <string name="cloud_storage_failed">क्लाउड सत्र सुरक्षित रूप से सहेजा नहीं जा सका। डिवाइस का संग्रहण जाँचें और फिर साइन इन करें।</string>
+</resources>

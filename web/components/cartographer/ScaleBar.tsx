@@ -1,4 +1,9 @@
+'use client';
+
+import { useLocale } from 'next-intl';
+import { formatDistance } from '@/i18n/format';
 export function ScaleBar({ hidden = false }: { hidden?: boolean }) {
+  const locale = useLocale();
   if (hidden) {
     return null;
   }
@@ -8,7 +13,7 @@ export function ScaleBar({ hidden = false }: { hidden?: boolean }) {
       <span />
       <span />
       <span />
-      <strong className="font-mono">1 km</strong>
+      <strong className="font-mono">{formatDistance(1, locale)}</strong>
     </div>
   );
 }

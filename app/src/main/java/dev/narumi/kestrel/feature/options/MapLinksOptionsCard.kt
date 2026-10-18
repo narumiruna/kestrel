@@ -11,6 +11,8 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import dev.narumi.kestrel.R
 import dev.narumi.kestrel.ui.components.KestrelActionRow
 import dev.narumi.kestrel.ui.components.KestrelIcons
 
@@ -21,29 +23,29 @@ internal fun MapLinksOptionsCard(
 ) {
     val context = LocalContext.current
     OptionsDisclosureCard(
-        title = OptionsSection.MapLinks.title,
+        title = stringResource(OptionsSection.MapLinks.title),
         icon = KestrelIcons.Link,
-        subtitle = "Let Android open map coordinates with Kestrel.",
-        summary = "geo: and coordinate Google Maps links",
+        subtitle = stringResource(R.string.options_map_links_help),
+        summary = stringResource(R.string.options_map_links_summary),
         expanded = expanded,
         onExpandedChange = onExpandedChange,
     ) {
         Text(
-            text = "Kestrel supports geo: coordinate links and Google Maps links that include coordinates.",
+            text = stringResource(R.string.options_map_links_supported),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Text(
-            text = "Android controls defaults; Google web links may still open Google Maps or Chrome.",
+            text = stringResource(R.string.options_map_links_android_notice),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         KestrelActionRow {
             Button(onClick = { context.openMapLinkSettings() }) {
-                Text("Open Android link settings")
+                Text(stringResource(R.string.options_map_links_settings))
             }
             OutlinedButton(onClick = { context.testGeoMapLink() }) {
-                Text("Test geo link")
+                Text(stringResource(R.string.options_map_links_test))
             }
         }
     }

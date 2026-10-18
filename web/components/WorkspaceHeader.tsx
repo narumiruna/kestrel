@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { useState } from 'react';
 import { BrandMark } from '@/components/BrandMark';
 import { useTheme } from '@/components/ThemeProvider';
@@ -37,13 +38,15 @@ export function WorkspaceHeader({
   statusLabel = null,
   username,
 }: WorkspaceHeaderProps) {
+  const t = useTranslations('WorkspaceHeader');
   const [isAccountOpen, setIsAccountOpen] = useState(false);
-  const refreshLabel = statusLabel == null ? 'Refresh workspace' : `Refresh · ${statusLabel}`;
+  const refreshLabel =
+    statusLabel == null ? t('refreshWorkspace') : t('refreshStatus', { status: statusLabel });
 
   return (
     <header className="kc-topbar workspace-topbar">
       <div className="workspace-header-start">
-        <BrandMark subtitle="Routes and places workspace" />
+        <BrandMark subtitle={t('routesAndPlacesWorkspace')} />
         <WorkspaceTabs activeSection={activeSection} onBeforeChange={onBeforeWorkspaceChange} />
       </div>
       <div className="kc-topbar-actions workspace-header-actions">
@@ -72,10 +75,10 @@ export function WorkspaceHeader({
           <PopoverFrame
             className="kc-account-popover"
             open={isAccountOpen}
-            title="Account controls"
+            title={t('accountControls')}
             trigger={
               <Button
-                aria-label={`Open account menu for ${username}`}
+                aria-label={t('openAccountMenu', { username })}
                 className="secondary kc-user-button"
                 type="button"
               >
@@ -103,17 +106,18 @@ function AccountMenu({
   onLogout: () => void | Promise<void>;
   username: string;
 }) {
+  const t = useTranslations('WorkspaceHeader');
   const { isHydrated, theme, toggleTheme } = useTheme();
 
   return (
     <div className="account-menu">
       <div className="account-menu-heading">
-        <strong>Account</strong>
+        <strong>{t('account')}</strong>
         <span className="muted">{username}</span>
       </div>
       <div className="account-menu-options">
         <Button
-          aria-label={`Dark mode, ${theme === 'dark' ? 'on' : 'off'}`}
+          aria-label={t('darkModeStatus', { enabled: theme === 'dark' ? 'on' : 'off' })}
           aria-pressed={theme === 'dark'}
           className="secondary account-menu-row"
           disabled={!isHydrated}
@@ -122,13 +126,14 @@ function AccountMenu({
         >
           {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
           <span className="account-menu-row-label">
-            Appearance <span className="account-menu-detail">Dark mode</span>
+            {t('appearance')}
+            <span className="account-menu-detail">{t('darkMode')}</span>
           </span>
-          <span className="account-menu-value">{theme === 'dark' ? 'On' : 'Off'}</span>
+          <span className="account-menu-value">{theme === 'dark' ? t('on') : t('off')}</span>
         </Button>
         <Link className="account-menu-row account-menu-link" href="/dashboard/account">
           <LockClosedIcon />
-          <span className="account-menu-row-label">Account security</span>
+          <span className="account-menu-row-label">{t('accountSecurity')}</span>
           <ChevronRightIcon className="account-menu-chevron" />
         </Link>
       </div>
@@ -139,7 +144,7 @@ function AccountMenu({
           onClick={onLogout}
         >
           <ExitIcon />
-          <span className="account-menu-row-label">Logout</span>
+          <span className="account-menu-row-label">{t('logout')}</span>
         </Button>
       </div>
     </div>

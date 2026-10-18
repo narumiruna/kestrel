@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="cloud_request_failed">Nabigo ang kahilingan sa cloud. Subukang muli.</string>
+    <string name="cloud_sign_in_failed">Hindi makapag-sign in. Tingnan ang mga detalye sa pag-sign in at subukang muli.</string>
+    <string name="cloud_sync_failed">Nabigo ang pag-sync sa cloud. Napanatili ang mga lokal mong pagbabago. Subukang mag-sync muli.</string>
+    <string name="cloud_remote_failed">Nabigo ang remote control. Tingnan ang koneksyon at subukang muli.</string>
+    <string name="cloud_qr_failed">Nabigo ang pag-sign in gamit ang QR. Subukang muli o mag-scan ng bagong code.</string>
+    <string name="cloud_server_settings_failed">Hindi magamit ang cloud server na ito. Tingnan ang URL ng server at subukang muli.</string>
+    <string name="cloud_network_error">Hindi makakonekta sa cloud server. Tingnan ang koneksyon at subukang muli.</string>
+    <string name="cloud_invalid_response">Nagbalik ng di-wastong tugon ang cloud server. Subukang muli.</string>
+    <string name="cloud_invalid_input">Hindi wasto ang kahilingan. Tingnan ang mga inilagay na value at subukang muli.</string>
+    <string name="cloud_invalid_credentials">Hindi makapag-sign in. Tingnan ang username, password, at code sa pag-verify.</string>
+    <string name="cloud_session_expired">Nag-expire na ang iyong session. Mag-sign in muli.</string>
+    <string name="cloud_permission_denied">Hindi pinapayagan ang pagkilos na ito. Tingnan ang access ng account mo at subukang muli.</string>
+    <string name="cloud_not_found">Hindi na available ang item sa cloud. I-refresh at subukang muli.</string>
+    <string name="cloud_conflict">Nagbago ang data sa cloud. Mag-sync at suriin ang anumang salungatan bago subukang muli.</string>
+    <string name="cloud_expired_request">Nag-expire na ang kahilingang ito. Simulan muli ang pagkilos.</string>
+    <string name="cloud_rate_limited">Masyadong maraming kahilingan. Maghintay bago subukang muli.</string>
+    <string name="cloud_server_unavailable">Pansamantalang hindi available ang cloud server. Subukang muli mamaya.</string>
+    <string name="cloud_request_rejected">Nabigo ang kahilingan sa cloud (HTTP %1$s). Subukang muli.</string>
+    <string name="cloud_sync_cursor_expired">Kailangang i-refresh ng pag-sync ang data sa cloud. Subukang mag-sync muli.</string>
+    <string name="cloud_sync_mutation_conflict">Salungat ang pagbabago sa pag-sync sa isang naunang kahilingan. I-refresh at suriin ang mga nakabinbing pagbabago.</string>
+    <string name="cloud_sync_upload_failed">Hindi ma-upload ang ilang pagbabago. Napanatili ang mga lokal mong pagbabago. Subukang mag-sync muli.</string>
+    <string name="cloud_remote_enabled">Naka-enable ang remote control para sa %1$s</string>
+    <string name="cloud_remote_disabled">Naka-disable ang remote control</string>
+    <string name="cloud_remote_still_enabled">Naka-enable pa rin ang remote control sa server</string>
+    <string name="cloud_remote_sign_in_required">Mag-sign in sa cloud para magamit ang Web remote control.</string>
+    <string name="cloud_remote_sign_in_to_disable">Mag-sign in sa cloud para i-disable ang remote control sa server.</string>
+    <string name="cloud_remote_waiting">Hinihintay ang mga utos mula sa Web</string>
+    <string name="cloud_remote_command_applied">Nailapat ang utos mula sa Web</string>
+    <string name="cloud_remote_command_failed">Nabigo ang utos mula sa Web. Tingnan ang mga pahintulot sa paggaya ng lokasyon at mga setting ng utos, saka subukang muli.</string>
+    <string name="cloud_remote_command_invalid">Hindi wasto ang utos mula sa Web. Tingnan ang mga setting nito sa lokasyon o ruta at ipadala itong muli.</string>
+    <string name="cloud_remote_command_timeout">Naubos ang oras ng paghihintay sa utos mula sa Web. Tingnan ang kasalukuyang estado ng paggaya ng lokasyon bago subukang muli.</string>
+    <string name="cloud_mock_permission_required">Piliin ang Kestrel bilang app sa paggaya ng lokasyon sa Mga opsyon ng developer ng Android.</string>
+    <string name="cloud_sign_in_required">Mag-sign in muna sa cloud.</string>
+    <string name="cloud_sign_out_required">Mag-sign out bago magpalit ng cloud server o magsimula ng ibang pag-sign in.</string>
+    <string name="cloud_oidc_cancelled">Kinansela ang pag-sign in sa browser. Simulan muli ang pag-sign in kapag handa ka na.</string>
+    <string name="cloud_oidc_restart">Hindi na nakabinbin ang pag-sign in na ito sa browser. Simulan muli ang pag-sign in.</string>
+    <string name="cloud_server_changed">Nagbago ang cloud server habang nagsa-sign in. Simulan muli ang pag-sign in.</string>
+    <string name="cloud_qr_restart">Hindi na nakabinbin ang pag-sign in na ito gamit ang QR. Mag-scan ng bagong code.</string>
+    <string name="cloud_qr_invalid">Hindi wasto ang QR code na ito sa pag-sign in. Mag-scan ng bagong code mula sa pahina sa pag-sign in sa Web.</string>
+    <string name="cloud_scanner_failed">Hindi ma-scan ang QR code. Subukang mag-scan muli.</string>
+    <string name="cloud_scanner_empty">Walang teksto ang na-scan na QR code. I-scan ang code sa pag-sign in mula sa pahina sa Web.</string>
+    <string name="cloud_storage_failed">Hindi ligtas na ma-save ang cloud session. Tingnan ang imbakan ng device at mag-sign in muli.</string>
+</resources>

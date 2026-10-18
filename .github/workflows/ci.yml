@@ -19,6 +19,7 @@ jobs:
       android: ${{ steps.filter.outputs.android }}
       backend: ${{ steps.filter.outputs.backend }}
       web: ${{ steps.filter.outputs.web }}
+      i18n: ${{ steps.filter.outputs.i18n }}
     steps:
       - uses: actions/checkout@v7
       - id: filter
@@ -35,6 +36,9 @@ jobs:
               - 'detekt-baseline.xml'
               - 'branding/**'
               - 'scripts/generate-kestrel-icons.mjs'
+              - 'scripts/check-i18n*.mjs'
+              - 'web/i18n/**'
+              - 'web/messages/**'
               - 'justfile'
               - '.github/workflows/**'
             backend:
@@ -44,6 +48,15 @@ jobs:
               - 'web/**'
               - 'branding/**'
               - 'scripts/generate-kestrel-icons.mjs'
+              - 'scripts/check-i18n*.mjs'
+              - 'app/src/main/res/**'
+              - 'justfile'
+              - '.github/workflows/**'
+            i18n:
+              - 'app/**'
+              - 'web/**'
+              - 'scripts/check-i18n*.mjs'
+              - 'justfile'
               - '.github/workflows/**'
 
   android:
@@ -69,6 +82,9 @@ jobs:
       - name: Lint Android
         run: just android-lint
 
+      - name: Validate Android resources and translations
+        run: just android-resource-lint
+
       - name: Build debug APK
         run: ./gradlew :app:assembleDebug
 
@@ -87,6 +103,27 @@ jobs:
           name: app-debug
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+
+  i18n:
+    needs: changes
+    if: github.event_name == 'push' || needs.changes.outputs.i18n == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - uses: extractions/setup-just@v4
+
+      - name: Install catalog parser dependencies
+        run: npm ci --prefix web
+
+      - name: Validate catalogs and validator regression fixtures
+        run: just i18n-check
 
   backend:
     needs: changes
@@ -148,6 +185,9 @@ jobs:
 
       - name: Check generated brand icons
         run: node ../scripts/generate-kestrel-icons.mjs --check
+
+      - name: Test
+        run: npm test
 
       - name: Lint
         run: npm run lint

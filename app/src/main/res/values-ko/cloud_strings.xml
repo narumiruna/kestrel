@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="cloud_request_failed">클라우드 요청에 실패했습니다. 다시 시도하세요.</string>
+    <string name="cloud_sign_in_failed">로그인하지 못했습니다. 로그인 정보를 확인한 후 다시 시도하세요.</string>
+    <string name="cloud_sync_failed">클라우드 동기화에 실패했습니다. 로컬 변경 사항은 유지됩니다. 다시 동기화하세요.</string>
+    <string name="cloud_remote_failed">원격 제어에 실패했습니다. 연결을 확인한 후 다시 시도하세요.</string>
+    <string name="cloud_qr_failed">QR 로그인에 실패했습니다. 다시 시도하거나 새 코드를 스캔하세요.</string>
+    <string name="cloud_server_settings_failed">이 클라우드 서버를 사용할 수 없습니다. 서버 URL을 확인한 후 다시 시도하세요.</string>
+    <string name="cloud_network_error">클라우드 서버에 연결하지 못했습니다. 연결 상태를 확인한 후 다시 시도하세요.</string>
+    <string name="cloud_invalid_response">클라우드 서버가 유효하지 않은 응답을 반환했습니다. 다시 시도하세요.</string>
+    <string name="cloud_invalid_input">요청이 유효하지 않습니다. 입력한 값을 확인한 후 다시 시도하세요.</string>
+    <string name="cloud_invalid_credentials">로그인하지 못했습니다. 사용자 이름, 비밀번호, 인증 코드를 확인하세요.</string>
+    <string name="cloud_session_expired">세션이 만료되었습니다. 다시 로그인하세요.</string>
+    <string name="cloud_permission_denied">이 작업은 허용되지 않습니다. 계정 접근 권한을 확인한 후 다시 시도하세요.</string>
+    <string name="cloud_not_found">이 클라우드 항목은 더 이상 사용할 수 없습니다. 새로고침한 후 다시 시도하세요.</string>
+    <string name="cloud_conflict">클라우드 데이터가 변경되었습니다. 동기화하고 충돌을 검토한 후 다시 시도하세요.</string>
+    <string name="cloud_expired_request">요청이 만료되었습니다. 작업을 처음부터 다시 시작하세요.</string>
+    <string name="cloud_rate_limited">요청이 너무 많습니다. 잠시 후 다시 시도하세요.</string>
+    <string name="cloud_server_unavailable">클라우드 서버를 일시적으로 사용할 수 없습니다. 나중에 다시 시도하세요.</string>
+    <string name="cloud_request_rejected">클라우드 요청에 실패했습니다(HTTP %1$s). 다시 시도하세요.</string>
+    <string name="cloud_sync_cursor_expired">동기화를 위해 클라우드 데이터를 새로고침해야 합니다. 다시 동기화하세요.</string>
+    <string name="cloud_sync_mutation_conflict">동기화 변경 사항이 이전 요청과 충돌합니다. 새로고침하고 대기 중인 변경 사항을 검토하세요.</string>
+    <string name="cloud_sync_upload_failed">일부 변경 사항을 업로드하지 못했습니다. 로컬 변경 사항은 유지됩니다. 다시 동기화하세요.</string>
+    <string name="cloud_remote_enabled">%1$s 원격 제어가 활성화됨</string>
+    <string name="cloud_remote_disabled">원격 제어가 비활성화됨</string>
+    <string name="cloud_remote_still_enabled">서버에서 원격 제어가 아직 활성화되어 있습니다</string>
+    <string name="cloud_remote_sign_in_required">웹 원격 제어를 사용하려면 클라우드에 로그인하세요.</string>
+    <string name="cloud_remote_sign_in_to_disable">서버에서 원격 제어를 비활성화하려면 클라우드에 로그인하세요.</string>
+    <string name="cloud_remote_waiting">웹 명령 대기 중</string>
+    <string name="cloud_remote_command_applied">웹 명령 적용됨</string>
+    <string name="cloud_remote_command_failed">웹 명령에 실패했습니다. 모의 위치 권한과 명령 설정을 확인한 후 다시 시도하세요.</string>
+    <string name="cloud_remote_command_invalid">웹 명령이 유효하지 않습니다. 위치 또는 경로 설정을 확인하고 다시 보내세요.</string>
+    <string name="cloud_remote_command_timeout">웹 명령 시간이 초과되었습니다. 현재 모의 위치 상태를 확인한 후 다시 시도하세요.</string>
+    <string name="cloud_mock_permission_required">Android 개발자 옵션에서 모의 위치 앱으로 Kestrel을 선택하세요.</string>
+    <string name="cloud_sign_in_required">먼저 클라우드에 로그인하세요.</string>
+    <string name="cloud_sign_out_required">클라우드 서버를 변경하거나 다른 로그인을 시작하기 전에 로그아웃하세요.</string>
+    <string name="cloud_oidc_cancelled">브라우저 로그인이 취소되었습니다. 준비되면 다시 로그인하세요.</string>
+    <string name="cloud_oidc_restart">이 브라우저 로그인은 더 이상 대기 중이 아닙니다. 다시 로그인하세요.</string>
+    <string name="cloud_server_changed">로그인 중 클라우드 서버가 변경되었습니다. 다시 로그인하세요.</string>
+    <string name="cloud_qr_restart">이 QR 로그인은 더 이상 대기 중이 아닙니다. 새 코드를 스캔하세요.</string>
+    <string name="cloud_qr_invalid">이 QR 로그인 코드는 유효하지 않습니다. 웹 로그인 페이지에서 새 코드를 스캔하세요.</string>
+    <string name="cloud_scanner_failed">QR 코드를 스캔하지 못했습니다. 다시 스캔하세요.</string>
+    <string name="cloud_scanner_empty">스캔한 QR 코드에 텍스트가 없습니다. 웹 페이지의 로그인 코드를 스캔하세요.</string>
+    <string name="cloud_storage_failed">클라우드 세션을 안전하게 저장하지 못했습니다. 기기 저장 공간을 확인한 후 다시 로그인하세요.</string>
+</resources>

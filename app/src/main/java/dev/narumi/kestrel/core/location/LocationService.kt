@@ -5,15 +5,19 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.ServiceInfo
+import android.content.res.Configuration
 import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
 import android.os.SystemClock
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import androidx.core.content.getSystemService
 import dev.narumi.kestrel.MainActivity
 import dev.narumi.kestrel.R
@@ -22,6 +26,8 @@ import dev.narumi.kestrel.core.data.KestrelPrefs
 import dev.narumi.kestrel.core.data.MockState
 import dev.narumi.kestrel.core.data.RouteState
 import dev.narumi.kestrel.core.data.SinglePointState
+import dev.narumi.kestrel.core.i18n.AppLanguage
+import dev.narumi.kestrel.core.i18n.UiMessage
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -64,6 +70,27 @@ class LocationService : Service() {
     // combine state from two routes during replacement.
     @Volatile private var activeRoute: ActiveRouteSnapshot? = null
 
+    private val languageReceiver =
+        object : BroadcastReceiver() {
+            override fun onReceive(
+                context: Context?,
+                intent: Intent?,
+            ) {
+                refreshLanguage()
+            }
+        }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        refreshLanguage()
+    }
+
+    private fun refreshLanguage() {
+        ensureChannel()
+        // A language broadcast must not recreate the notification after a STOP action.
+        if (stateInitialized && currentMode != MockState.Mode.Idle) refreshNotification()
+    }
+
     override fun onCreate() {
         super.onCreate()
         mockProvider = MockProviderManager(applicationContext)
@@ -74,6 +101,7 @@ class LocationService : Service() {
             requireNotNull(getSystemService<PowerManager>())
                 .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Kestrel:RoutePlayback")
                 .apply { setReferenceCounted(false) }
+        ContextCompat.registerReceiver(this, languageReceiver, IntentFilter(AppLanguage.CHANGED_ACTION), ContextCompat.RECEIVER_NOT_EXPORTED)
         ensureChannel()
     }
 
@@ -142,7 +170,7 @@ class LocationService : Service() {
         setRemoteControlServiceLease(false)
         scope.launch { stateWriter.persist() }
         stopForegroundCompat()
-        completeOperation(intent, succeeded = true, message = "Mock location stopped.")
+        completeOperation(intent, succeeded = true, message = UiMessage(R.string.location_mock_location_stopped))
         // A new SET_LOCATION / START_ROUTE may already be queued by a UI "replace mock"
         // action. Do not let this older STOP tear down the service before the newer
         // foreground-start command gets its chance to call startForeground().
@@ -155,16 +183,14 @@ class LocationService : Service() {
             completeOperation(
                 intent,
                 succeeded = false,
-                message = "Kestrel could not start its location service. Check notification permission and try again.",
+                message = UiMessage(R.string.location_kestrel_could_not_start_its_location_service_check_notification_permis),
             )
             return if (_runtimeState.value == RuntimeState.Idle) START_NOT_STICKY else START_STICKY
         }
         val lat = intent.getDoubleExtra(EXTRA_LAT, Double.NaN)
         val lng = intent.getDoubleExtra(EXTRA_LNG, Double.NaN)
         val point = LatLng(lat, lng)
-        require(lat.isFinite() && lng.isFinite() && lat in -90.0..90.0 && lng in -180.0..180.0) {
-            "Enter valid latitude and longitude values."
-        }
+        requireLocation(lat.isFinite() && lng.isFinite() && lat in -90.0..90.0 && lng in -180.0..180.0, R.string.location_invalid_coordinates)
 
         // Prove that the provider accepts the replacement before cancelling the old route.
         synchronized(providerWriteLock) {
@@ -181,7 +207,7 @@ class LocationService : Service() {
         setRemoteControlServiceLease(true)
         refreshNotification()
         scope.launch { stateWriter.persist() }
-        completeOperation(intent, succeeded = true, message = "Point mock started.")
+        completeOperation(intent, succeeded = true, message = UiMessage(R.string.location_point_mock_started))
         return START_STICKY
     }
 
@@ -190,18 +216,18 @@ class LocationService : Service() {
             completeOperation(
                 intent,
                 succeeded = false,
-                message = "Kestrel could not start its location service. Check notification permission and try again.",
+                message = UiMessage(R.string.location_kestrel_could_not_start_its_location_service_check_notification_permis),
             )
             return if (_runtimeState.value == RuntimeState.Idle) START_NOT_STICKY else START_STICKY
         }
         val lats = intent.getDoubleArrayExtra(EXTRA_LATS)
         val lngs = intent.getDoubleArrayExtra(EXTRA_LNGS)
-        require(lats != null && lngs != null && lats.size == lngs.size) {
-            "The route waypoint payload is incomplete."
-        }
-        val waypoints = lats.indices.map { LatLng(lats[it], lngs[it]) }
+        requireLocation(lats != null && lngs != null && lats.size == lngs.size, R.string.location_incomplete_route)
+        val validLats = requireNotNull(lats)
+        val validLngs = requireNotNull(lngs)
+        val waypoints = validLats.indices.map { LatLng(validLats[it], validLngs[it]) }
         val speedKmh = intent.getDoubleExtra(EXTRA_SPEED_KMH, Double.NaN)
-        validateRouteRequest(waypoints, speedKmh)?.let { throw IllegalArgumentException(it) }
+        validateRouteRequest(waypoints, speedKmh)?.let { throw LocationRequestException(it) }
         val modeName = intent.getStringExtra(EXTRA_MODE) ?: MovementEngine.Mode.Once.name
         val mode =
             runCatching { MovementEngine.Mode.valueOf(modeName) }
@@ -222,13 +248,13 @@ class LocationService : Service() {
         setRemoteControlServiceLease(true)
         refreshNotification()
         scope.launch { stateWriter.persist() }
-        completeOperation(intent, succeeded = true, message = "Route playback started.")
+        completeOperation(intent, succeeded = true, message = UiMessage(R.string.location_route_playback_started))
         return START_STICKY
     }
 
     private fun updateRouteSettingsAction(intent: Intent): Int {
         val expectedPlaybackId = intent.getStringExtra(EXTRA_PLAYBACK_ID)
-        require(!expectedPlaybackId.isNullOrBlank()) { "The route has changed. Adjust the current route instead." }
+        requireLocation(!expectedPlaybackId.isNullOrBlank(), R.string.location_route_changed)
         val update =
             parseRouteSettingsUpdate(
                 speedKmh = intent.takeIf { it.hasExtra(EXTRA_SPEED_KMH) }?.getDoubleExtra(EXTRA_SPEED_KMH, Double.NaN),
@@ -236,23 +262,23 @@ class LocationService : Service() {
             )
         synchronized(providerWriteLock) {
             val runtime = _runtimeState.value as? RuntimeState.Route
-            requireNotNull(runtime) { "No active route is available to adjust." }
-            val route = requireNotNull(activeRoute) { "No active route is available to adjust." }
-            val updated = route.withSettings(expectedPlaybackId, update.speedKmh, update.mode)
+            requireLocationNotNull(runtime, R.string.location_no_route)
+            val route = requireLocationNotNull(activeRoute, R.string.location_no_route)
+            val updated = route.withSettings(requireNotNull(expectedPlaybackId), update.speedKmh, update.mode)
             activeRoute = updated
-            _runtimeState.value = updated.toRuntimeState(paused = runtime.paused)
+            _runtimeState.value = updated.toRuntimeState(paused = requireNotNull(runtime).paused)
         }
         scope.launch {
             try {
                 stateWriter.persist()
-                completeOperation(intent, succeeded = true, message = "Playback settings updated. Route progress kept.")
+                completeOperation(intent, succeeded = true, message = UiMessage(R.string.location_playback_settings_updated_route_progress_kept))
             } catch (error: CancellationException) {
                 throw error
             } catch (_: Exception) {
                 completeOperation(
                     intent,
                     succeeded = false,
-                    message = "Playback settings changed, but could not be saved for recovery. Try the setting again.",
+                    message = UiMessage(R.string.location_playback_settings_changed_but_could_not_be_saved_for_recovery_try_the),
                 )
             }
         }
@@ -261,33 +287,34 @@ class LocationService : Service() {
 
     private fun pauseAction(intent: Intent): Int {
         synchronized(providerWriteLock) {
-            check(_runtimeState.value is RuntimeState.Route) { "No route is playing." }
+            requireLocation(_runtimeState.value is RuntimeState.Route, R.string.location_no_playing_route)
             routeExecution?.pause()
             paused = true
             updateRouteRuntimePaused(paused = true)
         }
         refreshNotification()
         scope.launch { stateWriter.persist() }
-        completeOperation(intent, succeeded = true, message = "Route paused.")
+        completeOperation(intent, succeeded = true, message = UiMessage(R.string.location_route_paused))
         return START_STICKY
     }
 
     private fun resumeAction(intent: Intent): Int {
         synchronized(providerWriteLock) {
-            check(_runtimeState.value is RuntimeState.Route) { "No paused route is available." }
+            requireLocation(_runtimeState.value is RuntimeState.Route, R.string.location_no_paused_route)
             routeExecution?.resume()
             paused = false
             updateRouteRuntimePaused(paused = false)
         }
         refreshNotification()
         scope.launch { stateWriter.persist() }
-        completeOperation(intent, succeeded = true, message = "Route resumed.")
+        completeOperation(intent, succeeded = true, message = UiMessage(R.string.location_route_resumed))
         return START_STICKY
     }
 
     private fun foregroundOnlyAction(): Int = if (tryEnsureForeground()) START_STICKY else START_NOT_STICKY
 
     override fun onDestroy() {
+        unregisterReceiver(languageReceiver)
         // Best-effort progress flush before the scope is cancelled. onDestroy is not guaranteed to
         // run under sudden kills; the periodic tick writer is what makes overnight kills survivable.
         // Failed startup/restore must not replace a saved route with an uninitialized Idle state.
@@ -543,7 +570,7 @@ class LocationService : Service() {
     private fun completeOperation(
         intent: Intent?,
         succeeded: Boolean,
-        message: String,
+        message: UiMessage,
     ) {
         val requestId = intent?.getStringExtra(EXTRA_REQUEST_ID) ?: return
         val action = intent.action.toLocationOperationAction() ?: return
@@ -601,19 +628,23 @@ class LocationService : Service() {
     private fun ensureChannel() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val nm = getSystemService<NotificationManager>() ?: return
-        if (nm.getNotificationChannel(CHANNEL_ID) != null) return
+        val localeContext = AppLanguage.context(this)
         nm.createNotificationChannel(
-            NotificationChannel(
-                CHANNEL_ID,
-                getString(R.string.location_service_channel_name),
-                NotificationManager.IMPORTANCE_LOW,
+            (
+                nm.getNotificationChannel(CHANNEL_ID) ?: NotificationChannel(
+                    CHANNEL_ID,
+                    localeContext.getString(R.string.location_service_channel_name),
+                    NotificationManager.IMPORTANCE_LOW,
+                )
             ).apply {
-                description = getString(R.string.location_service_channel_description)
+                name = localeContext.getString(R.string.location_service_channel_name)
+                description = localeContext.getString(R.string.location_service_channel_description)
             },
         )
     }
 
     private fun buildNotification(): Notification {
+        val localeContext = AppLanguage.context(this)
         val launchIntent = Intent(this, MainActivity::class.java)
         val contentPI =
             PendingIntent.getActivity(
@@ -624,15 +655,15 @@ class LocationService : Service() {
             )
         val text =
             when {
-                currentMode == MockState.Mode.Idle -> getString(R.string.location_service_text_ready)
-                currentMode == MockState.Mode.Single -> getString(R.string.location_service_text_single)
-                paused -> getString(R.string.location_service_text_route_paused)
-                else -> getString(R.string.location_service_text_route_playing)
+                currentMode == MockState.Mode.Idle -> localeContext.getString(R.string.location_service_text_ready)
+                currentMode == MockState.Mode.Single -> localeContext.getString(R.string.location_service_text_single)
+                paused -> localeContext.getString(R.string.location_service_text_route_paused)
+                else -> localeContext.getString(R.string.location_service_text_route_playing)
             }
         val builder =
             NotificationCompat
                 .Builder(this, CHANNEL_ID)
-                .setContentTitle(getString(R.string.location_service_title))
+                .setContentTitle(localeContext.getString(R.string.location_service_title))
                 .setContentText(text)
                 .setSmallIcon(R.drawable.ic_launcher_monochrome)
                 .setContentIntent(contentPI)
@@ -642,13 +673,13 @@ class LocationService : Service() {
             if (paused) {
                 builder.addAction(
                     0,
-                    getString(R.string.location_service_action_resume),
+                    localeContext.getString(R.string.location_service_action_resume),
                     servicePI(REQ_RESUME, ACTION_RESUME),
                 )
             } else {
                 builder.addAction(
                     0,
-                    getString(R.string.location_service_action_pause),
+                    localeContext.getString(R.string.location_service_action_pause),
                     servicePI(REQ_PAUSE, ACTION_PAUSE),
                 )
             }
@@ -656,7 +687,7 @@ class LocationService : Service() {
         if (currentMode != MockState.Mode.Idle) {
             builder.addAction(
                 0,
-                getString(R.string.location_service_action_stop),
+                localeContext.getString(R.string.location_service_action_stop),
                 servicePI(REQ_STOP, ACTION_STOP),
             )
         }

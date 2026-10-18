@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="cloud_request_failed">Richiesta cloud non riuscita. Riprova.</string>
+    <string name="cloud_sign_in_failed">Impossibile accedere. Controlla i dati di accesso e riprova.</string>
+    <string name="cloud_sync_failed">Sincronizzazione cloud non riuscita. Le modifiche locali sono conservate. Riprova a sincronizzare.</string>
+    <string name="cloud_remote_failed">Controllo remoto non riuscito. Controlla la connessione e riprova.</string>
+    <string name="cloud_qr_failed">Accesso QR non riuscito. Riprova o scansiona un nuovo codice.</string>
+    <string name="cloud_server_settings_failed">Impossibile usare questo server cloud. Controlla l’URL del server e riprova.</string>
+    <string name="cloud_network_error">Impossibile connettersi al server cloud. Controlla la connessione e riprova.</string>
+    <string name="cloud_invalid_response">Il server cloud ha restituito una risposta non valida. Riprova.</string>
+    <string name="cloud_invalid_input">La richiesta non è valida. Controlla i valori inseriti e riprova.</string>
+    <string name="cloud_invalid_credentials">Impossibile accedere. Controlla nome utente, password e codice di verifica.</string>
+    <string name="cloud_session_expired">La sessione è scaduta. Accedi di nuovo.</string>
+    <string name="cloud_permission_denied">Questa azione non è consentita. Controlla i permessi dell’account e riprova.</string>
+    <string name="cloud_not_found">L’elemento cloud non è più disponibile. Aggiorna e riprova.</string>
+    <string name="cloud_conflict">I dati cloud sono cambiati. Sincronizza e controlla eventuali conflitti prima di riprovare.</string>
+    <string name="cloud_expired_request">Questa richiesta è scaduta. Riavvia l’azione.</string>
+    <string name="cloud_rate_limited">Troppe richieste. Attendi prima di riprovare.</string>
+    <string name="cloud_server_unavailable">Il server cloud non è temporaneamente disponibile. Riprova più tardi.</string>
+    <string name="cloud_request_rejected">Richiesta cloud non riuscita (HTTP %1$s). Riprova.</string>
+    <string name="cloud_sync_cursor_expired">La sincronizzazione deve aggiornare i dati cloud. Riprova a sincronizzare.</string>
+    <string name="cloud_sync_mutation_conflict">Una modifica di sincronizzazione è in conflitto con una richiesta precedente. Aggiorna e controlla le modifiche in sospeso.</string>
+    <string name="cloud_sync_upload_failed">Impossibile caricare alcune modifiche. Le modifiche locali sono conservate. Riprova a sincronizzare.</string>
+    <string name="cloud_remote_enabled">Controllo remoto attivato per %1$s</string>
+    <string name="cloud_remote_disabled">Controllo remoto disattivato</string>
+    <string name="cloud_remote_still_enabled">Il controllo remoto è ancora attivo sul server</string>
+    <string name="cloud_remote_sign_in_required">Accedi al cloud per usare il controllo remoto web.</string>
+    <string name="cloud_remote_sign_in_to_disable">Accedi al cloud per disattivare il controllo remoto sul server.</string>
+    <string name="cloud_remote_waiting">In attesa di comandi web</string>
+    <string name="cloud_remote_command_applied">Comando web applicato</string>
+    <string name="cloud_remote_command_failed">Comando web non riuscito. Controlla le autorizzazioni per la posizione simulata e le impostazioni del comando, poi riprova.</string>
+    <string name="cloud_remote_command_invalid">Il comando web non è valido. Controlla le impostazioni di posizione o percorso e invialo di nuovo.</string>
+    <string name="cloud_remote_command_timeout">Il comando web ha superato il tempo limite. Controlla lo stato attuale della posizione simulata prima di riprovare.</string>
+    <string name="cloud_mock_permission_required">Seleziona Kestrel come app di posizione fittizia nelle Opzioni sviluppatore di Android.</string>
+    <string name="cloud_sign_in_required">Accedi prima al cloud.</string>
+    <string name="cloud_sign_out_required">Esci prima di cambiare il server cloud o avviare un altro accesso.</string>
+    <string name="cloud_oidc_cancelled">Accesso dal browser annullato. Riavvia l’accesso quando sei pronto.</string>
+    <string name="cloud_oidc_restart">Questo accesso dal browser non è più in attesa. Riavvia l’accesso.</string>
+    <string name="cloud_server_changed">Il server cloud è cambiato durante l’accesso. Riavvia l’accesso.</string>
+    <string name="cloud_qr_restart">Questo accesso QR non è più in attesa. Scansiona un nuovo codice.</string>
+    <string name="cloud_qr_invalid">Questo codice di accesso QR non è valido. Scansiona un nuovo codice dalla pagina di accesso web.</string>
+    <string name="cloud_scanner_failed">Impossibile scansionare il codice QR. Prova di nuovo.</string>
+    <string name="cloud_scanner_empty">Il codice QR scansionato non contiene testo. Scansiona il codice di accesso dalla pagina web.</string>
+    <string name="cloud_storage_failed">Impossibile salvare in modo sicuro la sessione cloud. Controlla lo spazio di archiviazione del dispositivo e accedi di nuovo.</string>
+</resources>

@@ -22,12 +22,17 @@ internal interface MockCommandApplier {
 
 internal data class RemoteCommandExecutionResult(
     val status: RemoteCommandStatus,
+    // Diagnostic protocol text: never translate or present this field in Android UI.
     val errorMessage: String? = null,
+    val uiError: CloudMessage? = if (status == RemoteCommandStatus.FAILED) CloudMessage(CloudMessageId.RemoteCommandFailed) else null,
 ) {
     companion object {
         fun applied(): RemoteCommandExecutionResult = RemoteCommandExecutionResult(RemoteCommandStatus.APPLIED)
 
-        fun failed(message: String): RemoteCommandExecutionResult = RemoteCommandExecutionResult(RemoteCommandStatus.FAILED, message)
+        fun failed(
+            message: String,
+            uiError: CloudMessage = CloudMessage(CloudMessageId.RemoteCommandFailed),
+        ): RemoteCommandExecutionResult = RemoteCommandExecutionResult(RemoteCommandStatus.FAILED, message, uiError)
     }
 }
 
@@ -46,9 +51,9 @@ internal class RemoteCommandExecutor(
         } catch (error: CancellationException) {
             throw error
         } catch (error: SerializationException) {
-            RemoteCommandExecutionResult.failed(error.message ?: "Invalid command payload")
+            RemoteCommandExecutionResult.failed(error.message ?: "Invalid command payload", CloudMessage(CloudMessageId.RemoteCommandInvalid))
         } catch (error: IllegalArgumentException) {
-            RemoteCommandExecutionResult.failed(error.message ?: "Invalid command payload")
+            RemoteCommandExecutionResult.failed(error.message ?: "Invalid command payload", CloudMessage(CloudMessageId.RemoteCommandInvalid))
         } catch (error: IllegalStateException) {
             RemoteCommandExecutionResult.failed(error.message ?: "Command execution failed")
         }

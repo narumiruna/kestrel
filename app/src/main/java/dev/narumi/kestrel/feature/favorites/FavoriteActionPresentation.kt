@@ -1,6 +1,8 @@
 package dev.narumi.kestrel.feature.favorites
 
+import dev.narumi.kestrel.R
 import dev.narumi.kestrel.core.data.FavoritesSortMode
+import dev.narumi.kestrel.core.i18n.UiMessage
 import dev.narumi.kestrel.core.library.LibraryItemKind
 import dev.narumi.kestrel.core.library.LibraryItemWithContent
 import dev.narumi.kestrel.core.library.sortedFor
@@ -19,11 +21,12 @@ internal fun visibleFavorites(
     query: String,
     filter: FavoritesFilter,
     sortMode: FavoritesSortMode.Mode,
+    locale: java.util.Locale = java.util.Locale.getDefault(),
 ): List<LibraryItemWithContent> {
     val search = query.trim()
     return items
         .filter { filter.includes(it.kind) && it.name.contains(search, ignoreCase = true) }
-        .sortedFor(sortMode)
+        .sortedFor(sortMode, locale)
 }
 
 internal enum class FavoriteRowAction {
@@ -66,13 +69,13 @@ internal fun favoriteRowActions(
             },
     )
 
-internal fun favoriteEditLabel(kind: LibraryItemKind): String = if (kind == LibraryItemKind.Place) "Edit coordinates" else "Edit route"
+internal fun favoriteEditLabel(kind: LibraryItemKind): Int = if (kind == LibraryItemKind.Place) R.string.edit_coordinates else R.string.edit_route
 
-internal fun FavoritesFilter.label(): String =
+internal fun FavoritesFilter.label(): Int =
     when (this) {
-        FavoritesFilter.All -> "All"
-        FavoritesFilter.Points -> "Points"
-        FavoritesFilter.Routes -> "Routes"
+        FavoritesFilter.All -> R.string.filter_all
+        FavoritesFilter.Points -> R.string.filter_points
+        FavoritesFilter.Routes -> R.string.filter_routes
     }
 
-internal fun favoriteMoreActionsLabel(name: String): String = "More actions for $name"
+internal fun favoriteMoreActionsLabel(name: String): UiMessage = UiMessage(R.string.more_actions_for, listOf(name))

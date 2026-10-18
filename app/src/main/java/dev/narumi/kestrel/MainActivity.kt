@@ -2,10 +2,11 @@ package dev.narumi.kestrel
 
 import android.content.Intent
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.view.ContextThemeWrapper
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -15,6 +16,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteDefaults
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -22,19 +24,31 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.PreviewScreenSizes
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
 import dev.narumi.kestrel.core.cloud.CloudSyncRepository
 import dev.narumi.kestrel.core.cloud.RemoteControlPoller
 import dev.narumi.kestrel.core.cloud.isOidcCallbackUri
+import dev.narumi.kestrel.core.i18n.AppLanguage
+import dev.narumi.kestrel.core.i18n.UiMessage
+import dev.narumi.kestrel.core.i18n.displayNumber
+import dev.narumi.kestrel.core.i18n.distance
+import dev.narumi.kestrel.core.i18n.labelResource
+import dev.narumi.kestrel.core.i18n.routeDetails
+import dev.narumi.kestrel.core.i18n.speed
+import dev.narumi.kestrel.core.i18n.waypointCount
 import dev.narumi.kestrel.core.library.LibraryItemWithContent
 import dev.narumi.kestrel.core.location.LatLng
 import dev.narumi.kestrel.core.location.LocationService
@@ -52,26 +66,51 @@ import kotlinx.coroutines.launch
 
 private const val OPERATION_TIMEOUT_MILLIS = 10_000L
 
-class MainActivity : ComponentActivity() {
+class MainActivity : AppCompatActivity() {
     private var pendingMapLinkPoint by mutableStateOf<LatLng?>(null)
     private var pendingOidcCallback by mutableStateOf<String?>(null)
     private var skipCloudSyncOnForeground by mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        consumeMainIntent(intent)
+        if (savedInstanceState == null) {
+            consumeMainIntent(intent)
+        } else {
+            pendingMapLinkPoint = savedInstanceState.getDoubleArray("pendingMapPoint")?.let { LatLng(it[0], it[1]) }
+            pendingOidcCallback = savedInstanceState.getString("pendingOidcCallback")
+            skipCloudSyncOnForeground = savedInstanceState.getBoolean("skipCloudSync")
+        }
         enableEdgeToEdge()
-        setContent {
-            KestrelTheme {
-                KestrelApp(
-                    pendingMapLinkPoint = pendingMapLinkPoint,
-                    pendingOidcCallback = pendingOidcCallback,
-                    skipCloudSyncOnForeground = skipCloudSyncOnForeground,
-                    onMapLinkPointConsumed = { pendingMapLinkPoint = null },
-                    onOidcCallbackConsumed = ::consumeOidcCallbackIntent,
-                )
+        lifecycleScope.launch {
+            AppLanguage.initialize(this@MainActivity)
+            val localeContext =
+                ContextThemeWrapper(this@MainActivity, R.style.Theme_Kestrel).apply {
+                    applyOverrideConfiguration(AppLanguage.context(this@MainActivity).resources.configuration)
+                }
+            setContent {
+                CompositionLocalProvider(
+                    LocalContext provides localeContext,
+                    LocalConfiguration provides localeContext.resources.configuration,
+                ) {
+                    KestrelTheme {
+                        KestrelApp(
+                            pendingMapLinkPoint = pendingMapLinkPoint,
+                            pendingOidcCallback = pendingOidcCallback,
+                            skipCloudSyncOnForeground = skipCloudSyncOnForeground,
+                            onMapLinkPointConsumed = { pendingMapLinkPoint = null },
+                            onOidcCallbackConsumed = ::consumeOidcCallbackIntent,
+                        )
+                    }
+                }
             }
         }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        pendingMapLinkPoint?.let { outState.putDoubleArray("pendingMapPoint", doubleArrayOf(it.lat, it.lng)) }
+        outState.putString("pendingOidcCallback", pendingOidcCallback)
+        outState.putBoolean("skipCloudSync", skipCloudSyncOnForeground)
+        super.onSaveInstanceState(outState)
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -129,9 +168,10 @@ fun KestrelApp(
     onOidcCallbackConsumed: (String) -> Unit = {},
 ) {
     var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.HOME) }
-    var pendingFavoriteApply by remember { mutableStateOf<LibraryItemWithContent?>(null) }
-    var pendingShellOperationId by remember { mutableStateOf<String?>(null) }
-    var shellOperationError by remember { mutableStateOf<String?>(null) }
+    val destinationState = rememberSaveableStateHolder()
+    var pendingFavoriteApply by rememberSaveable { mutableStateOf<LibraryItemWithContent?>(null) }
+    var pendingShellOperationId by rememberSaveable { mutableStateOf<String?>(null) }
+    var shellOperationError by rememberSaveable { mutableStateOf<UiMessage?>(null) }
     val context = LocalContext.current
     KestrelForegroundEffects(skipCloudSyncOnForeground)
     val runtimeState by LocationService.runtimeState.collectAsStateWithLifecycle()
@@ -154,7 +194,7 @@ fun KestrelApp(
         val requestId = pendingShellOperationId ?: return@LaunchedEffect
         delay(OPERATION_TIMEOUT_MILLIS)
         if (pendingShellOperationId == requestId) {
-            shellOperationError = "Kestrel did not confirm the playback change. Check Map and try again."
+            shellOperationError = UiMessage(R.string.kestrel_did_not_confirm_the_playback_change_check_map_and_try_again)
             pendingShellOperationId = null
         }
     }
@@ -188,7 +228,7 @@ fun KestrelApp(
                             contentDescription = null,
                         )
                     },
-                    label = { Text(destination.label, style = MaterialTheme.typography.labelMedium) },
+                    label = { Text(stringResource(destination.label), style = MaterialTheme.typography.labelMedium) },
                     selected = destination == currentDestination,
                     onClick = { currentDestination = destination },
                 )
@@ -209,7 +249,7 @@ fun KestrelApp(
                     PlaybackStatusBar(
                         runtime = runtimeState,
                         busy = pendingShellOperationId != null,
-                        error = shellOperationError,
+                        error = shellOperationError?.resolve(context),
                         onViewMap = { currentDestination = AppDestinations.HOME },
                         onPause = {
                             shellOperationError = null
@@ -226,22 +266,24 @@ fun KestrelApp(
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                     )
                 }
-                AppDestinationContent(
-                    currentDestination = currentDestination,
-                    pendingFavoriteApply = pendingFavoriteApply,
-                    pendingMapLinkPoint = pendingMapLinkPoint,
-                    pendingOidcCallback = pendingOidcCallback,
-                    onFavoriteApplyConsumed = { pendingFavoriteApply = null },
-                    onMapLinkPointConsumed = onMapLinkPointConsumed,
-                    onOidcCallbackConsumed = onOidcCallbackConsumed,
-                    onApplyFavorite = { favorite ->
-                        pendingFavoriteApply = favorite
-                        currentDestination = AppDestinations.HOME
-                    },
-                    onShowMap = { currentDestination = AppDestinations.HOME },
-                    onShowFavorites = { currentDestination = AppDestinations.FAVORITES },
-                    modifier = Modifier.weight(1f),
-                )
+                destinationState.SaveableStateProvider(currentDestination.name) {
+                    AppDestinationContent(
+                        currentDestination = currentDestination,
+                        pendingFavoriteApply = pendingFavoriteApply,
+                        pendingMapLinkPoint = pendingMapLinkPoint,
+                        pendingOidcCallback = pendingOidcCallback,
+                        onFavoriteApplyConsumed = { pendingFavoriteApply = null },
+                        onMapLinkPointConsumed = onMapLinkPointConsumed,
+                        onOidcCallbackConsumed = onOidcCallbackConsumed,
+                        onApplyFavorite = { favorite ->
+                            pendingFavoriteApply = favorite
+                            currentDestination = AppDestinations.HOME
+                        },
+                        onShowMap = { currentDestination = AppDestinations.HOME },
+                        onShowFavorites = { currentDestination = AppDestinations.FAVORITES },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
             }
         }
     }
@@ -318,11 +360,11 @@ private fun AppDestinationContent(
 }
 
 enum class AppDestinations(
-    val label: String,
+    val label: Int,
     val icon: ImageVector,
     val unselectedIcon: ImageVector,
 ) {
-    HOME("Map", KestrelIcons.MapFilled, KestrelIcons.MapOutlined),
-    FAVORITES("Favorites", KestrelIcons.FavoriteFilled, KestrelIcons.FavoriteOutlined),
-    SETTINGS("Settings", KestrelIcons.SettingsFilled, KestrelIcons.SettingsOutlined),
+    HOME(R.string.nav_map, KestrelIcons.MapFilled, KestrelIcons.MapOutlined),
+    FAVORITES(R.string.nav_favorites, KestrelIcons.FavoriteFilled, KestrelIcons.FavoriteOutlined),
+    SETTINGS(R.string.nav_settings, KestrelIcons.SettingsFilled, KestrelIcons.SettingsOutlined),
 }

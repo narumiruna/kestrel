@@ -1,3 +1,16 @@
+type SaveMessageKey =
+  | 'savingDetail'
+  | 'savingTitle'
+  | 'errorTitle'
+  | 'changed'
+  | 'dirtyTitle'
+  | 'invalidTitle'
+  | 'newDetail'
+  | 'newTitle'
+  | 'revision'
+  | 'saved';
+export type RouteSaveTranslator = (key: SaveMessageKey, values?: { number: number }) => string;
+
 export type RouteSavePresentation = {
   detail: string | null;
   showDiscard: boolean;
@@ -7,33 +20,36 @@ export type RouteSavePresentation = {
   title: string;
 };
 
-export function getRouteSavePresentation({
-  changeSummary,
-  error,
-  isDirty,
-  isNew,
-  isSaving,
-  revisionNumber,
-  saveNotice,
-  validationReason,
-}: {
-  changeSummary: string;
-  error: string | null;
-  isDirty: boolean;
-  isNew: boolean;
-  isSaving: boolean;
-  revisionNumber: number | null;
-  saveNotice: string | null;
-  validationReason: string | null;
-}): RouteSavePresentation {
+export function getRouteSavePresentation(
+  {
+    changeSummary,
+    error,
+    isDirty,
+    isNew,
+    isSaving,
+    revisionNumber,
+    saveNotice,
+    validationReason,
+  }: {
+    changeSummary: string;
+    error: string | null;
+    isDirty: boolean;
+    isNew: boolean;
+    isSaving: boolean;
+    revisionNumber: number | null;
+    saveNotice: string | null;
+    validationReason: string | null;
+  },
+  t: RouteSaveTranslator,
+): RouteSavePresentation {
   if (isSaving) {
     return {
-      detail: 'Keep this page open until the cloud confirms the revision.',
+      detail: t('savingDetail'),
       showDiscard: false,
       showSaveButton: true,
       showStickyBar: true,
       status: 'progress',
-      title: 'Saving route…',
+      title: t('savingTitle'),
     };
   }
 
@@ -44,38 +60,38 @@ export function getRouteSavePresentation({
       showSaveButton: true,
       showStickyBar: true,
       status: 'error',
-      title: 'Route not saved',
+      title: t('errorTitle'),
     };
   }
 
   if (isDirty) {
     return {
-      detail: (validationReason ?? changeSummary) || 'Route changed',
+      detail: (validationReason ?? changeSummary) || t('changed'),
       showDiscard: true,
       showSaveButton: true,
       showStickyBar: true,
       status: validationReason == null ? 'warning' : 'error',
-      title: validationReason == null ? 'Unsaved changes' : 'Not ready to save',
+      title: validationReason == null ? t('dirtyTitle') : t('invalidTitle'),
     };
   }
 
   if (isNew) {
     return {
-      detail: validationReason ?? 'Add route details before saving.',
+      detail: validationReason ?? t('newDetail'),
       showDiscard: false,
       showSaveButton: true,
       showStickyBar: true,
       status: 'idle',
-      title: 'Not saved yet',
+      title: t('newTitle'),
     };
   }
 
   return {
-    detail: revisionNumber == null ? null : `Revision ${revisionNumber}`,
+    detail: revisionNumber == null ? null : t('revision', { number: revisionNumber }),
     showDiscard: false,
     showSaveButton: false,
     showStickyBar: false,
     status: 'success',
-    title: saveNotice ?? 'Saved to cloud',
+    title: saveNotice ?? t('saved'),
   };
 }

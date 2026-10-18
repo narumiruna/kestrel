@@ -2,9 +2,11 @@
 
 import type { Map as MapLibreMap, Marker } from 'maplibre-gl';
 import * as maplibregl from 'maplibre-gl';
+import { useTranslations } from 'next-intl';
 import { useEffect, useRef } from 'react';
 import { getStyleByName } from '@/components/mapStyle';
 import { useMapStyle } from '@/hooks/useMapStyle';
+import { mapLibreLocale, updateMapLabels } from '@/i18n/map';
 
 type Props = {
   className?: string;
@@ -13,6 +15,9 @@ type Props = {
 };
 
 export default function PlaceMapPreview({ className = 'map-mini', latitude, longitude }: Props) {
+  const t = useTranslations('MapControls');
+  const labelsRef = useRef(t);
+  labelsRef.current = t;
   const { styleName } = useMapStyle();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
@@ -29,11 +34,12 @@ export default function PlaceMapPreview({ className = 'map-mini', latitude, long
       center: [initialCoordsRef.current.longitude, initialCoordsRef.current.latitude],
       container: containerRef.current,
       interactive: false,
+      locale: mapLibreLocale(labelsRef.current),
       style: getStyleByName(initialStyleNameRef.current),
       zoom: 14,
     });
     const marker = new maplibregl.Marker({
-      element: createPreviewMarkerElement(),
+      element: createPreviewMarkerElement(labelsRef.current('place')),
     })
       .setLngLat([initialCoordsRef.current.longitude, initialCoordsRef.current.latitude])
       .addTo(map);
@@ -78,13 +84,23 @@ export default function PlaceMapPreview({ className = 'map-mini', latitude, long
     map.once('style.load', () => map.jumpTo({ center, zoom }));
   }, [styleName]);
 
+  useEffect(() => {
+    if (mapRef.current) updateMapLabels(mapRef.current.getContainer(), t);
+    if (markerRef.current) {
+      const element = markerRef.current.getElement();
+      element.ariaLabel = t('place');
+      element.textContent = t('place').charAt(0).toUpperCase();
+    }
+  }, [t]);
+
   return <div className={className} ref={containerRef} />;
 }
 
-function createPreviewMarkerElement() {
+function createPreviewMarkerElement(label: string) {
   const element = document.createElement('span');
   element.className = 'place-marker active preview';
-  element.textContent = 'P';
+  element.ariaLabel = label;
+  element.textContent = label.charAt(0).toUpperCase();
 
   return element;
 }

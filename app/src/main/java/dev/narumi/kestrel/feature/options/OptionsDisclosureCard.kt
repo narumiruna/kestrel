@@ -20,9 +20,11 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
+import dev.narumi.kestrel.R
 import dev.narumi.kestrel.ui.components.KestrelCard
 import dev.narumi.kestrel.ui.components.KestrelIconBadge
 import dev.narumi.kestrel.ui.components.KestrelIcons
@@ -45,19 +47,20 @@ internal fun OptionsDisclosureCard(
         wasExpanded = expanded
     }
     BackHandler(enabled = expanded) { onExpandedChange(false) }
+    val disclosureDescription = stringResource(optionsDisclosureStateDescription(expanded))
     val changeAction: @Composable () -> Unit = {
         TextButton(
             onClick = { onExpandedChange(!expanded) },
             modifier =
                 Modifier
                     .focusRequester(changeFocusRequester)
-                    .semantics { stateDescription = optionsDisclosureStateDescription(expanded) },
+                    .semantics { stateDescription = disclosureDescription },
         ) {
-            Text(if (expanded) "Cancel" else "Change")
+            Text(if (expanded) stringResource(R.string.options_cancel) else stringResource(R.string.options_change))
         }
     }
     KestrelCard(
-        modifier = Modifier.semantics { stateDescription = optionsDisclosureStateDescription(expanded) },
+        modifier = Modifier.semantics { stateDescription = disclosureDescription },
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),

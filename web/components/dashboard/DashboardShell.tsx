@@ -1,8 +1,10 @@
 'use client';
 
+import { useLocale, useTranslations } from 'next-intl';
 import { type ReactNode, useEffect, useState } from 'react';
 import { WorkspaceHeader } from '@/components/WorkspaceHeader';
 import type { WorkspaceSection } from '@/components/WorkspaceTabs';
+import { formatRelativeUpdated } from '@/i18n/format';
 
 type Props = {
   activeSection: WorkspaceSection;
@@ -23,6 +25,7 @@ export default function DashboardShell({
   onRefresh,
   username,
 }: Props) {
+  const t = useTranslations('DashboardShell');
   const lastUpdatedLabel = useRelativeUpdatedLabel(lastUpdatedAt);
 
   return (
@@ -30,7 +33,7 @@ export default function DashboardShell({
       <WorkspaceHeader
         activeSection={activeSection}
         isRefreshing={isRefreshing}
-        statusLabel={lastUpdatedLabel == null ? null : `Updated ${lastUpdatedLabel}`}
+        statusLabel={lastUpdatedLabel == null ? null : t('updated', { time: lastUpdatedLabel })}
         username={username}
         onLogout={onLogout}
         onRefresh={onRefresh}
@@ -41,6 +44,7 @@ export default function DashboardShell({
 }
 
 function useRelativeUpdatedLabel(lastUpdatedAt: Date | null): string | null {
+  const locale = useLocale();
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -58,31 +62,5 @@ function useRelativeUpdatedLabel(lastUpdatedAt: Date | null): string | null {
     return null;
   }
 
-  return formatRelativeTime(lastUpdatedAt, now);
-}
-
-function formatRelativeTime(date: Date, now: number): string {
-  const elapsedSeconds = Math.max(0, Math.floor((now - date.getTime()) / 1000));
-
-  if (elapsedSeconds < 10) {
-    return 'just now';
-  }
-
-  if (elapsedSeconds < 60) {
-    return `${elapsedSeconds}s ago`;
-  }
-
-  const elapsedMinutes = Math.floor(elapsedSeconds / 60);
-
-  if (elapsedMinutes < 60) {
-    return `${elapsedMinutes}m ago`;
-  }
-
-  const elapsedHours = Math.floor(elapsedMinutes / 60);
-
-  if (elapsedHours < 24) {
-    return `${elapsedHours}h ago`;
-  }
-
-  return new Intl.DateTimeFormat('en-US', { day: 'numeric', month: 'short' }).format(date);
+  return formatRelativeUpdated(lastUpdatedAt, now, locale);
 }

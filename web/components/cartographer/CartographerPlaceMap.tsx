@@ -2,9 +2,11 @@
 
 import type { Map as MapLibreMap, Marker } from 'maplibre-gl';
 import * as maplibregl from 'maplibre-gl';
+import { useTranslations } from 'next-intl';
 import { type MutableRefObject, useEffect, useRef } from 'react';
 import { DEFAULT_MAP_CENTER, getStyleByName } from '@/components/mapStyle';
 import { useMapStyle } from '@/hooks/useMapStyle';
+import { mapLibreLocale, updateMapLabels } from '@/i18n/map';
 import type { Place } from '@/lib/api';
 
 export type PlaceViewportControls = {
@@ -32,6 +34,9 @@ export default function CartographerPlaceMap({
   places,
   selectedPlaceId,
 }: Props) {
+  const t = useTranslations('MapControls');
+  const labelsRef = useRef(t);
+  labelsRef.current = t;
   const { styleName } = useMapStyle();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
@@ -61,6 +66,7 @@ export default function CartographerPlaceMap({
     const map = new maplibregl.Map({
       center: [initialCenter.longitude, initialCenter.latitude],
       container: containerRef.current,
+      locale: mapLibreLocale(labelsRef.current),
       style: getStyleByName(initialStateRef.current.styleName),
       zoom: initialStateRef.current.places.length === 0 ? 11 : 13,
     });
@@ -75,6 +81,7 @@ export default function CartographerPlaceMap({
         onSelectPlace: callbacksRef.current.onSelectPlace,
         places: stateRef.current.places,
         selectedPlaceId: stateRef.current.selectedPlaceId,
+        labels: labelsRef.current,
       });
       callbacksRef.current.onReady?.({
         fit: () => fitPlaces(map, stateRef.current.places, stateRef.current.draftCoords),
@@ -129,8 +136,10 @@ export default function CartographerPlaceMap({
       onSelectPlace,
       places,
       selectedPlaceId,
+      labels: t,
     });
-  }, [draftCoords, onChangeDraftCoords, onSelectPlace, places, selectedPlaceId]);
+    updateMapLabels(map.getContainer(), t);
+  }, [draftCoords, onChangeDraftCoords, onSelectPlace, places, selectedPlaceId, t]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -165,6 +174,7 @@ export default function CartographerPlaceMap({
         onSelectPlace: callbacksRef.current.onSelectPlace,
         places: stateRef.current.places,
         selectedPlaceId: stateRef.current.selectedPlaceId,
+        labels: labelsRef.current,
       });
       map.jumpTo({ bearing, center, pitch, zoom });
     });
@@ -182,7 +192,9 @@ function syncPlaceMarkers({
   onSelectPlace,
   places,
   selectedPlaceId,
+  labels,
 }: {
+  labels: (key: 'draftCoordinates' | 'place') => string;
   draftCoords: { latitude: number; longitude: number } | null;
   draftMarkerRef: MutableRefObject<Marker | null>;
   markersRef: Marker[];
@@ -200,7 +212,10 @@ function syncPlaceMarkers({
   places.forEach((place) => {
     const isActive = place.id === selectedPlaceId;
     const marker = new maplibregl.Marker({
-      element: createPlaceMarkerElement({ active: isActive, label: place.name }),
+      element: createPlaceMarkerElement({
+        active: isActive,
+        label: place.name.trim() || labels('place'),
+      }),
     })
       .setLngLat([place.longitude, place.latitude])
       .addTo(map);
@@ -222,7 +237,7 @@ function syncPlaceMarkers({
   if (draftMarker == null) {
     const createdMarker = new maplibregl.Marker({
       draggable: true,
-      element: createPlaceMarkerElement({ active: true, label: 'Draft coordinates' }),
+      element: createPlaceMarkerElement({ active: true, label: labels('draftCoordinates') }),
     })
       .setLngLat([draftCoords.longitude, draftCoords.latitude])
       .addTo(map);
@@ -238,11 +253,12 @@ function syncPlaceMarkers({
     draftMarker = createdMarker;
   }
 
+  draftMarker.getElement().ariaLabel = labels('draftCoordinates');
   draftMarker.setLngLat([draftCoords.longitude, draftCoords.latitude]);
 }
 
 function createPlaceMarkerElement({ active, label }: { active: boolean; label: string }) {
-  const markerLabel = label.trim() || 'Place';
+  const markerLabel = label.trim();
   const element = document.createElement('button');
   element.ariaLabel = markerLabel;
   element.className = `place-marker${active ? ' active' : ''}`;

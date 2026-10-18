@@ -14,6 +14,6 @@ internal suspend fun <T> withAuthorizedSession(
         val authorizedSession =
             authRepository.refreshSessionIfCurrent(session)
                 ?: authRepository.currentSession()?.takeIf { it.sessionId == session.sessionId }
-                ?: error("Session expired. Please sign in again.")
+                ?: throw CloudMessageException(CloudMessage(CloudMessageId.SessionExpired))
         block(authorizedSession)
     }

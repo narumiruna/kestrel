@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="cloud_request_failed">Die Cloud-Anfrage ist fehlgeschlagen. Versuche es erneut.</string>
+    <string name="cloud_sign_in_failed">Anmeldung fehlgeschlagen. Prüfe deine Anmeldedaten und versuche es erneut.</string>
+    <string name="cloud_sync_failed">Cloud-Synchronisierung fehlgeschlagen. Deine lokalen Änderungen bleiben erhalten. Versuche erneut zu synchronisieren.</string>
+    <string name="cloud_remote_failed">Fernsteuerung fehlgeschlagen. Prüfe die Verbindung und versuche es erneut.</string>
+    <string name="cloud_qr_failed">QR-Anmeldung fehlgeschlagen. Versuche es erneut oder scanne einen neuen Code.</string>
+    <string name="cloud_server_settings_failed">Dieser Cloud-Server konnte nicht verwendet werden. Prüfe die Server-URL und versuche es erneut.</string>
+    <string name="cloud_network_error">Verbindung zum Cloud-Server fehlgeschlagen. Prüfe deine Verbindung und versuche es erneut.</string>
+    <string name="cloud_invalid_response">Der Cloud-Server hat eine ungültige Antwort zurückgegeben. Versuche es erneut.</string>
+    <string name="cloud_invalid_input">Die Anfrage ist ungültig. Prüfe die eingegebenen Werte und versuche es erneut.</string>
+    <string name="cloud_invalid_credentials">Anmeldung fehlgeschlagen. Prüfe deinen Benutzernamen, dein Passwort und deinen Bestätigungscode.</string>
+    <string name="cloud_session_expired">Deine Sitzung ist abgelaufen. Melde dich erneut an.</string>
+    <string name="cloud_permission_denied">Diese Aktion ist nicht erlaubt. Prüfe deine Kontoberechtigungen und versuche es erneut.</string>
+    <string name="cloud_not_found">Der Cloud-Eintrag ist nicht mehr verfügbar. Aktualisiere die Ansicht und versuche es erneut.</string>
+    <string name="cloud_conflict">Die Cloud-Daten haben sich geändert. Synchronisiere und prüfe mögliche Konflikte, bevor du es erneut versuchst.</string>
+    <string name="cloud_expired_request">Diese Anfrage ist abgelaufen. Starte die Aktion erneut.</string>
+    <string name="cloud_rate_limited">Zu viele Anfragen. Warte, bevor du es erneut versuchst.</string>
+    <string name="cloud_server_unavailable">Der Cloud-Server ist vorübergehend nicht verfügbar. Versuche es später erneut.</string>
+    <string name="cloud_request_rejected">Die Cloud-Anfrage ist fehlgeschlagen (HTTP %1$s). Versuche es erneut.</string>
+    <string name="cloud_sync_cursor_expired">Die Synchronisierung muss die Cloud-Daten aktualisieren. Versuche erneut zu synchronisieren.</string>
+    <string name="cloud_sync_mutation_conflict">Eine Synchronisierungsänderung steht im Konflikt mit einer früheren Anfrage. Aktualisiere die Ansicht und prüfe ausstehende Änderungen.</string>
+    <string name="cloud_sync_upload_failed">Einige Änderungen konnten nicht hochgeladen werden. Deine lokalen Änderungen bleiben erhalten. Versuche erneut zu synchronisieren.</string>
+    <string name="cloud_remote_enabled">Fernsteuerung für %1$s aktiviert</string>
+    <string name="cloud_remote_disabled">Fernsteuerung deaktiviert</string>
+    <string name="cloud_remote_still_enabled">Die Fernsteuerung ist auf dem Server weiterhin aktiviert</string>
+    <string name="cloud_remote_sign_in_required">Melde dich in der Cloud an, um die Web-Fernsteuerung zu verwenden.</string>
+    <string name="cloud_remote_sign_in_to_disable">Melde dich in der Cloud an, um die Fernsteuerung auf dem Server zu deaktivieren.</string>
+    <string name="cloud_remote_waiting">Warte auf Web-Befehle</string>
+    <string name="cloud_remote_command_applied">Web-Befehl angewendet</string>
+    <string name="cloud_remote_command_failed">Der Web-Befehl ist fehlgeschlagen. Prüfe die Berechtigungen für simulierte Standorte und die Befehlseinstellungen und versuche es erneut.</string>
+    <string name="cloud_remote_command_invalid">Der Web-Befehl ist ungültig. Prüfe seine Standort- oder Routeneinstellungen und sende ihn erneut.</string>
+    <string name="cloud_remote_command_timeout">Das Zeitlimit des Web-Befehls wurde überschritten. Prüfe den aktuellen Status der Standortsimulation, bevor du es erneut versuchst.</string>
+    <string name="cloud_mock_permission_required">Wähle Kestrel in den Android-Entwickleroptionen als App für simulierte Standorte.</string>
+    <string name="cloud_sign_in_required">Melde dich zuerst in der Cloud an.</string>
+    <string name="cloud_sign_out_required">Melde dich ab, bevor du den Cloud-Server wechselst oder eine weitere Anmeldung startest.</string>
+    <string name="cloud_oidc_cancelled">Die Browseranmeldung wurde abgebrochen. Starte die Anmeldung erneut, wenn du bereit bist.</string>
+    <string name="cloud_oidc_restart">Diese Browseranmeldung ist nicht mehr ausstehend. Starte die Anmeldung erneut.</string>
+    <string name="cloud_server_changed">Der Cloud-Server hat sich während der Anmeldung geändert. Starte die Anmeldung erneut.</string>
+    <string name="cloud_qr_restart">Diese QR-Anmeldung ist nicht mehr ausstehend. Scanne einen neuen Code.</string>
+    <string name="cloud_qr_invalid">Dieser QR-Anmeldecode ist ungültig. Scanne einen neuen Code von der Web-Anmeldeseite.</string>
+    <string name="cloud_scanner_failed">Der QR-Code konnte nicht gescannt werden. Versuche ihn erneut zu scannen.</string>
+    <string name="cloud_scanner_empty">Der gescannte QR-Code enthält keinen Text. Scanne den Anmeldecode von der Webseite.</string>
+    <string name="cloud_storage_failed">Die Cloud-Sitzung konnte nicht sicher gespeichert werden. Prüfe den Gerätespeicher und melde dich erneut an.</string>
+</resources>

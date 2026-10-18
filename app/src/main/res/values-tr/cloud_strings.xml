@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="cloud_request_failed">Bulut isteği başarısız oldu. Tekrar dene.</string>
+    <string name="cloud_sign_in_failed">Giriş yapılamadı. Giriş bilgilerini kontrol edip tekrar dene.</string>
+    <string name="cloud_sync_failed">Bulut eşitlemesi başarısız oldu. Yerel değişikliklerin korunuyor. Eşitlemeyi tekrar dene.</string>
+    <string name="cloud_remote_failed">Uzaktan kontrol başarısız oldu. Bağlantıyı kontrol edip tekrar dene.</string>
+    <string name="cloud_qr_failed">QR girişi başarısız oldu. Tekrar dene veya yeni bir kod tara.</string>
+    <string name="cloud_server_settings_failed">Bu bulut sunucusu kullanılamadı. Sunucu URL’sini kontrol edip tekrar dene.</string>
+    <string name="cloud_network_error">Bulut sunucusuna bağlanılamadı. Bağlantını kontrol edip tekrar dene.</string>
+    <string name="cloud_invalid_response">Bulut sunucusu geçersiz bir yanıt döndürdü. Tekrar dene.</string>
+    <string name="cloud_invalid_input">İstek geçersiz. Girilen değerleri kontrol edip tekrar dene.</string>
+    <string name="cloud_invalid_credentials">Giriş yapılamadı. Kullanıcı adını, şifreni ve doğrulama kodunu kontrol et.</string>
+    <string name="cloud_session_expired">Oturumunun süresi doldu. Tekrar giriş yap.</string>
+    <string name="cloud_permission_denied">Bu işleme izin verilmiyor. Hesap erişimini kontrol edip tekrar dene.</string>
+    <string name="cloud_not_found">Bulut öğesi artık kullanılamıyor. Yenileyip tekrar dene.</string>
+    <string name="cloud_conflict">Bulut verileri değişti. Tekrar denemeden önce eşitle ve varsa çakışmaları incele.</string>
+    <string name="cloud_expired_request">Bu isteğin süresi doldu. İşlemi yeniden başlat.</string>
+    <string name="cloud_rate_limited">Çok fazla istek gönderildi. Tekrar denemeden önce bekle.</string>
+    <string name="cloud_server_unavailable">Bulut sunucusu geçici olarak kullanılamıyor. Daha sonra tekrar dene.</string>
+    <string name="cloud_request_rejected">Bulut isteği başarısız oldu (HTTP %1$s). Tekrar dene.</string>
+    <string name="cloud_sync_cursor_expired">Eşitlemenin bulut verilerini yenilemesi gerekiyor. Eşitlemeyi tekrar dene.</string>
+    <string name="cloud_sync_mutation_conflict">Bir eşitleme değişikliği önceki bir istekle çakışıyor. Yenile ve bekleyen değişikliklerini incele.</string>
+    <string name="cloud_sync_upload_failed">Bazı değişiklikler yüklenemedi. Yerel değişikliklerin korunuyor. Eşitlemeyi tekrar dene.</string>
+    <string name="cloud_remote_enabled">%1$s için uzaktan kontrol etkin</string>
+    <string name="cloud_remote_disabled">Uzaktan kontrol devre dışı</string>
+    <string name="cloud_remote_still_enabled">Uzaktan kontrol sunucuda hâlâ etkin</string>
+    <string name="cloud_remote_sign_in_required">Web uzaktan kontrolünü kullanmak için buluta giriş yap.</string>
+    <string name="cloud_remote_sign_in_to_disable">Sunucudaki uzaktan kontrolü devre dışı bırakmak için buluta giriş yap.</string>
+    <string name="cloud_remote_waiting">Web komutları bekleniyor</string>
+    <string name="cloud_remote_command_applied">Web komutu uygulandı</string>
+    <string name="cloud_remote_command_failed">Web komutu başarısız oldu. Konum simülasyonu izinlerini ve komut ayarlarını kontrol edip tekrar dene.</string>
+    <string name="cloud_remote_command_invalid">Web komutu geçersiz. Konum veya rota ayarlarını kontrol edip yeniden gönder.</string>
+    <string name="cloud_remote_command_timeout">Web komutu zaman aşımına uğradı. Tekrar denemeden önce geçerli konum simülasyonu durumunu kontrol et.</string>
+    <string name="cloud_mock_permission_required">Android Geliştirici seçeneklerinde sahte konum uygulaması olarak Kestrel’i seç.</string>
+    <string name="cloud_sign_in_required">Önce buluta giriş yap.</string>
+    <string name="cloud_sign_out_required">Bulut sunucusunu değiştirmeden veya başka bir giriş başlatmadan önce çıkış yap.</string>
+    <string name="cloud_oidc_cancelled">Tarayıcı girişi iptal edildi. Hazır olduğunda girişi yeniden başlat.</string>
+    <string name="cloud_oidc_restart">Bu tarayıcı girişi artık beklemede değil. Girişi yeniden başlat.</string>
+    <string name="cloud_server_changed">Giriş sırasında bulut sunucusu değişti. Girişi yeniden başlat.</string>
+    <string name="cloud_qr_restart">Bu QR girişi artık beklemede değil. Yeni bir kod tara.</string>
+    <string name="cloud_qr_invalid">Bu QR giriş kodu geçersiz. Web giriş sayfasından yeni bir kod tara.</string>
+    <string name="cloud_scanner_failed">QR kodu taranamadı. Tekrar taramayı dene.</string>
+    <string name="cloud_scanner_empty">Taranan QR kodunda metin yok. Web sayfasındaki giriş kodunu tara.</string>
+    <string name="cloud_storage_failed">Bulut oturumu güvenli bir şekilde kaydedilemedi. Cihaz depolamasını kontrol edip tekrar giriş yap.</string>
+</resources>

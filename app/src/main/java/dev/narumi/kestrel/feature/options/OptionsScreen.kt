@@ -33,6 +33,7 @@ import androidx.compose.ui.autofill.ContentDataType
 import androidx.compose.ui.autofill.ContentType
 import androidx.compose.ui.autofill.contentType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDataType
 import androidx.compose.ui.semantics.liveRegion
@@ -42,11 +43,17 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import dev.narumi.kestrel.R
 import dev.narumi.kestrel.core.cloud.AndroidQrLoginMethod
 import dev.narumi.kestrel.core.cloud.AndroidQrLoginProgress
 import dev.narumi.kestrel.core.cloud.AndroidQrLoginRetryableException
 import dev.narumi.kestrel.core.cloud.CloudApiException
 import dev.narumi.kestrel.core.cloud.CloudAuthRepository
+import dev.narumi.kestrel.core.cloud.CloudErrorContext
+import dev.narumi.kestrel.core.cloud.CloudMessage
+import dev.narumi.kestrel.core.cloud.CloudMessageException
+import dev.narumi.kestrel.core.cloud.CloudMessageId
 import dev.narumi.kestrel.core.cloud.CloudPlaceConflict
 import dev.narumi.kestrel.core.cloud.CloudSession
 import dev.narumi.kestrel.core.cloud.CloudSyncRepository
@@ -59,7 +66,6 @@ import dev.narumi.kestrel.core.cloud.RemoteControlRepository
 import dev.narumi.kestrel.core.cloud.RemoteControlRuntimeStatus
 import dev.narumi.kestrel.core.cloud.findActivity
 import dev.narumi.kestrel.core.cloud.normalizeCloudApiBaseUrl
-import dev.narumi.kestrel.core.data.CloudSettings
 import dev.narumi.kestrel.core.data.KestrelPrefs
 import dev.narumi.kestrel.core.data.MockPlaybackSettings
 import dev.narumi.kestrel.core.data.RandomRoutePreference
@@ -78,14 +84,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.io.IOException
 import java.net.URI
-import java.util.Date
-
-private data class CloudLoginForm(
-    val username: String = "",
-    val password: String = "",
-    val oneTimeCode: String = "",
-    val useRecoveryCode: Boolean = false,
-)
+import java.util.Locale
 
 private enum class ConflictResolutionChoice { KeepDevice, KeepCloud, KeepBoth }
 
@@ -97,8 +96,8 @@ private data class PendingConflictResolution(
 private data class CloudSettingsUiState(
     val apiBaseUrl: String,
     val loading: Boolean,
-    val message: String?,
-    val error: String?,
+    val message: OptionsMessage?,
+    val error: OptionsMessage?,
     val session: CloudSession?,
     val syncState: CloudSyncState,
 )
@@ -130,31 +129,33 @@ fun OptionsScreen(
     val context = LocalContext.current
     val prefs = remember { KestrelPrefs(context) }
     val libraryRepository = remember { LibraryRepository.getInstance(context) }
+    val drafts: OptionsDraftViewModel = viewModel()
+    // Mutations stay composition-scoped: recreation cancels them rather than replaying them.
     val scope = rememberCoroutineScope()
 
     val loadedItems by
         libraryRepository.items.collectAsStateWithLifecycle(initialValue = null)
     val items = loadedItems.orEmpty()
     val startup by prefs.startupPreference.collectAsStateWithLifecycle(StartupPreference())
-    val randomRoute by prefs.randomRoutePreference.collectAsStateWithLifecycle(RandomRoutePreference())
+    val loadedRandomRoute by prefs.randomRoutePreference.collectAsStateWithLifecycle(initialValue = null)
+    val randomRoute = loadedRandomRoute ?: RandomRoutePreference()
     val mockPlayback by prefs.mockPlaybackSettings.collectAsStateWithLifecycle(MockPlaybackSettings())
 
-    var defaultPointCount by remember { mutableStateOf("") }
-    var defaultSpacingMeters by remember { mutableStateOf("") }
+    var defaultPointCount by drafts.defaultPointCount
+    var defaultSpacingMeters by drafts.defaultSpacingMeters
     var mapLinksExpanded by rememberSaveable { mutableStateOf(OptionsSection.MapLinks.defaultExpanded) }
     var playbackExpanded by rememberSaveable { mutableStateOf(OptionsSection.Playback.defaultExpanded) }
     var randomRouteExpanded by rememberSaveable { mutableStateOf(OptionsSection.RandomRoute.defaultExpanded) }
     var settingsBusy by remember { mutableStateOf(false) }
-    var settingsMessage by remember { mutableStateOf<String?>(null) }
-    var settingsError by remember { mutableStateOf<String?>(null) }
+    var settingsMessage by rememberSaveable { mutableStateOf<OptionsMessage?>(null) }
+    var settingsError by rememberSaveable { mutableStateOf<OptionsMessage?>(null) }
 
-    LaunchedEffect(randomRoute.defaultPointCount, randomRoute.defaultSpacingMeters) {
-        defaultPointCount = randomRoute.defaultPointCount.toString()
-        defaultSpacingMeters = formatMeters(randomRoute.defaultSpacingMeters)
+    LaunchedEffect(loadedRandomRoute) {
+        drafts.loadRandomRoute(loadedRandomRoute)
     }
 
     fun runSettingsAction(
-        successMessage: String,
+        successMessage: Int,
         onSuccess: () -> Unit,
         block: suspend () -> Unit,
     ) {
@@ -165,20 +166,18 @@ fun OptionsScreen(
         scope.launch {
             try {
                 when (
-                    val result =
-                        runPersistedAction(
-                            failureMessage =
-                                "Could not save this setting. The previous value is unchanged; try again.",
-                            block = block,
-                        )
+                    runPersistedAction(
+                        failureMessage = optionsMessage(R.string.options_save_failure),
+                        block = block,
+                    )
                 ) {
                     PersistedActionResult.Success -> {
-                        settingsMessage = successMessage
+                        settingsMessage = optionsMessage(successMessage)
                         onSuccess()
                     }
 
                     is PersistedActionResult.Failure -> {
-                        settingsError = result.message
+                        settingsError = optionsMessage(R.string.options_save_failure)
                     }
                 }
             } finally {
@@ -196,8 +195,8 @@ fun OptionsScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         KestrelScreenHeader(
-            title = "Settings",
-            subtitle = "Make Kestrel work your way.",
+            title = stringResource(R.string.options_settings),
+            subtitle = stringResource(R.string.options_make_kestrel_work_your_way),
             icon = KestrelIcons.SettingsOutlined,
         )
 
@@ -210,21 +209,22 @@ fun OptionsScreen(
                     },
             ) {
                 Text(
-                    text = it,
+                    text = it.text(),
                     color = if (settingsError != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
                 )
             }
         }
 
-        KestrelSectionHeader(title = "On this device", modifier = Modifier.padding(top = 8.dp))
+        KestrelSectionHeader(title = stringResource(R.string.options_on_this_device), modifier = Modifier.padding(top = 8.dp))
+        LanguageSettingsCard()
         StartupPreferenceCard(
             items = items,
             itemsLoading = loadedItems == null,
             startup = startup,
             saving = settingsBusy,
-            error = settingsError,
+            error = settingsError?.text(),
             onSave = { preference, onSuccess ->
-                runSettingsAction("Saved app opening behavior.", onSuccess) {
+                runSettingsAction(R.string.options_saved_app_opening_behavior, onSuccess) {
                     prefs.setStartupPreference(preference)
                 }
             },
@@ -245,10 +245,10 @@ fun OptionsScreen(
             onSpacingMetersChange = {
                 defaultSpacingMeters = it.filter { ch -> ch.isDigit() || ch == '.' }.take(7)
             },
-            saving = settingsBusy,
-            error = settingsError,
+            saving = settingsBusy || loadedRandomRoute == null,
+            error = settingsError?.text(),
             onSave = { resetToRecommended, onSuccess ->
-                runSettingsAction("Saved random route defaults.", onSuccess) {
+                runSettingsAction(R.string.options_saved_random_route_defaults, onSuccess) {
                     if (resetToRecommended) {
                         prefs.resetRandomRoutePreference()
                     } else {
@@ -266,16 +266,17 @@ fun OptionsScreen(
             expanded = playbackExpanded,
             onExpandedChange = { playbackExpanded = it },
             saving = settingsBusy,
-            error = settingsError,
+            error = settingsError?.text(),
             onSave = { seconds, onSuccess ->
-                runSettingsAction("Saved route recovery behavior.", onSuccess) {
+                runSettingsAction(R.string.options_saved_route_recovery_behavior, onSuccess) {
                     prefs.setProgressWriteIntervalSeconds(seconds)
                 }
             },
         )
 
-        KestrelSectionHeader(title = "Connected services", modifier = Modifier.padding(top = 12.dp))
+        KestrelSectionHeader(title = stringResource(R.string.options_connected_services), modifier = Modifier.padding(top = 12.dp))
         CloudSettingsSection(
+            drafts = drafts,
             pendingOidcCallback = pendingOidcCallback,
             onOidcCallbackConsumed = onOidcCallbackConsumed,
         )
@@ -285,6 +286,7 @@ fun OptionsScreen(
 @Suppress("CyclomaticComplexMethod", "LongMethod", "ThrowsCount", "TooGenericExceptionCaught")
 @Composable
 private fun CloudSettingsSection(
+    drafts: OptionsDraftViewModel,
     pendingOidcCallback: String?,
     onOidcCallbackConsumed: (String) -> Unit,
 ) {
@@ -297,24 +299,24 @@ private fun CloudSettingsSection(
     val qrCodeScanner = remember(scannerActivity) { scannerActivity?.let(::GoogleQrCodeScanner) }
     val scope = rememberCoroutineScope()
 
-    val cloudSettings by prefs.cloudSettings.collectAsStateWithLifecycle(CloudSettings())
+    val loadedCloudSettings by prefs.cloudSettings.collectAsStateWithLifecycle(initialValue = null)
     val cloudSyncState by syncRepository.syncState.collectAsStateWithLifecycle(CloudSyncState())
     val placeConflicts by syncRepository.placeConflicts.collectAsStateWithLifecycle(emptyList())
     val remoteControlSettings by prefs.remoteControlSettings.collectAsStateWithLifecycle(RemoteControlSettings())
     val remoteControlStatus by remoteControlRepository.runtimeStatus.collectAsStateWithLifecycle(RemoteControlRuntimeStatus())
 
-    var loginForm by remember { mutableStateOf(CloudLoginForm()) }
+    var loginForm by drafts.loginForm
     var cloudSession by remember { mutableStateOf<CloudSession?>(null) }
     var cloudSessionLoaded by remember { mutableStateOf(false) }
     var cloudExpanded by rememberSaveable { mutableStateOf(OptionsSection.Cloud.defaultExpanded) }
     var remoteExpanded by rememberSaveable { mutableStateOf(OptionsSection.RemoteControl.defaultExpanded) }
-    var cloudMessage by remember { mutableStateOf<String?>(null) }
-    var cloudError by remember { mutableStateOf<String?>(null) }
+    var cloudMessage by rememberSaveable { mutableStateOf<OptionsMessage?>(null) }
+    var cloudError by rememberSaveable { mutableStateOf<OptionsMessage?>(null) }
     var cloudLoading by remember { mutableStateOf(false) }
     var oidcMethod by remember { mutableStateOf(OidcMethod(enabled = false)) }
     var androidQrLoginMethod by remember { mutableStateOf(AndroidQrLoginMethod()) }
     var androidQrLoginState by remember { mutableStateOf<AndroidQrLoginUiState>(AndroidQrLoginUiState.Restoring) }
-    var apiBaseUrl by remember { mutableStateOf(cloudSettings.apiBaseUrl) }
+    var apiBaseUrl by drafts.apiBaseUrl
     var confirmRemoteEnable by remember { mutableStateOf(false) }
     var confirmSignOut by remember { mutableStateOf(false) }
     var pendingConflictResolution by remember { mutableStateOf<PendingConflictResolution?>(null) }
@@ -334,7 +336,7 @@ private fun CloudSettingsSection(
                     cloudSession = progress.session
                     loginForm = CloudLoginForm()
                     syncRepository.syncNow()
-                    cloudMessage = "Signed in as ${progress.session.username} with a Web QR code"
+                    cloudMessage = optionsMessage(R.string.options_signed_in_qr, progress.session.username)
                     AndroidQrLoginUiState.Idle
                 }
 
@@ -351,17 +353,22 @@ private fun CloudSettingsSection(
     LaunchedEffect(Unit) {
         try {
             cloudSession = authRepository.currentSession()
+            if (cloudSession != null) loginForm = CloudLoginForm()
         } catch (error: CancellationException) {
             throw error
         } catch (error: IllegalStateException) {
-            cloudError = "Could not read the saved cloud session: ${error.toCloudErrorMessage()}"
+            cloudError = error.toOptionsError()
         } finally {
             cloudSessionLoaded = true
         }
     }
 
-    LaunchedEffect(cloudSettings.apiBaseUrl) {
-        apiBaseUrl = cloudSettings.apiBaseUrl
+    LaunchedEffect(loadedCloudSettings) {
+        drafts.loadCloudSettings(loadedCloudSettings)
+    }
+
+    LaunchedEffect(loadedCloudSettings?.apiBaseUrl) {
+        if (loadedCloudSettings == null) return@LaunchedEffect
         try {
             val methods = authRepository.getAuthMethods()
             oidcMethod = methods.oidc
@@ -399,7 +406,7 @@ private fun CloudSettingsSection(
         } catch (error: Exception) {
             androidQrLoginState =
                 AndroidQrLoginUiState.Error(
-                    message = error.toCloudErrorMessage(),
+                    message = error.toOptionsError(CloudErrorContext.QrLogin),
                     retryPendingAttempt = true,
                 )
             return@LaunchedEffect
@@ -408,12 +415,13 @@ private fun CloudSettingsSection(
             setLoading = { cloudLoading = it },
             setError = { cloudError = it },
             setMessage = { cloudMessage = it },
+            errorContext = CloudErrorContext.SignIn,
         ) {
             val session = authRepository.resumeOidcLogin() ?: return@runCloudAction
             cloudSession = session
             loginForm = CloudLoginForm()
             syncRepository.syncNow()
-            cloudMessage = "Signed in as ${session.username} with ${oidcMethod.displayName}"
+            cloudMessage = optionsMessage(R.string.options_signed_in_provider, session.username, oidcMethod.displayName)
         }
         androidQrLoginState = AndroidQrLoginUiState.Idle
     }
@@ -428,7 +436,7 @@ private fun CloudSettingsSection(
         } catch (error: Exception) {
             androidQrLoginState =
                 AndroidQrLoginUiState.Error(
-                    message = error.toCloudErrorMessage(),
+                    message = error.toOptionsError(CloudErrorContext.QrLogin),
                     retryPendingAttempt = true,
                 )
         }
@@ -440,10 +448,15 @@ private fun CloudSettingsSection(
             setLoading = { cloudLoading = it },
             setError = { cloudError = it },
             setMessage = { cloudMessage = it },
+            errorContext = CloudErrorContext.RemoteControl,
         ) {
             val changed = remoteControlRepository.setEnabled(enabled)
-            check(changed) { remoteControlRepository.runtimeStatus.value.error ?: "Remote control was not changed" }
-            cloudMessage = if (enabled) "Web remote control enabled" else "Web remote control disabled"
+            if (!changed) {
+                throw CloudMessageException(
+                    remoteControlRepository.runtimeStatus.value.error ?: CloudMessage(CloudMessageId.RemoteFailed),
+                )
+            }
+            cloudMessage = if (enabled) optionsMessage(R.string.options_remote_enabled) else optionsMessage(R.string.options_remote_disabled)
         }
     }
 
@@ -453,21 +466,22 @@ private fun CloudSettingsSection(
             setLoading = { cloudLoading = it },
             setError = { cloudError = it },
             setMessage = { cloudMessage = it },
+            errorContext = CloudErrorContext.Sync,
         ) {
             when (pending.choice) {
                 ConflictResolutionChoice.KeepDevice -> {
                     syncRepository.resolveConflictUseLocal(pending.conflict.id)
-                    cloudMessage = "Kept this device's version"
+                    cloudMessage = optionsMessage(R.string.options_kept_device)
                 }
 
                 ConflictResolutionChoice.KeepCloud -> {
                     syncRepository.resolveConflictUseCloud(pending.conflict.id)
-                    cloudMessage = "Kept the cloud version"
+                    cloudMessage = optionsMessage(R.string.options_kept_cloud)
                 }
 
                 ConflictResolutionChoice.KeepBoth -> {
                     syncRepository.resolveConflictKeepBoth(pending.conflict.id)
-                    cloudMessage = "Kept both versions"
+                    cloudMessage = optionsMessage(R.string.options_kept_both)
                 }
             }
         }
@@ -479,17 +493,19 @@ private fun CloudSettingsSection(
             setLoading = { cloudLoading = it },
             setError = { cloudError = it },
             setMessage = { cloudMessage = it },
+            errorContext = CloudErrorContext.SignIn,
         ) {
             if (remoteControlSettings.enabled) {
                 val disabled = remoteControlRepository.setEnabled(false)
-                check(disabled) {
-                    remoteControlRepository.runtimeStatus.value.error
-                        ?: "Remote control must be disabled before signing out"
+                if (!disabled) {
+                    throw CloudMessageException(
+                        remoteControlRepository.runtimeStatus.value.error ?: CloudMessage(CloudMessageId.RemoteStillEnabled),
+                    )
                 }
             }
             authRepository.logout()
             cloudSession = null
-            cloudMessage = "Signed out"
+            cloudMessage = optionsMessage(R.string.options_signed_out)
         }
     }
 
@@ -509,7 +525,7 @@ private fun CloudSettingsSection(
                     } catch (error: Exception) {
                         androidQrLoginState =
                             AndroidQrLoginUiState.Error(
-                                message = error.toCloudErrorMessage(),
+                                message = error.toOptionsError(CloudErrorContext.QrLogin),
                                 retryPendingAttempt = error is AndroidQrLoginRetryableException,
                             )
                     }
@@ -530,7 +546,7 @@ private fun CloudSettingsSection(
                 is QrCodeScanResult.Failure -> {
                     androidQrLoginState =
                         AndroidQrLoginUiState.Error(
-                            message = result.message,
+                            message = optionsMessage(R.string.options_scanner_failed),
                             retryPendingAttempt = false,
                         )
                 }
@@ -549,7 +565,7 @@ private fun CloudSettingsSection(
             } catch (error: Exception) {
                 androidQrLoginState =
                     AndroidQrLoginUiState.Error(
-                        message = error.toCloudErrorMessage(),
+                        message = error.toOptionsError(CloudErrorContext.QrLogin),
                         retryPendingAttempt = true,
                     )
             }
@@ -566,7 +582,7 @@ private fun CloudSettingsSection(
                 cloudSession = completedSession
                 androidQrLoginState = AndroidQrLoginUiState.Idle
                 syncRepository.syncNow()
-                cloudMessage = "Signed in as ${completedSession.username}"
+                cloudMessage = optionsMessage(R.string.options_signed_in_as, completedSession.username)
             }
         }
     }
@@ -588,7 +604,7 @@ private fun CloudSettingsSection(
             } catch (error: Exception) {
                 androidQrLoginState =
                     AndroidQrLoginUiState.Error(
-                        message = error.toCloudErrorMessage(),
+                        message = error.toOptionsError(CloudErrorContext.QrLogin),
                         retryPendingAttempt = true,
                     )
             }
@@ -597,20 +613,21 @@ private fun CloudSettingsSection(
 
     LaunchedEffect(pendingOidcCallback) {
         val callbackUri = pendingOidcCallback ?: return@LaunchedEffect
-        try {
-            runCloudAction(
-                setLoading = { cloudLoading = it },
-                setError = { cloudError = it },
-                setMessage = { cloudMessage = it },
-            ) {
-                val session = authRepository.completeOidcLogin(callbackUri)
+        runCloudAction(
+            setLoading = { cloudLoading = it },
+            setError = { cloudError = it },
+            setMessage = { cloudMessage = it },
+            errorContext = CloudErrorContext.SignIn,
+        ) {
+            handleOptionsOidcCallback(
+                completeLogin = { authRepository.completeOidcLogin(callbackUri) },
+                consumeCallback = { onOidcCallbackConsumed(callbackUri) },
+            ) { session ->
                 cloudSession = session
                 loginForm = CloudLoginForm()
                 syncRepository.syncNow()
-                cloudMessage = "Signed in as ${session.username} with ${oidcMethod.displayName}"
+                cloudMessage = optionsMessage(R.string.options_signed_in_provider, session.username, oidcMethod.displayName)
             }
-        } finally {
-            onOidcCallbackConsumed(callbackUri)
         }
     }
 
@@ -663,7 +680,7 @@ private fun CloudSettingsSection(
         expanded = cloudExpanded,
         onExpandedChange = { expanded ->
             if (!expanded) {
-                apiBaseUrl = cloudSettings.apiBaseUrl
+                loadedCloudSettings?.let { apiBaseUrl = it.apiBaseUrl }
                 loginForm = CloudLoginForm()
             }
             cloudExpanded = expanded
@@ -676,9 +693,10 @@ private fun CloudSettingsSection(
                 setLoading = { cloudLoading = it },
                 setError = { cloudError = it },
                 setMessage = { cloudMessage = it },
+                errorContext = CloudErrorContext.ServerSettings,
             ) {
                 authRepository.setCloudApiBaseUrl(apiBaseUrl)
-                cloudMessage = "Saved API base URL"
+                cloudMessage = optionsMessage(R.string.options_saved_api_url)
             }
         },
         onLogin = {
@@ -687,6 +705,7 @@ private fun CloudSettingsSection(
                 setLoading = { cloudLoading = it },
                 setError = { cloudError = it },
                 setMessage = { cloudMessage = it },
+                errorContext = CloudErrorContext.SignIn,
             ) {
                 val session =
                     if (loginForm.useRecoveryCode) {
@@ -705,7 +724,7 @@ private fun CloudSettingsSection(
                 cloudSession = session
                 loginForm = CloudLoginForm()
                 syncRepository.syncNow()
-                cloudMessage = "Signed in as ${session.username}"
+                cloudMessage = optionsMessage(R.string.options_signed_in_as, session.username)
             }
         },
         oidcMethod = oidcMethod,
@@ -721,10 +740,11 @@ private fun CloudSettingsSection(
                 setLoading = { cloudLoading = it },
                 setError = { cloudError = it },
                 setMessage = { cloudMessage = it },
+                errorContext = CloudErrorContext.SignIn,
             ) {
                 val authorizationUrl = authRepository.beginOidcLogin()
                 context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(authorizationUrl)))
-                cloudMessage = "Continue sign-in in your browser"
+                cloudMessage = optionsMessage(R.string.options_continue_browser)
             }
         },
         onRefreshSession = {
@@ -733,13 +753,14 @@ private fun CloudSettingsSection(
                 setLoading = { cloudLoading = it },
                 setError = { cloudError = it },
                 setMessage = { cloudMessage = it },
+                errorContext = CloudErrorContext.SignIn,
             ) {
                 val refreshedSession = authRepository.refreshSession()
                 cloudSession = refreshedSession
                 if (refreshedSession == null) {
-                    cloudError = "Session expired. Please sign in again."
+                    cloudError = optionsMessage(R.string.options_session_expired)
                 } else {
-                    cloudMessage = "Session refreshed"
+                    cloudMessage = optionsMessage(R.string.options_session_refreshed)
                 }
             }
         },
@@ -752,9 +773,10 @@ private fun CloudSettingsSection(
                 setLoading = { cloudLoading = it },
                 setError = { cloudError = it },
                 setMessage = { cloudMessage = it },
+                errorContext = CloudErrorContext.Sync,
             ) {
                 syncRepository.syncNow()
-                cloudMessage = "Sync complete"
+                cloudMessage = optionsMessage(R.string.options_sync_complete)
             }
         },
     )
@@ -816,20 +838,20 @@ private fun CloudSettingsCard(
 ) {
     val authenticationBlocked = uiState.loading || androidQrLoginState.blocksOtherAuthentication()
     OptionsDisclosureCard(
-        title = OptionsSection.Cloud.title,
+        title = stringResource(OptionsSection.Cloud.title),
         icon = KestrelIcons.Cloud,
-        subtitle = "Connect to Kestrel cloud and keep favorites synced.",
+        subtitle = stringResource(R.string.options_connect_to_kestrel_cloud_and_keep_favorites_synced),
         summary =
             if (uiState.session == null && androidQrLoginState != AndroidQrLoginUiState.Idle) {
-                androidQrLoginState.summary()
+                androidQrLoginState.summary().text()
             } else if (uiState.loading) {
-                "Working…"
+                stringResource(R.string.options_working)
             } else {
                 cloudSummary(
                     sessionLoaded = sessionLoaded,
                     username = uiState.session?.username,
-                    error = uiState.error ?: uiState.syncState.lastError,
-                )
+                    error = uiState.error?.text() ?: uiState.syncState.lastError?.text(),
+                ).text()
             },
         expanded = expanded,
         onExpandedChange = onExpandedChange,
@@ -837,12 +859,12 @@ private fun CloudSettingsCard(
         OutlinedTextField(
             value = uiState.apiBaseUrl,
             onValueChange = onApiBaseUrlChange,
-            label = { Text("Server address") },
+            label = { Text(stringResource(R.string.options_server_address)) },
             singleLine = true,
             isError = uiState.apiBaseUrl.isNotBlank() && !serverValid,
             supportingText = {
                 if (!serverValid && uiState.apiBaseUrl.isNotBlank()) {
-                    Text("Enter an http:// or https:// server address with a host.")
+                    Text(stringResource(R.string.options_enter_an_http_or_https_server_address_with_a))
                 }
             },
             enabled = uiState.session == null && !authenticationBlocked,
@@ -851,16 +873,16 @@ private fun CloudSettingsCard(
         Text(
             text =
                 if (uiState.session == null) {
-                    "Production default is https://kestrel.narumi.dev. Kestrel previews the effective server before saving."
+                    stringResource(R.string.options_production_default_is_https_kestrel_narumi_dev_kestrel_previews)
                 } else {
-                    "Sign out before changing servers so account and remote-control state cannot be split."
+                    stringResource(R.string.options_sign_out_before_changing_servers_so_account_and_remote)
                 },
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         if (serverValid) {
             Text(
-                text = "Effective server: ${normalizeCloudApiBaseUrl(uiState.apiBaseUrl)}",
+                text = stringResource(R.string.options_effective_server, normalizeCloudApiBaseUrl(uiState.apiBaseUrl)),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -869,7 +891,7 @@ private fun CloudSettingsCard(
             OutlinedButton(
                 onClick = onSaveApiBaseUrl,
                 enabled = uiState.session == null && !authenticationBlocked && serverValid,
-            ) { Text("Use this server") }
+            ) { Text(stringResource(R.string.options_use_this_server)) }
         }
 
         if (uiState.session == null) {
@@ -916,27 +938,27 @@ private fun RemoteControlSettingsCard(
     onEnabledChange: (Boolean) -> Unit,
 ) {
     OptionsDisclosureCard(
-        title = OptionsSection.RemoteControl.title,
+        title = stringResource(OptionsSection.RemoteControl.title),
         icon = KestrelIcons.Devices,
-        subtitle = "Let the web dashboard send mock commands to this Android device.",
+        subtitle = stringResource(R.string.options_let_the_web_dashboard_send_mock_commands_to_this),
         summary =
             if (loading) {
-                "Working…"
+                stringResource(R.string.options_working)
             } else {
                 remoteControlSummary(
                     enabled = settings.enabled,
                     signedIn = signedIn,
                     deviceName = settings.deviceName,
-                    error = status.error,
-                )
+                    error = status.error?.text(),
+                ).text()
             },
         expanded = expanded,
         onExpandedChange = onExpandedChange,
     ) {
         ListItem(
-            headlineContent = { Text("Allow web remote control") },
+            headlineContent = { Text(stringResource(R.string.options_allow_web_remote_control)) },
             supportingContent = {
-                Text("Kestrel must be open or the mock service must be running.")
+                Text(stringResource(R.string.options_kestrel_must_be_open_or_the_mock_service_must))
             },
             trailingContent = {
                 Switch(
@@ -947,25 +969,31 @@ private fun RemoteControlSettingsCard(
             },
         )
         Text(
-            text = "Device: ${settings.deviceName ?: "Not registered"}",
+            text = stringResource(R.string.options_device, settings.deviceName ?: stringResource(R.string.options_not_registered)),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Text(
-            text = "Last status: ${status.lastCommandStatus?.toUserLabel() ?: status.message ?: "Waiting for commands"}",
+            text =
+                stringResource(
+                    R.string.options_last_status,
+                    status.lastCommandStatus?.let { stringResource(it.toUserLabel()) }
+                        ?: status.message?.text()
+                        ?: stringResource(R.string.options_waiting_commands),
+                ),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         if (!signedIn) {
             Text(
-                text = "Sign in to cloud sync before enabling remote control.",
+                text = stringResource(R.string.options_sign_in_to_cloud_sync_before_enabling_remote_control),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.error,
             )
         }
         status.error?.let {
             Text(
-                text = it,
+                text = it.text(),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.error,
             )
@@ -992,7 +1020,7 @@ private fun CloudSignedOutCardContent(
     OutlinedTextField(
         value = loginForm.username,
         onValueChange = { onLoginFormChange(loginForm.copy(username = it)) },
-        label = { Text("Username") },
+        label = { Text(stringResource(R.string.options_username)) },
         singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
         modifier = Modifier.autofillText(ContentType.Username),
@@ -1000,7 +1028,7 @@ private fun CloudSignedOutCardContent(
     OutlinedTextField(
         value = loginForm.password,
         onValueChange = { onLoginFormChange(loginForm.copy(password = it)) },
-        label = { Text("Password") },
+        label = { Text(stringResource(R.string.options_password)) },
         singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
         visualTransformation = PasswordVisualTransformation(),
@@ -1010,7 +1038,7 @@ private fun CloudSignedOutCardContent(
         OutlinedTextField(
             value = loginForm.oneTimeCode,
             onValueChange = { onLoginFormChange(loginForm.copy(oneTimeCode = it)) },
-            label = { Text(if (loginForm.useRecoveryCode) "Recovery code" else "Authenticator code") },
+            label = { Text(if (loginForm.useRecoveryCode) stringResource(R.string.options_recovery_code) else stringResource(R.string.options_authenticator_code)) },
             singleLine = true,
             keyboardOptions =
                 KeyboardOptions(
@@ -1028,11 +1056,11 @@ private fun CloudSignedOutCardContent(
                 )
             },
         ) {
-            Text(if (loginForm.useRecoveryCode) "Use authenticator code" else "Use a recovery code")
+            Text(if (loginForm.useRecoveryCode) stringResource(R.string.options_use_authenticator_code) else stringResource(R.string.options_use_a_recovery_code))
         }
     } else {
         Text(
-            text = "Enter your username and password to continue to verification.",
+            text = stringResource(R.string.options_enter_your_username_and_password_to_continue_to_verification),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -1046,7 +1074,7 @@ private fun CloudSignedOutCardContent(
                     loginForm.password.isNotBlank() &&
                     loginForm.oneTimeCode.isNotBlank(),
         ) {
-            Text(if (loading) "Signing in…" else "Sign in")
+            Text(if (loading) stringResource(R.string.options_signing_in) else stringResource(R.string.options_sign_in))
         }
     }
     if (oidcMethod.enabled) {
@@ -1056,7 +1084,7 @@ private fun CloudSignedOutCardContent(
             enabled = !loading,
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Text("Continue with ${oidcMethod.displayName}")
+            Text(stringResource(R.string.options_continue_provider, oidcMethod.displayName))
         }
     }
     AndroidQrLoginContent(
@@ -1080,37 +1108,37 @@ private fun CloudSignedInCardContent(
     onSyncNow: () -> Unit,
 ) {
     Text(
-        text = "Signed in as ${session.username}",
+        text = stringResource(R.string.options_signed_in_as, session.username),
         style = MaterialTheme.typography.titleSmall,
     )
     Text(
-        text = "Access token expires at ${Date(session.accessTokenExpiresAt)}",
+        text = stringResource(R.string.options_access_expires, optionsDate(session.accessTokenExpiresAt)),
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
     Text(
-        text = "Last synced: ${syncState.lastSyncedAt?.let(::Date)?.toString() ?: "Never"}",
+        text = stringResource(R.string.options_last_synced, syncState.lastSyncedAt?.let { optionsDate(it) } ?: stringResource(R.string.options_never)),
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
     syncState.lastError?.let {
         Text(
-            text = "Last sync error: $it",
+            text = stringResource(R.string.options_last_sync_error, it.text()),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.error,
         )
     }
     KestrelActionRow {
         Button(onClick = onSyncNow, enabled = !loading) {
-            Text(if (loading) "Syncing…" else "Sync now")
+            Text(if (loading) stringResource(R.string.options_syncing) else stringResource(R.string.options_sync_now))
         }
         if (syncState.lastError != null) {
             OutlinedButton(onClick = onRefreshSession, enabled = !loading) {
-                Text("Reconnect")
+                Text(stringResource(R.string.options_reconnect))
             }
         }
         OutlinedButton(onClick = onLogout, enabled = !loading) {
-            Text("Sign out")
+            Text(stringResource(R.string.options_sign_out))
         }
     }
 }
@@ -1125,8 +1153,8 @@ private fun CloudConflictCard(
 ) {
     if (conflicts.isEmpty()) return
     OptionsCard(
-        title = "Sync conflicts",
-        subtitle = "Choose which place version to keep.",
+        title = stringResource(R.string.options_sync_conflicts),
+        subtitle = stringResource(R.string.options_choose_which_place_version_to_keep),
     ) {
         conflicts.forEachIndexed { index, conflict ->
             if (index > 0) HorizontalDivider()
@@ -1155,25 +1183,25 @@ private fun CloudConflictItem(
             style = MaterialTheme.typography.titleSmall,
         )
         Text(
-            text = "This device: ${conflict.localName} (${formatCoordinate(conflict.localLatitude)}, ${formatCoordinate(conflict.localLongitude)})",
+            text = stringResource(R.string.options_conflict_device, conflict.localName, formatCoordinate(conflict.localLatitude), formatCoordinate(conflict.localLongitude)),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         conflict.localDescription?.let {
-            Text("Device description: $it", style = MaterialTheme.typography.bodySmall)
+            Text(stringResource(R.string.options_device_description, it), style = MaterialTheme.typography.bodySmall)
         }
         Text(
-            text = "Cloud: ${conflict.cloudName} (${formatCoordinate(conflict.cloudLatitude)}, ${formatCoordinate(conflict.cloudLongitude)})",
+            text = stringResource(R.string.options_conflict_cloud, conflict.cloudName, formatCoordinate(conflict.cloudLatitude), formatCoordinate(conflict.cloudLongitude)),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         conflict.cloudDescription?.let {
-            Text("Cloud description: $it", style = MaterialTheme.typography.bodySmall)
+            Text(stringResource(R.string.options_cloud_description, it), style = MaterialTheme.typography.bodySmall)
         }
         KestrelActionRow {
-            OutlinedButton(onClick = onUseCloud, enabled = !loading) { Text("Keep cloud version") }
-            Button(onClick = onUseLocal, enabled = !loading) { Text("Keep this device") }
-            OutlinedButton(onClick = onKeepBoth, enabled = !loading) { Text("Keep both") }
+            OutlinedButton(onClick = onUseCloud, enabled = !loading) { Text(stringResource(R.string.options_keep_cloud_version)) }
+            Button(onClick = onUseLocal, enabled = !loading) { Text(stringResource(R.string.options_keep_this_device)) }
+            OutlinedButton(onClick = onKeepBoth, enabled = !loading) { Text(stringResource(R.string.options_keep_both)) }
         }
     }
 }
@@ -1187,35 +1215,43 @@ private fun ConfirmConflictResolutionDialog(
     val effect =
         when (pending.choice) {
             ConflictResolutionChoice.KeepDevice -> {
-                "Replace the cloud copy with this device's name, coordinates, and description."
+                stringResource(R.string.options_replace_the_cloud_copy_with_this_device_s_name)
             }
 
             ConflictResolutionChoice.KeepCloud -> {
-                "Replace this device's saved copy with the cloud name, coordinates, and description."
+                stringResource(R.string.options_replace_this_device_s_saved_copy_with_the_cloud)
             }
 
             ConflictResolutionChoice.KeepBoth -> {
-                "Keep two Favorites so neither version is overwritten."
+                stringResource(R.string.options_keep_two_favorites_so_neither_version_is_overwritten)
             }
         }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Resolve ${pending.conflict.localName}?") },
+        title = { Text(stringResource(R.string.options_resolve_named, pending.conflict.localName)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(effect)
                 Text(
-                    "This device: ${pending.conflict.localName} · " +
-                        "${formatCoordinate(pending.conflict.localLatitude)}, ${formatCoordinate(pending.conflict.localLongitude)}",
+                    stringResource(
+                        R.string.options_conflict_device,
+                        pending.conflict.localName,
+                        formatCoordinate(pending.conflict.localLatitude),
+                        formatCoordinate(pending.conflict.localLongitude),
+                    ),
                 )
                 Text(
-                    "Cloud: ${pending.conflict.cloudName} · " +
-                        "${formatCoordinate(pending.conflict.cloudLatitude)}, ${formatCoordinate(pending.conflict.cloudLongitude)}",
+                    stringResource(
+                        R.string.options_conflict_cloud,
+                        pending.conflict.cloudName,
+                        formatCoordinate(pending.conflict.cloudLatitude),
+                        formatCoordinate(pending.conflict.cloudLongitude),
+                    ),
                 )
             }
         },
-        confirmButton = { Button(onClick = onConfirm) { Text("Confirm resolution") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        confirmButton = { Button(onClick = onConfirm) { Text(stringResource(R.string.options_confirm_resolution)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.options_cancel)) } },
     )
 }
 
@@ -1227,15 +1263,17 @@ private fun ConfirmRemoteControlDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Allow Web remote control?") },
+        title = { Text(stringResource(R.string.options_remote_confirm_title)) },
         text = {
             Text(
-                "The Web dashboard will be able to replace or stop this device's mock location " +
-                    "while Kestrel is open or its mock service is running. Device: ${deviceName ?: "registered after confirmation"}.",
+                stringResource(
+                    R.string.options_remote_confirmation,
+                    deviceName ?: stringResource(R.string.options_registered_after_confirmation),
+                ),
             )
         },
-        confirmButton = { Button(onClick = onConfirm) { Text("Allow remote control") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        confirmButton = { Button(onClick = onConfirm) { Text(stringResource(R.string.options_allow_remote_control)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.options_cancel)) } },
     )
 }
 
@@ -1247,29 +1285,29 @@ private fun ConfirmSignOutDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Sign out?") },
+        title = { Text(stringResource(R.string.options_sign_out_title)) },
         text = {
             Text(
                 if (remoteControlEnabled) {
-                    "Kestrel will disable Web remote control before removing this account from the device."
+                    stringResource(R.string.options_kestrel_will_disable_web_remote_control_before_removing_this)
                 } else {
-                    "Cloud sync will stop until you sign in again. Local Favorites remain on this device."
+                    stringResource(R.string.options_cloud_sync_will_stop_until_you_sign_in_again)
                 },
             )
         },
-        confirmButton = { Button(onClick = onConfirm) { Text("Sign out") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        confirmButton = { Button(onClick = onConfirm) { Text(stringResource(R.string.options_sign_out)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.options_cancel)) } },
     )
 }
 
 @Composable
 private fun CloudStatusMessage(
-    message: String?,
-    error: String?,
+    message: OptionsMessage?,
+    error: OptionsMessage?,
 ) {
     message?.let {
         Text(
-            text = it,
+            text = it.text(),
             modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.primary,
@@ -1277,7 +1315,7 @@ private fun CloudStatusMessage(
     }
     error?.let {
         Text(
-            text = it,
+            text = it.text(),
             modifier = Modifier.semantics { liveRegion = LiveRegionMode.Assertive },
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.error,
@@ -1285,15 +1323,15 @@ private fun CloudStatusMessage(
     }
 }
 
-private fun formatCoordinate(value: Double): String = "%.5f".format(value)
+private fun formatCoordinate(value: Double): String = String.format(Locale.ROOT, "%.5f", value)
 
-private fun RemoteCommandStatus.toUserLabel(): String =
+private fun RemoteCommandStatus.toUserLabel(): Int =
     when (this) {
-        RemoteCommandStatus.QUEUED -> "Waiting on the device"
-        RemoteCommandStatus.DELIVERED -> "Received by this device"
-        RemoteCommandStatus.APPLIED -> "Last command applied"
-        RemoteCommandStatus.FAILED -> "Last command failed"
-        RemoteCommandStatus.EXPIRED -> "Last command expired"
+        RemoteCommandStatus.QUEUED -> R.string.options_command_queued
+        RemoteCommandStatus.DELIVERED -> R.string.options_command_delivered
+        RemoteCommandStatus.APPLIED -> R.string.options_command_applied
+        RemoteCommandStatus.FAILED -> R.string.options_command_failed
+        RemoteCommandStatus.EXPIRED -> R.string.options_command_expired
     }
 
 internal fun isValidCloudServerAddress(value: String): Boolean =
@@ -1305,8 +1343,8 @@ internal fun isValidCloudServerAddress(value: String): Boolean =
 private fun buildCloudSettingsUiState(
     apiBaseUrl: String,
     loading: Boolean,
-    message: String?,
-    error: String?,
+    message: OptionsMessage?,
+    error: OptionsMessage?,
     session: CloudSession?,
     syncState: CloudSyncState,
 ): CloudSettingsUiState =
@@ -1322,8 +1360,9 @@ private fun buildCloudSettingsUiState(
 private fun launchCloudUiAction(
     scope: kotlinx.coroutines.CoroutineScope,
     setLoading: (Boolean) -> Unit,
-    setError: (String?) -> Unit,
-    setMessage: (String?) -> Unit,
+    setError: (OptionsMessage?) -> Unit,
+    setMessage: (OptionsMessage?) -> Unit,
+    errorContext: CloudErrorContext = CloudErrorContext.General,
     block: suspend () -> Unit,
 ) {
     scope.launch {
@@ -1331,15 +1370,34 @@ private fun launchCloudUiAction(
             setLoading = setLoading,
             setError = setError,
             setMessage = setMessage,
+            errorContext = errorContext,
             block = block,
         )
     }
 }
 
-private suspend fun runCloudAction(
+internal suspend fun handleOptionsOidcCallback(
+    completeLogin: suspend () -> CloudSession,
+    consumeCallback: () -> Unit,
+    onSignedIn: suspend (CloudSession) -> Unit,
+) {
+    val session =
+        try {
+            completeLogin()
+        } finally {
+            // Consume before sync can suspend. On failure, durable auth state still owns recovery.
+            consumeCallback()
+        }
+    onSignedIn(session)
+}
+
+// The UI action boundary maps all failures; cancellation must still propagate.
+@Suppress("TooGenericExceptionCaught")
+internal suspend fun runCloudAction(
     setLoading: (Boolean) -> Unit,
-    setError: (String?) -> Unit,
-    setMessage: (String?) -> Unit,
+    setError: (OptionsMessage?) -> Unit,
+    setMessage: (OptionsMessage?) -> Unit,
+    errorContext: CloudErrorContext = CloudErrorContext.General,
     block: suspend () -> Unit,
 ) {
     setLoading(true)
@@ -1348,21 +1406,19 @@ private suspend fun runCloudAction(
     try {
         block()
     } catch (error: CloudApiException) {
-        setError(error.message)
+        setError(error.toOptionsError(errorContext))
     } catch (error: IOException) {
-        setError(error.toCloudErrorMessage())
+        setError(error.toOptionsError(errorContext))
     } catch (error: CancellationException) {
         throw error
     } catch (error: IllegalStateException) {
-        setError(error.toCloudErrorMessage())
-    } catch (_: Exception) {
-        setError("Unexpected cloud error. Check your connection and try again.")
+        setError(error.toOptionsError(errorContext))
+    } catch (error: Exception) {
+        setError(error.toOptionsError(errorContext))
     } finally {
         setLoading(false)
     }
 }
-
-private fun Throwable.toCloudErrorMessage(): String = message ?: "Unexpected cloud error"
 
 @Suppress("UnusedPrivateFunction")
 @Preview(showBackground = true)

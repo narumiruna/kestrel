@@ -15,13 +15,11 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import java.io.IOException
-import java.util.Locale
 import java.util.UUID
 
 internal data class RemoteControlRuntimeStatus(
-    val message: String? = null,
-    val error: String? = null,
+    val message: CloudMessage? = null,
+    val error: CloudMessage? = null,
     val lastCommandStatus: RemoteCommandStatus? = null,
 )
 
@@ -65,7 +63,9 @@ internal class RemoteControlRepository internal constructor(
             val session = requireSession()
             val registered = register(settingsWithClientId(loadSettings()).copy(enabled = true), session)
             _runtimeStatus.value =
-                RemoteControlRuntimeStatus(message = "Remote control enabled for ${registered.deviceName}")
+                RemoteControlRuntimeStatus(
+                    message = CloudMessage(CloudMessageId.RemoteEnabled, listOf(registered.deviceName.orEmpty())),
+                )
             true
         }
 
@@ -74,7 +74,7 @@ internal class RemoteControlRepository internal constructor(
             val failure = runCatching { pollOnceOrThrow(canExecuteCommands) }.exceptionOrNull()
             if (failure is CancellationException) throw failure
             if (failure != null) {
-                _runtimeStatus.value = RemoteControlRuntimeStatus(error = failure.toRemoteControlMessage())
+                _runtimeStatus.value = RemoteControlRuntimeStatus(error = failure.toCloudMessage(CloudErrorContext.RemoteControl))
             }
         }
     }
@@ -85,7 +85,7 @@ internal class RemoteControlRepository internal constructor(
         if (settings.enabled) {
             val session = authRepository.currentSession()
             if (session == null) {
-                _runtimeStatus.value = RemoteControlRuntimeStatus(error = "Sign in to cloud to use web remote control")
+                _runtimeStatus.value = RemoteControlRuntimeStatus(error = CloudMessage(CloudMessageId.RemoteSignInRequired))
             } else {
                 pollWithSession(settings, session, canExecuteCommands)
             }
@@ -110,7 +110,7 @@ internal class RemoteControlRepository internal constructor(
                     )
                 }
             if (response.commands.isEmpty()) {
-                _runtimeStatus.value = RemoteControlRuntimeStatus(message = "Waiting for web commands")
+                _runtimeStatus.value = RemoteControlRuntimeStatus(message = CloudMessage(CloudMessageId.RemoteWaiting))
             } else {
                 executeCommands(response.commands, registered, session, canExecuteCommands)
             }
@@ -133,8 +133,8 @@ internal class RemoteControlRepository internal constructor(
             command.addPendingAck(registered, session, result)
             _runtimeStatus.value =
                 RemoteControlRuntimeStatus(
-                    message = "Command ${command.type} ${result.status.name.lowercase(Locale.US)}",
-                    error = result.errorMessage,
+                    message = CloudMessage(if (result.status == RemoteCommandStatus.APPLIED) CloudMessageId.RemoteCommandApplied else CloudMessageId.RemoteCommandFailed),
+                    error = result.uiError,
                     lastCommandStatus = result.status,
                 )
         }
@@ -148,21 +148,21 @@ internal class RemoteControlRepository internal constructor(
         if (clientDeviceId == null) {
             setPendingAcks(emptyList())
             settingsStore.save(loadSettings().copy(enabled = false))
-            _runtimeStatus.value = RemoteControlRuntimeStatus(message = "Remote control disabled")
+            _runtimeStatus.value = RemoteControlRuntimeStatus(message = CloudMessage(CloudMessageId.RemoteDisabled))
             return true
         }
         val session = authRepository.currentSession()
         if (session == null) {
             _runtimeStatus.value =
                 RemoteControlRuntimeStatus(
-                    message = "Remote control is still enabled on the server",
-                    error = "Sign in to cloud to disable remote control on the server",
+                    message = CloudMessage(CloudMessageId.RemoteStillEnabled),
+                    error = CloudMessage(CloudMessageId.RemoteSignInToDisable),
                 )
             return false
         }
         retryPendingAcks(session)
         register(settings.copy(enabled = false, clientDeviceId = clientDeviceId), session)
-        _runtimeStatus.value = RemoteControlRuntimeStatus(message = "Remote control disabled")
+        _runtimeStatus.value = RemoteControlRuntimeStatus(message = CloudMessage(CloudMessageId.RemoteDisabled))
         return true
     }
 
@@ -285,7 +285,7 @@ internal class RemoteControlRepository internal constructor(
         block: suspend (CloudSession) -> T,
     ): T = withAuthorizedSession(authRepository, session, block)
 
-    private fun requireSession(): CloudSession = authRepository.currentSession() ?: error("Sign in to cloud first")
+    private fun requireSession(): CloudSession = authRepository.currentSession() ?: throw CloudMessageException(CloudMessage(CloudMessageId.SignInRequired))
 
     private suspend fun RemoteCommandPayload.addPendingAck(
         settings: RemoteControlSettings,
@@ -367,14 +367,6 @@ internal class RemoteControlRepository internal constructor(
         }
     }
 }
-
-private fun Throwable.toRemoteControlMessage(): String =
-    when (this) {
-        is CloudApiException -> message
-        is IOException -> message ?: "Remote control network error"
-        is IllegalStateException -> message ?: "Remote control failed"
-        else -> "Remote control failed"
-    }
 
 private class DataStoreRemoteControlSettingsStore(
     private val prefs: KestrelPrefs,

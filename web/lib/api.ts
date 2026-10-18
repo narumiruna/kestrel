@@ -317,11 +317,12 @@ export type RouteInput = {
 };
 
 export class ApiError extends Error {
-  constructor(
-    message: string,
-    readonly status: number,
-  ) {
+  readonly status: number;
+  readonly code?: string;
+  constructor(message: string, status: number, code?: string) {
     super(message);
+    this.status = status;
+    this.code = code;
   }
 }
 
@@ -344,7 +345,8 @@ export async function apiFetch<T>(
   });
 
   if (!response.ok) {
-    throw new ApiError(await readErrorMessage(response), response.status);
+    const { message, code } = await readApiError(response);
+    throw new ApiError(message, response.status, code);
   }
 
   if (response.status === 204) {
@@ -470,21 +472,18 @@ export function verifyTotp(input: { code: string; password: string; username: st
   });
 }
 
-async function readErrorMessage(response: Response): Promise<string> {
+export async function readApiError(
+  response: Response,
+): Promise<{ message: string; code?: string }> {
+  // Preserve protocol codes. Server prose is diagnostic data, never UI text.
+  let code: string | undefined;
   try {
-    const body = (await response.json()) as { message?: unknown };
-    const message = body.message;
-
-    if (Array.isArray(message)) {
-      return message.join('\n');
-    }
-
-    if (typeof message === 'string') {
-      return message;
+    const body: unknown = await response.json();
+    if (body && typeof body === 'object' && 'code' in body && typeof body.code === 'string') {
+      code = body.code;
     }
   } catch {
-    // Fall through to status text.
+    // Uncoded and non-JSON failures use the same safe status fallback.
   }
-
-  return response.statusText || `HTTP ${response.status}`;
+  return { message: `HTTP ${response.status}`, ...(code ? { code } : {}) };
 }

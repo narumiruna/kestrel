@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { getRouteSavePresentation } from './routeSavePresentation.ts';
+import { createTranslator } from 'next-intl';
+import messages from '../../messages/en.json' with { type: 'json' };
+import { getRouteSavePresentation as present } from './routeSavePresentation.ts';
 
 const cleanExisting = {
   changeSummary: '',
@@ -12,6 +14,11 @@ const cleanExisting = {
   saveNotice: null,
   validationReason: null,
 };
+
+const t = createTranslator({ locale: 'en', messages, namespace: 'routeSave' });
+function getRouteSavePresentation(options: Parameters<typeof present>[0]) {
+  return present(options, t);
+}
 
 test('presents a new empty route as not saved with its first validation reason', () => {
   const presentation = getRouteSavePresentation({
@@ -94,4 +101,17 @@ test('keeps retry and discard available after a save error', () => {
   assert.equal(presentation.status, 'error');
   assert.equal(presentation.showDiscard, true);
   assert.equal(presentation.showSaveButton, true);
+});
+
+test('saved revisions use the supplied locale and status text is resolved again on language change', () => {
+  const de = createTranslator({
+    locale: 'de',
+    messages: { routeSave: { ...messages.routeSave, saved: 'Gespeichert' } },
+    namespace: 'routeSave',
+  });
+  const options = { ...cleanExisting, revisionNumber: 1234 };
+  assert.equal(present(options, t).detail, 'Revision 1,234');
+  assert.equal(present(options, de).detail, 'Revision 1.234');
+  assert.equal(present(options, de).title, 'Gespeichert');
+  assert.equal(present({ ...cleanExisting, isDirty: true }, de).detail, messages.routeSave.changed);
 });
