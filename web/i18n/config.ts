@@ -22,7 +22,7 @@ export type Locale = (typeof locales)[number];
 export const defaultLocale: Locale = 'en';
 export const localeCookie = 'kestrel-locale';
 export const localeNames: Record<Locale, string> = {
-  'zh-TW': '繁體中文 · Traditional Chinese',
+  'zh-TW': '正體中文 · Traditional Chinese',
   en: 'English',
   ja: '日本語 · Japanese',
   ko: '한국어 · Korean',

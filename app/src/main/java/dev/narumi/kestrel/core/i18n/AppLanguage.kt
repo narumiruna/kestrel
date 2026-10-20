@@ -18,7 +18,7 @@ object AppLanguage {
 
     val choices =
         listOf(
-            LanguageChoice("zh-TW", "繁體中文", "Traditional Chinese"),
+            LanguageChoice("zh-TW", "正體中文", "Traditional Chinese"),
             LanguageChoice("en", "English", "English"),
             LanguageChoice("ja", "日本語", "Japanese"),
             LanguageChoice("ko", "한국어", "Korean"),
