@@ -9,7 +9,7 @@ This document describes `backend/src/ai/*.ts` (excluding tests) and `web/lib/ai.
 1. Select **Auth method**: API key/token or OAuth.
 2. Search **Provider** by name or ID. Search is case-insensitive and filters by the selected method; unavailable methods remain visible with a reason.
 3. Select **Model** by its operation and ID.
-4. Select **Thinking** from that model's advertised levels, then save the selection.
+4. Select **Thinking** from that model's advertised levels, then save the selection. The selection prompt is a placeholder, not a default level. A new chat model requires a supported choice when the previous level does not apply.
 
 The catalog exposes the full 42-provider registry, not only usable providers. It returns provider methods, availability reasons, configuration field names, and model metadata. Catalog version is `1.4.0`. Model identity includes `modelType` (`chat`, `image`, or `classifier`) and `modelId`; the Web identity key is `type:id`. An identical model ID does not make different operations interchangeable. Chat thinking must exactly match an advertised level. Image and classifier selections require `thinkingLevel: null`. Unsupported thinking is rejected, never silently substituted.
 
@@ -82,6 +82,8 @@ Do not run an unreviewed database operation or restore tombstones to recover acc
 Local Node.js 22 checks passed: Backend lint, 343 unit tests, 19 HTTP e2e tests, typecheck, build, and the real-library integration fixture; Web formatting/lint, 192 tests, typecheck, build, and the 18-locale i18n gate. The integration fixture imports the built production adapter with all 42 providers and 1,713 model operations, separate dummy user credentials, disabled ambient resolver credentials, no inference surface, and zero network calls.
 
 Chrome DevTools Protocol checks passed at 1440×900 in light mode against an isolated dummy API: 29 assertions cover provider search/keyboard/focus, reconnect/disconnect, pending/cancelled authorization, settings failure/retry, callback retry and delayed-response cancellation, category/hash/history/language behavior, Security form retention, visible Map configuration, and both guarded settings links. External browser requests were blocked, including map tiles; no provider authorization page was visited. Screenshots remain outside Git. The configured Chrome DevTools MCP executable was unavailable; validation used an installed isolated Chrome through its DevTools Protocol directly. A stale-target harness run timed out; the final fresh-target run passed.
+
+PR review follow-up checks passed 14 further Chrome DevTools assertions for an `off`-only chat model and a reasoning model. The prompt is not a selectable level. Every offered level is supported, a valid choice enables Save, the old adjustment notice clears, and the submitted selection contains the chosen string level. The Backend contract is unchanged.
 
 No database migration, live OAuth, real key validation, inference, or maintenance procedure was performed. In-memory tests do not verify PostgreSQL transaction locking, lease contention, or concurrency across processes. Those behaviors require separate authorized database and hosted-flow verification before operational claims are made. The complete catalog is not a claim that every provider's authentication method is enabled.
 

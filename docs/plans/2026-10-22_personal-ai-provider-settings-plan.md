@@ -1,6 +1,6 @@
 # Personal AI Provider Settings
 
-Status: Local implementation and checks verified; [Draft PR #353](https://github.com/narumiruna/kestrel/pull/353) is open. Full provider-specific live acceptance remains open. The user authorized plan revision, implementation, and pull-request delivery for the full pi-ai provider/model scope. External gates apply only to the affected method's activation and final live acceptance, not to independent local implementation. No live provider login, paid inference, real account changes, database operations, or deployment was performed.
+Status: Local implementation and checks verified; [PR #353](https://github.com/narumiruna/kestrel/pull/353) is open. Full provider-specific live acceptance remains open. The user authorized plan revision, implementation, and pull-request delivery for the full pi-ai provider/model scope. External gates apply only to the affected method's activation and final live acceptance, not to independent local implementation. No live provider login, paid inference, real account changes, database operations, or deployment was performed.
 
 ## Goal
 
@@ -119,10 +119,14 @@ This does not prove the complete Backend build, cross-process persistence, downs
 - [x] Verify at 1440×900 light mode with Chrome DevTools and dummy provider fixtures; cover keyboard/focus behavior, pending login, reconnect, and settings failures. Live authorization, paid calls, and real account changes require explicit approval; otherwise retain their acceptance gates as blocked. Evidence: final isolated Chrome DevTools Protocol run passed 29 assertions; screenshots are outside Git. No live provider/account changes.
 - [x] Run Web formatting/lint/tests/typecheck/build, `just i18n-check`, Backend lint/unit/e2e/typecheck/build, and `git diff --check`. Run commands separately, each within 180 seconds; split longer checks into observable steps. Use `npm ci` first when dependencies are absent or lockfiles change. Keep secrets, captures, generated caches, and unrelated files out of the diff. Evidence: final Node.js 22 Backend checks: 343 unit + 19 e2e tests; Web: 192 tests; integration and i18n gates pass. Existing warnings and audit advisories are recorded below.
 
+### PR review follow-up
+
+- [x] Address review item R1: show the thinking prompt as a placeholder, not a selectable null value. Keep only advertised levels in the choices and clear the old adjustment notice after a valid choice. Evidence: 14 Chrome DevTools assertions passed for new `gpt-4` (`off` only) and `gpt-5` (reasoning) selections, including the exact submitted level. Web formatting/lint, 192 tests, typecheck, build, and i18n checks passed. The Backend selection contract is unchanged; no live provider call was made.
+
 ## Local verification and remaining gates
 
 - Node.js `v22.23.2`: Backend lint, 29 unit suites / 343 tests, five HTTP e2e suites / 19 tests, typecheck, build, and `npm run test:ai:integration` passed. The production fixture enumerates 42 providers and 1,599 chat / 63 image / 51 classifier entries with zero network calls.
-- The Backend CI job runs the offline production AI integration fixture after its build. Draft PR #353 contains the implementation and verification handoff; required external acceptance remains open.
+- The Backend CI job runs the offline production AI integration fixture after its build. PR #353 contains the implementation and verification handoff; required external acceptance remains open.
 - Web formatting/lint, 192 tests, typecheck, production build, and the 18-locale i18n gate passed. Existing CSS specificity / Biome schema diagnostics and identical technical-term translation notices remain. Android code and resources are unchanged.
 - Chrome DevTools Protocol: 29 final assertions passed at 1440×900 light against a dummy loopback API; external requests, including map tiles, were blocked. Coverage includes keyboard/focus/search, reconnect/disconnect, pending/cancelled authorization, callback retry and delayed-response races, independent settings errors, hashes/Back/Forward/language refresh, Security form retention, and guarded Map departures. The configured MCP Chrome executable was missing, so an isolated installed Chrome was used directly. A stale-target harness run timed out; the final fresh-target run passed. Captures and fixture artifacts remain outside Git.
 - Full source/diff review covered correctness, security, lifecycle, compatibility, regressions, and scope. Fixed early-refresh durability/fencing, callback recovery races, stale response handling, and a Map summary hidden by existing CSS. Independent final source reviews found no remaining concrete issue in their reviewed paths. `git diff --check` passed.

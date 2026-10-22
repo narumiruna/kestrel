@@ -460,19 +460,16 @@ export function AiAssistantSettings({
       {!!model?.thinkingLevels.length && (
         <SelectField
           label={t('thinking')}
-          value={selection?.thinkingLevel ?? 'default'}
+          value={selection?.thinkingLevel ?? ''}
           disabled={disabled}
-          options={[
-            { value: 'default', label: t('defaultThinking') },
-            ...model.thinkingLevels.map((value) => ({ value, label: value })),
-          ]}
-          onValueChange={(value) =>
+          placeholder={t('defaultThinking')}
+          options={model.thinkingLevels.map((value) => ({ value, label: value }))}
+          onValueChange={(value) => {
             setSelection((previous) =>
-              previous
-                ? { ...previous, thinkingLevel: value === 'default' ? null : value }
-                : previous,
-            )
-          }
+              previous ? { ...previous, thinkingLevel: value } : previous,
+            );
+            setThinkingCleared(false);
+          }}
         />
       )}
       {model && model.type !== 'chat' && <Text>{t('thinkingNotApplicable')}</Text>}
