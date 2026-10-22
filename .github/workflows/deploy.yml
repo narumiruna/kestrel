@@ -39,6 +39,7 @@ jobs:
           AUTH_OIDC_FLOW_ENCRYPTION_KEY: ${{ secrets.AUTH_OIDC_FLOW_ENCRYPTION_KEY }}
           AUTH_OIDC_ISSUER: ${{ vars.AUTH_OIDC_ISSUER }}
           KESTREL_PUBLIC_URL: ${{ vars.KESTREL_PUBLIC_URL }}
+          ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
           AUTH_TOTP_ENCRYPTION_KEY: ${{ secrets.AUTH_TOTP_ENCRYPTION_KEY }}
         run: |
           docker compose --env-file /dev/null -f compose.yaml config --quiet

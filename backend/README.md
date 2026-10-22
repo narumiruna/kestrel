@@ -41,6 +41,8 @@ Additional auth settings:
 
 See [`docs/oidc.md`](../docs/oidc.md) for OIDC client setup and account-mapping rules.
 
+AI credential methods require `ENCRYPTION_KEY`: an independent 32-byte key encoded as exactly 64 hexadecimal characters. Generate a new key with `openssl rand -hex 32`; do not reuse TOTP or OIDC keys. When renaming an existing setting, keep the current AI credential key value. See [`docs/ai-provider-settings.md`](../docs/ai-provider-settings.md).
+
 ## Local development
 
 ```bash
