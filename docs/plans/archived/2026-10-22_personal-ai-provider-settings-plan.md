@@ -42,7 +42,7 @@ References: `~/src/pi-browser-agent/`, `~/src/sumire/apps/bot/src/admin/provider
 - [x] Add all new messages in all 18 catalogs and update provider setup, billing, server access, side-effect, restart, and disconnect documentation.
 - [x] Run Backend lint/unit/e2e/typecheck/build, real-library offline integration, Web formatting/lint/tests/typecheck/build, i18n, migration/schema checks, and `git diff --check`. Use Node.js 22. Keep each command bounded and observable.
 - [x] Run Chrome DevTools dummy-provider checks at 1440×900 light for device-code and manual-prompt login, response submission, failure, cancellation, and unchanged navigation. Keep captures outside Git. Do not use Playwright.
-- [ ] Review the entire follow-up diff for correctness, security, lifecycle, compatibility, regressions, and scope; commit/push intended text files and open a follow-up PR to `main` that links #353.
+- [x] Review the entire follow-up diff for correctness, security, lifecycle, compatibility, regressions, and scope; commit/push intended text files and open a follow-up PR to `main` that links #353. Evidence: implementation commit `7eacd55` is pushed on `narumi/feat/provider-auth-flows`; [PR #354](https://github.com/narumiruna/kestrel/pull/354) is open for review.
 
 ## Follow-up verification
 
@@ -74,6 +74,6 @@ References: `~/src/pi-browser-agent/`, `~/src/sumire/apps/bot/src/admin/provider
 - [x] Users see real provider interactions and can submit the required response; no false connected state or shared credential exists.
 - [x] Ownership, encryption, state/PKCE, prompt single-use, expiry, restart, revocation, replacement, and disconnect tests pass.
 - [x] Required repository checks and dummy browser checks pass. Remaining live/DB limits are stated accurately, not treated as activation blockers.
-- [ ] Follow-up fixes are committed and pushed; the PR links #353 and records checks and risks. Archive this plan only after all applicable items have evidence.
+- [x] Follow-up fixes are committed and pushed; [PR #354](https://github.com/narumiruna/kestrel/pull/354) links #353 and records checks and risks. All applicable local checks and handoff items have evidence; archive this plan.
 
 Not applicable: provider permission reviews and agent-operated live-flow verification as release prerequisites. The user explicitly removed those gates. No live-provider or deployment success is claimed.
