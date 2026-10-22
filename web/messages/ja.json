@@ -1,5 +1,10 @@
 {
   "AiAssistant": {
+    "openAuthorization": "プロバイダーのサインイン画面を開く",
+    "authorizationCode": "デバイスコード",
+    "authorizationResponse": "認可レスポンス",
+    "submitResponse": "続行",
+    "providerConsentWarning": "プロバイダーへのサインインを開始すると、プロバイダーのアカウントでキーが作成されたり、モデルへのアクセスが有効になったりする場合があります。これらの変更に同意する場合のみ続行してください。",
     "thinkingNotApplicable": "このモデルの操作には思考レベルは適用されません。",
     "summaryLoading": "AI 設定を読み込み中…",
     "summaryUnavailable": "AI 設定を利用できません",
@@ -34,7 +39,7 @@
     "unavailable": {
       "policy": "現在のプロバイダーのポリシーでは、ホスト型 Kestrel でこの方法を使用することは許可されていません。",
       "hosted_unverified": "この方法のホスト型環境での認可はまだ確認されていないため、利用できません。",
-      "operator_unconfigured": "サーバー管理者が認証情報の暗号化を設定する必要があります。アカウントでのログインには、公開 HTTPS URL の設定も必要です。"
+      "operator_unconfigured": "サーバー管理者が認証情報の暗号化を設定する必要があります。"
     },
     "model": "モデル",
     "chooseModel": "モデルを選択",

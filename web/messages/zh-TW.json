@@ -1,5 +1,10 @@
 {
   "AiAssistant": {
+    "openAuthorization": "開啟供應商登入頁面",
+    "authorizationCode": "裝置代碼",
+    "authorizationResponse": "授權回應",
+    "submitResponse": "繼續",
+    "providerConsentWarning": "啟動供應商登入流程可能會在您的供應商帳號中建立供應商金鑰，或啟用模型存取權。只有在您同意這些變更時才繼續。",
     "thinkingNotApplicable": "這項 Model 操作不適用 Thinking level。",
     "summaryLoading": "正在載入 AI 設定…",
     "summaryUnavailable": "無法載入 AI 設定",
@@ -34,7 +39,7 @@
     "unavailable": {
       "policy": "依據供應商目前的政策，託管的 Kestrel 不得使用此方式。",
       "hosted_unverified": "尚未確認此方式是否支援託管環境授權，目前無法使用。",
-      "operator_unconfigured": "伺服器管理員必須設定憑證加密；若要使用帳號登入，還須設定公開的 HTTPS 網址。"
+      "operator_unconfigured": "伺服器管理員必須設定憑證加密。"
     },
     "model": "模型",
     "chooseModel": "選擇模型",

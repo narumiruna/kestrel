@@ -1,5 +1,10 @@
 {
   "AiAssistant": {
+    "openAuthorization": "Buka halaman masuk penyedia",
+    "authorizationCode": "Kode perangkat",
+    "authorizationResponse": "Respons otorisasi",
+    "submitResponse": "Lanjutkan",
+    "providerConsentWarning": "Memulai proses masuk ke penyedia dapat membuat kunci penyedia atau mengaktifkan akses model di akun penyedia Anda. Lanjutkan hanya jika Anda menyetujui perubahan tersebut.",
     "thinkingNotApplicable": "Tingkat penalaran tidak berlaku untuk operasi model ini.",
     "summaryLoading": "Memuat konfigurasi AI…",
     "summaryUnavailable": "Konfigurasi AI tidak tersedia",
@@ -34,7 +39,7 @@
     "unavailable": {
       "policy": "Metode ini tidak diizinkan untuk penggunaan Kestrel yang dihosting berdasarkan kebijakan penyedia saat ini.",
       "hosted_unverified": "Otorisasi pada layanan yang dihosting untuk metode ini belum diverifikasi. Metode ini belum dapat digunakan.",
-      "operator_unconfigured": "Operator server harus mengonfigurasi enkripsi kredensial dan, untuk masuk ke akun, URL HTTPS publik."
+      "operator_unconfigured": "Operator server harus mengonfigurasi enkripsi kredensial."
     },
     "model": "Model",
     "chooseModel": "Pilih model",

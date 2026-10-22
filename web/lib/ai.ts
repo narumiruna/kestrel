@@ -43,7 +43,43 @@ export type AiAttempt = {
     | 'failed'
     | 'expired';
   expiresAt: string;
+  authorizationUrl?: string;
+  interaction?: {
+    authorizationUrl?: string;
+    instructions?: string;
+    userCode?: string;
+    message?: string;
+    prompt?: {
+      id: string;
+      type: 'text' | 'secret' | 'manual_code' | 'select';
+      message: string;
+      placeholder?: string;
+      options?: { id: string; label: string }[];
+    };
+  };
 };
+
+export function aiAuthorizationUrl(value: string | undefined): string | null {
+  if (!value) return null;
+  try {
+    const url = new URL(value);
+    const host = url.hostname.toLowerCase().replace(/\.$/, '');
+    if (
+      url.protocol !== 'https:' ||
+      url.username ||
+      url.password ||
+      url.port ||
+      !host.includes('.') ||
+      /\.(?:localhost|local|internal)$/.test(host) ||
+      /^\d+(?:\.\d+){3}$/.test(host) ||
+      host.includes(':')
+    )
+      return null;
+    return url.href;
+  } catch {
+    return null;
+  }
+}
 
 export function newerAiSettings(current: AiSettings | null, next: AiSettings): AiSettings {
   if (

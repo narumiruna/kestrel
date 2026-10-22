@@ -142,15 +142,9 @@ export class AiCatalogService {
             reason: AvailabilityReason;
           }[] = [];
           if (provider.auth.apiKey) {
-            const policy = [
-              'qwen-token-plan',
-              'qwen-token-plan-individual',
-            ].includes(provider.id);
-            const reason: AvailabilityReason = policy
-              ? 'policy'
-              : this.secrets.available()
-                ? null
-                : 'operator_unconfigured';
+            const reason: AvailabilityReason = this.secrets.available()
+              ? null
+              : 'operator_unconfigured';
             methods.push({
               type: 'api_key',
               available: reason === null,
@@ -158,14 +152,9 @@ export class AiCatalogService {
             });
           }
           if (provider.auth.oauth) {
-            const reason: AvailabilityReason =
-              provider.id === 'anthropic'
-                ? 'policy'
-                : provider.id !== 'openrouter'
-                  ? 'hosted_unverified'
-                  : this.secrets.available() && this.publicOrigin()
-                    ? null
-                    : 'operator_unconfigured';
+            const reason: AvailabilityReason = this.secrets.available()
+              ? null
+              : 'operator_unconfigured';
             methods.push({ type: 'oauth', available: reason === null, reason });
           }
           return {

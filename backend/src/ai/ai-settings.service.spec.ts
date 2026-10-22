@@ -53,7 +53,7 @@ function setup() {
   const ready = async () => {
     const attempt = await start();
     await service.callback(attempt.id, {
-      state: new URL(attempt.authorizationUrl).searchParams.get('state')!,
+      state: new URL(attempt.authorizationUrl!).searchParams.get('state')!,
       code,
     });
     return attempt;
@@ -158,7 +158,7 @@ describe('AiSettingsService (protocol double, not database isolation proof)', ()
   it('binds state and S256 PKCE to the exact callback and encrypted verifier', async () => {
     const { start, db, secrets, service, session, exchange } = setup();
     const attempt = await start();
-    const url = new URL(attempt.authorizationUrl);
+    const url = new URL(attempt.authorizationUrl!);
     const row = db.aiAuthorization.get(attempt.id)!;
     const state = url.searchParams.get('state')!;
     const verifier = secrets.decrypt(
@@ -239,7 +239,7 @@ describe('AiSettingsService (protocol double, not database isolation proof)', ()
         error: 'access_denied',
         ...(withState
           ? {
-              state: new URL(attempt.authorizationUrl).searchParams.get(
+              state: new URL(attempt.authorizationUrl!).searchParams.get(
                 'state',
               )!,
             }
@@ -325,7 +325,7 @@ describe('AiSettingsService (protocol double, not database isolation proof)', ()
     );
     await safeFailure(
       service.callback(expired.id, {
-        state: new URL(expired.authorizationUrl).searchParams.get('state')!,
+        state: new URL(expired.authorizationUrl!).searchParams.get('state')!,
         code,
       }),
       'AI_ATTEMPT_EXPIRED',

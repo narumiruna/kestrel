@@ -1,5 +1,10 @@
 {
   "AiAssistant": {
+    "openAuthorization": "Open provider sign-in",
+    "authorizationCode": "Device code",
+    "authorizationResponse": "Authorization response",
+    "submitResponse": "Continue",
+    "providerConsentWarning": "Starting provider sign-in can create a provider key or enable model access in your provider account. Continue only if you agree to those changes.",
     "thinkingNotApplicable": "Thinking does not apply to this model operation.",
     "summaryLoading": "Loading AI configuration…",
     "summaryUnavailable": "AI configuration unavailable",
@@ -34,7 +39,7 @@
     "unavailable": {
       "policy": "This method is not permitted for hosted Kestrel use under the current provider policy.",
       "hosted_unverified": "Hosted authorization for this method has not been verified. It cannot be used yet.",
-      "operator_unconfigured": "The server operator must configure credential encryption and, for account login, the public HTTPS URL."
+      "operator_unconfigured": "The server operator must configure credential encryption."
     },
     "model": "Model",
     "chooseModel": "Choose a model",

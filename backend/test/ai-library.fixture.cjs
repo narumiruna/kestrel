@@ -1,7 +1,71 @@
-// Offline integration fixture: build first. No login, provider transport, or inference is allowed.
+// Offline integration fixture: build first. No live provider login, transport, or inference is allowed.
 const assert = require('node:assert/strict');
 const { createUserAiModels } = require('../dist/ai/ai-user-models.js');
 const { piRegistry, AiCatalogService } = require('../dist/ai/ai-catalog.js');
+const { loginWithPi } = require('../dist/ai/ai-pi-login.js');
+const { aiAuthWorkerRuntime } = require('../dist/ai/ai-auth-worker-client.js');
+const { Worker } = require('node:worker_threads');
+const { dirname, join } = require('node:path');
+
+// A protocol error message proves the worker module loaded. A native worker error must fail the test.
+async function assertWorkerEntry(clientFilename) {
+  const runtime = aiAuthWorkerRuntime(clientFilename);
+  const adapter = join(
+    dirname(clientFilename),
+    clientFilename.endsWith('.ts') ? 'ai-pi-login.ts' : 'ai-pi-login.js',
+  );
+  const entry = runtime.eval
+    ? runtime.entry
+    : `require(${JSON.stringify(runtime.entry)});`;
+  const probe = `require(${JSON.stringify(adapter)}).loadAiOAuthProvider('openai-codex').then(value=>require('node:worker_threads').parentPort.postMessage({type:'fixture-loaded',usable:typeof value?.login==='function'})).catch(()=>require('node:worker_threads').parentPort.postMessage({type:'fixture-failed'}));`;
+  await new Promise((resolve, reject) => {
+    const worker = new Worker(entry + probe, {
+      workerData: {
+        providerId: 'fixture-unknown-provider',
+        userId: '12345678-1234-1234-1234-123456789abc',
+      },
+      env: {},
+      execArgv: [],
+      eval: true,
+      resourceLimits: runtime.resourceLimits,
+      stdout: true,
+      stderr: true,
+    });
+    let settled = false;
+    let applicationResponded = false;
+    let providerLoaded = false;
+    const timer = setTimeout(
+      () => finish(new Error('AI worker entry timed out')),
+      30000,
+    );
+    function finish(error) {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      void worker.terminate();
+      if (error) reject(error);
+      else resolve();
+    }
+    worker.stdout.resume();
+    worker.stderr.resume();
+    worker.on('message', (message) => {
+      if (message.type === 'error') applicationResponded = true;
+      else if (message.type === 'fixture-loaded' && message.usable)
+        providerLoaded = true;
+      else
+        return finish(
+          new Error('Unexpected worker protocol or provider loader failure'),
+        );
+      if (applicationResponded && providerLoaded) finish();
+    });
+    worker.on('error', () =>
+      finish(new Error('AI worker module failed to load')),
+    );
+    worker.on('exit', () =>
+      finish(new Error('AI worker exited before its protocol response')),
+    );
+  });
+}
 
 function store() {
   const entries = new Map();
@@ -53,7 +117,7 @@ async function run() {
   const catalog = {
     assertMethod(_provider, method) {
       return method === 'oauth'
-        ? Promise.reject(new Error('Fixture OAuth unavailable'))
+        ? Promise.reject(new Error('Fixture injected OAuth failure'))
         : Promise.resolve();
     },
   };
@@ -94,21 +158,42 @@ async function run() {
     };
     assert.deepEqual(await productionCatalog.selection(selection), selection);
     for (const method of provider.methods) {
-      if (!method.available)
-        await assert.rejects(
-          productionCatalog.assertMethod(provider.id, method.type),
-        );
+      assert.equal(method.available, true);
+      assert.equal(method.reason, null);
+      await productionCatalog.assertMethod(provider.id, method.type);
     }
   }
-  assert.deepEqual(
-    publicCatalog.providers
-      .filter((provider) =>
-        provider.methods.some(
-          (method) => method.type === 'oauth' && method.available,
-        ),
-      )
-      .map((provider) => provider.id),
-    ['openrouter'],
+  const methods = { api_key: 0, oauth: 0 };
+  for (const provider of publicCatalog.providers)
+    for (const method of provider.methods) methods[method.type]++;
+  assert.deepEqual(methods, { api_key: 41, oauth: 9 });
+  const noOrigin = new AiCatalogService(
+    { get: () => '' },
+    { available: () => true },
+  );
+  assert.equal(
+    (await noOrigin.assertMethod('openrouter', 'oauth')).id,
+    'openrouter',
+  );
+  await assertWorkerEntry(
+    join(__dirname, '../src/ai/ai-auth-worker-client.ts'),
+  );
+  await assertWorkerEntry(
+    join(__dirname, '../dist/ai/ai-auth-worker-client.js'),
+  );
+  await assert.rejects(
+    loginWithPi(
+      'fixture-unknown-provider',
+      '12345678-1234-1234-1234-123456789abc',
+      {
+        signal: AbortSignal.timeout(5000),
+        notify: () => {
+          throw new Error('Unexpected provider event');
+        },
+        prompt: () => Promise.reject(new Error('Unexpected provider prompt')),
+      },
+    ),
+    /^Error: AI provider authentication failed$/,
   );
   for (const provider of providers)
     assert.equal(await first.getAuth(provider.id), undefined);
@@ -150,7 +235,10 @@ async function run() {
       models: counts,
       userAuthIsolation: 'passed',
       ambientResolverFallback: 'absent',
-      unavailableOAuth: 'blocked',
+      registryMethods: methods,
+      injectedOAuthFailure: 'no-fallback',
+      workerFailureBoundary: 'passed',
+      workerEntryPoints: ['source', 'compiled'],
       inferenceSurface: 'absent',
       networkCalls,
     }),

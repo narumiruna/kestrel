@@ -84,25 +84,31 @@ describe('AiCatalogService', () => {
     ['anthropic', 'oauth'],
     ['other', 'oauth'],
     ['qwen-token-plan', 'api_key'],
-  ])('rejects unavailable method %s/%s', async (provider, method) => {
-    await expect(service.assertMethod(provider, method)).rejects.toThrow(
-      'AI_METHOD_UNAVAILABLE',
-    );
-    await expect(
-      service.keyCredential('qwen-token-plan', { apiKey: 'key' }),
-    ).rejects.toThrow('AI_METHOD_UNAVAILABLE');
-  });
+  ])(
+    'allows every registry method without verification gates %s/%s',
+    async (provider, method) => {
+      await expect(
+        service.assertMethod(provider, method),
+      ).resolves.toMatchObject({ id: provider });
+      await expect(
+        service.keyCredential('qwen-token-plan', { apiKey: 'key' }),
+      ).resolves.toMatchObject({ type: 'api_key', key: 'key' });
+    },
+  );
 
-  it('rejects methods when operator encryption or OAuth origin is unavailable', async () => {
+  it('requires encryption but permits OAuth without a public callback origin', async () => {
     available.mockReturnValue(false);
     await expect(service.assertMethod('openrouter', 'api_key')).rejects.toThrow(
       'AI_METHOD_UNAVAILABLE',
     );
-    available.mockReturnValue(true);
-    get.mockReturnValue('http://kestrel.example');
     await expect(service.assertMethod('openrouter', 'oauth')).rejects.toThrow(
       'AI_METHOD_UNAVAILABLE',
     );
+    available.mockReturnValue(true);
+    get.mockReturnValue('http://kestrel.example');
+    await expect(
+      service.assertMethod('openrouter', 'oauth'),
+    ).resolves.toMatchObject({ id: 'openrouter' });
   });
 
   it.each([
