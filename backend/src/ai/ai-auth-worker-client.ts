@@ -4,7 +4,7 @@ import type {
   OAuthCredential,
   ProviderAuthInteraction,
 } from '@earendil-works/pi-ai';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { Worker } from 'node:worker_threads';
 
 type Request =
@@ -17,6 +17,23 @@ type WorkerMessage =
   | { type: 'done'; credential: OAuthCredential }
   | { type: 'error' };
 
+/** Select the runtime without inheriting watch/debug arguments or provider environment variables. */
+export function aiAuthWorkerRuntime(clientFilename = __filename) {
+  const source = clientFilename.endsWith('.ts');
+  const directory = dirname(clientFilename);
+  return {
+    entry: source
+      ? `require(${JSON.stringify(require.resolve('ts-node'))}).register({transpileOnly:true,project:${JSON.stringify(join(directory, '../../tsconfig.json'))}});require(${JSON.stringify(join(directory, 'ai-auth-worker.ts'))});`
+      : join(directory, 'ai-auth-worker.js'),
+    eval: source,
+    resourceLimits: {
+      maxOldGenerationSizeMb: source ? 256 : 128,
+      maxYoungGenerationSizeMb: 16,
+      stackSizeMb: 4,
+    },
+  };
+}
+
 /** Each login/refresh gets an empty environment. Provider modules cannot read host auth or endpoint overrides. */
 export function runAiAuthWorker(
   request: Request,
@@ -24,17 +41,15 @@ export function runAiAuthWorker(
 ): Promise<OAuthCredential> {
   interaction.signal.throwIfAborted();
   return new Promise((resolve, reject) => {
-    const worker = new Worker(join(__dirname, 'ai-auth-worker.js'), {
+    const runtime = aiAuthWorkerRuntime();
+    const worker = new Worker(runtime.entry, {
       workerData: request,
       env: {},
       execArgv: [],
       stdout: true,
       stderr: true,
-      resourceLimits: {
-        maxOldGenerationSizeMb: 128,
-        maxYoungGenerationSizeMb: 16,
-        stackSizeMb: 4,
-      },
+      eval: runtime.eval,
+      resourceLimits: runtime.resourceLimits,
     });
     worker.stdout.resume();
     worker.stderr.resume();

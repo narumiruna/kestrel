@@ -25,7 +25,7 @@ const fail = (): never => {
 const required = (value: unknown): string =>
   typeof value === 'string' && value.trim() ? value : fail();
 
-async function loadProvider(id: string) {
+export async function loadAiOAuthProvider(id: string) {
   const { builtinModels } = await import('@earendil-works/pi-ai/providers/all');
   return builtinModels({
     authContext: {
@@ -83,7 +83,7 @@ export async function postAiToken(
 
 /** Isolated provider collection and transport; no credential persistence. */
 export function createAiLoginRunner(
-  load: ProviderLoader = loadProvider,
+  load: ProviderLoader = loadAiOAuthProvider,
   transport: typeof fetch = fetch,
 ): AiLoginRunner {
   const exchange = (

@@ -1,7 +1,11 @@
 import type { AuthPrompt, OAuthCredential } from '@earendil-works/pi-ai';
 import { randomUUID } from 'node:crypto';
 import { parentPort, workerData } from 'node:worker_threads';
-import { createAiLoginRunner, refreshKimiOnce } from './ai-pi-login';
+import {
+  createAiLoginRunner,
+  loadAiOAuthProvider,
+  refreshKimiOnce,
+} from './ai-pi-login';
 
 const port = parentPort;
 if (!port) throw new Error('AI authentication worker requires a parent');
@@ -19,14 +23,7 @@ async function run() {
   if (request.credential) {
     if (request.providerId === 'kimi-coding')
       return refreshKimiOnce(request.credential, controller.signal);
-    const { builtinModels } =
-      await import('@earendil-works/pi-ai/providers/all');
-    const oauth = builtinModels({
-      authContext: {
-        env: () => Promise.resolve(undefined),
-        fileExists: () => Promise.resolve(false),
-      },
-    }).getProvider(request.providerId)?.auth.oauth;
+    const oauth = await loadAiOAuthProvider(request.providerId);
     if (!oauth) throw new Error('Unsupported provider');
     return oauth.refresh(request.credential, controller.signal);
   }

@@ -44,9 +44,13 @@ References: `~/src/pi-browser-agent/`, `~/src/sumire/apps/bot/src/admin/provider
 - [x] Run Chrome DevTools dummy-provider checks at 1440×900 light for device-code and manual-prompt login, response submission, failure, cancellation, and unchanged navigation. Keep captures outside Git. Do not use Playwright.
 - [x] Review the entire follow-up diff for correctness, security, lifecycle, compatibility, regressions, and scope; commit/push intended text files and open a follow-up PR to `main` that links #353. Evidence: implementation commit `7eacd55` is pushed on `narumi/feat/provider-auth-flows`; [PR #354](https://github.com/narumiruna/kestrel/pull/354) is open for review.
 
+### PR #354 review follow-up
+
+- [x] Fix source-based development workers as well as compiled workers. Source mode uses a controlled `ts-node` bootstrap and explicit project; compiled mode loads emitted JS. Both keep an empty environment and no inherited process arguments. Evidence: real offline workers load the provider adapter and return application protocol messages in both modes; native module-load failures fail the fixture. Backend lint, 418 unit tests, 21 e2e tests, typecheck, build, and integration passed. Default local lint timed out under host load and a 512 MiB retry exhausted its heap; the same full lint passed with a 1 GiB heap in CI mode. No lint rule was disabled.
+
 ## Follow-up verification
 
-- Node.js `v22.23.2`: Backend lint, 32 suites / 416 unit tests, five suites / 21 HTTP e2e tests, typecheck, build, and the real-library production integration fixture passed. The fixture confirms 42 providers, 41 API-key interfaces, nine OAuth interfaces, 1,713 model operations, isolated auth resolution, worker failure handling, and zero provider requests.
+- Node.js `v22.23.2`: Backend lint, 32 suites / 418 unit tests, five suites / 21 HTTP e2e tests, typecheck, build, and the real-library production integration fixture passed. The fixture confirms 42 providers, 41 API-key interfaces, nine OAuth interfaces, 1,713 model operations, isolated auth resolution, worker failure handling, and zero provider requests.
 - Prisma generation, formatting, and schema validation passed. The additive heartbeat migration was reviewed and not applied.
 - Web formatting/lint, 193 tests, typecheck, production build, and the 18-locale i18n gate passed. Existing CSS/Biome and identical-term notices remain.
 - Chrome DevTools Protocol: 29 assertions passed at 1440×900 light. The fixture uses real AI routes, real session authentication, real encryption and bridge logic, a Prisma protocol double, and dummy provider transports. It covers all nine enabled OAuth controls, device/manual flows, secret clearing, cancellation, real generic failures, formerly blocked API-key setup, settings retry, Security retention, and completion racing category recovery. No provider page was opened, no external browser request occurred, and no browser exception occurred. Captures remain outside Git.

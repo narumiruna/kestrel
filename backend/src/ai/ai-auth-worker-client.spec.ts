@@ -4,7 +4,12 @@ import type {
 } from '@earendil-works/pi-ai';
 import { EventEmitter } from 'node:events';
 import { Worker } from 'node:worker_threads';
-import { refreshWithPi, runAiAuthWorker } from './ai-auth-worker-client';
+import { join } from 'node:path';
+import {
+  aiAuthWorkerRuntime,
+  refreshWithPi,
+  runAiAuthWorker,
+} from './ai-auth-worker-client';
 
 jest.mock('node:worker_threads', () => ({ Worker: jest.fn() }));
 const createWorker = jest.mocked(Worker);
@@ -44,15 +49,16 @@ it('starts an isolated bounded worker without parent environment or inherited ar
   const h = setup();
   const result = h.start();
   expect(createWorker).toHaveBeenCalledWith(
-    expect.stringContaining('ai-auth-worker.js'),
+    expect.stringContaining('ai-auth-worker.ts'),
     {
       workerData: { providerId: 'openai', userId: 'owner' },
       env: {},
       execArgv: [],
       stdout: true,
       stderr: true,
+      eval: true,
       resourceLimits: {
-        maxOldGenerationSizeMb: 128,
+        maxOldGenerationSizeMb: 256,
         maxYoungGenerationSizeMb: 16,
         stackSizeMb: 4,
       },
@@ -63,6 +69,26 @@ it('starts an isolated bounded worker without parent environment or inherited ar
   expect(h.worker.stdout.resume).toHaveBeenCalledTimes(1);
   expect(h.worker.stderr.resume).toHaveBeenCalledTimes(1);
   expect(h.worker.terminate).toHaveBeenCalledTimes(1);
+});
+
+it('selects a compiled entry without a TypeScript bootstrap', () => {
+  const runtime = aiAuthWorkerRuntime(
+    join(__dirname, '../../dist/ai/ai-auth-worker-client.js'),
+  );
+  expect(runtime.entry).toBe(
+    join(__dirname, '../../dist/ai/ai-auth-worker.js'),
+  );
+  expect(runtime.eval).toBe(false);
+  expect(runtime.resourceLimits.maxOldGenerationSizeMb).toBe(128);
+  expect(runtime.entry).not.toContain('ts-node');
+});
+
+it('selects an explicit source project without parent process arguments', () => {
+  const runtime = aiAuthWorkerRuntime();
+  expect(runtime.eval).toBe(true);
+  expect(runtime.entry).toContain('transpileOnly:true');
+  expect(runtime.entry).toContain(join(__dirname, '../../tsconfig.json'));
+  expect(runtime.entry).toContain(join(__dirname, 'ai-auth-worker.ts'));
 });
 
 it('relays prompt answers and provider events without logging secrets', async () => {

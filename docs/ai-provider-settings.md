@@ -27,7 +27,7 @@ Provider links open in another tab. Device codes, provider instructions, progres
 
 Each job expires after five minutes. Cancelling, signing out, replacing a connection, or disconnecting prevents a late result from saving credentials. Another Backend process can read encrypted interaction state and accept an owner-bound response. The process running the provider flow sends a heartbeat. A heartbeat older than 15 seconds marks the attempt failed on the next poll. Restart login after a Backend interruption; Kestrel does not replay an exchange whose result may have been lost. Each process permits at most 16 active bridged jobs; per-user limits remain eight active and 32 unexpired attempts.
 
-Provider login and refresh run in bounded Node workers with an empty environment. They cannot read host provider credentials or endpoint overrides through `process.env`. Provider output is not logged. Built-in browser/loopback choices are replaced with their headless choices. OpenAI and fallback OpenRouter use manual adapters. Kimi rotating refresh is sent once, without the library's transport retry loop. The auth facade still exposes no inference methods; later inference work must check its full SDK request path.
+Provider login and refresh run in bounded Node workers with an empty environment. Compiled servers load the emitted worker JS. Source-based `start`/`start:dev` use a controlled `ts-node` bootstrap with the repository project; they do not inherit watch/debug arguments or provider environment variables. They cannot read host provider credentials or endpoint overrides through `process.env`. Provider output is not logged. Built-in browser/loopback choices are replaced with their headless choices. OpenAI and fallback OpenRouter use manual adapters. Kimi rotating refresh is sent once, without the library's transport retry loop. The auth facade still exposes no inference methods; later inference work must check its full SDK request path.
 
 ## HTTP contract
 
@@ -84,7 +84,7 @@ Application rollback can retain additive columns. Stop pending work and remove e
 
 ## Local verification
 
-Node.js 22 checks passed: Backend lint, 416 unit tests, 21 HTTP e2e tests, typecheck/build, Prisma validation/generation, and the offline production fixture. The fixture confirms all 41 API-key and nine OAuth interfaces are enabled, plus all 42 providers and 1,713 model operations, with zero provider calls. Web formatting/lint, 193 tests, typecheck/build, and all 18 locale catalogs passed.
+Node.js 22 checks passed: Backend lint, 418 unit tests, 21 HTTP e2e tests, typecheck/build, Prisma validation/generation, and the offline production fixture. The fixture confirms all 41 API-key and nine OAuth interfaces are enabled, plus all 42 providers and 1,713 model operations, with zero provider calls. It starts real source-based and compiled workers and checks provider-adapter loading separately from native worker startup failures. Web formatting/lint, 193 tests, typecheck/build, and all 18 locale catalogs passed.
 
 Chrome DevTools checks passed 29 assertions at 1440×900 light against real AI HTTP routes, session authentication, encryption, and the login bridge, with a Prisma double and dummy provider transports. They cover device/manual input, enabled methods, cancellation, safe failure, connection metadata recovery, and existing Security state. No provider page was visited or external browser request made. Captures are outside Git.
 
