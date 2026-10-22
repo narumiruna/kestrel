@@ -121,6 +121,8 @@ class FakeAccountSecurityPrisma {
     ];
   }
 
+  readonly aiAuthorization = { updateMany: async () => ({ count: 0 }) };
+
   readonly androidLoginAttempt = {
     updateMany: async () => ({ count: 0 }),
   };

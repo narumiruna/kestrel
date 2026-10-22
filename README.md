@@ -68,7 +68,7 @@ Remote control only works after you sign in on the phone and turn on **Settings 
 Because commands are delivered by polling, Kestrel must be open or already running its mock-location service to receive them.
 Undelivered commands expire, and nothing can wake an app that Android has killed.
 
-Route editing, sharing, and device commands are covered in the **[Kestrel Cloud guide](docs/web-cloud-guide.md)**.
+Route editing, sharing, and device commands are covered in the **[Kestrel Cloud guide](docs/web-cloud-guide.md)**. Account-level AI configuration, credential storage, and current provider availability are covered in [AI provider settings](docs/ai-provider-settings.md).
 
 ---
 

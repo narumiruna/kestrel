@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { type MouseEvent, type RefObject, useRef, useState } from 'react';
+import { isCurrentTabNavigation } from '@/app/dashboard/map/navigationGuard';
 import { BrandMark } from '@/components/BrandMark';
 import {
   ChevronDownIcon,
@@ -98,14 +99,12 @@ export function WorkspaceHeader({
               settingsLinkRef={settingsLinkRef}
               onSettingsClick={(event) => {
                 setIsAccountOpen(false);
-                if (
-                  activeSection === 'account' &&
-                  event.button === 0 &&
-                  !event.metaKey &&
-                  !event.ctrlKey &&
-                  !event.shiftKey &&
-                  !event.altKey
-                ) {
+                if (!isCurrentTabNavigation(event)) return;
+                if (onBeforeWorkspaceChange?.('/dashboard/account') === false) {
+                  event.preventDefault();
+                  return;
+                }
+                if (activeSection === 'account') {
                   event.preventDefault();
                   window.location.hash = 'preferences';
                 }

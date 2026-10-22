@@ -1,4 +1,77 @@
 {
+  "AiAssistant": {
+    "thinkingNotApplicable": "El nivel de razonamiento no se aplica a esta operación.",
+    "summaryLoading": "Cargando configuración de AI…",
+    "summaryUnavailable": "Configuración de AI no disponible",
+    "notConfigured": "AI sin configurar",
+    "fields": {
+      "accountId": "ID de cuenta",
+      "gatewayId": "ID de gateway",
+      "resourceName": "Nombre del recurso de Azure",
+      "apiVersion": "Versión de la API",
+      "deploymentMap": "Asignación de modelos a implementaciones",
+      "region": "Región de AWS"
+    },
+    "title": "Asistente de IA",
+    "settingsLink": "Ajustes del asistente de IA",
+    "accountHelp": "Elige un método de autenticación, un proveedor, un modelo y un nivel de razonamiento para tu cuenta.",
+    "serverAccessWarning": "Kestrel cifra las credenciales guardadas. El servidor puede acceder a ellas y a los datos de las solicitudes que necesita tu proveedor. Nunca introduzcas la contraseña de tu proveedor.",
+    "billingWarning": "El uso se factura a tu propia cuenta del proveedor. Guardar una clave de API no verifica el acceso al proveedor ni envía una solicitud de pago.",
+    "catalogLoading": "Cargando proveedores y modelos…",
+    "catalogError": "No se pudo cargar el catálogo de proveedores.",
+    "settingsLoading": "Cargando ajustes de IA…",
+    "settingsError": "No se pudieron cargar tus ajustes de IA.",
+    "operationError": "No se pudo completar el cambio. Revisa los datos y vuelve a cargar los ajustes antes de intentarlo de nuevo.",
+    "retry": "Volver a cargar",
+    "saved": "Guardado.",
+    "setupMethod": "Método de autenticación",
+    "methods": {
+      "api_key": "Clave de API o token",
+      "oauth": "Iniciar sesión con una cuenta del proveedor"
+    },
+    "provider": "Proveedor",
+    "chooseProvider": "Elegir un proveedor",
+    "searchProviders": "Buscar por nombre o ID del proveedor",
+    "noProviders": "No hay proveedores coincidentes.",
+    "selectionUnavailable": "Esta selección no está disponible actualmente. No se usará otro proveedor o modelo en su lugar.",
+    "unavailable": {
+      "policy": "La política actual del proveedor no permite este método para el uso de Kestrel alojado.",
+      "hosted_unverified": "No se ha verificado la autorización de este método en un entorno alojado. Aún no se puede utilizar.",
+      "operator_unconfigured": "El operador del servidor debe configurar el cifrado de credenciales y, para el inicio de sesión con una cuenta, la URL HTTPS pública."
+    },
+    "model": "Modelo",
+    "chooseModel": "Elegir un modelo",
+    "unavailableModel": "Modelo guardado no disponible: {model}",
+    "thinking": "Nivel de razonamiento",
+    "defaultThinking": "Elegir un nivel compatible",
+    "thinkingCleared": "Este modelo no admite el nivel de razonamiento anterior. Revisa la nueva selección antes de guardar.",
+    "save": "Guardar valores predeterminados",
+    "apiKey": "Clave de API o token del proveedor",
+    "connect": "Guardar conexión",
+    "authorize": "Conectar cuenta del proveedor",
+    "leaveForAuthorization": "Continuar a OpenRouter",
+    "attempt": {
+      "pending": "Esperando la autorización del proveedor.",
+      "code_received": "Autorización recibida. Completando la conexión…",
+      "processing": "Completando la conexión…",
+      "completed": "Conexión con el proveedor guardada.",
+      "cancelled": "Autorización cancelada.",
+      "failed": "La autorización ha fallado. Inicia un nuevo intento de conexión.",
+      "expired": "La autorización ha caducado. Inicia un nuevo intento de conexión."
+    },
+    "cancelAuthorization": "Cancelar autorización",
+    "connections": "Conexiones guardadas",
+    "noConnections": "No hay conexiones guardadas con proveedores.",
+    "connection": {
+      "connected": "Guardada",
+      "reconnect_required": "Es necesario volver a conectar"
+    },
+    "reconnect": "Volver a conectar",
+    "disconnectTitle": "¿Desconectar el proveedor?",
+    "disconnectWarning": "Esto elimina la credencial guardada en Kestrel y cancela las autorizaciones pendientes. No revoca la credencial en el proveedor ni detiene su facturación. Si es necesario, revoca la clave en tu cuenta del proveedor.",
+    "disconnect": "Desconectar",
+    "cancel": "Cancelar"
+  },
   "Metadata": {
     "title": "Kestrel Cloud",
     "description": "Consola web para editar lugares y rutas de Kestrel en la nube."

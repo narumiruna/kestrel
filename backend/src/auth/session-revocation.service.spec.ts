@@ -7,6 +7,7 @@ type MockDevice = {
 };
 
 type MockStore = {
+  aiAuthorization: { updateMany: jest.Mock };
   androidLoginAttempt: {
     updateMany: jest.Mock<Promise<{ count: number }>, [unknown]>;
   };
@@ -28,6 +29,9 @@ describe('SessionRevocationService', () => {
 
   beforeEach(() => {
     store = {
+      aiAuthorization: {
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
       androidLoginAttempt: {
         updateMany: jest
           .fn<Promise<{ count: number }>, [unknown]>()
@@ -70,6 +74,19 @@ describe('SessionRevocationService', () => {
     ]);
 
     await service.revokeSessions('user-1', ['session-2'], revokedAt);
+
+    expect(store.aiAuthorization.updateMany).toHaveBeenCalledWith({
+      where: {
+        userId: 'user-1',
+        sessionId: { in: ['session-2'] },
+        status: { in: ['pending', 'code_received', 'processing'] },
+      },
+      data: {
+        status: 'cancelled',
+        verifierEncrypted: null,
+        codeEncrypted: null,
+      },
+    });
 
     expect(store.androidLoginAttempt.updateMany).toHaveBeenCalledWith({
       data: { approvedAt: null, deniedAt: revokedAt },

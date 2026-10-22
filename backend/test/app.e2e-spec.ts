@@ -71,6 +71,9 @@ type AuthUserRecord = {
 };
 
 type MockPrismaService = {
+  aiAuthorization: {
+    updateMany: jest.Mock<Promise<{ count: number }>, [unknown]>;
+  };
   $queryRaw: jest.Mock<Promise<unknown>, unknown[]>;
   $transaction: jest.Mock<
     Promise<unknown>,
@@ -216,6 +219,7 @@ type TotpVerifyResponse = {
 type TransactionClient = Pick<
   MockPrismaService,
   | 'androidLoginAttempt'
+  | 'aiAuthorization'
   | 'device'
   | 'recoveryCode'
   | 'refreshTokenHistory'
@@ -251,6 +255,11 @@ describe('AppController (e2e)', () => {
     storedUsersById = new Map();
     storedUsers = new Map();
     prismaService = {
+      aiAuthorization: {
+        updateMany: jest
+          .fn<Promise<{ count: number }>, [unknown]>()
+          .mockResolvedValue({ count: 0 }),
+      },
       $queryRaw: jest
         .fn<Promise<unknown>, unknown[]>()
         .mockResolvedValue([{ ready: 1 }]),
@@ -678,6 +687,7 @@ describe('AppController (e2e)', () => {
     };
     prismaService.$transaction.mockImplementation(async (transaction) =>
       transaction({
+        aiAuthorization: prismaService.aiAuthorization,
         androidLoginAttempt: prismaService.androidLoginAttempt,
         device: prismaService.device,
         recoveryCode: prismaService.recoveryCode,

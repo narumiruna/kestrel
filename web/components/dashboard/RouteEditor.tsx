@@ -4,6 +4,7 @@ import { useLocale, useTranslations } from 'next-intl';
 import {
   type Dispatch,
   type FormEvent,
+  type ReactNode,
   type SetStateAction,
   useEffect,
   useMemo,
@@ -77,6 +78,7 @@ type CoordinateDialogState =
   | null;
 
 type Props = {
+  configurationSummary?: ReactNode;
   draftState: RouteDraftState;
   hoveredWaypointIndex?: number | null;
   onBeforeNavigateAway?: () => boolean;
@@ -102,6 +104,7 @@ type Props = {
 };
 
 export default function RouteEditor({
+  configurationSummary,
   draftState,
   hoveredWaypointIndex = null,
   onBeforeNavigateAway,
@@ -381,6 +384,7 @@ export default function RouteEditor({
             <strong>{t('waypointCount', { count: draft.waypoints.length })}</strong>
             <span>{distanceLabel}</span>
           </section>
+          {configurationSummary}
         </section>
 
         <Button

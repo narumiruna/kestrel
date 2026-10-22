@@ -62,6 +62,8 @@ class FakeAndroidLoginPrisma {
   readonly audits: Array<Record<string, unknown>> = [];
   private transactionTail = Promise.resolve();
 
+  readonly aiAuthorization = { updateMany: async () => ({ count: 0 }) };
+
   readonly androidLoginAttempt = {
     count: async (args: { where?: Record<string, unknown> }) =>
       this.attempts.filter((item) => this.matchesAttempt(item, args.where))

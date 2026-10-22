@@ -1,4 +1,77 @@
 {
+  "AiAssistant": {
+    "thinkingNotApplicable": "Für diesen Modellvorgang gilt keine Denkstufe.",
+    "summaryLoading": "AI-Konfiguration wird geladen…",
+    "summaryUnavailable": "AI-Konfiguration nicht verfügbar",
+    "notConfigured": "AI nicht konfiguriert",
+    "fields": {
+      "accountId": "Konto-ID",
+      "gatewayId": "Gateway-ID",
+      "resourceName": "Azure-Ressourcenname",
+      "apiVersion": "API-Version",
+      "deploymentMap": "Modell-Deployment-Zuordnung",
+      "region": "AWS-Region"
+    },
+    "title": "KI-Assistent",
+    "settingsLink": "Einstellungen des KI-Assistenten",
+    "accountHelp": "Wähle eine Authentifizierungsmethode, einen Anbieter, ein Modell und eine Denkstufe für dein Konto.",
+    "serverAccessWarning": "Kestrel verschlüsselt gespeicherte Zugangsdaten. Der Server kann auf diese und die von deinem Anbieter benötigten Anfragedaten zugreifen. Gib niemals dein Anbieterpasswort ein.",
+    "billingWarning": "Die Nutzung wird über dein eigenes Anbieterkonto abgerechnet. Das Speichern eines API-Schlüssels prüft weder den Anbieterzugriff noch sendet es eine kostenpflichtige Anfrage.",
+    "catalogLoading": "Anbieter und Modelle werden geladen…",
+    "catalogError": "Der Anbieterkatalog konnte nicht geladen werden.",
+    "settingsLoading": "KI-Einstellungen werden geladen…",
+    "settingsError": "Deine KI-Einstellungen konnten nicht geladen werden.",
+    "operationError": "Die Änderung konnte nicht abgeschlossen werden. Prüfe deine Eingaben und lade die Einstellungen vor einem erneuten Versuch neu.",
+    "retry": "Neu laden",
+    "saved": "Gespeichert.",
+    "setupMethod": "Authentifizierungsmethode",
+    "methods": {
+      "api_key": "API-Schlüssel oder Token",
+      "oauth": "Mit einem Anbieterkonto anmelden"
+    },
+    "provider": "Anbieter",
+    "chooseProvider": "Anbieter auswählen",
+    "searchProviders": "Nach Anbietername oder ID suchen",
+    "noProviders": "Keine passenden Anbieter.",
+    "selectionUnavailable": "Diese Auswahl ist derzeit nicht verfügbar. Es wird kein anderer Anbieter und kein anderes Modell als Ersatz verwendet.",
+    "unavailable": {
+      "policy": "Diese Methode ist gemäß den aktuellen Anbieterrichtlinien für die Nutzung mit gehostetem Kestrel nicht zulässig.",
+      "hosted_unverified": "Die Autorisierung für den gehosteten Betrieb wurde für diese Methode nicht überprüft. Sie kann noch nicht verwendet werden.",
+      "operator_unconfigured": "Der Serverbetreiber muss die Verschlüsselung der Zugangsdaten und für die Kontoanmeldung die öffentliche HTTPS-URL konfigurieren."
+    },
+    "model": "Modell",
+    "chooseModel": "Modell auswählen",
+    "unavailableModel": "Gespeichertes Modell nicht verfügbar: {model}",
+    "thinking": "Denkstufe",
+    "defaultThinking": "Unterstützte Stufe auswählen",
+    "thinkingCleared": "Die bisherige Denkstufe wird von diesem Modell nicht unterstützt. Prüfe die neue Auswahl vor dem Speichern.",
+    "save": "Standardeinstellungen speichern",
+    "apiKey": "API-Schlüssel oder Token des Anbieters",
+    "connect": "Verbindung speichern",
+    "authorize": "Anbieterkonto verbinden",
+    "leaveForAuthorization": "Weiter zu OpenRouter",
+    "attempt": {
+      "pending": "Warten auf die Autorisierung durch den Anbieter.",
+      "code_received": "Autorisierung erhalten. Verbindung wird hergestellt…",
+      "processing": "Verbindung wird hergestellt…",
+      "completed": "Anbieterverbindung gespeichert.",
+      "cancelled": "Autorisierung abgebrochen.",
+      "failed": "Autorisierung fehlgeschlagen. Starte einen neuen Verbindungsversuch.",
+      "expired": "Autorisierung abgelaufen. Starte einen neuen Verbindungsversuch."
+    },
+    "cancelAuthorization": "Autorisierung abbrechen",
+    "connections": "Gespeicherte Verbindungen",
+    "noConnections": "Keine gespeicherten Anbieterverbindungen.",
+    "connection": {
+      "connected": "Gespeichert",
+      "reconnect_required": "Erneute Verbindung erforderlich"
+    },
+    "reconnect": "Erneut verbinden",
+    "disconnectTitle": "Verbindung zum Anbieter trennen?",
+    "disconnectWarning": "Dadurch werden die in Kestrel gespeicherten Zugangsdaten entfernt und ausstehende Autorisierungen abgebrochen. Die Zugangsdaten beim Anbieter werden nicht widerrufen und die Abrechnung durch den Anbieter wird nicht beendet. Widerrufe den Schlüssel bei Bedarf in deinem Anbieterkonto.",
+    "disconnect": "Verbindung trennen",
+    "cancel": "Abbrechen"
+  },
   "Metadata": {
     "title": "Kestrel Cloud",
     "description": "Webkonsole zum Bearbeiten von Orten und Routen in der Kestrel-Cloud."

@@ -1,4 +1,4 @@
-export type AccountSection = 'preferences' | 'security';
+export type AccountSection = 'preferences' | 'security' | 'ai-assistant';
 
 const SECURITY_TARGETS = new Set([
   'security',
@@ -15,11 +15,15 @@ export function resolveAccountNavigation(location: URL) {
     url.hash = '#security';
   }
   const target = url.hash.slice(1);
-  const section: AccountSection = SECURITY_TARGETS.has(target) ? 'security' : 'preferences';
+  const section: AccountSection = SECURITY_TARGETS.has(target)
+    ? 'security'
+    : target === 'ai-assistant'
+      ? 'ai-assistant'
+      : 'preferences';
   return {
     section,
     linked,
-    target: SECURITY_TARGETS.has(target) ? target : 'preferences',
+    target: SECURITY_TARGETS.has(target) ? target : section,
     href: `${url.pathname}${url.search}${url.hash}`,
   };
 }

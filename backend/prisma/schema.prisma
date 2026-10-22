@@ -14,6 +14,9 @@ model User {
   totpEnabledAt        DateTime?             @map("totp_enabled_at")
   createdAt            DateTime              @default(now()) @map("created_at")
   updatedAt            DateTime              @updatedAt @map("updated_at")
+  aiSettings           AiSettings?
+  aiConnections        AiConnection[]
+  aiAuthorizations     AiAuthorization[]
   androidLoginAttempts AndroidLoginAttempt[]
   authAuditLogs        AuthAuditLog[]
   devices              Device[]
@@ -106,6 +109,7 @@ model Session {
   exchangedAndroidLoginAttempts  AndroidLoginAttempt[] @relation("AndroidLoginExchangeSession")
   devices                        Device[]
   refreshTokenHistory            RefreshTokenHistory[]
+  aiAuthorizations               AiAuthorization[]
 
   @@index([userId])
   @@map("sessions")
@@ -440,4 +444,52 @@ enum SyncEntityType {
 enum SyncOperation {
   UPSERT
   DELETE
+}
+
+model AiSettings {
+  userId     String   @id @map("user_id") @db.Uuid
+  generation Int      @default(0)
+  selection  Json?
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at")
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("ai_settings")
+}
+
+model AiConnection {
+  userId              String    @map("user_id") @db.Uuid
+  providerId          String    @map("provider_id") @db.VarChar(64)
+  generation          Int       @default(0)
+  authMethod          String?   @map("auth_method") @db.VarChar(16)
+  status              String    @default("disconnected") @db.VarChar(32)
+  credentialEncrypted String?   @map("credential_encrypted")
+  leaseId             String?   @map("lease_id") @db.Uuid
+  leaseExpiresAt      DateTime? @map("lease_expires_at")
+  updatedAt           DateTime  @default(now()) @updatedAt @map("updated_at")
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, providerId])
+  @@map("ai_connections")
+}
+
+model AiAuthorization {
+  id                String   @id @default(uuid()) @db.Uuid
+  userId            String   @map("user_id") @db.Uuid
+  sessionId         String   @map("session_id") @db.Uuid
+  providerId        String   @map("provider_id") @db.VarChar(64)
+  generation        Int
+  resultGeneration  Int?     @map("result_generation")
+  stateHash         String   @unique @map("state_hash") @db.VarChar(64)
+  verifierEncrypted String?  @map("verifier_encrypted")
+  codeEncrypted     String?  @map("code_encrypted")
+  status            String   @default("pending") @db.VarChar(32)
+  expiresAt         DateTime @map("expires_at")
+  createdAt         DateTime @default(now()) @map("created_at")
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  session           Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([userId, providerId, status])
+  @@index([sessionId])
+  @@index([expiresAt])
+  @@map("ai_authorizations")
 }
