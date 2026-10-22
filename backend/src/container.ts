@@ -1,3 +1,6 @@
+import { AiCatalogService } from './ai/ai-catalog';
+import { AiSecretBox } from './ai/ai-secret-box';
+import { AiSettingsService } from './ai/ai-settings.service';
 import { AccountSecurityService } from './account-security/account-security.service';
 import { AndroidLoginService } from './android-login/android-login.service';
 import { AppService } from './app.service';
@@ -20,6 +23,7 @@ import { SharingService } from './sharing/sharing.service';
 import { SyncService } from './sync/sync.service';
 
 export type Container = {
+  aiSettingsService: AiSettingsService;
   accessTokenService: AccessTokenService;
   accountSecurityService: AccountSecurityService;
   androidLoginService: AndroidLoginService;
@@ -49,6 +53,12 @@ export function createContainer(
   );
   const sessionRevocationService = new SessionRevocationService(prismaService);
   const totpService = new TotpService(configService);
+  const aiSecrets = new AiSecretBox(configService);
+  const aiSettingsService = new AiSettingsService(
+    prismaService,
+    new AiCatalogService(configService, aiSecrets),
+    aiSecrets,
+  );
 
   const authService = new AuthService(
     accessTokenService,
@@ -74,6 +84,7 @@ export function createContainer(
   );
 
   return {
+    aiSettingsService,
     accessTokenService,
     accountSecurityService: new AccountSecurityService(
       authService,

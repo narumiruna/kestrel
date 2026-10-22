@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useLocale, useTranslations } from 'next-intl';
 import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react';
+import { AiAssistantSettings } from '@/components/dashboard/AiAssistantSettings';
 import { AndroidQrLoginPanel } from '@/components/dashboard/AndroidQrLoginPanel';
 import { ChangePasswordForm } from '@/components/dashboard/ChangePasswordForm';
 import {
@@ -49,6 +50,7 @@ const UNAVAILABLE_OIDC_LINK_STATUS: OidcLinkStatus = {
 export default function AccountSettingsPage() {
   const t = useTranslations('Account');
   const errorT = useTranslations('Errors');
+  const aiT = useTranslations('AiAssistant');
   const locale = useLocale();
   const previousLocaleRef = useRef(locale);
   const auth = useDashboardAuth();
@@ -338,6 +340,12 @@ export default function AccountSettingsPage() {
             >
               <GearIcon /> {t('preferences')}
             </a>
+            <a
+              href="#ai-assistant"
+              aria-current={section === 'ai-assistant' ? 'location' : undefined}
+            >
+              <GearIcon /> {aiT('title')}
+            </a>
             <a href="#security" aria-current={section === 'security' ? 'location' : undefined}>
               <LockClosedIcon /> {t('security')}
               {error == null ? null : (
@@ -356,6 +364,17 @@ export default function AccountSettingsPage() {
             <div id="preferences" hidden={section !== 'preferences'}>
               <AccountPreferences />
             </div>
+            <section
+              id="ai-assistant"
+              hidden={section !== 'ai-assistant'}
+              aria-label={aiT('title')}
+            >
+              <AiAssistantSettings
+                key={auth.session.session.id}
+                apiRequest={auth.apiRequest}
+                active={section === 'ai-assistant'}
+              />
+            </section>
             {/* Keep Security mounted: category changes must not reset password or QR state. */}
             <section id="security" hidden={section !== 'security'} aria-label={t('security')}>
               {error == null ? null : (

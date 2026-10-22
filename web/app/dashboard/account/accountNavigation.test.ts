@@ -14,6 +14,17 @@ test('account settings defaults to Preferences and accepts category targets', ()
   assert.equal(resolveAccountNavigation(new URL(`${base}#security`)).section, 'security');
 });
 
+test('AI assistant links select the AI section and preserve their target', () => {
+  const navigation = resolveAccountNavigation(new URL(`${base}#ai-assistant`));
+  assert.equal(navigation.section, 'ai-assistant');
+  assert.equal(navigation.target, 'ai-assistant');
+  assert.equal(navigation.href, '/dashboard/account#ai-assistant');
+  assert.equal(navigation.linked, false);
+  const linked = resolveAccountNavigation(new URL(`${base}?oidc=linked#ai-assistant`));
+  assert.equal(linked.section, 'security');
+  assert.equal(linked.target, 'security');
+});
+
 test('legacy security links resolve to Security before scrolling to the heading', () => {
   for (const target of ['sign-in-heading', 'sessions-heading', 'devices-heading']) {
     const navigation = resolveAccountNavigation(new URL(`${base}#${target}`));
@@ -37,7 +48,7 @@ test('OIDC success selects Security and consumes only the OIDC query parameter',
 });
 
 test('non-success OIDC parameters and selected category survive navigation and refresh', () => {
-  for (const hash of ['#preferences', '#security', '#sessions-heading']) {
+  for (const hash of ['#preferences', '#security', '#sessions-heading', '#ai-assistant']) {
     const url = new URL(`${base}?oidc=cancelled&keep=one${hash}`);
     const initial = resolveAccountNavigation(url);
     assert.equal(initial.linked, false);

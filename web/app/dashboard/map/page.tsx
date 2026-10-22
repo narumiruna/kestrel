@@ -10,6 +10,7 @@ import { KeyboardCheatsheet } from '@/components/cartographer/KeyboardCheatsheet
 import { ScaleBar } from '@/components/cartographer/ScaleBar';
 import { type MobileWorkspacePanel, Stage } from '@/components/cartographer/Stage';
 import { useKeyboardShortcuts } from '@/components/cartographer/useKeyboardShortcuts';
+import { AiConfigurationSummary } from '@/components/dashboard/AiConfigurationSummary';
 import { matchesPlaceSearch, matchesRouteSearch } from '@/components/dashboard/librarySearch';
 import PlaceEditor from '@/components/dashboard/PlaceEditor';
 import { PlaceRemoteControlAction } from '@/components/dashboard/RemoteControlPanel';
@@ -52,6 +53,8 @@ const ZoomStack = dynamic(
   { ssr: false },
 );
 
+import { createDraftActionGuard, isCurrentTabNavigation } from './navigationGuard';
+
 type MapKind = 'places' | 'routes';
 type ViewportControls = {
   fit: () => void;
@@ -63,6 +66,7 @@ type Coordinates = { latitude: number; longitude: number };
 
 export default function DashboardMapPage() {
   const t = useTranslations('MapWorkspace');
+  const [draftActionGuard] = useState(createDraftActionGuard);
   const locale = useLocale();
   const tm = useTranslations('routeModes');
   const {
@@ -341,9 +345,10 @@ export default function DashboardMapPage() {
         activeElement instanceof HTMLElement && activeElement !== document.body
           ? activeElement
           : document.querySelector<HTMLElement>('.notebook-entry[aria-pressed="true"]');
-      setPendingDraftAction(() => action);
+      draftActionGuard.request(true, action);
+      setPendingDraftAction(() => () => draftActionGuard.confirm());
     } else {
-      action();
+      draftActionGuard.request(false, action);
     }
   }
 
@@ -553,6 +558,16 @@ export default function DashboardMapPage() {
           ) : (
             <RouteEditor
               key={isNewRoute ? 'new-route' : selectedRoute?.id}
+              configurationSummary={
+                <AiConfigurationSummary
+                  apiRequest={auth.apiRequest}
+                  onNavigate={(event) => {
+                    if (!isCurrentTabNavigation(event)) return;
+                    event.preventDefault();
+                    navigateIfDraftSafe('/dashboard/account#ai-assistant');
+                  }}
+                />
+              }
               isSaving={isRouteSaving}
               draftState={routeDraftState}
               hoveredWaypointIndex={hoveredWaypointIndex}
@@ -685,6 +700,7 @@ export default function DashboardMapPage() {
         }}
         onOpenChange={(open) => {
           if (!open) {
+            draftActionGuard.cancel();
             setPendingDraftAction(null);
           }
         }}

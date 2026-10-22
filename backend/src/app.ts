@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { createAiSettingsRoutes } from './ai/ai-settings.routes';
 import { createAccountSecurityRoutes } from './account-security/account-security.routes';
 import { createAndroidLoginRoutes } from './android-login/android-login.routes';
 import { createAppRoutes } from './app.routes';
@@ -21,6 +22,10 @@ export function createApp(container: Container): Hono<{
   app.use('*', enforceBodyLimit);
 
   app.route('/', createAppRoutes(container.appService));
+  app.route(
+    '/',
+    createAiSettingsRoutes(container.aiSettingsService, container.sessionAuth),
+  );
   app.route(
     '/auth',
     createAuthRoutes(
