@@ -117,13 +117,13 @@ jobs:
           cache: npm
           cache-dependency-path: web/package-lock.json
 
-      - uses: extractions/setup-just@v4
-
       - name: Install catalog parser dependencies
         run: npm ci --prefix web
 
       - name: Validate catalogs and validator regression fixtures
-        run: just i18n-check
+        run: |
+          node --experimental-strip-types --test scripts/check-i18n.test.mjs
+          node --experimental-strip-types scripts/check-i18n.mjs
 
   backend:
     needs: changes
