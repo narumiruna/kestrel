@@ -3,7 +3,9 @@ import { AiSecretBox } from './ai-secret-box';
 
 const key = 'ab'.repeat(32);
 const box = (value: unknown = key) =>
-  new AiSecretBox({ get: () => value } as unknown as ConfigService);
+  new AiSecretBox({
+    get: (name: string) => (name === 'ENCRYPTION_KEY' ? value : undefined),
+  } as unknown as ConfigService);
 
 describe('AiSecretBox', () => {
   it('recovers a secret in a new instance with the same key and random IVs', () => {

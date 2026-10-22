@@ -57,7 +57,9 @@ Hosted OpenRouter success always requires matching state. OpenRouter omits state
 
 ## Keys and provider configuration
 
-Set a separate `AI_CREDENTIAL_ENCRYPTION_KEY` to exactly 64 hexadecimal characters (32 bytes). Do not reuse the TOTP key. Missing encryption disables credential methods; it is not a provider verification gate. A wrong key fails decryption closed. Metadata listing and local disconnect do not require decryption.
+Set a separate `ENCRYPTION_KEY` to exactly 64 hexadecimal characters (32 bytes). Do not reuse TOTP or OIDC keys. Missing encryption disables credential methods; it is not a provider verification gate. A wrong key fails decryption closed. Metadata listing and local disconnect do not require decryption.
+
+For a new installation, generate the key with `openssl rand -hex 32`. Set it in the Backend environment or Compose `.env` file. For GitHub Actions deployment, store it as the `ENCRYPTION_KEY` repository secret; the deploy workflow passes it to Compose. When upgrading an existing deployment, use the current AI credential key value under the new variable name. This rename does not rotate the key or change stored ciphertext. Keep the key in a secret manager.
 
 API keys must be nonempty, at most 8192 characters, with no whitespace/control characters or leading `!`/`$`. Kestrel never executes key commands or imports host auth files. Provider configuration is bounded and allowlisted:
 

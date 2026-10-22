@@ -7,13 +7,13 @@ export class AiSecretBox {
   constructor(private readonly config: ConfigService) {}
 
   available(): boolean {
-    const key = this.config.get('AI_CREDENTIAL_ENCRYPTION_KEY');
+    const key = this.config.get('ENCRYPTION_KEY');
     return typeof key === 'string' && /^[a-fA-F0-9]{64}$/.test(key);
   }
 
   private key(): Buffer {
     if (!this.available()) return aiError('AI_ENCRYPTION_UNAVAILABLE', 503);
-    return Buffer.from(this.config.get('AI_CREDENTIAL_ENCRYPTION_KEY')!, 'hex');
+    return Buffer.from(this.config.get('ENCRYPTION_KEY')!, 'hex');
   }
 
   encrypt(
