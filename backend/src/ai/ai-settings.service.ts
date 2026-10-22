@@ -221,18 +221,27 @@ export class AiSettingsService {
     });
     if (!row || row.providerId !== 'openrouter' || row.expiresAt <= new Date())
       return aiError('AI_ATTEMPT_EXPIRED', 410);
-    const state = boundedString(values.state, 128);
-    if (
-      !timingSafeEqual(
-        Buffer.from(hash(state), 'hex'),
-        Buffer.from(row.stateHash, 'hex'),
+    const denied = values.error !== undefined;
+    if (denied) {
+      boundedString(values.error, 128);
+      if (values.code !== undefined) return aiError('AI_INVALID_INPUT');
+    }
+    // OpenRouter omits state on denial. That path can only fail a pending attempt;
+    // it cannot store a code, exchange one, or change a saved connection.
+    if (!denied || values.state !== undefined) {
+      const state = boundedString(values.state, 128);
+      if (
+        !timingSafeEqual(
+          Buffer.from(hash(state), 'hex'),
+          Buffer.from(row.stateHash, 'hex'),
+        )
       )
-    )
-      return aiError('AI_STATE_MISMATCH', 403);
+        return aiError('AI_STATE_MISMATCH', 403);
+    }
     const store = this.store(row.userId, row.sessionId);
     await store.assertSession();
     if (row.status !== 'pending') return aiError('AI_ATTEMPT_CONSUMED', 409);
-    const data = values.error
+    const data = denied
       ? { status: 'failed', verifierEncrypted: null, codeEncrypted: null }
       : {
           status: 'code_received',

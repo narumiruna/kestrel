@@ -177,6 +177,39 @@ describe('AI settings HTTP routes with real session authentication', () => {
     expect(exchange).not.toHaveBeenCalled();
   });
 
+  it('redirects a state-less denial but rejects a success callback without state', async () => {
+    const { service, alice, request, db, exchange } = setup();
+    const attempt = await service.start('alice', alice, 'openrouter');
+    const callback = `/ai/oauth/openrouter/callback/${attempt.id}`;
+    const success = await request(`${callback}?code=dummy-callback-code`, '');
+    expect((await safeResponse(success, 400)).code).toBe('AI_INVALID_INPUT');
+    expect(db.aiAuthorization.get(attempt.id)?.status).toBe('pending');
+    const denied = await request(
+      `${callback}?error=access_denied&error_description=${key}`,
+      '',
+    );
+    expect(denied.status).toBe(303);
+    expect(denied.headers.get('Cache-Control')).toBe('no-store');
+    expect(denied.headers.get('Referrer-Policy')).toBe('no-referrer');
+    expect(denied.headers.get('Location')).toBe(
+      `https://kestrel.test/dashboard/account?aiAttempt=${attempt.id}#ai-assistant`,
+    );
+    expect(await denied.text()).not.toContain(key);
+    expect(db.aiAuthorization.get(attempt.id)).toMatchObject({
+      status: 'failed',
+      verifierEncrypted: null,
+      codeEncrypted: null,
+    });
+    const status = await safeResponse(
+      await request(`/ai/authorizations/${attempt.id}`),
+      200,
+    );
+    expect(status.status).toBe('failed');
+    const replay = await request(`${callback}?error=access_denied`, '');
+    expect((await safeResponse(replay, 409)).code).toBe('AI_ATTEMPT_CONSUMED');
+    expect(exchange).not.toHaveBeenCalled();
+  });
+
   it('returns secret-free settings and safe callback errors with security headers', async () => {
     const { request, token, bob, service, alice, exchange } = setup();
     await service.connect('alice', alice, 'openrouter', {

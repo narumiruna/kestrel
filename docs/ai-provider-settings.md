@@ -21,7 +21,7 @@ Each user supplies credentials and pays their provider charges. Credentials belo
 
 ### HTTP contract
 
-Backend paths below are relative to the Backend mount; Web requests use `/api/backend` before these paths. Session authentication is required except for the state-protected OAuth callback. Responses use `Cache-Control: no-store` and `Referrer-Policy: no-referrer`.
+Backend paths below are relative to the Backend mount; Web requests use `/api/backend` before these paths. Session authentication is required except for the public OAuth callback. Successful callbacks require matching state. OpenRouter omits state on denial; an error-only callback can only fail an unexpired pending attempt for a valid owning session. If state is supplied, it must match. Mixed code/error callbacks are rejected. Responses use `Cache-Control: no-store` and `Referrer-Policy: no-referrer`.
 
 | Method and path | Body or result |
 | --- | --- |
@@ -34,13 +34,13 @@ Backend paths below are relative to the Backend mount; Web requests use `/api/ba
 | `GET /ai/authorizations/:id` | Returns attempt metadata. |
 | `DELETE /ai/authorizations/:id` | No body; cancels an active attempt and returns metadata. |
 | `POST /ai/authorizations/:id/complete` | No body; authenticated code exchange, returns attempt metadata. |
-| `GET /ai/oauth/openrouter/callback/:id` | Query: `state` and `code`, or `state` and `error`; stores the encrypted code, then redirects with status 303 to `/dashboard/account?aiAttempt=:id#ai-assistant`. |
+| `GET /ai/oauth/openrouter/callback/:id` | Query: `state` and `code`, or `error` with optional `state`; stores the encrypted code on success or fails the pending attempt on denial, then redirects with status 303 to `/dashboard/account?aiAttempt=:id#ai-assistant`. |
 
 A selection is `{ authMethod, providerId, modelType, modelId, thinkingLevel }`. Saving a selection validates registry identity and thinking; it does not establish or verify a connection. Unknown selection and mutation-body fields are rejected.
 
 Settings `generation` protects selection updates only. Connection mutations use the provider's separate `connectionGenerations[providerId]` as `expectedGeneration`, defaulting to zero only for a provider with no row. `connections` contains non-disconnected entries with `{ providerId, authMethod, generation, status }`; status is `connected` or `reconnect_required`. `connectionGenerations` also includes disconnected tombstones. Do not reuse settings generation for connection writes or discard tombstone generations. Generations must be non-negative safe integers below 2147483647. Stale writes return `AI_CONFIGURATION_CHANGED` (409); reload settings before a new user-directed change.
 
-Attempt metadata is `{ id, providerId, status, expiresAt }`. Status is `pending`, `code_received`, `processing`, `completed`, `cancelled`, `failed`, or `expired`. Attempts belong to both user and session, expire after five minutes, and use state plus S256 PKCE. Starting an attempt deletes expired attempts for the current user, limits active attempts to eight and all unexpired attempts to 32, and cancels older active attempts for that provider. There is no global expiry-cleanup claim. Completion claims the code once; repeated completed requests succeed only while the resulting connection generation is still current.
+Attempt metadata is `{ id, providerId, status, expiresAt }`. Status is `pending`, `code_received`, `processing`, `completed`, `cancelled`, `failed`, or `expired`. Attempts belong to both user and session, expire after five minutes, and use state plus S256 PKCE. Starting an attempt deletes expired attempts for the current user, limits active attempts to eight and all unexpired attempts to 32, and cancels older active attempts for that provider. There is no global expiry-cleanup claim. A caller who learns a pending callback URL can fail that attempt with a state-less error. This cannot store or exchange a code, change a saved connection, or revoke a provider key. Completion claims the code once; repeated completed requests succeed only while the resulting connection generation is still current.
 
 ### Provider configuration allowlist
 
@@ -79,11 +79,13 @@ Do not run an unreviewed database operation or restore tombstones to recover acc
 
 ## Verification and limits
 
-Local Node.js 22 checks passed: Backend lint, 343 unit tests, 19 HTTP e2e tests, typecheck, build, and the real-library integration fixture; Web formatting/lint, 192 tests, typecheck, build, and the 18-locale i18n gate. The integration fixture imports the built production adapter with all 42 providers and 1,713 model operations, separate dummy user credentials, disabled ambient resolver credentials, no inference surface, and zero network calls.
+Local Node.js 22 checks passed: Backend lint, 354 unit tests, 20 HTTP e2e tests, typecheck, build, and the real-library integration fixture; Web formatting/lint, 192 tests, typecheck, build, and the 18-locale i18n gate. The integration fixture imports the built production adapter with all 42 providers and 1,713 model operations, separate dummy user credentials, disabled ambient resolver credentials, no inference surface, and zero network calls.
 
 Chrome DevTools Protocol checks passed at 1440×900 in light mode against an isolated dummy API: 29 assertions cover provider search/keyboard/focus, reconnect/disconnect, pending/cancelled authorization, settings failure/retry, callback retry and delayed-response cancellation, category/hash/history/language behavior, Security form retention, visible Map configuration, and both guarded settings links. External browser requests were blocked, including map tiles; no provider authorization page was visited. Screenshots remain outside Git. The configured Chrome DevTools MCP executable was unavailable; validation used an installed isolated Chrome through its DevTools Protocol directly. A stale-target harness run timed out; the final fresh-target run passed.
 
 PR review follow-up checks passed 14 further Chrome DevTools assertions for an `off`-only chat model and a reasoning model. The prompt is not a selectable level. Every offered level is supported, a valid choice enables Save, the old adjustment notice clears, and the submitted selection contains the chosen string level. The Backend contract is unchanged.
+
+The OpenRouter denial regression tests use the documented error-only callback without state. They verify the redirect and failed state, secret cleanup, replay/expiry/session checks, and preservation of saved connections. Missing-state success, mismatched supplied state, and mixed code/error inputs remain rejected.
 
 No database migration, live OAuth, real key validation, inference, or maintenance procedure was performed. In-memory tests do not verify PostgreSQL transaction locking, lease contention, or concurrency across processes. Those behaviors require separate authorized database and hosted-flow verification before operational claims are made. The complete catalog is not a claim that every provider's authentication method is enabled.
 

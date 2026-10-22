@@ -197,13 +197,106 @@ describe('AiSettingsService (protocol double, not database isolation proof)', ()
     );
   });
 
+  it.each([
+    [{ code }, 'AI_INVALID_INPUT'],
+    [{ error: 'access_denied', code }, 'AI_INVALID_INPUT'],
+    [{ error: 'access_denied', state: 'wrong' }, 'AI_STATE_MISMATCH'],
+    [{ error: 'access_denied', state: '' }, 'AI_INVALID_INPUT'],
+    [{ error: '' }, 'AI_INVALID_INPUT'],
+    [{ error: 'x'.repeat(129) }, 'AI_INVALID_INPUT'],
+  ] as const)(
+    'rejects an invalid callback %j without consuming the attempt',
+    async (values, message) => {
+      const { start, service, db, exchange } = setup();
+      const attempt = await start();
+      const verifier: unknown = db.aiAuthorization.get(
+        attempt.id,
+      )!.verifierEncrypted;
+      await safeFailure(service.callback(attempt.id, values), message);
+      expect(db.aiAuthorization.get(attempt.id)).toMatchObject({
+        status: 'pending',
+        verifierEncrypted: verifier,
+        codeEncrypted: null,
+      });
+      expect(exchange).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([false, true])(
+    'keeps the saved connection on denial with state=%s',
+    async (withState) => {
+      const { service, session, start, db, exchange } = setup();
+      await service.connect('alice', session, 'openrouter', {
+        apiKey: key,
+        expectedGeneration: 0,
+      });
+      const previousGeneration: unknown =
+        db.aiConnection.get('alice:openrouter')!.generation;
+      const previousEncrypted: unknown =
+        db.aiConnection.get('alice:openrouter')!.credentialEncrypted;
+      const attempt = await start();
+      await service.callback(attempt.id, {
+        error: 'access_denied',
+        ...(withState
+          ? {
+              state: new URL(attempt.authorizationUrl).searchParams.get(
+                'state',
+              )!,
+            }
+          : {}),
+      });
+      expect(db.aiConnection.get('alice:openrouter')).toMatchObject({
+        generation: previousGeneration,
+        credentialEncrypted: previousEncrypted,
+        status: 'connected',
+        authMethod: 'api_key',
+      });
+      expect(db.aiAuthorization.get(attempt.id)).toMatchObject({
+        status: 'failed',
+        verifierEncrypted: null,
+        codeEncrypted: null,
+      });
+      expect(exchange).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(['expired', 'cancelled', 'revoked'] as const)(
+    'rejects state-less denial for an %s attempt',
+    async (kind) => {
+      const { start, service, session, db, exchange } = setup();
+      const attempt = await start();
+      if (kind === 'expired')
+        db.aiAuthorization.get(attempt.id)!.expiresAt = new Date(0);
+      if (kind === 'cancelled')
+        await service.cancel('alice', session, attempt.id);
+      if (kind === 'revoked') db.sessions.get(session)!.revokedAt = new Date();
+      const message =
+        kind === 'expired'
+          ? 'AI_ATTEMPT_EXPIRED'
+          : kind === 'cancelled'
+            ? 'AI_ATTEMPT_CONSUMED'
+            : 'AI_SESSION_EXPIRED';
+      await safeFailure(
+        service.callback(attempt.id, { error: 'access_denied' }),
+        message,
+      );
+      expect(exchange).not.toHaveBeenCalled();
+      expect(
+        db.aiConnection.get('alice:openrouter')!.credentialEncrypted,
+      ).toBeNull();
+    },
+  );
+
   it('handles denial, cancellation, replay and expiry without exchanging', async () => {
     const { start, ready, service, session, db, exchange } = setup();
     const denied = await start();
-    await service.callback(denied.id, {
-      state: new URL(denied.authorizationUrl).searchParams.get('state')!,
-      error: key,
-    });
+    expect(await service.callback(denied.id, { error: 'access_denied' })).toBe(
+      `https://kestrel.test/dashboard/account?aiAttempt=${denied.id}#ai-assistant`,
+    );
+    await safeFailure(
+      service.callback(denied.id, { error: 'access_denied' }),
+      'AI_ATTEMPT_CONSUMED',
+    );
     expect(db.aiAuthorization.get(denied.id)).toMatchObject({
       status: 'failed',
       verifierEncrypted: null,
