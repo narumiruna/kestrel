@@ -163,6 +163,9 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Verify offline AI library integration
+        run: npm run test:ai:integration
+
   web:
     needs: changes
     if: github.event_name == 'push' || needs.changes.outputs.web == 'true'

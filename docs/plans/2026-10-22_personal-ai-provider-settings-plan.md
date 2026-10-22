@@ -1,6 +1,6 @@
 # Personal AI Provider Settings
 
-Status: Local implementation and checks verified; pull-request handoff in progress. Full provider-specific live acceptance remains open. The user authorized plan revision, implementation, and pull-request delivery for the full pi-ai provider/model scope. External gates apply only to the affected method's activation and final live acceptance, not to independent local implementation. No live provider login, paid inference, real account changes, database operations, or deployment was performed.
+Status: Local implementation and checks verified; [Draft PR #353](https://github.com/narumiruna/kestrel/pull/353) is open. Full provider-specific live acceptance remains open. The user authorized plan revision, implementation, and pull-request delivery for the full pi-ai provider/model scope. External gates apply only to the affected method's activation and final live acceptance, not to independent local implementation. No live provider login, paid inference, real account changes, database operations, or deployment was performed.
 
 ## Goal
 
@@ -122,6 +122,7 @@ This does not prove the complete Backend build, cross-process persistence, downs
 ## Local verification and remaining gates
 
 - Node.js `v22.23.2`: Backend lint, 29 unit suites / 343 tests, five HTTP e2e suites / 19 tests, typecheck, build, and `npm run test:ai:integration` passed. The production fixture enumerates 42 providers and 1,599 chat / 63 image / 51 classifier entries with zero network calls.
+- The Backend CI job runs the offline production AI integration fixture after its build. Draft PR #353 contains the implementation and verification handoff; required external acceptance remains open.
 - Web formatting/lint, 192 tests, typecheck, production build, and the 18-locale i18n gate passed. Existing CSS specificity / Biome schema diagnostics and identical technical-term translation notices remain. Android code and resources are unchanged.
 - Chrome DevTools Protocol: 29 final assertions passed at 1440×900 light against a dummy loopback API; external requests, including map tiles, were blocked. Coverage includes keyboard/focus/search, reconnect/disconnect, pending/cancelled authorization, callback retry and delayed-response races, independent settings errors, hashes/Back/Forward/language refresh, Security form retention, and guarded Map departures. The configured MCP Chrome executable was missing, so an isolated installed Chrome was used directly. A stale-target harness run timed out; the final fresh-target run passed. Captures and fixture artifacts remain outside Git.
 - Full source/diff review covered correctness, security, lifecycle, compatibility, regressions, and scope. Fixed early-refresh durability/fencing, callback recovery races, stale response handling, and a Map summary hidden by existing CSS. Independent final source reviews found no remaining concrete issue in their reviewed paths. `git diff --check` passed.
