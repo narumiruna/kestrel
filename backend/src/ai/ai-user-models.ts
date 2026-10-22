@@ -1,6 +1,7 @@
 import type { CredentialStore } from '@earendil-works/pi-ai';
 import { AiCatalogService } from './ai-catalog';
 import { aiError } from './ai-errors';
+import { refreshWithPi } from './ai-auth-worker-client';
 
 /** A fresh user-owned collection. Never import CLI auth.json or use host credentials. */
 export async function createUserAiModels(
@@ -50,7 +51,8 @@ export async function createUserAiModels(
                 login: () => aiError('AI_USE_HOSTED_AUTH'),
                 refresh: async (credential, signal) => {
                   await catalog.assertMethod(provider.id, 'oauth');
-                  return oauth.refresh(
+                  return refreshWithPi(
+                    provider.id,
                     credential,
                     AbortSignal.any([signal, AbortSignal.timeout(15_000)]),
                   );

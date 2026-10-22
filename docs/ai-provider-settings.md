@@ -1,92 +1,95 @@
 # AI provider settings
 
-## Current source behavior
+## User setup
 
-This document describes `backend/src/ai/*.ts` (excluding tests) and `web/lib/ai.ts`. This stage provides settings and credential management, not inference or conversation history.
+1. Select **Auth method**: API key/token or provider account login.
+2. Search **Provider** by name or ID.
+3. Select **Model** by operation and ID.
+4. Select an advertised **Thinking level**, then save the defaults. The selection prompt is not a level. Image/classifier operations have no thinking control.
 
-### User flow and availability
+The pinned pi-ai 1.4.0 catalog includes all 42 providers and 1,713 operations: 1,599 chat, 63 image, and 51 classifier entries. All 41 API-key/token interfaces and all nine OAuth interfaces are available when credential encryption is configured. Kestrel does not require a live verification or provider-policy review before the user can try a method. A provider can still reject the account, registration, scope, region, or request. Kestrel does not claim provider approval or account entitlement.
 
-1. Select **Auth method**: API key/token or OAuth.
-2. Search **Provider** by name or ID. Search is case-insensitive and filters by the selected method; unavailable methods remain visible with a reason.
-3. Select **Model** by its operation and ID.
-4. Select **Thinking** from that model's advertised levels, then save the selection. The selection prompt is a placeholder, not a default level. A new chat model requires a supported choice when the previous level does not apply.
+This stage stores settings and credentials. It does not run inference or store conversation history. Users supply credentials and pay their own provider charges. Saving a key does not test it, check a balance, or send a paid request. Server operators can decrypt saved credentials. Never enter a provider password in Kestrel.
 
-The catalog exposes the full 42-provider registry, not only usable providers. It returns provider methods, availability reasons, configuration field names, and model metadata. Catalog version is `1.4.0`. Model identity includes `modelType` (`chat`, `image`, or `classifier`) and `modelId`; the Web identity key is `type:id`. An identical model ID does not make different operations interchangeable. Chat thinking must exactly match an advertised level. Image and classifier selections require `thinkingLevel: null`. Unsupported thinking is rejected, never silently substituted.
+## Account login
 
-API keys and tokens are available where the registry advertises API-key authentication and encryption is configured, except `qwen-token-plan` and `qwen-token-plan-individual`, which are withheld for policy reasons. Saving a key checks its format and configuration; it does not live-verify the key, account balance, model access, or provider service.
+Click **Connect provider account**. Starting provider sign-in can create provider keys or enable model access after approval. The consent notice applies to built-in flows such as Copilot model enablement and Meta API-key creation. Kestrel does not perform those changes as an availability test.
 
-OpenRouter OAuth is available only with encryption and a valid HTTPS `KESTREL_PUBLIC_URL` origin: no credentials, non-root path, query, or fragment. Anthropic OAuth is policy-blocked. Other registry OAuth methods are `hosted_unverified` and cannot be used. There is no simulated successful connection. Availability reasons are `policy`, `hosted_unverified`, and `operator_unconfigured`.
+| Provider | Web interaction |
+| --- | --- |
+| OpenRouter | Hosted state/PKCE callback when a valid public HTTPS origin exists. Otherwise, open the headless PKCE page and paste the displayed code. |
+| OpenAI | Open the dynamic-registration page. Paste the full final `http://127.0.0.1:1455/auth/callback` URL into Kestrel if the browser cannot load that local URL. Kestrel checks the callback origin/path, state, issued client ID, and PKCE. It does not run a localhost listener. |
+| Anthropic | Open the built-in copy-code flow and submit the displayed code. |
+| OpenAI Codex, Kimi Code, Meta, Radius, xAI | Open the device-authorization link and enter the displayed device code. Kestrel polls the provider. |
+| GitHub Copilot | Use the public GitHub device-code flow. Arbitrary Enterprise hosts are not accepted. |
 
-Each user supplies credentials and pays their provider charges. Credentials belong to that user; host environment credentials and CLI `auth.json` are not fallback credentials. Encryption at rest does not hide credentials from the Backend operator: the server can decrypt secrets and can access request data sent through it. This stage does not send inference requests or store AI conversation history.
+Provider links open in another tab. Device codes, provider instructions, progress, and prompts appear in Account. Manual responses are masked and cleared when the prompt, provider, method, or Account section changes. They are not copied to browser storage. The provider can return a real failure; Kestrel does not substitute another account, provider, model, or billing source.
 
-### HTTP contract
+Each job expires after five minutes. Cancelling, signing out, replacing a connection, or disconnecting prevents a late result from saving credentials. Another Backend process can read encrypted interaction state and accept an owner-bound response. The process running the provider flow sends a heartbeat. A heartbeat older than 15 seconds marks the attempt failed on the next poll. Restart login after a Backend interruption; Kestrel does not replay an exchange whose result may have been lost. Each process permits at most 16 active bridged jobs; per-user limits remain eight active and 32 unexpired attempts.
 
-Backend paths below are relative to the Backend mount; Web requests use `/api/backend` before these paths. Session authentication is required except for the public OAuth callback. Successful callbacks require matching state. OpenRouter omits state on denial; an error-only callback can only fail an unexpired pending attempt for a valid owning session. If state is supplied, it must match. Mixed code/error callbacks are rejected. Responses use `Cache-Control: no-store` and `Referrer-Policy: no-referrer`.
+Provider login and refresh run in bounded Node workers with an empty environment. They cannot read host provider credentials or endpoint overrides through `process.env`. Provider output is not logged. Built-in browser/loopback choices are replaced with their headless choices. OpenAI and fallback OpenRouter use manual adapters. Kimi rotating refresh is sent once, without the library's transport retry loop. The auth facade still exposes no inference methods; later inference work must check its full SDK request path.
+
+## HTTP contract
+
+Paths are relative to the Backend mount. Web uses `/api/backend`. All responses use `Cache-Control: no-store` and `Referrer-Policy: no-referrer`. Session authentication is required except for the public hosted OpenRouter callback.
 
 | Method and path | Body or result |
 | --- | --- |
-| `GET /ai/catalog` | `{ version, providers }`; each provider has `{ id, name, methods, fields, models }`. |
-| `GET /ai/settings` | `{ generation, selection, connections, connectionGenerations }`. No secrets are returned. |
-| `PUT /ai/settings` | `{ "generation": 0, "selection": null }`, or a selection object as below; returns settings. |
-| `POST /ai/connections/:providerId` | `{ "apiKey": "…", "config": {}, "expectedGeneration": 0 }`; saves/replaces an API key and returns settings. |
-| `DELETE /ai/connections/:providerId` | `{ "expectedGeneration": 0 }`; disconnects locally and returns settings. |
-| `POST /ai/authorizations/:providerId` | No body; starts OAuth, returns attempt metadata plus `authorizationUrl` with status 201. Only OpenRouter is usable. |
-| `GET /ai/authorizations/:id` | Returns attempt metadata. |
-| `DELETE /ai/authorizations/:id` | No body; cancels an active attempt and returns metadata. |
-| `POST /ai/authorizations/:id/complete` | No body; authenticated code exchange, returns attempt metadata. |
-| `GET /ai/oauth/openrouter/callback/:id` | Query: `state` and `code`, or `error` with optional `state`; stores the encrypted code on success or fails the pending attempt on denial, then redirects with status 303 to `/dashboard/account?aiAttempt=:id#ai-assistant`. |
+| `GET /ai/catalog` | `{ version, providers }`; all registry methods and models, bounded provider configuration fields, and operator configuration status. |
+| `GET /ai/settings` | `{ generation, selection, connections, connectionGenerations }`; no credentials. |
+| `PUT /ai/settings` | `{ generation, selection }`; validates provider/method, model operation/ID, and thinking. `selection` may be null. |
+| `POST /ai/connections/:providerId` | `{ apiKey, config, expectedGeneration }`; save/replace a literal key. |
+| `DELETE /ai/connections/:providerId` | `{ expectedGeneration }`; clear the local connection and cancel pending attempts. |
+| `POST /ai/authorizations/:providerId` | Start any registry OAuth flow. Returns attempt metadata and, for hosted OpenRouter only, a top-level `authorizationUrl`. |
+| `GET /ai/authorizations/:id` | Owner/session-bound attempt metadata and current interaction. |
+| `POST /ai/authorizations/:id/respond` | `{ promptId, value }`; encrypted, single-use response to the current prompt. |
+| `DELETE /ai/authorizations/:id` | Cancel active work and clear attempt secrets. |
+| `POST /ai/authorizations/:id/complete` | Complete hosted OpenRouter code exchange. Repeated completion succeeds only while the saved connection generation is current. Other flows complete in their worker. |
+| `GET /ai/oauth/openrouter/callback/:id` | Hosted callback: `state` plus `code`, or `error` with optional `state`. Redirects to Account with the attempt ID, not the code. |
 
-A selection is `{ authMethod, providerId, modelType, modelId, thinkingLevel }`. Saving a selection validates registry identity and thinking; it does not establish or verify a connection. Unknown selection and mutation-body fields are rejected.
+A selection is `{ authMethod, providerId, modelType, modelId, thinkingLevel }`. Model identity includes operation type: an identical chat/image/classifier ID is not interchangeable. Chat thinking must equal an advertised level. Image/classifier thinking must be null. Unsupported input and unknown mutation fields are rejected.
 
-Settings `generation` protects selection updates only. Connection mutations use the provider's separate `connectionGenerations[providerId]` as `expectedGeneration`, defaulting to zero only for a provider with no row. `connections` contains non-disconnected entries with `{ providerId, authMethod, generation, status }`; status is `connected` or `reconnect_required`. `connectionGenerations` also includes disconnected tombstones. Do not reuse settings generation for connection writes or discard tombstone generations. Generations must be non-negative safe integers below 2147483647. Stale writes return `AI_CONFIGURATION_CHANGED` (409); reload settings before a new user-directed change.
+Attempt metadata is `{ id, providerId, status, expiresAt, interaction? }`. Status is `pending`, `code_received`, `processing`, `completed`, `cancelled`, `failed`, or `expired`. Interaction may include `authorizationUrl`, `instructions`, `userCode`, `message`, and `prompt`. A prompt contains an unguessable `id`, `type`, `message`, and optional `placeholder`/`options`. Responses must match that prompt ID and the original session. Response values and raw provider errors are never returned. URLs must use HTTPS without user information, custom ports, or local/IP hosts. The Backend does not fetch an arbitrary browser interaction URL.
 
-Attempt metadata is `{ id, providerId, status, expiresAt }`. Status is `pending`, `code_received`, `processing`, `completed`, `cancelled`, `failed`, or `expired`. Attempts belong to both user and session, expire after five minutes, and use state plus S256 PKCE. Starting an attempt deletes expired attempts for the current user, limits active attempts to eight and all unexpired attempts to 32, and cancels older active attempts for that provider. There is no global expiry-cleanup claim. A caller who learns a pending callback URL can fail that attempt with a state-less error. This cannot store or exchange a code, change a saved connection, or revoke a provider key. Completion claims the code once; repeated completed requests succeed only while the resulting connection generation is still current.
+Settings `generation` protects defaults only. Connection writes use the provider's `connectionGenerations[providerId]`, defaulting to zero only if no row exists. Disconnected tombstones retain their generations. Stale writes return `AI_CONFIGURATION_CHANGED` (409). Reload before another user-directed write.
 
-### Provider configuration allowlist
+Hosted OpenRouter success always requires matching state. OpenRouter omits state on denial. A bounded error-only callback can only fail an unexpired pending attempt for an active owning session. Supplied state must still match. Mixed error/code input is rejected. Knowledge of a pending callback URL permits denial of that attempt, not authorization, code exchange, or a saved-connection change.
 
-`config` accepts only these provider-specific fields; other providers accept an empty object. Arbitrary URLs, environment variables, and file paths are not accepted.
+## Keys and provider configuration
 
-| Provider | Allowed fields |
+Set a separate `AI_CREDENTIAL_ENCRYPTION_KEY` to exactly 64 hexadecimal characters (32 bytes). Do not reuse the TOTP key. Missing encryption disables credential methods; it is not a provider verification gate. A wrong key fails decryption closed. Metadata listing and local disconnect do not require decryption.
+
+API keys must be nonempty, at most 8192 characters, with no whitespace/control characters or leading `!`/`$`. Kestrel never executes key commands or imports host auth files. Provider configuration is bounded and allowlisted:
+
+| Provider | Configuration |
 | --- | --- |
-| `azure` | Required `resourceName`: 1–63 ASCII letters, digits, or hyphens, starting with a letter or digit. Optional `apiVersion`: 1–40 letters, digits, dots, or hyphens; defaults to `v1`. Optional `deploymentMap`: comma-separated `model=deployment` pairs; model characters are letters, digits, `.`, `_`, `:`, `/`, `-`; deployment characters are letters, digits, `_`, `-`. |
-| `cloudflare-workers-ai` | Required `accountId`: 32 hexadecimal characters. |
-| `cloudflare-ai-gateway` | Required `accountId`: 32 hexadecimal characters; required `gatewayId`: 1–64 letters, digits, `_`, or `-`. |
-| `amazon-bedrock` | Required `region`: matches `^[a-z]{2}(?:-gov)?-[a-z]+-\d$`. |
+| Azure | Required `resourceName`: 1–63 letters/digits/hyphens, starting with a letter or digit. Optional bounded `apiVersion` (default `v1`) and comma-separated `deploymentMap` entries (`model=deployment`). No arbitrary endpoint. |
+| Cloudflare Workers AI | Required 32-hex-character `accountId`. |
+| Cloudflare AI Gateway | Required `accountId` and 1–64-letter/digit/underscore/hyphen `gatewayId`. |
+| Amazon Bedrock | Required region matching `^[a-z]{2}(?:-gov)?-[a-z]+-\d$`; bearer token only, no host AWS profiles or credential chains. |
 
-Each configuration value is at most 4096 characters. Keys are nonempty, at most 8192 characters, contain no whitespace or control characters, and must not start with `!` or `$`.
+Other providers accept an empty configuration object. Configuration values are at most 4096 characters. No arbitrary URLs, environment variable names, files, or workload identities are accepted.
 
-### Encryption and connection lifecycle
+Credentials and interaction data use AES-256-GCM, fresh 12-byte IVs, and owner/provider/purpose AAD: `["kestrel-ai-v1", userId, providerId, purpose]`. Purposes are `credential`, `verifier:<attemptId>` (PKCE verifier or bridged interaction), and `code:<attemptId>` (hosted code or bridged response). OAuth credentials retain provider metadata needed for refresh. No credential reaches an API response.
 
-Set `AI_CREDENTIAL_ENCRYPTION_KEY` to a separate 32-byte key encoded as exactly 64 hexadecimal characters. Do not reuse the TOTP key. Secrets use AES-256-GCM with a random 12-byte IV. Authenticated additional data (AAD) is the JSON array `["kestrel-ai-v1", userId, providerId, purpose]`, where purpose is `credential`, `verifier:<attemptId>`, or `code:<attemptId>`.
+The database lease and generation fence serialize refresh/replacement/disconnect across Backend processes. Every OAuth mutation records `reconnect_required` before its callback. A lost rotating-refresh response requires reconnect; no ambient credential is selected. Session locks fence credential commits against revocation. The new nullable `heartbeat_at` column is additive. Apply its versioned migration through the normal authorized deployment procedure; this task does not apply it.
 
-A missing or malformed key disables new credential methods and fails secret operations closed. A wrong but correctly formatted key cannot decrypt existing secrets. Local disconnect still works without decryption, including when policy changes: it clears ciphertext, advances connection generation, and cancels active provider attempts.
+Disconnect does not revoke upstream credentials or billing. For OpenRouter, revoke the issued key at `https://openrouter.ai/keys`. Use each other provider's key/security dashboard as needed. An interrupted exchange can require upstream cleanup if a key was issued but not saved.
 
-The credential store uses a database lease and generation fence across Backend processes, not a process-local mutex. Writes also check the session under a transaction lock. Before every OAuth credential mutation, including refresh before access-token expiry, the store commits `reconnect_required` under the full lease fence. A lost rotating-refresh response or process death requires reconnect; do not retry a possibly consumed refresh token. This is a store safety rule, not evidence that currently blocked OAuth providers work. Session revocation ends pending authorization attempts and prevents their completion; it does not delete saved user connections.
+## Authorized maintenance and rollback
 
-Disconnect does not revoke upstream credentials. For OpenRouter, open `https://openrouter.ai/keys`, identify the issued key, and delete/revoke it there. For other providers, use their credential or security dashboard. Cancelled or failed exchanges can also require upstream cleanup if a key was issued but not saved.
+Key rotation, database changes, and recovery require separate authorization. Stop all AI jobs first. Keep the old key in a secret manager, not the database or backups. Rewrap retained ciphertext with the same AAD using a reviewed offline transaction. Preserve generations/tombstones and never restore cancelled attempts or disconnected credentials. Switch all Backend instances together, then check decryption and isolation before reopening traffic. A lost old key cannot recover ciphertext; disconnect and reconnect instead.
 
-## Authorized operator maintenance
+Application rollback can retain additive columns. Stop pending work and remove entry points before rollback. Prisma has no automatic down migration. Never restore credentials from an old cache to recover access.
 
-Key rotation and recovery require explicit authorization and a reviewed maintenance procedure. They are not automatic application operations.
+## Local verification
 
-1. Stop AI requests on every Backend process and cancel pending authorization attempts. Wait for in-flight work to stop before changing ciphertext.
-2. Retain the old key in a secure secret manager. Do not put it in the database, repository, or database backups.
-3. Use a reviewed offline rewrap procedure with the old and new keys. Decrypt and re-encrypt retained secrets with exactly the same owner/provider/purpose AAD, in a transaction. Preserve generations and disconnected tombstones; never restore deleted credentials or cancelled attempts.
-4. Switch the key on all Backend instances atomically while traffic remains stopped, then restart them. Do not run mixed keys.
-5. Verify decryption, ownership isolation, disconnect, and reconnect behavior before reopening AI requests.
+Node.js 22 checks passed: Backend lint, 416 unit tests, 21 HTTP e2e tests, typecheck/build, Prisma validation/generation, and the offline production fixture. The fixture confirms all 41 API-key and nine OAuth interfaces are enabled, plus all 42 providers and 1,713 model operations, with zero provider calls. Web formatting/lint, 193 tests, typecheck/build, and all 18 locale catalogs passed.
 
-Do not run an unreviewed database operation or restore tombstones to recover access. If the old key is lost, ciphertext cannot be recovered; use authorized local disconnect and user reconnect instead. Do not substitute the TOTP key.
+Chrome DevTools checks passed 29 assertions at 1440×900 light against real AI HTTP routes, session authentication, encryption, and the login bridge, with a Prisma double and dummy provider transports. They cover device/manual input, enabled methods, cancellation, safe failure, connection metadata recovery, and existing Security state. No provider page was visited or external browser request made. Captures are outside Git.
 
-## Verification and limits
+## Verification limits
 
-Local Node.js 22 checks passed: Backend lint, 354 unit tests, 20 HTTP e2e tests, typecheck, build, and the real-library integration fixture; Web formatting/lint, 192 tests, typecheck, build, and the 18-locale i18n gate. The integration fixture imports the built production adapter with all 42 providers and 1,713 model operations, separate dummy user credentials, disabled ambient resolver credentials, no inference surface, and zero network calls.
+Tests use dummy providers, tokens, and accounts. No agent-operated live login, key validation, inference, migration application, deployment, or provider account change is performed. Real PostgreSQL locking/contention and provider availability are not proven by protocol doubles. Those limits are reported; they do not disable registry methods. Provider terms still apply to the user's use.
 
-Chrome DevTools Protocol checks passed at 1440×900 in light mode against an isolated dummy API: 29 assertions cover provider search/keyboard/focus, reconnect/disconnect, pending/cancelled authorization, settings failure/retry, callback retry and delayed-response cancellation, category/hash/history/language behavior, Security form retention, visible Map configuration, and both guarded settings links. External browser requests were blocked, including map tiles; no provider authorization page was visited. Screenshots remain outside Git. The configured Chrome DevTools MCP executable was unavailable; validation used an installed isolated Chrome through its DevTools Protocol directly. A stale-target harness run timed out; the final fresh-target run passed.
-
-PR review follow-up checks passed 14 further Chrome DevTools assertions for an `off`-only chat model and a reasoning model. The prompt is not a selectable level. Every offered level is supported, a valid choice enables Save, the old adjustment notice clears, and the submitted selection contains the chosen string level. The Backend contract is unchanged.
-
-The OpenRouter denial regression tests use the documented error-only callback without state. They verify the redirect and failed state, secret cleanup, replay/expiry/session checks, and preservation of saved connections. Missing-state success, mismatched supplied state, and mixed code/error inputs remain rejected.
-
-No database migration, live OAuth, real key validation, inference, or maintenance procedure was performed. In-memory tests do not verify PostgreSQL transaction locking, lease contention, or concurrency across processes. Those behaviors require separate authorized database and hosted-flow verification before operational claims are made. The complete catalog is not a claim that every provider's authentication method is enabled.
-
-`npm audit` reports 24 advisories (20 moderate, four high). Every reported installed package version is unchanged from `origin/main`; dependency remediation is outside this change. Web checks also retain existing CSS-specificity and Biome schema-version diagnostics, plus i18n identical-technical-term review notices.
+The baseline had 24 npm audit advisories (20 moderate/four high) in unchanged dependencies. This follow-up does not upgrade dependencies or hide audit findings. Browser captures stay outside Git. Use Chrome DevTools, not Playwright.

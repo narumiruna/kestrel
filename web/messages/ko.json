@@ -1,5 +1,10 @@
 {
   "AiAssistant": {
+    "openAuthorization": "공급자 로그인 열기",
+    "authorizationCode": "기기 코드",
+    "authorizationResponse": "인가 응답",
+    "submitResponse": "계속",
+    "providerConsentWarning": "공급자 로그인을 시작하면 공급자 계정에 공급자 키가 생성되거나 모델 액세스가 활성화될 수 있습니다. 이러한 변경에 동의하는 경우에만 계속하세요.",
     "thinkingNotApplicable": "이 모델 작업에는 추론 수준이 적용되지 않습니다.",
     "summaryLoading": "AI 설정을 불러오는 중…",
     "summaryUnavailable": "AI 설정을 사용할 수 없음",
@@ -34,7 +39,7 @@
     "unavailable": {
       "policy": "현재 제공업체 정책에 따라 호스팅된 Kestrel에서 이 방식을 사용할 수 없습니다.",
       "hosted_unverified": "이 방식의 호스팅 환경 인증이 검증되지 않았습니다. 아직 사용할 수 없습니다.",
-      "operator_unconfigured": "서버 운영자가 인증 정보 암호화를 설정해야 합니다. 계정 로그인에는 공개 HTTPS URL 설정도 필요합니다."
+      "operator_unconfigured": "서버 운영자가 인증 정보 암호화를 설정해야 합니다."
     },
     "model": "모델",
     "chooseModel": "모델 선택",

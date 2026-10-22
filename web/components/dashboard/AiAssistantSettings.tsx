@@ -10,6 +10,7 @@ import {
   type AiCatalog,
   type AiSelection,
   type AiSettings,
+  aiAuthorizationUrl,
   aiModelKey,
   newerAiSettings,
   searchAiProviders,
@@ -50,6 +51,7 @@ export function AiAssistantSettings({
   const [query, setQuery] = useState('');
   const [cursor, setCursor] = useState(0);
   const [attempt, setAttempt] = useState<AiAttempt | null>(null);
+  const [responseState, setResponseState] = useState({ key: '', value: '' });
   const [departure, setDeparture] = useState<{
     id: string;
     authorizationUrl: string;
@@ -58,6 +60,28 @@ export function AiAssistantSettings({
   const [reload, setReload] = useState(0);
   const provider = catalog?.providers.find((item) => item.id === providerId);
   const capability = provider?.methods.find((item) => item.type === method);
+  const methodAvailable = !!capability?.available;
+  const prompt = attempt?.interaction?.prompt;
+  const interactionUrl = aiAuthorizationUrl(attempt?.interaction?.authorizationUrl);
+  const attemptActive =
+    !!attempt && ['pending', 'code_received', 'processing'].includes(attempt.status);
+  const attemptStatus =
+    attempt?.status === 'processing' &&
+    (prompt || attempt.interaction?.userCode) &&
+    !attempt.interaction?.message
+      ? 'pending'
+      : attempt?.status;
+
+  const responseKey = JSON.stringify([attempt?.id, prompt?.id, method, providerId, active]);
+  const response = responseState.key === responseKey ? responseState.value : '';
+  function setResponse(value: string) {
+    setResponseState({ key: responseKey, value });
+  }
+  useEffect(() => {
+    setResponseState((current) =>
+      current.key === responseKey ? current : { key: responseKey, value: '' },
+    );
+  }, [responseKey]);
   const models = provider?.models ?? [];
   const model = models.find(
     (item) =>
@@ -109,7 +133,7 @@ export function AiAssistantSettings({
     void apiRequest<AiSettings>('/ai/settings')
       .then((value) => {
         if (epoch.current !== generation) return;
-        applySettings(value, true);
+        applySettings(value, !returnedAttemptRef.current);
       })
       .catch(() => {
         if (epoch.current === generation) setSettingsError(true);
@@ -123,12 +147,28 @@ export function AiAssistantSettings({
       returnedAttemptRef.current = returnedAttempt;
       const revision = authorizationRevision.current;
       void apiRequest<AiAttempt>(`/ai/authorizations/${encodeURIComponent(returnedAttempt)}`)
-        .then((value) => {
+        .then(async (value) => {
           if (epoch.current !== generation || authorizationRevision.current !== revision) return;
           setAttempt(value);
           if (!['pending', 'code_received', 'processing'].includes(value.status)) {
             returnedAttemptRef.current = null;
             setDeparture(null);
+            if (value.status === 'completed') {
+              const current = await apiRequest<AiSettings>('/ai/settings');
+              if (epoch.current !== generation || authorizationRevision.current !== revision)
+                return;
+              applySettings(current, true);
+            } else if (settingsRef.current) {
+              applySettings(settingsRef.current, true);
+            }
+          } else {
+            setMethod('oauth');
+            setProviderId(value.providerId);
+            setSelection((previous) =>
+              previous?.authMethod === 'oauth' && previous.providerId === value.providerId
+                ? previous
+                : null,
+            );
           }
           const currentUrl = new URL(window.location.href);
           currentUrl.searchParams.delete('aiAttempt');
@@ -252,6 +292,7 @@ export function AiAssistantSettings({
     );
     setAttempt(null);
     setDeparture(null);
+    setResponse('');
     if (
       previousId &&
       (!attempt || ['pending', 'code_received', 'processing'].includes(attempt.status))
@@ -415,7 +456,7 @@ export function AiAssistantSettings({
           {!results.length && <Text>{t('noProviders')}</Text>}
         </Popover.Content>
       </Popover.Root>
-      {providerId && !capability?.available && (
+      {providerId && !methodAvailable && (
         <Text role="status">
           {t(capability?.reason ? `unavailable.${capability.reason}` : 'selectionUnavailable')}
         </Text>
@@ -504,7 +545,7 @@ export function AiAssistantSettings({
             type="password"
             autoComplete="off"
             value={apiKey}
-            disabled={disabled || !capability?.available}
+            disabled={disabled || !methodAvailable}
             onChange={(event) => setApiKey(event.target.value)}
           />
           {provider.fields.map((field) => (
@@ -518,7 +559,7 @@ export function AiAssistantSettings({
                 id={`${id}-${field.name}`}
                 autoComplete="off"
                 required={field.required}
-                disabled={disabled || !capability?.available}
+                disabled={disabled || !methodAvailable}
                 value={config[field.name] ?? ''}
                 onChange={(event) =>
                   setConfig((value) => ({ ...value, [field.name]: event.target.value }))
@@ -527,7 +568,7 @@ export function AiAssistantSettings({
             </Box>
           ))}
           <Button
-            disabled={disabled || !capability?.available || !apiKey.trim() || !validConfig}
+            disabled={disabled || !methodAvailable || !apiKey.trim() || !validConfig}
             onClick={() =>
               void operate(async () => {
                 const generation = epoch.current;
@@ -550,43 +591,48 @@ export function AiAssistantSettings({
           </Button>
         </Flex>
       )}
+      {method === 'oauth' && <Text>{t('providerConsentWarning')}</Text>}
       {method === 'oauth' && (
         <Button
           disabled={
             disabled ||
-            providerId !== 'openrouter' ||
-            !capability?.available ||
+            !providerId ||
+            !methodAvailable ||
             !!departure ||
             (!!attempt && ['pending', 'processing', 'code_received'].includes(attempt.status))
           }
           onClick={() =>
             void operate(async () => {
               const generation = epoch.current;
-              ++authorizationRevision.current;
+              const revision = ++authorizationRevision.current;
               returnedAttemptRef.current = null;
-              const value = await apiRequest<{
-                id: string;
-                authorizationUrl: string;
-                expiresAt: string;
-              }>('/ai/authorizations/openrouter', { method: 'POST', body: '{}' });
-              if (epoch.current !== generation) return;
-              const url = new URL(value.authorizationUrl);
-              if (
-                url.protocol !== 'https:' ||
-                url.hostname !== 'openrouter.ai' ||
-                url.port ||
-                url.username ||
-                url.password
+              setResponse('');
+              const value = await apiRequest<AiAttempt>(
+                `/ai/authorizations/${encodeURIComponent(providerId)}`,
+                { method: 'POST', body: '{}' },
+              );
+              if (epoch.current !== generation || authorizationRevision.current !== revision)
+                return;
+              setAttempt(value);
+              returnedAttemptRef.current = ['pending', 'processing', 'code_received'].includes(
+                value.status,
               )
-                throw new Error('invalid_authorization_url');
-              returnedAttemptRef.current = value.id;
-              setDeparture(value);
-              setAttempt({
-                id: value.id,
-                providerId: 'openrouter',
-                status: 'pending',
-                expiresAt: value.expiresAt,
-              });
+                ? value.id
+                : null;
+              if (value.authorizationUrl) {
+                const authorizationUrl = aiAuthorizationUrl(value.authorizationUrl);
+                if (
+                  providerId !== 'openrouter' ||
+                  !authorizationUrl ||
+                  new URL(authorizationUrl).hostname !== 'openrouter.ai'
+                )
+                  throw new Error('invalid_authorization_url');
+                returnedAttemptRef.current = value.id;
+                setDeparture({ id: value.id, authorizationUrl, expiresAt: value.expiresAt });
+              } else {
+                setDeparture(null);
+              }
+              if (value.status === 'completed') await refresh(generation);
             })
           }
         >
@@ -601,19 +647,102 @@ export function AiAssistantSettings({
           {t('leaveForAuthorization')}
         </Button>
       )}
-      {attempt && <Text role="status">{t(`attempt.${attempt.status}`)}</Text>}
-      {attempt && ['pending', 'code_received', 'processing'].includes(attempt.status) && (
+      {attemptStatus && <Text role="status">{t(`attempt.${attemptStatus}`)}</Text>}
+      {attemptActive && attempt?.interaction && (
+        <Flex direction="column" gap="3">
+          {interactionUrl && (
+            <Button asChild variant="soft">
+              <a href={interactionUrl} target="_blank" rel="noopener noreferrer">
+                {t('openAuthorization')}
+              </a>
+            </Button>
+          )}
+          {attempt.interaction.userCode && (
+            <Text>
+              {t('authorizationCode')}: <Text weight="bold">{attempt.interaction.userCode}</Text>
+            </Text>
+          )}
+          {attempt.interaction.instructions && <Text>{attempt.interaction.instructions}</Text>}
+          {attempt.interaction.message && <Text role="status">{attempt.interaction.message}</Text>}
+          {prompt && (
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                if (!response.trim()) return;
+                void operate(async () => {
+                  const generation = epoch.current;
+                  const revision = ++authorizationRevision.current;
+                  try {
+                    const value = await apiRequest<AiAttempt>(
+                      `/ai/authorizations/${encodeURIComponent(attempt.id)}/respond`,
+                      {
+                        method: 'POST',
+                        body: JSON.stringify({ promptId: prompt.id, value: response }),
+                      },
+                    );
+                    if (epoch.current !== generation || authorizationRevision.current !== revision)
+                      return;
+                    setResponse('');
+                    setAttempt(value);
+                    if (value.status === 'completed') await refresh(generation);
+                  } finally {
+                    if (epoch.current === generation && authorizationRevision.current === revision)
+                      setAttempt((value) => (value ? { ...value } : value));
+                  }
+                });
+              }}
+            >
+              <Flex direction="column" gap="3">
+                <Text>{prompt.message}</Text>
+                {prompt.type === 'select' ? (
+                  <SelectField
+                    label={t('authorizationResponse')}
+                    value={response}
+                    disabled={working}
+                    options={(prompt.options ?? []).map((option) => ({
+                      value: option.id,
+                      label: option.label,
+                    }))}
+                    onValueChange={setResponse}
+                  />
+                ) : (
+                  <>
+                    <Text as="label" htmlFor={`${id}-response`}>
+                      {t('authorizationResponse')}
+                    </Text>
+                    <TextField.Root
+                      id={`${id}-response`}
+                      type={prompt.type === 'text' ? 'text' : 'password'}
+                      autoComplete="off"
+                      placeholder={prompt.placeholder}
+                      value={response}
+                      disabled={working}
+                      onChange={(event) => setResponse(event.target.value)}
+                    />
+                  </>
+                )}
+                <Button type="submit" disabled={working || !response.trim()}>
+                  {t('submitResponse')}
+                </Button>
+              </Flex>
+            </form>
+          )}
+        </Flex>
+      )}
+      {attemptActive && attempt && (
         <Button
           variant="soft"
           disabled={working}
           onClick={() =>
             void operate(async () => {
               const generation = epoch.current;
+              const revision = authorizationRevision.current;
               await apiRequest(`/ai/authorizations/${encodeURIComponent(attempt.id)}`, {
                 method: 'DELETE',
               });
-              if (epoch.current === generation) {
+              if (epoch.current === generation && authorizationRevision.current === revision) {
                 ++authorizationRevision.current;
+                setResponse('');
                 returnedAttemptRef.current = null;
                 setAttempt(null);
                 setDeparture(null);

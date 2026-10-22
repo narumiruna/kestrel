@@ -1,5 +1,10 @@
 {
   "AiAssistant": {
+    "openAuthorization": "Sağlayıcı oturum açma sayfasını aç",
+    "authorizationCode": "Cihaz kodu",
+    "authorizationResponse": "Yetkilendirme yanıtı",
+    "submitResponse": "Devam et",
+    "providerConsentWarning": "Sağlayıcıda oturum açmayı başlatmak, sağlayıcı hesabınızda bir sağlayıcı anahtarı oluşturabilir veya model erişimini etkinleştirebilir. Yalnızca bu değişiklikleri kabul ediyorsanız devam edin.",
     "thinkingNotApplicable": "Düşünme düzeyi bu model işlemi için geçerli değildir.",
     "summaryLoading": "AI yapılandırması yükleniyor…",
     "summaryUnavailable": "AI yapılandırması kullanılamıyor",
@@ -37,7 +42,7 @@
     "unavailable": {
       "policy": "Geçerli sağlayıcı politikası kapsamında bu yöntemin barındırılan Kestrel hizmetinde kullanılmasına izin verilmiyor.",
       "hosted_unverified": "Bu yöntem için barındırılan hizmette yetkilendirme doğrulanmadı. Henüz kullanılamaz.",
-      "operator_unconfigured": "Sunucu yöneticisi, kimlik bilgisi şifrelemesini ve hesapla oturum açmak için herkese açık HTTPS URL'sini yapılandırmalıdır."
+      "operator_unconfigured": "Sunucu yöneticisi, kimlik bilgisi şifrelemesini yapılandırmalıdır."
     },
     "model": "Model",
     "chooseModel": "Model seçin",

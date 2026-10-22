@@ -1,5 +1,10 @@
 {
   "AiAssistant": {
+    "openAuthorization": "Buka halaman log masuk penyedia",
+    "authorizationCode": "Kod peranti",
+    "authorizationResponse": "Respons kebenaran",
+    "submitResponse": "Teruskan",
+    "providerConsentWarning": "Memulakan log masuk penyedia boleh mencipta kunci penyedia atau mendayakan akses model dalam akaun penyedia anda. Teruskan hanya jika anda bersetuju dengan perubahan tersebut.",
     "thinkingNotApplicable": "Tahap pemikiran tidak terpakai untuk operasi model ini.",
     "summaryLoading": "Memuatkan konfigurasi AI…",
     "summaryUnavailable": "Konfigurasi AI tidak tersedia",
@@ -34,7 +39,7 @@
     "unavailable": {
       "policy": "Kaedah ini tidak dibenarkan untuk penggunaan Kestrel yang dihoskan di bawah dasar semasa penyedia.",
       "hosted_unverified": "Kebenaran pada perkhidmatan yang dihoskan untuk kaedah ini belum disahkan. Kaedah ini belum boleh digunakan.",
-      "operator_unconfigured": "Pengendali pelayan mesti mengkonfigurasi penyulitan bukti kelayakan dan, untuk log masuk akaun, URL HTTPS awam."
+      "operator_unconfigured": "Pengendali pelayan mesti mengkonfigurasi penyulitan bukti kelayakan."
     },
     "model": "Model",
     "chooseModel": "Pilih model",

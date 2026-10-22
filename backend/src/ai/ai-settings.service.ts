@@ -16,6 +16,8 @@ import {
   objectInput,
 } from './ai-errors';
 import { AiSecretBox } from './ai-secret-box';
+import { AiLoginBridge } from './ai-login-bridge';
+import { type AiLoginRunner, loginWithPi } from './ai-pi-login';
 
 export type OpenRouterExchange = (
   code: string,
@@ -30,12 +32,16 @@ const attemptId = (value: string) =>
     : aiError('AI_ATTEMPT_NOT_FOUND', 404);
 
 export class AiSettingsService {
+  private readonly loginBridge: AiLoginBridge;
   constructor(
     private readonly prisma: PrismaService,
     readonly catalog: AiCatalogService,
     private readonly secrets: AiSecretBox,
     private readonly exchange: OpenRouterExchange = exchangeOpenRouter,
-  ) {}
+    loginRunner: AiLoginRunner = loginWithPi,
+  ) {
+    this.loginBridge = new AiLoginBridge(prisma, secrets, loginRunner);
+  }
 
   store(userId: string, sessionId: string) {
     return new AiCredentialStore(this.prisma, this.secrets, userId, sessionId);
@@ -144,12 +150,19 @@ export class AiSettingsService {
     return this.settings(userId, sessionId);
   }
 
-  async start(userId: string, sessionId: string, providerId: string) {
+  async start(
+    userId: string,
+    sessionId: string,
+    providerId: string,
+  ): Promise<
+    Awaited<ReturnType<AiSettingsService['attempt']>> & {
+      authorizationUrl?: string;
+    }
+  > {
     await this.catalog.assertMethod(providerId, 'oauth');
-    if (providerId !== 'openrouter')
-      return aiError('AI_METHOD_UNAVAILABLE', 503);
-    const origin = this.catalog.publicOrigin();
-    if (!origin) return aiError('AI_METHOD_UNAVAILABLE', 503);
+    const origin =
+      providerId === 'openrouter' ? this.catalog.publicOrigin() : null;
+    if (!origin) this.loginBridge.assertCapacity();
     const state = randomBytes(32).toString('base64url');
     const verifier = randomBytes(32).toString('base64url');
     const id = randomUUID();
@@ -188,16 +201,34 @@ export class AiSettingsService {
           providerId,
           generation: connection.generation,
           expiresAt,
+          status: origin ? 'pending' : 'processing',
+          heartbeatAt: origin ? null : new Date(),
           stateHash: hash(state),
           verifierEncrypted: this.secrets.encrypt(
             userId,
             providerId,
             `verifier:${id}`,
-            verifier,
+            origin ? verifier : '{}',
           ),
         },
       });
     });
+    if (!origin) {
+      try {
+        this.loginBridge.start(row);
+      } catch (error) {
+        await this.prisma.aiAuthorization.updateMany({
+          where: { id: row.id, status: 'processing' },
+          data: {
+            status: 'failed',
+            verifierEncrypted: null,
+            codeEncrypted: null,
+          },
+        });
+        throw error;
+      }
+      return this.attempt(userId, sessionId, row.id);
+    }
     const authorization = new URL('https://openrouter.ai/auth');
     authorization.search = new URLSearchParams({
       callback_url: `${origin}/api/backend/ai/oauth/openrouter/callback/${id}`,
@@ -270,7 +301,21 @@ export class AiSettingsService {
   }
 
   async attempt(userId: string, sessionId: string, id: string) {
-    return describeAttempt(await this.ownedAttempt(userId, sessionId, id));
+    const row = await this.ownedAttempt(userId, sessionId, id);
+    const interaction = await this.loginBridge.interaction(row);
+    const current = await this.ownedAttempt(userId, sessionId, id);
+    return {
+      ...describeAttempt(current),
+      ...(interaction && current.status === 'processing'
+        ? { interaction }
+        : {}),
+    };
+  }
+
+  async respond(userId: string, sessionId: string, id: string, input: unknown) {
+    const row = await this.ownedAttempt(userId, sessionId, id);
+    await this.loginBridge.respond(row, input);
+    return this.attempt(userId, sessionId, id);
   }
 
   async cancel(userId: string, sessionId: string, id: string) {
@@ -288,6 +333,7 @@ export class AiSettingsService {
         codeEncrypted: null,
       },
     });
+    this.loginBridge.cancel(id);
     return this.attempt(userId, sessionId, id);
   }
 

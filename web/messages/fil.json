@@ -1,5 +1,10 @@
 {
   "AiAssistant": {
+    "openAuthorization": "Buksan ang pag-sign in sa provider",
+    "authorizationCode": "Code ng device",
+    "authorizationResponse": "Tugon sa awtorisasyon",
+    "submitResponse": "Magpatuloy",
+    "providerConsentWarning": "Ang pagsisimula ng pag-sign in sa provider ay maaaring gumawa ng provider key o paganahin ang access sa mga model sa iyong provider account. Magpatuloy lamang kung sumasang-ayon ka sa mga pagbabagong ito.",
     "thinkingNotApplicable": "Hindi naaangkop ang thinking level sa operasyong ito.",
     "summaryLoading": "Nilo-load ang AI configuration…",
     "summaryUnavailable": "Hindi available ang AI configuration",
@@ -37,7 +42,7 @@
     "unavailable": {
       "policy": "Hindi pinapayagan ang paraang ito para sa paggamit ng Kestrel na naka-host sa ilalim ng kasalukuyang patakaran ng tagapagbigay.",
       "hosted_unverified": "Hindi pa nabeberipika ang awtorisasyon sa naka-host na serbisyo para sa paraang ito. Hindi pa ito magagamit.",
-      "operator_unconfigured": "Dapat i-configure ng tagapangasiwa ng server ang pag-encrypt ng kredensyal at, para sa pag-sign in sa account, ang pampublikong HTTPS URL."
+      "operator_unconfigured": "Dapat i-configure ng tagapangasiwa ng server ang pag-encrypt ng kredensyal."
     },
     "model": "Modelo",
     "chooseModel": "Pumili ng modelo",

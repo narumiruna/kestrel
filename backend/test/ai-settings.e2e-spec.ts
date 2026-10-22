@@ -7,12 +7,13 @@ import { aiError } from '../src/ai/ai-errors';
 import { AiSecretBox } from '../src/ai/ai-secret-box';
 import { createAiSettingsRoutes } from '../src/ai/ai-settings.routes';
 import { AiSettingsService } from '../src/ai/ai-settings.service';
+import type { AiLoginRunner } from '../src/ai/ai-pi-login';
 import { createAiTestStore } from './support/ai-test-store';
 
 jest.mock('../src/ai/ai-catalog', () => ({ AiCatalogService: jest.fn() }));
 const key = 'dummy-private-api-key';
 const signingSecret = 'dummy-access-token-signing-secret';
-function setup() {
+function setup(loginRunner?: AiLoginRunner) {
   const db = createAiTestStore();
   const alice = db.seedSession('alice');
   const bob = db.seedSession('bob');
@@ -22,7 +23,7 @@ function setup() {
     assertMethod: async (provider: string, method: string) => {
       if (
         !available ||
-        provider !== 'openrouter' ||
+        !['openrouter', 'openai-codex'].includes(provider) ||
         !['api_key', 'oauth'].includes(method)
       )
         aiError('AI_METHOD_UNAVAILABLE', 503);
@@ -52,6 +53,7 @@ function setup() {
     catalog as unknown as AiCatalogService,
     new AiSecretBox({ get: () => 'ab'.repeat(32) } as never),
     exchange,
+    loginRunner,
   );
   const app = new Hono().route(
     '/',
@@ -142,6 +144,7 @@ describe('AI settings HTTP routes with real session authentication', () => {
         ['', 'GET'],
         ['', 'DELETE'],
         ['/complete', 'POST'],
+        ['/respond', 'POST'],
       ]) {
         const body = await safeResponse(
           await request(
@@ -175,6 +178,102 @@ describe('AI settings HTTP routes with real session authentication', () => {
     expect(db.aiConnection.size).toBe(0);
     expect(db.aiAuthorization.size).toBe(0);
     expect(exchange).not.toHaveBeenCalled();
+  });
+
+  it('bridges a non-OpenRouter login with owner-bound single-use responses', async () => {
+    const answer = 'dummy-manual-login-answer';
+    const runner: AiLoginRunner = async (_provider, _user, interaction) => {
+      interaction.notify({
+        type: 'device_code',
+        userCode: 'ABCD-1234',
+        verificationUri: 'https://auth.openai.com/device',
+      });
+      expect(
+        await interaction.prompt({
+          type: 'manual_code',
+          message: 'Enter the test code',
+        }),
+      ).toBe(answer);
+      return {
+        type: 'oauth',
+        access: key,
+        refresh: 'dummy-refresh',
+        expires: Date.now() + 3600000,
+      };
+    };
+    const { request, token, bob, db, exchange, service, alice } = setup(runner);
+    const started = await request(
+      '/ai/authorizations/openai-codex',
+      undefined,
+      'POST',
+    );
+    expect(started.status).toBe(201);
+    const initial = (await started.json()) as { id: string };
+    try {
+      let current: {
+        status: string;
+        interaction?: { prompt?: { id: string }; userCode?: string };
+      } = { status: 'processing' };
+      for (let index = 0; index < 100; index++) {
+        current = (await (
+          await request(`/ai/authorizations/${initial.id}`)
+        ).json()) as typeof current;
+        if (current.interaction?.prompt) break;
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      }
+      const promptId = current.interaction?.prompt?.id;
+      expect(promptId).toBeDefined();
+      expect(current.interaction?.userCode).toBe('ABCD-1234');
+      await safeResponse(
+        await request(
+          `/ai/authorizations/${initial.id}/respond`,
+          token('bob', bob),
+          'POST',
+          { promptId, value: answer },
+        ),
+        404,
+      );
+      const response = await request(
+        `/ai/authorizations/${initial.id}/respond`,
+        undefined,
+        'POST',
+        { promptId, value: answer },
+      );
+      expect(response.status).toBe(200);
+      expect(await response.text()).not.toContain(answer);
+      for (let index = 0; index < 100; index++) {
+        current = (await (
+          await request(`/ai/authorizations/${initial.id}`)
+        ).json()) as typeof current;
+        if (current.status === 'completed') break;
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      }
+      expect(current.status).toBe('completed');
+      await safeResponse(
+        await request(
+          `/ai/authorizations/${initial.id}/respond`,
+          undefined,
+          'POST',
+          { promptId, value: answer },
+        ),
+        409,
+      );
+      const settings = await safeResponse(await request('/ai/settings'), 200);
+      expect(settings.connections).toEqual([
+        {
+          providerId: 'openai-codex',
+          authMethod: 'oauth',
+          generation: 1,
+          status: 'connected',
+        },
+      ]);
+      expect(JSON.stringify([...db.aiAuthorization.values()])).not.toContain(
+        answer,
+      );
+      expect(exchange).not.toHaveBeenCalled();
+    } finally {
+      await service.cancel('alice', alice, initial.id);
+    }
   });
 
   it('redirects a state-less denial but rejects a success callback without state', async () => {

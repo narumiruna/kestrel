@@ -1,5 +1,10 @@
 {
   "AiAssistant": {
+    "openAuthorization": "Otwórz logowanie u dostawcy",
+    "authorizationCode": "Kod urządzenia",
+    "authorizationResponse": "Odpowiedź autoryzacyjna",
+    "submitResponse": "Kontynuuj",
+    "providerConsentWarning": "Rozpoczęcie logowania u dostawcy może utworzyć klucz dostawcy lub włączyć dostęp do modeli na Twoim koncie u dostawcy. Kontynuuj tylko wtedy, gdy zgadzasz się na te zmiany.",
     "thinkingNotApplicable": "Poziom rozumowania nie dotyczy tej operacji modelu.",
     "summaryLoading": "Ładowanie konfiguracji AI…",
     "summaryUnavailable": "Konfiguracja AI jest niedostępna",
@@ -37,7 +42,7 @@
     "unavailable": {
       "policy": "Obecna polityka dostawcy nie zezwala na tę metodę w hostowanej usłudze Kestrel.",
       "hosted_unverified": "Autoryzacja w usłudze hostowanej dla tej metody nie została zweryfikowana. Nie można jej jeszcze używać.",
-      "operator_unconfigured": "Operator serwera musi skonfigurować szyfrowanie danych uwierzytelniających, a w przypadku logowania do konta również publiczny adres URL HTTPS."
+      "operator_unconfigured": "Operator serwera musi skonfigurować szyfrowanie danych uwierzytelniających."
     },
     "model": "Model",
     "chooseModel": "Wybierz model",

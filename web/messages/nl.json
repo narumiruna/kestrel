@@ -1,5 +1,10 @@
 {
   "AiAssistant": {
+    "openAuthorization": "Aanmelden bij provider openen",
+    "authorizationCode": "Apparaatcode",
+    "authorizationResponse": "Autorisatierespons",
+    "submitResponse": "Doorgaan",
+    "providerConsentWarning": "Als je het aanmelden bij de provider start, kan er een providersleutel worden aangemaakt of modeltoegang worden ingeschakeld in je provideraccount. Ga alleen door als je akkoord gaat met deze wijzigingen.",
     "thinkingNotApplicable": "Het denkniveau is niet van toepassing op deze modelbewerking.",
     "summaryLoading": "AI-configuratie laden…",
     "summaryUnavailable": "AI-configuratie niet beschikbaar",
@@ -37,7 +42,7 @@
     "unavailable": {
       "policy": "Deze methode is volgens het huidige beleid van de aanbieder niet toegestaan voor gehost gebruik van Kestrel.",
       "hosted_unverified": "Autorisatie voor deze methode in een gehoste omgeving is niet geverifieerd. De methode kan nog niet worden gebruikt.",
-      "operator_unconfigured": "De serverbeheerder moet versleuteling van inloggegevens instellen en, voor inloggen met een account, de openbare HTTPS-URL."
+      "operator_unconfigured": "De serverbeheerder moet versleuteling van inloggegevens instellen."
     },
     "model": "Model",
     "chooseModel": "Kies een model",

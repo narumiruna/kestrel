@@ -101,6 +101,15 @@ export function createAiSettingsRoutes(
       await service.cancel(...owner(context), context.req.param('id')),
     ),
   );
+  routes.post('/ai/authorizations/:id/respond', async (context) =>
+    context.json(
+      await service.respond(
+        ...owner(context),
+        context.req.param('id'),
+        await readJsonBody(context),
+      ),
+    ),
+  );
   routes.post('/ai/authorizations/:id/complete', async (context) =>
     context.json(
       await service.complete(...owner(context), context.req.param('id')),

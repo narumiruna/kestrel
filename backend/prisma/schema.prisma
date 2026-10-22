@@ -473,20 +473,21 @@ model AiConnection {
 }
 
 model AiAuthorization {
-  id                String   @id @default(uuid()) @db.Uuid
-  userId            String   @map("user_id") @db.Uuid
-  sessionId         String   @map("session_id") @db.Uuid
-  providerId        String   @map("provider_id") @db.VarChar(64)
+  id                String    @id @default(uuid()) @db.Uuid
+  userId            String    @map("user_id") @db.Uuid
+  sessionId         String    @map("session_id") @db.Uuid
+  providerId        String    @map("provider_id") @db.VarChar(64)
   generation        Int
-  resultGeneration  Int?     @map("result_generation")
-  stateHash         String   @unique @map("state_hash") @db.VarChar(64)
-  verifierEncrypted String?  @map("verifier_encrypted")
-  codeEncrypted     String?  @map("code_encrypted")
-  status            String   @default("pending") @db.VarChar(32)
-  expiresAt         DateTime @map("expires_at")
-  createdAt         DateTime @default(now()) @map("created_at")
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  session           Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  resultGeneration  Int?      @map("result_generation")
+  stateHash         String    @unique @map("state_hash") @db.VarChar(64)
+  verifierEncrypted String?   @map("verifier_encrypted")
+  codeEncrypted     String?   @map("code_encrypted")
+  status            String    @default("pending") @db.VarChar(32)
+  expiresAt         DateTime  @map("expires_at")
+  heartbeatAt       DateTime? @map("heartbeat_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  session           Session   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
   @@index([userId, providerId, status])
   @@index([sessionId])

@@ -1,7 +1,8 @@
-// Offline integration fixture: build first. No login, provider transport, or inference is allowed.
+// Offline integration fixture: build first. No live provider login, transport, or inference is allowed.
 const assert = require('node:assert/strict');
 const { createUserAiModels } = require('../dist/ai/ai-user-models.js');
 const { piRegistry, AiCatalogService } = require('../dist/ai/ai-catalog.js');
+const { loginWithPi } = require('../dist/ai/ai-pi-login.js');
 
 function store() {
   const entries = new Map();
@@ -53,7 +54,7 @@ async function run() {
   const catalog = {
     assertMethod(_provider, method) {
       return method === 'oauth'
-        ? Promise.reject(new Error('Fixture OAuth unavailable'))
+        ? Promise.reject(new Error('Fixture injected OAuth failure'))
         : Promise.resolve();
     },
   };
@@ -94,21 +95,36 @@ async function run() {
     };
     assert.deepEqual(await productionCatalog.selection(selection), selection);
     for (const method of provider.methods) {
-      if (!method.available)
-        await assert.rejects(
-          productionCatalog.assertMethod(provider.id, method.type),
-        );
+      assert.equal(method.available, true);
+      assert.equal(method.reason, null);
+      await productionCatalog.assertMethod(provider.id, method.type);
     }
   }
-  assert.deepEqual(
-    publicCatalog.providers
-      .filter((provider) =>
-        provider.methods.some(
-          (method) => method.type === 'oauth' && method.available,
-        ),
-      )
-      .map((provider) => provider.id),
-    ['openrouter'],
+  const methods = { api_key: 0, oauth: 0 };
+  for (const provider of publicCatalog.providers)
+    for (const method of provider.methods) methods[method.type]++;
+  assert.deepEqual(methods, { api_key: 41, oauth: 9 });
+  const noOrigin = new AiCatalogService(
+    { get: () => '' },
+    { available: () => true },
+  );
+  assert.equal(
+    (await noOrigin.assertMethod('openrouter', 'oauth')).id,
+    'openrouter',
+  );
+  await assert.rejects(
+    loginWithPi(
+      'fixture-unknown-provider',
+      '12345678-1234-1234-1234-123456789abc',
+      {
+        signal: AbortSignal.timeout(5000),
+        notify: () => {
+          throw new Error('Unexpected provider event');
+        },
+        prompt: () => Promise.reject(new Error('Unexpected provider prompt')),
+      },
+    ),
+    /^Error: AI provider authentication failed$/,
   );
   for (const provider of providers)
     assert.equal(await first.getAuth(provider.id), undefined);
@@ -150,7 +166,9 @@ async function run() {
       models: counts,
       userAuthIsolation: 'passed',
       ambientResolverFallback: 'absent',
-      unavailableOAuth: 'blocked',
+      registryMethods: methods,
+      injectedOAuthFailure: 'no-fallback',
+      workerFailureBoundary: 'passed',
       inferenceSurface: 'absent',
       networkCalls,
     }),

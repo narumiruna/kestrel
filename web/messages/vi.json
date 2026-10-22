@@ -1,5 +1,10 @@
 {
   "AiAssistant": {
+    "openAuthorization": "Mở trang đăng nhập của nhà cung cấp",
+    "authorizationCode": "Mã thiết bị",
+    "authorizationResponse": "Phản hồi ủy quyền",
+    "submitResponse": "Tiếp tục",
+    "providerConsentWarning": "Việc bắt đầu đăng nhập vào nhà cung cấp có thể tạo khóa của nhà cung cấp hoặc bật quyền truy cập mô hình trong tài khoản nhà cung cấp của bạn. Chỉ tiếp tục nếu bạn đồng ý với những thay đổi này.",
     "thinkingNotApplicable": "Mức suy luận không áp dụng cho thao tác mô hình này.",
     "summaryLoading": "Đang tải cấu hình AI…",
     "summaryUnavailable": "Cấu hình AI không khả dụng",
@@ -37,7 +42,7 @@
     "unavailable": {
       "policy": "Chính sách hiện tại của nhà cung cấp không cho phép dùng phương thức này với Kestrel được lưu trữ trên máy chủ.",
       "hosted_unverified": "Chưa xác minh việc ủy quyền bằng phương thức này trong môi trường lưu trữ trên máy chủ. Hiện chưa thể sử dụng.",
-      "operator_unconfigured": "Người vận hành máy chủ phải cấu hình mã hóa thông tin xác thực và URL HTTPS công khai nếu dùng phương thức đăng nhập bằng tài khoản."
+      "operator_unconfigured": "Người vận hành máy chủ phải cấu hình mã hóa thông tin xác thực."
     },
     "model": "Mô hình",
     "chooseModel": "Chọn mô hình",

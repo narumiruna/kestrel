@@ -1,5 +1,10 @@
 {
   "AiAssistant": {
+    "openAuthorization": "Anmeldung beim Anbieter öffnen",
+    "authorizationCode": "Gerätecode",
+    "authorizationResponse": "Autorisierungsantwort",
+    "submitResponse": "Weiter",
+    "providerConsentWarning": "Wenn Sie die Anmeldung beim Anbieter starten, kann ein Anbieterschlüssel erstellt oder der Modellzugriff in Ihrem Anbieterkonto aktiviert werden. Fahren Sie nur fort, wenn Sie diesen Änderungen zustimmen.",
     "thinkingNotApplicable": "Für diesen Modellvorgang gilt keine Denkstufe.",
     "summaryLoading": "AI-Konfiguration wird geladen…",
     "summaryUnavailable": "AI-Konfiguration nicht verfügbar",
@@ -37,7 +42,7 @@
     "unavailable": {
       "policy": "Diese Methode ist gemäß den aktuellen Anbieterrichtlinien für die Nutzung mit gehostetem Kestrel nicht zulässig.",
       "hosted_unverified": "Die Autorisierung für den gehosteten Betrieb wurde für diese Methode nicht überprüft. Sie kann noch nicht verwendet werden.",
-      "operator_unconfigured": "Der Serverbetreiber muss die Verschlüsselung der Zugangsdaten und für die Kontoanmeldung die öffentliche HTTPS-URL konfigurieren."
+      "operator_unconfigured": "Der Serverbetreiber muss die Verschlüsselung der Zugangsdaten konfigurieren."
     },
     "model": "Modell",
     "chooseModel": "Modell auswählen",

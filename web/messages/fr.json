@@ -1,5 +1,10 @@
 {
   "AiAssistant": {
+    "openAuthorization": "Ouvrir la connexion au fournisseur",
+    "authorizationCode": "Code de l’appareil",
+    "authorizationResponse": "Réponse d’autorisation",
+    "submitResponse": "Continuer",
+    "providerConsentWarning": "Le lancement de la connexion au fournisseur peut créer une clé du fournisseur ou activer l’accès aux modèles dans votre compte fournisseur. Continuez uniquement si vous acceptez ces modifications.",
     "thinkingNotApplicable": "Le niveau de raisonnement ne s’applique pas à cette opération.",
     "summaryLoading": "Chargement de la configuration AI…",
     "summaryUnavailable": "Configuration AI indisponible",
@@ -37,7 +42,7 @@
     "unavailable": {
       "policy": "La politique actuelle du fournisseur n’autorise pas cette méthode pour une utilisation hébergée de Kestrel.",
       "hosted_unverified": "L’autorisation de cette méthode en environnement hébergé n’a pas été vérifiée. Elle ne peut pas encore être utilisée.",
-      "operator_unconfigured": "L’administrateur du serveur doit configurer le chiffrement des identifiants et, pour la connexion par compte, l’URL HTTPS publique."
+      "operator_unconfigured": "L’administrateur du serveur doit configurer le chiffrement des identifiants."
     },
     "model": "Modèle",
     "chooseModel": "Choisir un modèle",
