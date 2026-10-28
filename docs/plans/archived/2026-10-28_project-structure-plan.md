@@ -11,7 +11,7 @@ Resolve the five directory-structure review findings without changing user workf
 - [x] Remove the location-to-cloud dependency. Put remote-control lifecycle wiring at the application boundary, initialize cloud services only when remote control is enabled, and preserve foreground/service polling leases and runtime-state notifications. Add JVM regression tests for lifecycle transitions.
 - [x] Ignore TypeScript build caches and remove the tracked Web cache from the Git index without deleting the local cache.
 - [x] Run Android formatting, lint, resource checks, JVM tests, and debug build; run Web formatting, lint, tests, typecheck, production build, and canonical-document checks. Verify the unchanged Account layout in Chrome DevTools when local browser execution is available.
-- [ ] Review the full diff, commit only intended text files, push a new branch, and open a pull request.
+- [x] Review the full diff, commit only intended text files, push a new branch, and open a pull request.
 
 ## Completion Checklist
 
@@ -20,9 +20,11 @@ Resolve the five directory-structure review findings without changing user workf
 - [x] Local playback has no cloud dependency or unconditional cloud initialization; remote-control lease behavior has regression coverage.
 - [x] No generated TypeScript cache or image binary is staged.
 - [x] All affected checks pass, or concrete blockers remain recorded without a completion claim.
-- [ ] The new pull request summarizes the outcome, checks, and unverified external behavior.
+- [x] The new pull request summarizes the outcome, checks, and unverified external behavior.
 
 ## Validation Evidence
+
+- Delivery: [PR #368](https://github.com/narumiruna/kestrel/pull/368) opened from `narumi/refactor/project-structure`; implementation commit `bf6ad8a` passed all Git hooks. The pull request includes the check results and physical-device verification limits.
 
 - Android: `just android-check`, `just android-lint`, `just android-resource-lint`, `just android-test` (259 tests), and `just android-build` passed with Java 26. The first resource-lint invocation exceeded the bounded execution window; the separate rerun passed.
 - Web: `just web-check`, `just web-lint`, `just web-test` (198 tests), `just web-typecheck`, and `just web-build` passed with Node.js 22. Biome reports 41 CSS-specificity warnings and no errors.

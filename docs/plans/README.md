@@ -4,8 +4,6 @@ Top-level `*-plan.md` files are active. Closed or superseded plans live in `arch
 
 ## Active files
 
-- [Project structure cleanup](2026-10-28_project-structure-plan.md) — resolve public documentation drift, Account CSS ownership, navigation ownership, Android remote-control lifecycle coupling, and tracked build caches.
-
 1. [Personal AI provider settings](2026-10-22_personal-ai-provider-settings-plan.md) — proposed stage 1: per-user provider login, encrypted credentials, and account-backed model/thinking settings.
 2. [Route assistant drafts](2026-10-22_route-assistant-drafts-plan.md) — proposed stage 2, depends on stage 1: restricted agent tools, candidate preview, explicit Apply, and existing manual Save.
 3. [Road route planning](2026-10-22_road-route-planning-plan.md) — proposed stage 3, depends on stages 1–2: service selection, place search, road geometry, and bounded distance-based loops.
@@ -26,6 +24,8 @@ The [2026-10-05 Web UI feedback pass](archived/2026-10-05_web-ui-feedback-plan.m
 The [2026-10-05 Web workspace UI polish](archived/2026-10-05_web-workspace-ui-polish-plan.md) completes the remaining shared mockup refinements: Path/Playback tabs and read-only route preview, zoom-aware labels and selected-row synchronization, aligned Library columns, smaller panel rounding, and production-safe MapLibre worker modules. Node.js 22 Web gates and isolated Chrome DevTools checks passed; delivered in [PR #330](https://github.com/narumiruna/kestrel/pull/330).
 
 The [2026-10-18 Web Account settings plan](archived/2026-10-18_web-account-settings-plan.md) is complete: Account settings is the first menu action, with Preferences and Security in a left-navigation layout. Web gates, 18-locale validation, and isolated Chrome DevTools checks passed; existing security state and API contracts remain unchanged.
+
+The [2026-10-28 Project structure cleanup](archived/2026-10-28_project-structure-plan.md) is complete: canonical public API documentation, Account CSS and navigation ownership, application-level Android remote-control lifecycle wiring, and ignored build caches. All local checks passed; physical-device verification limits remain documented in the plan and [PR #368](https://github.com/narumiruna/kestrel/pull/368).
 
 ## Security references
 
