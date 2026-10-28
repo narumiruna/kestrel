@@ -50,7 +50,7 @@ flowchart LR
 - [x] Translate the new Place and preview messages in all 18 Web catalogs. Run catalog and message tests; do not add an English-only fallback.
 - [x] Run Web formatting, lint, tests, typecheck, production build, public-document checks, and cross-platform catalog validation. Keep all required gates intact.
 - [x] Verify the implemented UI in native Chrome DevTools: clean, dirty, new, empty, save failure/retry, discard, saved-source Device/Share dialogs, keyboard focus, draft navigation guard, Library search/type/sort, and unchanged Route workflow. Use only the existing 1440×900 light-mode presentation target.
-- [ ] Review the complete diff, commit only intended text files, push the new branch, and open a separate pull request with design rationale, check evidence, and external verification limits.
+- [x] Review the complete diff, commit only intended text files, push the new branch, and open a separate pull request with design rationale, check evidence, and external verification limits.
 
 ## Completion Checklist
 
@@ -60,9 +60,11 @@ flowchart LR
 - [x] The Device preview shows the same saved point used by its unchanged command payload.
 - [x] Library links with duplicate names expose their visible type and details to assistive technology.
 - [x] All 18 catalogs and affected Web checks pass; browser evidence is recorded and no image binary is staged.
-- [ ] A separate PR contains only this UI change and its plan/tests, with its dependency on #368 clear.
+- [x] A separate PR contains only this UI change and its plan/tests, with its dependency on #368 clear.
 
 ## Validation Evidence
+
+- Delivery: [PR #369](https://github.com/narumiruna/kestrel/pull/369) is open from `narumi/feat/web-workspace-ux`, based on PR #368's branch. Implementation commit `a230a76` passed all Git hooks. The PR includes the reviewed findings, proposal rationale, local checks, and external verification limits.
 
 - Web: `just web-check`, `just web-lint`, `just web-test` (209 tests), `just web-typecheck`, and `just web-build` passed with Node.js 22. This includes 11 new regression tests for saved snapshots, footer constraints, long names, hover styling, and accessible Library links. Biome reports 43 CSS-specificity warnings and no errors.
 - Documentation and localization: the public-document check and 10 generator tests passed through `web-check`; `just i18n-check` passed its 16 tests and all 18 Android/Web catalogs. All six new messages exist in every Web catalog.
