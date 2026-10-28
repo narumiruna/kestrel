@@ -3,6 +3,7 @@
 import { useTranslations } from 'next-intl';
 import { type FormEvent, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { PlaceRemoteControlAction } from '@/components/dashboard/RemoteControlPanel';
+import { ShareLinkFeedback } from '@/components/dashboard/ShareLinkFeedback';
 import { getSavedPlaceSnapshot } from '@/components/dashboard/savedPlaceSnapshot';
 import { useShareLink } from '@/components/dashboard/useShareLink';
 import { normalizeNullable, parseNumber, toAbsolutePublicUrl } from '@/components/dashboard/utils';
@@ -356,8 +357,16 @@ function normalizeTagsInput(value: string): string {
 
 function PlaceSharePanel({ place }: { place: Place | null }) {
   const t = useTranslations('PlaceEditor');
-  const { createShareLink, error, isLoading, isMutating, loadShareLink, setDisabled, shareLink } =
-    useShareLink('places', place?.id ?? null);
+  const {
+    createShareLink,
+    error,
+    readState,
+    canMutate,
+    isMutating,
+    loadShareLink,
+    setDisabled,
+    shareLink,
+  } = useShareLink('places', place?.id ?? null);
   const [notice, setNotice] = useState<'copied' | 'copyFailed' | null>(null);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: Reload for refreshed saved objects, even when their ID is unchanged.
@@ -387,81 +396,94 @@ function PlaceSharePanel({ place }: { place: Place | null }) {
     <section className="stack">
       <div className="route-share-header">
         <h3>{t('shareLink')}</h3>
-        {isLoading ? <span className="muted">{t('loading')}</span> : null}
       </div>
       <p className="muted no-margin">{t('visitorsCanOpenThePublicPageWithoutLoginSignedIn')}</p>
-      <p className="muted no-margin">
-        {t('publicLinkStatus', {
-          status: shareLink == null ? 'none' : shareLink.disabledAt == null ? 'active' : 'disabled',
-        })}
-      </p>
-      {error == null ? null : (
-        <div className="error" role="alert">
-          {error}
-        </div>
-      )}
-      {notice == null ? null : (
-        <div className="success" role="status">
-          {t(notice)}
-        </div>
-      )}
-      {shareLink == null ? (
-        <div className="row">
-          <Button
-            className="secondary"
-            disabled={isMutating}
-            type="button"
-            onClick={() => {
-              setNotice(null);
-              void createShareLink();
-            }}
-          >
-            {isMutating ? t('creating') : t('createPublicLink')}
-          </Button>
-        </div>
-      ) : (
-        <div className="stack">
-          <label htmlFor="radix-field-components-dashboard-placeeditor-tsx-8">
-            {t('publicURL')}
-            <TextInput
-              id="radix-field-components-dashboard-placeeditor-tsx-8"
-              readOnly
-              value={toAbsolutePublicUrl(shareLink.publicUrl)}
-            />
-          </label>
-          <div className="chip-row">
-            {shareLink.disabledAt == null ? (
-              <span className="chip">{t('active2')}</span>
-            ) : (
-              <span className="chip">{t('disabled2')}</span>
-            )}
-            <span className="chip">{t('place')}</span>
-          </div>
-          <div className="row">
-            <Button className="secondary" type="button" onClick={() => void copyPublicUrl()}>
-              {t('copyURL')}
-            </Button>
-            <a href={shareLink.publicUrl} rel="noreferrer" target="_blank">
-              {t('openPublicPage')}
-            </a>
-            <Button
-              className={shareLink.disabledAt == null ? 'danger' : 'secondary'}
-              disabled={isMutating}
-              type="button"
-              onClick={() => {
-                setNotice(null);
-                void setDisabled(shareLink.disabledAt == null);
-              }}
-            >
-              {isMutating
-                ? t('saving')
-                : shareLink.disabledAt == null
-                  ? t('disableLink')
-                  : t('reEnableLink')}
-            </Button>
-          </div>
-        </div>
-      )}
+      <ShareLinkFeedback
+        readState={readState}
+        error={error}
+        createLabel={t('createPublicLink')}
+        onRetry={() => void loadShareLink()}
+      />
+      {readState === 'ready' ? (
+        <>
+          <p className="muted no-margin" role="status">
+            {t('publicLinkStatus', {
+              status:
+                shareLink == null ? 'none' : shareLink.disabledAt == null ? 'active' : 'disabled',
+            })}
+          </p>
+          {notice == null ? null : (
+            <div className="success" role="status">
+              {t(notice)}
+            </div>
+          )}
+          {shareLink == null ? (
+            <div className="row">
+              <Button
+                disabled={!canMutate}
+                type="button"
+                onClick={() => {
+                  setNotice(null);
+                  void createShareLink();
+                }}
+              >
+                {isMutating ? t('creating') : t('createPublicLink')}
+              </Button>
+            </div>
+          ) : (
+            <div className="stack">
+              <label htmlFor="radix-field-components-dashboard-placeeditor-tsx-8">
+                {t('publicURL')}
+                <TextInput
+                  id="radix-field-components-dashboard-placeeditor-tsx-8"
+                  readOnly
+                  value={toAbsolutePublicUrl(shareLink.publicUrl)}
+                />
+              </label>
+              <div className="chip-row">
+                {shareLink.disabledAt == null ? (
+                  <span className="chip">{t('active2')}</span>
+                ) : (
+                  <span className="chip">{t('disabled2')}</span>
+                )}
+                <span className="chip">{t('place')}</span>
+              </div>
+              <div className="row">
+                <Button
+                  className="action-state-soft"
+                  highContrast
+                  variant="soft"
+                  type="button"
+                  onClick={() => void copyPublicUrl()}
+                >
+                  {t('copyURL')}
+                </Button>
+                <a href={shareLink.publicUrl} rel="noreferrer" target="_blank">
+                  {t('openPublicPage')}
+                </a>
+                <Button
+                  className="action-state-soft"
+                  highContrast
+                  variant="soft"
+                  color={shareLink.disabledAt == null ? 'red' : undefined}
+                  disabled={!canMutate}
+                  type="button"
+                  onClick={() => {
+                    setNotice(null);
+                    void setDisabled(shareLink.disabledAt == null);
+                  }}
+                >
+                  {isMutating
+                    ? t('saving')
+                    : shareLink.disabledAt == null
+                      ? t('disableLink')
+                      : t('reEnableLink')}
+                </Button>
+              </div>
+            </div>
+          )}
+        </>
+      ) : null}
     </section>
   );
 }

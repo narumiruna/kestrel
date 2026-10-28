@@ -589,7 +589,20 @@
       "exchangeFailed": "De accountkoppeling kon niet worden bevestigd. Probeer opnieuw te koppelen om het resultaat te controleren."
     }
   },
+  "ShareState": {
+    "checking": "Linkstatus controleren…",
+    "readError": "De linkstatus kon niet worden gecontroleerd.",
+    "retry": "Opnieuw proberen"
+  },
   "Remote": {
+    "refreshStatus": "Status vernieuwen",
+    "closeDoesNotCancel": "Het sluiten van dit dialoogvenster annuleert de opdracht niet.",
+    "statusUnconfirmed": "Het resultaat van de opdracht is niet bevestigd. De opdracht kan nog worden uitgevoerd.",
+    "statusReadError": "De opdrachtstatus kon niet worden gecontroleerd. De opdracht kan nog worden uitgevoerd.",
+    "submissionUnknown": "Het resultaat van het versturen is onbekend. Controleer Android voordat je een andere opdracht verstuurt.",
+    "commandReference": "Opdracht {id}",
+    "lastConfirmed": "Laatst bevestigd: {status}",
+    "submittedCommand": "Verstuurde opdracht",
     "savedPlace": "Opgeslagen plaats",
     "placePreviewLabel": "Voorbeeld van opdracht voor opgeslagen plaats",
     "advancedTool": "Geavanceerd gereedschap",

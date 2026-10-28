@@ -76,6 +76,17 @@
   width: min(100%, 540px);
 }
 
+/* Keep these action states clear of legacy global button hover colors. */
+.action-state-soft.rt-Button.rt-variant-soft {
+  background: var(--accent-3);
+  color: var(--accent-12);
+}
+
+.action-state-soft.rt-Button.rt-variant-soft:hover:not(:disabled) {
+  background: var(--accent-4);
+  color: var(--accent-12);
+}
+
 .ui-dialog-header {
   align-items: start;
   border-bottom: 1px solid var(--border);

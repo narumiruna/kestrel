@@ -4,6 +4,8 @@ import { IconButton } from '@radix-ui/themes';
 import { useTranslations } from 'next-intl';
 import { useEffect, useId, useRef, useState } from 'react';
 import { useAuth } from '@/components/AuthProvider';
+import { ShareLinkFeedback } from '@/components/dashboard/ShareLinkFeedback';
+import type { ShareLinkReadState } from '@/components/dashboard/shareLinkState';
 import { useShareLink } from '@/components/dashboard/useShareLink';
 import { toAbsolutePublicUrl } from '@/components/dashboard/utils';
 import { DotsHorizontalIcon, Share2Icon, TrashIcon } from '@/components/ui/icons';
@@ -34,7 +36,8 @@ export function LibraryItemActions({ itemId, itemKind, itemName, onDeleted }: Pr
   const {
     createShareLink,
     error,
-    isLoading: isLoadingShare,
+    readState,
+    canMutate,
     isMutating,
     loadShareLink,
     setDisabled,
@@ -106,8 +109,10 @@ export function LibraryItemActions({ itemId, itemKind, itemName, onDeleted }: Pr
       >
         <ShareDialogContent
           error={error}
-          isLoadingShare={isLoadingShare}
+          readState={readState}
+          canMutate={canMutate}
           isMutating={isMutating}
+          onRetry={() => void loadShareLink()}
           itemLabel={itemLabel}
           notice={notice}
           shareLink={shareLink}
@@ -165,8 +170,10 @@ export function LibraryItemActions({ itemId, itemKind, itemName, onDeleted }: Pr
 
 function ShareDialogContent({
   error,
-  isLoadingShare,
+  readState,
+  canMutate,
   isMutating,
+  onRetry,
   itemLabel,
   notice,
   onCopyShareUrl,
@@ -175,8 +182,10 @@ function ShareDialogContent({
   shareLink,
 }: {
   error: string | null;
-  isLoadingShare: boolean;
+  readState: ShareLinkReadState;
+  canMutate: boolean;
   isMutating: boolean;
+  onRetry: () => void;
   itemLabel: string;
   notice: 'copied' | 'copyFailed' | null;
   onCopyShareUrl: () => void;
@@ -189,56 +198,73 @@ function ShareDialogContent({
 
   return (
     <>
-      {isLoadingShare ? <p className="muted">{t('loadingShareSettings')}</p> : null}
-      {error == null ? null : (
-        <div className="error" role="alert">
-          {error}
-        </div>
-      )}
-      {notice == null ? null : (
-        <div className="success" role="status">
-          {t(notice)}
-        </div>
-      )}
-      {!isLoadingShare && shareLink == null ? (
-        <div className="stack">
-          <p className="muted no-margin">{t('createHelp', { kind: itemLabel })}</p>
-          <Button disabled={isMutating} type="button" onClick={onCreateShareLink}>
-            {isMutating ? t('creating') : t('createPublicLink')}
-          </Button>
-        </div>
+      <ShareLinkFeedback
+        readState={readState}
+        error={error}
+        createLabel={t('createPublicLink')}
+        onRetry={onRetry}
+      />
+      {readState === 'ready' ? (
+        <>
+          {notice == null ? null : (
+            <div className="success" role="status">
+              {t(notice)}
+            </div>
+          )}
+          {shareLink == null ? (
+            <div className="stack">
+              <p className="muted no-margin">{t('createHelp', { kind: itemLabel })}</p>
+              <Button disabled={!canMutate} type="button" onClick={onCreateShareLink}>
+                {isMutating ? t('creating') : t('createPublicLink')}
+              </Button>
+            </div>
+          ) : null}
+          {shareLink == null ? null : (
+            <div className="stack">
+              <label htmlFor={shareUrlId}>
+                {t('publicURL')}
+                <TextInput
+                  id={shareUrlId}
+                  readOnly
+                  value={toAbsolutePublicUrl(shareLink.publicUrl)}
+                />
+              </label>
+              <p className="muted no-margin">
+                {t('linkStatus', { status: shareLink.disabledAt == null ? 'active' : 'disabled' })}
+              </p>
+              <div className="library-share-actions">
+                <Button
+                  className="action-state-soft"
+                  highContrast
+                  variant="soft"
+                  type="button"
+                  onClick={onCopyShareUrl}
+                >
+                  {t('copyURL')}
+                </Button>
+                <a href={shareLink.publicUrl} rel="noreferrer" target="_blank">
+                  {t('openPublicPage')}
+                </a>
+                <Button
+                  className="action-state-soft"
+                  highContrast
+                  variant="soft"
+                  color={shareLink.disabledAt == null ? 'red' : undefined}
+                  disabled={!canMutate}
+                  type="button"
+                  onClick={() => onSetShareDisabled(shareLink.disabledAt == null)}
+                >
+                  {isMutating
+                    ? t('saving')
+                    : shareLink.disabledAt == null
+                      ? t('disableLink')
+                      : t('reEnableLink')}
+                </Button>
+              </div>
+            </div>
+          )}
+        </>
       ) : null}
-      {shareLink == null ? null : (
-        <div className="stack">
-          <label htmlFor={shareUrlId}>
-            {t('publicURL')}
-            <TextInput id={shareUrlId} readOnly value={toAbsolutePublicUrl(shareLink.publicUrl)} />
-          </label>
-          <p className="muted no-margin">
-            {t('linkStatus', { status: shareLink.disabledAt == null ? 'active' : 'disabled' })}
-          </p>
-          <div className="library-share-actions">
-            <Button className="secondary" type="button" onClick={onCopyShareUrl}>
-              {t('copyURL')}
-            </Button>
-            <a href={shareLink.publicUrl} rel="noreferrer" target="_blank">
-              {t('openPublicPage')}
-            </a>
-            <Button
-              className={shareLink.disabledAt == null ? 'danger' : 'secondary'}
-              disabled={isMutating}
-              type="button"
-              onClick={() => onSetShareDisabled(shareLink.disabledAt == null)}
-            >
-              {isMutating
-                ? t('saving')
-                : shareLink.disabledAt == null
-                  ? t('disableLink')
-                  : t('reEnableLink')}
-            </Button>
-          </div>
-        </div>
-      )}
     </>
   );
 }

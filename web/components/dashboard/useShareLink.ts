@@ -1,78 +1,46 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
-import { useCallback, useState } from 'react';
+import { useEffect, useMemo, useSyncExternalStore } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import { errorMessage } from '@/i18n/errors';
-import { ApiError, type ShareLink } from '@/lib/api';
+import { createShareLinkState } from './shareLinkState';
 
 export function useShareLink(itemKind: 'places' | 'routes', itemId: string | null) {
-  const auth = useAuth();
-  const path = itemId == null ? null : `/${itemKind}/${itemId}/share-link`;
-  const [shareLink, setShareLink] = useState<ShareLink | null>(null);
+  const { apiRequest, session } = useAuth();
+  const userId = session?.user.id;
+  const sessionId = session?.session.id;
   const te = useTranslations('Errors');
-  const [failure, setError] = useState<unknown>(null);
-  const error = failure == null ? null : errorMessage(failure, te);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isMutating, setIsMutating] = useState(false);
-
-  // Callers retain their own dialog opening, item switching, and notice reset triggers.
-  const loadShareLink = useCallback(async () => {
-    if (path == null) {
-      setShareLink(null);
-      setError(null);
-      return;
-    }
-
-    setError(null);
-    setIsLoading(true);
-    try {
-      setShareLink(await auth.apiRequest<ShareLink>(path));
-    } catch (nextError) {
-      if (nextError instanceof ApiError && nextError.status === 404) {
-        setShareLink(null);
-      } else {
-        setError(nextError);
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  }, [auth, path]);
-
-  async function mutateShareLink(disabled?: boolean) {
-    if (path == null) {
-      return;
-    }
-
-    setError(null);
-    setIsMutating(true);
-    try {
-      setShareLink(
-        await auth.apiRequest<ShareLink>(
-          path,
-          disabled == null
-            ? { method: 'POST' }
-            : { body: JSON.stringify({ disabled }), method: 'PATCH' },
-        ),
-      );
-    } catch (nextError) {
-      setError(nextError);
-    } finally {
-      setIsMutating(false);
-    }
-  }
+  // Token rotation preserves this owner; a new login/session or item does not.
+  const state = useMemo(
+    () =>
+      createShareLinkState(
+        userId == null || sessionId == null || itemId == null
+          ? null
+          : `/${itemKind}/${itemId}/share-link`,
+        apiRequest,
+      ),
+    [apiRequest, userId, sessionId, itemKind, itemId],
+  );
+  const snapshot = useSyncExternalStore(state.subscribe, state.getSnapshot, state.getSnapshot);
+  useEffect(() => {
+    state.activate();
+    return state.dispose;
+  }, [state]);
 
   return {
-    createShareLink: () => mutateShareLink(),
-    error,
-    isLoading,
-    isMutating,
-    loadShareLink,
-    setDisabled: (disabled: boolean) => mutateShareLink(disabled),
+    createShareLink: state.createShareLink,
+    error: snapshot.failure == null ? null : errorMessage(snapshot.failure, te),
+    isLoading: snapshot.readState === 'loading',
+    isMutating: snapshot.isMutating,
+    readState: snapshot.readState,
+    canMutate: snapshot.canMutate,
+    loadShareLink: state.loadShareLink,
+    setDisabled: state.setDisabled,
     // Library actions share error/busy state with their delete confirmation.
-    setError,
-    setIsMutating,
-    setShareLink,
-    shareLink,
+    setError: state.setError,
+    setIsMutating: state.setIsMutating,
+    setShareLink: state.setShareLink,
+    shareLink: snapshot.shareLink,
   };
 }

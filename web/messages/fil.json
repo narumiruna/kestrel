@@ -589,7 +589,20 @@
       "exchangeFailed": "Hindi makumpirma ang pag-link ng account. Subukang i-link muli para tingnan ang resulta."
     }
   },
+  "ShareState": {
+    "checking": "Sinusuri ang status ng link…",
+    "readError": "Hindi masuri ang status ng link.",
+    "retry": "Subukang muli"
+  },
   "Remote": {
+    "refreshStatus": "I-refresh ang status",
+    "closeDoesNotCancel": "Hindi makakansela ang utos kapag isinara ang dialog na ito.",
+    "statusUnconfirmed": "Hindi pa kumpirmado ang resulta ng utos. Maaari pa ring tumakbo ang utos.",
+    "statusReadError": "Hindi masuri ang status ng utos. Maaari pa ring tumakbo ang utos.",
+    "submissionUnknown": "Hindi alam ang resulta ng pagpapadala. Tingnan ang Android bago magpadala ng isa pang utos.",
+    "commandReference": "Utos {id}",
+    "lastConfirmed": "Huling nakumpirma: {status}",
+    "submittedCommand": "Ipinadalang utos",
     "savedPlace": "Naka-save na lugar",
     "placePreviewLabel": "Preview ng utos para sa naka-save na lugar",
     "advancedTool": "Advanced na tool",

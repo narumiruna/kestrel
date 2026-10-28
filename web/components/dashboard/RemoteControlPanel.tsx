@@ -1,15 +1,15 @@
 'use client';
 
 import { useLocale, useTranslations } from 'next-intl';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { getSavedPlaceSnapshot } from '@/components/dashboard/savedPlaceSnapshot';
 import {
   getRemoteDeviceUnavailableReason,
   isRemoteDeviceCommandReady,
   useRemoteDevices,
 } from '@/components/dashboard/useRemoteDevices';
-import { formatRouteDistanceFromWaypoints } from '@/components/dashboard/utils';
-import { PlayIcon } from '@/components/ui/icons';
+import { formatCoord, formatRouteDistanceFromWaypoints } from '@/components/dashboard/utils';
+import { CheckIcon, Cross2Icon, PlayIcon, ReloadIcon } from '@/components/ui/icons';
 import { Button, DialogFrame, SelectField } from '@/components/ui/radix-ui';
 import { errorMessage } from '@/i18n/errors';
 import type {
@@ -47,7 +47,6 @@ type RemoteControlControlsProps = RemoteControlPanelProps & {
       };
   remote: ReturnType<typeof useRemoteDevices>;
 };
-type PendingAction = 'primary' | 'stop' | null;
 const STOP_COMMAND: CreateRemoteCommandRequest = { payload: {}, type: 'STOP' };
 
 export function PlaceRemoteControlAction({ place }: { place: Place | null }) {
@@ -98,12 +97,14 @@ export function PlaceRemoteControlAction({ place }: { place: Place | null }) {
 }
 
 export function RouteRemoteControlAction({
+  remote,
   isDirty,
   mode,
   route,
   speedKmh,
   waypoints,
 }: {
+  remote: ReturnType<typeof useRemoteDevices>;
   isDirty: boolean;
   mode: RouteMode;
   route: Route | null;
@@ -112,9 +113,11 @@ export function RouteRemoteControlAction({
 }) {
   const t = useTranslations('Remote');
   const locale = useLocale();
-  const remote = useRemoteDevices();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const routeDisabledReason = getRouteDisabledReason(route, waypoints, speedKmh, t);
+  useEffect(() => {
+    void remote.refresh();
+  }, [remote.refresh]);
 
   return (
     <DialogFrame
@@ -160,124 +163,98 @@ function RemoteControlControls({
 }: RemoteControlControlsProps) {
   const t = useTranslations('Remote');
   const errorT = useTranslations('Errors');
-  const [selectedDeviceId, setSelectedDeviceId] = useState('');
-  const [command, setCommand] = useState<RemoteCommand | null>(null);
-  const [commandError, setCommandError] = useState<unknown>(null);
-  const [isPollingCommand, setIsPollingCommand] = useState(false);
-  const [pendingAction, setPendingAction] = useState<PendingAction>(null);
-  const selectedDevice = useMemo(
-    () => remote.devices.find((device) => device.id === selectedDeviceId) ?? null,
-    [remote.devices, selectedDeviceId],
-  );
+  const locale = useLocale();
+  const selectedDevice =
+    remote.devices.find((device) => device.id === remote.selectedDeviceId) ?? null;
   const deviceUnavailableReason = getRemoteDeviceUnavailableReason(selectedDevice, t);
   const primaryUnavailableReason = primaryDisabledReason ?? deviceUnavailableReason;
-  const stopUnavailableReason = deviceUnavailableReason;
-
-  useEffect(() => {
-    setSelectedDeviceId((currentDeviceId) => {
-      if (remote.devices.some((device) => device.id === currentDeviceId)) return currentDeviceId;
-      return remote.controllableDevices[0]?.id ?? remote.devices[0]?.id ?? '';
-    });
-  }, [remote.controllableDevices, remote.devices]);
-
-  useEffect(() => {
-    setCommand((currentCommand) =>
-      currentCommand == null || currentCommand.deviceId === selectedDeviceId
-        ? currentCommand
-        : null,
-    );
-    setCommandError(null);
-  }, [selectedDeviceId]);
-
-  async function sendCommand(
-    request: CreateRemoteCommandRequest,
-    nextPendingAction: PendingAction,
-  ) {
-    if (selectedDevice == null) return;
-    setCommandError(null);
-    setPendingAction(nextPendingAction);
-    try {
-      const nextCommand = await remote.createCommand(selectedDevice.id, request);
-      setCommand(nextCommand);
-      setIsPollingCommand(true);
-      const completedCommand = await remote.pollCommandStatus(nextCommand, {
-        onUpdate: setCommand,
-      });
-      setCommand(completedCommand);
-    } catch (nextError) {
-      setCommandError(nextError);
-    } finally {
-      setIsPollingCommand(false);
-      setPendingAction(null);
-    }
+  const pending = remote.pendingAction != null;
+  const command = remote.command;
+  let preview = pending ? undefined : commandPreview;
+  if (pending && command?.type === 'SET_POINT') {
+    preview = {
+      kind: 'place',
+      source: t('submittedCommand'),
+      name: commandPreview?.kind === 'place' ? commandPreview.name : '',
+      coordinates: `${formatCoord(command.payload.point.latitude)}, ${formatCoord(command.payload.point.longitude)}`,
+    };
+  } else if (pending && command?.type === 'START_ROUTE') {
+    preview = {
+      kind: 'route',
+      source: t('submittedCommand'),
+      distance: formatRouteDistanceFromWaypoints(command.payload.waypoints, locale),
+      mode: t(`mode.${command.payload.mode}`),
+      speed: t('speed', { speed: command.payload.speedKmh }),
+      waypointCount: command.payload.waypoints.length,
+    };
   }
-
-  function sendPrimaryCommand() {
-    if (primaryUnavailableReason != null) return;
-    try {
-      void sendCommand(buildPrimaryCommand(), 'primary');
-    } catch (nextError) {
-      setCommandError(nextError);
-    }
-  }
-
-  function sendStopCommand() {
-    if (stopUnavailableReason != null) return;
-    void sendCommand(STOP_COMMAND, 'stop');
-  }
-
-  const statusMessage = getPanelStatusMessage(t, {
-    command,
-    fallbackReason: primaryUnavailableReason,
-    isPollingCommand,
-  });
+  const statusMessage =
+    pending && command == null
+      ? remote.isSubmitting
+        ? t('sending')
+        : t('submissionUnknown')
+      : pending && (remote.commandError != null || remote.unconfirmed)
+        ? remote.commandError != null
+          ? t('statusReadError')
+          : t('statusUnconfirmed')
+        : command == null
+          ? (primaryUnavailableReason ?? t('readyToSend'))
+          : t(`result.${command.status}`);
+  const StatusIcon =
+    command?.status === 'APPLIED'
+      ? CheckIcon
+      : command?.status === 'FAILED' || command?.status === 'EXPIRED'
+        ? Cross2Icon
+        : ReloadIcon;
 
   return (
     <div className={className}>
-      {remote.error == null ? null : <div className="error">{remote.error}</div>}
-      {commandError == null ? null : (
-        <div className="error">
-          {errorMessage(commandError, (key, values) =>
-            ['unexpected', 'http', 'server'].includes(key)
-              ? t('commandError')
-              : errorT(key, values),
-          )}
+      {remote.error == null || pending ? null : (
+        <div className="error" role="alert">
+          {remote.error}
         </div>
       )}
+      {!pending && remote.commandError != null ? (
+        <div className="error" role="alert">
+          {primaryUnavailableReason ?? errorMessage(remote.commandError, errorT)}
+        </div>
+      ) : null}
       <SelectField
-        disabled={remote.devices.length === 0 || remote.isLoading || pendingAction != null}
+        disabled={remote.devices.length === 0 || remote.isLoading || pending}
         label={t('device')}
         options={remote.devices.map((device) => ({
           label: formatDeviceOption(device, t),
           value: device.id,
         }))}
         placeholder={remote.devices.length === 0 ? t('noAndroidDevices') : t('chooseDevice')}
-        value={selectedDeviceId}
-        onValueChange={setSelectedDeviceId}
+        value={remote.selectedDeviceId}
+        onValueChange={remote.selectDevice}
       />
       <DeviceStatus device={selectedDevice} />
-      {commandPreview == null ? null : (
+      {preview == null ? null : (
         <section
           className="remote-command-preview"
-          aria-label={t(commandPreview.kind === 'place' ? 'placePreviewLabel' : 'previewLabel')}
+          aria-label={t(preview.kind === 'place' ? 'placePreviewLabel' : 'previewLabel')}
         >
-          <strong>{commandPreview.source}</strong>
-          {commandPreview.kind === 'place' ? (
+          <strong>{preview.source}</strong>
+          {preview.kind === 'place' ? (
             <>
-              <span>{commandPreview.name}</span>
-              <span className="font-mono">{commandPreview.coordinates}</span>
+              <span>{preview.name}</span>
+              <span className="font-mono">{preview.coordinates}</span>
             </>
           ) : (
             <span>
               {t('preview', {
-                count: commandPreview.waypointCount,
-                distance: commandPreview.distance,
-                speed: commandPreview.speed,
-                mode: commandPreview.mode,
+                count: preview.waypointCount,
+                distance: preview.distance,
+                speed: preview.speed,
+                mode: preview.mode,
               })}
             </span>
           )}
-          {selectedDevice?.state == null || selectedDevice.state.playbackState === 'IDLE' ? null : (
+          {pending ||
+          selectedDevice?.state == null ||
+          selectedDevice.state.playbackState === 'IDLE' ? null : (
             <span className="remote-replacement-warning">
               {t(`replacement.${selectedDevice.state.playbackState}`)}
             </span>
@@ -286,37 +263,57 @@ function RemoteControlControls({
       )}
       <div className="remote-control-actions">
         <Button
-          disabled={primaryUnavailableReason != null || pendingAction != null}
+          disabled={primaryUnavailableReason != null || pending || remote.isLoading}
           type="button"
-          onClick={sendPrimaryCommand}
+          onClick={() => void remote.sendCommand(buildPrimaryCommand, 'primary')}
         >
-          {pendingAction === 'primary' ? t('sending') : primaryActionLabel}
+          {remote.isSubmitting && remote.pendingAction === 'primary'
+            ? t('sending')
+            : primaryActionLabel}
         </Button>
         <Button
-          className="secondary"
-          disabled={stopUnavailableReason != null || pendingAction != null}
+          className="action-state-soft"
+          highContrast
+          variant="soft"
+          disabled={deviceUnavailableReason != null || pending || remote.isLoading}
           type="button"
-          onClick={sendStopCommand}
+          onClick={() => void remote.sendCommand(() => STOP_COMMAND, 'stop')}
         >
-          {pendingAction === 'stop' ? t('stopping') : t('stop')}
+          {remote.isSubmitting && remote.pendingAction === 'stop' ? t('stopping') : t('stop')}
         </Button>
         <Button
-          className="secondary"
-          disabled={remote.isLoading || pendingAction != null}
+          className="action-state-soft"
+          highContrast
+          variant={remote.commandError != null || remote.unconfirmed ? 'solid' : 'soft'}
+          disabled={remote.isRefreshing || remote.isSubmitting || remote.isPolling}
           type="button"
-          onClick={() => {
-            void remote.refresh().catch(() => {
-              /* The hook stores the error. */
-            });
-          }}
+          onClick={() => void remote.refresh()}
         >
-          {remote.isLoading ? t('refreshing') : t('refresh')}
+          <ReloadIcon /> {remote.isRefreshing ? t('refreshing') : t('refreshStatus')}
         </Button>
       </div>
-      <div className={getStatusClassName(command)} role="status">
-        {command == null ? null : <strong>{t(`status.${command.status}`)}</strong>}
+      <div
+        className={getStatusClassName(command)}
+        role={pending && remote.commandError != null ? 'alert' : 'status'}
+        aria-atomic="true"
+        aria-busy={remote.isSubmitting || remote.isPolling || remote.isRefreshing}
+      >
+        <span className="row">
+          <StatusIcon />
+          {command == null ? null : (
+            <strong>{t('lastConfirmed', { status: t(`status.${command.status}`) })}</strong>
+          )}
+        </span>
         <span>{statusMessage}</span>
+        {command == null ? null : (
+          <small className="font-mono">
+            {t('commandReference', {
+              id: command.id.length > 12 ? `…${command.id.slice(-8)}` : command.id,
+            })}
+          </small>
+        )}
       </div>
+      <p className="muted no-margin">{t('closeDoesNotCancel')}</p>
     </div>
   );
 }
@@ -375,24 +372,6 @@ function getRouteDisabledReason(
   if (waypoints.length < 2) return t('addWaypoints');
   if (!Number.isFinite(speedKmh) || speedKmh <= 0) return t('positiveSpeed');
   return null;
-}
-
-function getPanelStatusMessage(
-  t: RemoteTranslator,
-  {
-    command,
-    fallbackReason,
-    isPollingCommand,
-  }: {
-    command: RemoteCommand | null;
-    fallbackReason: string | null;
-    isPollingCommand: boolean;
-  },
-): string {
-  if (command == null) return fallbackReason ?? t('readyToSend');
-  if (['QUEUED', 'DELIVERED', 'APPLIED', 'FAILED', 'EXPIRED'].includes(command.status))
-    return t(`result.${command.status}`);
-  return isPollingCommand ? t('waiting') : t('readyToSend');
 }
 
 function getStatusClassName(command: RemoteCommand | null): string {
