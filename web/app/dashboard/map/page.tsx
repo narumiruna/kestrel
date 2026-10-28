@@ -13,7 +13,6 @@ import { useKeyboardShortcuts } from '@/components/cartographer/useKeyboardShort
 import { AiConfigurationSummary } from '@/components/dashboard/AiConfigurationSummary';
 import { matchesPlaceSearch, matchesRouteSearch } from '@/components/dashboard/librarySearch';
 import PlaceEditor from '@/components/dashboard/PlaceEditor';
-import { PlaceRemoteControlAction } from '@/components/dashboard/RemoteControlPanel';
 import RouteEditor from '@/components/dashboard/RouteEditor';
 import {
   createRouteDraftState,
@@ -67,6 +66,7 @@ type Coordinates = { latitude: number; longitude: number };
 
 export default function DashboardMapPage() {
   const t = useTranslations('MapWorkspace');
+  const placeT = useTranslations('PlaceEditor');
   const [draftActionGuard] = useState(createDraftActionGuard);
   const locale = useLocale();
   const tm = useTranslations('routeModes');
@@ -618,29 +618,7 @@ export default function DashboardMapPage() {
           )}
         </IndexCard>
       ) : (
-        <IndexCard
-          actions={
-            selectedPlace == null || isNewPlace ? undefined : (
-              <PlaceRemoteControlAction key={selectedPlace.id} place={selectedPlace} />
-            )
-          }
-          eyebrow={<span>{t('mapPlaces')}</span>}
-          meta={
-            <div className="index-card-coordinate-grid font-mono">
-              <span>
-                {t('lat')}
-                {formatCoord(activePlaceCoords.latitude)}
-              </span>
-              <span>
-                {t('lng')}
-                {formatCoord(activePlaceCoords.longitude)}
-              </span>
-            </div>
-          }
-          subtitle={t('moveThePinOrEnterExactCoordinatesThenSave')}
-          title={selectedLabel}
-          variant="place"
-        >
+        <IndexCard title={isNewPlace ? t('newPlace') : placeT('detailsTitle')} variant="place">
           {selectedPlace == null && !isNewPlace ? (
             <MapEmptySelection kind="place" />
           ) : (
@@ -806,6 +784,7 @@ function MapLibraryPanel({
           aria-label={t('newKind', { kind: activeKind })}
           className="map-picker-new"
           type="button"
+          variant="soft"
           onClick={onNew}
         >
           <PlusIcon aria-hidden /> {t('newKind', { kind: activeKind })}

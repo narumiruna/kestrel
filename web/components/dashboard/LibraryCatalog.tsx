@@ -359,7 +359,6 @@ function PlaceLibraryRow({ place, onDeleted }: { place: Place; onDeleted: () => 
       <Link
         className="library-item-main library-columns"
         href={`/dashboard/map?kind=places&selected=${encodeURIComponent(place.id)}`}
-        aria-label={t('openItem', { name: place.name })}
       >
         <div className="library-item-title-row">
           <h3 title={place.name}>{place.name}</h3>
@@ -400,7 +399,6 @@ function RouteLibraryRow({ route, onDeleted }: { route: Route; onDeleted: () => 
       <Link
         className="library-item-main library-columns"
         href={`/dashboard/map?kind=routes&selected=${encodeURIComponent(route.id)}`}
-        aria-label={t('openItem', { name: route.name })}
       >
         <div className="library-item-title-row">
           <h3 title={route.name}>{route.name}</h3>

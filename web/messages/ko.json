@@ -210,6 +210,10 @@
     "copyCoordinates": "{name} 좌표 복사"
   },
   "PlaceEditor": {
+    "detailsTitle": "장소 세부 정보",
+    "savedPlace": "저장된 장소",
+    "savedLocationHelp": "기기와 공유는 이 저장된 위치를 사용합니다. 변경 사항을 사용하려면 저장하세요.",
+    "saveToUse": "이 장소를 기기에서 사용하거나 공유하려면 저장하세요.",
     "name": "이름",
     "latitude": "위도",
     "longitude": "경도",
@@ -583,6 +587,8 @@
     }
   },
   "Remote": {
+    "savedPlace": "저장된 장소",
+    "placePreviewLabel": "저장된 장소 명령 미리보기",
     "advancedTool": "고급 도구",
     "title": "웹 원격 제어",
     "device": "기기",

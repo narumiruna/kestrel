@@ -210,6 +210,10 @@
     "copyCoordinates": "{name} の座標をコピー"
   },
   "PlaceEditor": {
+    "detailsTitle": "場所の詳細",
+    "savedPlace": "保存済みの場所",
+    "savedLocationHelp": "「デバイス」と「共有」では、この保存済みの位置を使用します。変更を使用するには保存してください。",
+    "saveToUse": "デバイスで使用したり共有したりするには、この場所を保存してください。",
     "name": "名前",
     "latitude": "緯度",
     "longitude": "経度",
@@ -583,6 +587,8 @@
     }
   },
   "Remote": {
+    "savedPlace": "保存済みの場所",
+    "placePreviewLabel": "保存済みの場所のコマンドプレビュー",
     "advancedTool": "高度なツール",
     "title": "Web リモート操作",
     "device": "デバイス",

@@ -210,6 +210,10 @@
     "copyCoordinates": "複製 {name} 的座標"
   },
   "PlaceEditor": {
+    "detailsTitle": "地點詳細資料",
+    "savedPlace": "已儲存地點",
+    "savedLocationHelp": "「裝置」與「分享」使用此已儲存的位置。請儲存以使用你的變更。",
+    "saveToUse": "請先儲存此地點，才能在裝置上使用或分享。",
     "name": "名稱",
     "latitude": "緯度",
     "longitude": "經度",
@@ -583,6 +587,8 @@
     }
   },
   "Remote": {
+    "savedPlace": "已儲存地點",
+    "placePreviewLabel": "已儲存地點指令預覽",
     "advancedTool": "進階工具",
     "title": "網頁遠端控制",
     "device": "裝置",

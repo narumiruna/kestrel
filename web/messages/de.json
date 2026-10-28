@@ -216,6 +216,10 @@
     "copyCoordinates": "Koordinaten für {name} kopieren"
   },
   "PlaceEditor": {
+    "detailsTitle": "Ortsdetails",
+    "savedPlace": "Gespeicherter Ort",
+    "savedLocationHelp": "Gerät und Teilen verwenden diesen gespeicherten Standort. Speichere, um deine Änderungen zu verwenden.",
+    "saveToUse": "Speichere diesen Ort, um ihn auf einem Gerät zu verwenden oder zu teilen.",
     "name": "Name",
     "latitude": "Breitengrad",
     "longitude": "Längengrad",
@@ -589,6 +593,8 @@
     }
   },
   "Remote": {
+    "savedPlace": "Gespeicherter Ort",
+    "placePreviewLabel": "Vorschau des Befehls für den gespeicherten Ort",
     "advancedTool": "Erweitertes Werkzeug",
     "title": "Web-Fernsteuerung",
     "device": "Gerät",

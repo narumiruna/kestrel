@@ -126,6 +126,147 @@
   box-shadow: 0 7px 20px rgb(34 24 15 / 12%);
 }
 
+.cartographer-stage-map button.map-picker-new,
+.cartographer-stage-map button.map-picker-new:hover:not(:disabled) {
+  background: var(--accent-soft);
+  border-color: transparent;
+  box-shadow: none;
+  color: var(--kestrel-on-primary-soft);
+  transform: none;
+}
+
+/* Place editing keeps the draft completion action separate from saved-content actions. */
+.cartographer-stage-map .index-card-place .index-card-header {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.cartographer-stage-map .index-card-place .index-card-header h2 {
+  font-size: 20px;
+  line-height: 1.3;
+  margin: 0;
+}
+
+.cartographer-stage-map .index-card-place .index-card-body {
+  min-inline-size: 0;
+  padding-top: 18px;
+}
+
+.cartographer-stage-map .place-editor-content {
+  gap: 16px;
+  scrollbar-gutter: auto;
+}
+
+.place-coordinate-help,
+.place-save-first {
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.place-saved-section {
+  border-top: 1px solid var(--border);
+  display: grid;
+  gap: 8px;
+  min-inline-size: 0;
+  padding-top: 16px;
+}
+
+.place-saved-section h3 {
+  color: var(--text-secondary);
+  font-size: 13px;
+  margin: 0;
+}
+
+.place-saved-identity,
+.place-share-source {
+  display: grid;
+  gap: 4px;
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.place-saved-identity strong {
+  font-size: 14px;
+}
+
+.place-saved-identity .font-mono,
+.place-share-source .font-mono {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.place-saved-help {
+  color: var(--warning);
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.place-saved-action-buttons {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 4px;
+}
+
+.place-saved-action-buttons > button {
+  min-block-size: 44px;
+  min-inline-size: 0;
+  white-space: normal;
+}
+
+.place-saved-action-buttons .device-action-button {
+  flex-direction: column;
+  gap: 2px;
+}
+
+.place-share-source {
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  gap: 8px;
+  padding: 12px;
+}
+
+.cartographer-stage-map .index-card-place .place-save-footer {
+  box-shadow: none;
+  display: grid;
+  gap: 10px;
+  min-inline-size: 0;
+}
+
+.place-save-state {
+  align-items: center;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-inline-size: 0;
+}
+
+.place-save-state > span {
+  font-size: 12px;
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.place-save-state .unsaved-changes-label {
+  color: var(--warning);
+}
+
+.place-save-state > button {
+  font-size: 12px;
+  max-inline-size: 100%;
+  white-space: normal;
+}
+
+.place-save-primary {
+  inline-size: 100%;
+  min-block-size: 44px;
+  min-inline-size: 0;
+  white-space: normal;
+}
+
 /* Route builder redesign: path-first hierarchy with one draft and one completion action. */
 .route-settings-tabs {
   margin-top: 8px;
@@ -519,9 +660,15 @@
   box-shadow: inset 0 0 0 1px var(--workspace-control-border);
 }
 
+.remote-command-preview {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
 .remote-command-preview strong,
 .remote-command-preview span {
   display: block;
+  min-inline-size: 0;
 }
 
 .remote-replacement-warning {

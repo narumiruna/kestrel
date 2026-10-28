@@ -213,6 +213,10 @@
     "copyCoordinates": "Copier les coordonnées de {name}"
   },
   "PlaceEditor": {
+    "detailsTitle": "Détails du lieu",
+    "savedPlace": "Lieu enregistré",
+    "savedLocationHelp": "Appareil et Partager utilisent cette position enregistrée. Enregistrez pour utiliser vos modifications.",
+    "saveToUse": "Enregistrez ce lieu pour l’utiliser sur un appareil ou le partager.",
     "name": "Nom",
     "latitude": "Latitude",
     "longitude": "Longitude",
@@ -586,6 +590,8 @@
     }
   },
   "Remote": {
+    "savedPlace": "Lieu enregistré",
+    "placePreviewLabel": "Aperçu de la commande du lieu enregistré",
     "advancedTool": "Outil avancé",
     "title": "Contrôle à distance web",
     "device": "Appareil",
