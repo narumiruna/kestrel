@@ -2,6 +2,7 @@
 
 import { useLocale, useTranslations } from 'next-intl';
 import { useEffect, useMemo, useState } from 'react';
+import { getSavedPlaceSnapshot } from '@/components/dashboard/savedPlaceSnapshot';
 import {
   getRemoteDeviceUnavailableReason,
   isRemoteDeviceCommandReady,
@@ -29,13 +30,21 @@ type RemoteControlPanelProps = {
 };
 type RemoteControlControlsProps = RemoteControlPanelProps & {
   className?: string;
-  commandPreview?: {
-    distance: string;
-    mode: string;
-    source: string;
-    speed: string;
-    waypointCount: number;
-  };
+  commandPreview?:
+    | {
+        coordinates: string;
+        kind: 'place';
+        name: string;
+        source: string;
+      }
+    | {
+        distance: string;
+        kind: 'route';
+        mode: string;
+        source: string;
+        speed: string;
+        waypointCount: number;
+      };
   remote: ReturnType<typeof useRemoteDevices>;
 };
 type PendingAction = 'primary' | 'stop' | null;
@@ -43,6 +52,7 @@ const STOP_COMMAND: CreateRemoteCommandRequest = { payload: {}, type: 'STOP' };
 
 export function PlaceRemoteControlAction({ place }: { place: Place | null }) {
   const t = useTranslations('Remote');
+  const savedPlace = getSavedPlaceSnapshot(place);
   const remote = useRemoteDevices();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
@@ -62,13 +72,23 @@ export function PlaceRemoteControlAction({ place }: { place: Place | null }) {
     >
       <RemoteControlControls
         buildPrimaryCommand={() => {
-          if (place == null) throw new Error(t('savePlace'));
+          if (savedPlace == null) throw new Error(t('savePlace'));
           return {
-            payload: { point: { latitude: place.latitude, longitude: place.longitude } },
+            payload: { point: savedPlace.point },
             type: 'SET_POINT',
           };
         }}
         className="place-action-dialog-content remote-control-content"
+        commandPreview={
+          savedPlace == null
+            ? undefined
+            : {
+                coordinates: savedPlace.coordinates,
+                kind: 'place',
+                name: savedPlace.name,
+                source: t('savedPlace'),
+              }
+        }
         primaryActionLabel={t('mockOnDevice')}
         primaryDisabledReason={place == null ? t('savePlace') : null}
         remote={remote}
@@ -115,6 +135,7 @@ export function RouteRemoteControlAction({
         buildPrimaryCommand={() => buildRouteRemoteCommand(route, waypoints, speedKmh, mode, t)}
         className="place-action-dialog-content remote-control-content"
         commandPreview={{
+          kind: 'route',
           distance: formatRouteDistanceFromWaypoints(waypoints, locale),
           mode: t(`mode.${mode}`),
           source: isDirty ? t('draft') : t('saved'),
@@ -236,16 +257,26 @@ function RemoteControlControls({
       />
       <DeviceStatus device={selectedDevice} />
       {commandPreview == null ? null : (
-        <section className="remote-command-preview" aria-label={t('previewLabel')}>
+        <section
+          className="remote-command-preview"
+          aria-label={t(commandPreview.kind === 'place' ? 'placePreviewLabel' : 'previewLabel')}
+        >
           <strong>{commandPreview.source}</strong>
-          <span>
-            {t('preview', {
-              count: commandPreview.waypointCount,
-              distance: commandPreview.distance,
-              speed: commandPreview.speed,
-              mode: commandPreview.mode,
-            })}
-          </span>
+          {commandPreview.kind === 'place' ? (
+            <>
+              <span>{commandPreview.name}</span>
+              <span className="font-mono">{commandPreview.coordinates}</span>
+            </>
+          ) : (
+            <span>
+              {t('preview', {
+                count: commandPreview.waypointCount,
+                distance: commandPreview.distance,
+                speed: commandPreview.speed,
+                mode: commandPreview.mode,
+              })}
+            </span>
+          )}
           {selectedDevice?.state == null || selectedDevice.state.playbackState === 'IDLE' ? null : (
             <span className="remote-replacement-warning">
               {t(`replacement.${selectedDevice.state.playbackState}`)}

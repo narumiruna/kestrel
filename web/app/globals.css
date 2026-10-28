@@ -6392,25 +6392,6 @@ button.route-marker:focus-visible {
   z-index: 45;
 }
 
-.place-editor-footer-actions,
-.place-editor-save-actions {
-  align-items: center;
-  display: flex;
-  gap: 8px;
-}
-
-.place-editor-footer-actions {
-  justify-content: space-between;
-}
-
-.place-editor-save-actions {
-  justify-content: flex-end;
-}
-
-.place-editor-danger-actions {
-  min-width: 0;
-}
-
 .place-action-dialog {
   background: transparent;
   border: 0;

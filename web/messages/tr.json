@@ -213,6 +213,10 @@
     "copyCoordinates": "{name} için koordinatları kopyala"
   },
   "PlaceEditor": {
+    "detailsTitle": "Yer ayrıntıları",
+    "savedPlace": "Kayıtlı yer",
+    "savedLocationHelp": "Cihaz ve Paylaş bu kayıtlı konumu kullanır. Değişikliklerini kullanmak için kaydet.",
+    "saveToUse": "Bu yeri bir cihazda kullanmak veya paylaşmak için kaydet.",
     "name": "Ad",
     "latitude": "Enlem",
     "longitude": "Boylam",
@@ -586,6 +590,8 @@
     }
   },
   "Remote": {
+    "savedPlace": "Kayıtlı yer",
+    "placePreviewLabel": "Kayıtlı yer komutu önizlemesi",
     "advancedTool": "Gelişmiş araç",
     "title": "Web uzaktan kontrolü",
     "device": "Cihaz",

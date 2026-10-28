@@ -213,6 +213,10 @@
     "copyCoordinates": "Sao chép tọa độ của {name}"
   },
   "PlaceEditor": {
+    "detailsTitle": "Chi tiết địa điểm",
+    "savedPlace": "Địa điểm đã lưu",
+    "savedLocationHelp": "Thiết bị và Chia sẻ sử dụng vị trí đã lưu này. Lưu để sử dụng các thay đổi của bạn.",
+    "saveToUse": "Lưu địa điểm này để sử dụng trên thiết bị hoặc chia sẻ.",
     "name": "Tên",
     "latitude": "Vĩ độ",
     "longitude": "Kinh độ",
@@ -586,6 +590,8 @@
     }
   },
   "Remote": {
+    "savedPlace": "Địa điểm đã lưu",
+    "placePreviewLabel": "Xem trước lệnh địa điểm đã lưu",
     "advancedTool": "Công cụ nâng cao",
     "title": "Điều khiển từ xa qua web",
     "device": "Thiết bị",

@@ -1,10 +1,13 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
-import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { type FormEvent, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { PlaceRemoteControlAction } from '@/components/dashboard/RemoteControlPanel';
+import { getSavedPlaceSnapshot } from '@/components/dashboard/savedPlaceSnapshot';
 import { useShareLink } from '@/components/dashboard/useShareLink';
 import { normalizeNullable, parseNumber, toAbsolutePublicUrl } from '@/components/dashboard/utils';
 import { DEFAULT_MAP_CENTER } from '@/components/mapStyle';
+import { Share2Icon } from '@/components/ui/icons';
 import { Button, DialogFrame, Disclosure, TextArea, TextInput } from '@/components/ui/radix-ui';
 import { errorMessage } from '@/i18n/errors';
 import type { Place, PlaceInput } from '@/lib/api';
@@ -25,6 +28,10 @@ export default function PlaceEditor({
   place: Place | null;
 }) {
   const t = useTranslations('PlaceEditor');
+  const mapT = useTranslations('MapWorkspace');
+  const coordinateHelpId = useId();
+  const savedPlaceHeadingId = useId();
+  const savedPlace = getSavedPlaceSnapshot(place);
   const [name, setName] = useState(place?.name ?? '');
   const [latitude, setLatitude] = useState(() =>
     formatCoordinateInput(place?.latitude ?? draftCoords?.latitude ?? DEFAULT_MAP_CENTER.latitude),
@@ -194,6 +201,7 @@ export default function PlaceEditor({
             {t('latitude')}
             <TextInput
               id="radix-field-components-dashboard-placeeditor-tsx-2"
+              aria-describedby={coordinateHelpId}
               required
               inputMode="decimal"
               value={latitude}
@@ -204,6 +212,7 @@ export default function PlaceEditor({
             {t('longitude')}
             <TextInput
               id="radix-field-components-dashboard-placeeditor-tsx-3"
+              aria-describedby={coordinateHelpId}
               required
               inputMode="decimal"
               value={longitude}
@@ -211,7 +220,9 @@ export default function PlaceEditor({
             />
           </label>
         </div>
-        <p className="muted">{t('coordinateHelp')}</p>
+        <p className="muted place-coordinate-help" id={coordinateHelpId}>
+          {mapT('moveThePinOrEnterExactCoordinatesThenSave')} {t('coordinateHelp')}
+        </p>
         <Disclosure className="editor-more-details" summary={t('moreDetails')}>
           <div className="stack">
             <label htmlFor="radix-field-components-dashboard-placeeditor-tsx-4">
@@ -232,43 +243,65 @@ export default function PlaceEditor({
             </label>
           </div>
         </Disclosure>
-      </div>
-      <footer className="route-editor-footer place-editor-footer">
-        <div className="place-editor-footer-actions">
-          <div className="place-editor-danger-actions"></div>
-          <div className="place-editor-save-actions">
-            {isDirty ? <span className="unsaved-changes-label">{t('unsavedChanges')}</span> : null}
-            {isDirty ? (
-              <Button
-                className="secondary"
-                disabled={isSaving}
-                type="button"
-                onClick={discardChanges}
-              >
-                {t('discardChanges')}
-              </Button>
-            ) : null}
-            {place == null ? null : (
+        {savedPlace == null ? (
+          <p className="muted place-save-first">{t('saveToUse')}</p>
+        ) : (
+          <section className="place-saved-section" aria-labelledby={savedPlaceHeadingId}>
+            <h3 id={savedPlaceHeadingId}>{t('savedPlace')}</h3>
+            <div className="place-saved-identity">
+              <strong>{savedPlace.name}</strong>
+              <span className="font-mono">{savedPlace.coordinates}</span>
+            </div>
+            {isDirty ? <p className="place-saved-help">{t('savedLocationHelp')}</p> : null}
+            <div className="place-saved-action-buttons">
+              <PlaceRemoteControlAction place={place} />
               <DialogFrame
                 className="place-action-dialog-card"
-                eyebrow={t('secondaryAction')}
+                eyebrow={t('savedPlace')}
                 open={isShareDialogOpen}
                 title={t('sharePlace')}
                 trigger={
                   <Button className="secondary" type="button">
-                    {t('share')}
+                    <Share2Icon aria-hidden /> {t('share')}
                   </Button>
                 }
                 onOpenChange={setIsShareDialogOpen}
               >
+                <div className="place-share-source">
+                  <strong>{savedPlace.name}</strong>
+                  <span className="font-mono">{savedPlace.coordinates}</span>
+                  {isDirty ? <p className="place-saved-help">{t('savedLocationHelp')}</p> : null}
+                </div>
                 <PlaceSharePanel place={place} />
               </DialogFrame>
-            )}
-            <Button disabled={isSaving} type="submit">
-              {isSaving ? t('saving') : saveNotice == null ? t('savePlace') : t('saved')}
+            </div>
+          </section>
+        )}
+      </div>
+      <footer className="place-editor-footer place-save-footer">
+        <div className="place-save-state">
+          <span
+            className={isDirty || place == null ? 'unsaved-changes-label' : 'muted'}
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+          >
+            {isSaving ? t('saving') : isDirty || place == null ? t('unsavedChanges') : t('saved')}
+          </span>
+          {isDirty ? (
+            <Button
+              className="secondary"
+              disabled={isSaving}
+              type="button"
+              onClick={discardChanges}
+            >
+              {t('discardChanges')}
             </Button>
-          </div>
+          ) : null}
         </div>
+        <Button className="place-save-primary" disabled={isSaving} type="submit">
+          {isSaving ? t('saving') : saveNotice == null ? t('savePlace') : t('saved')}
+        </Button>
       </footer>
     </form>
   );

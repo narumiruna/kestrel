@@ -213,6 +213,10 @@
     "copyCoordinates": "Kopiuj współrzędne dla {name}"
   },
   "PlaceEditor": {
+    "detailsTitle": "Szczegóły miejsca",
+    "savedPlace": "Zapisane miejsce",
+    "savedLocationHelp": "Urządzenie i Udostępnij używają tej zapisanej lokalizacji. Zapisz, aby użyć zmian.",
+    "saveToUse": "Zapisz to miejsce, aby używać go na urządzeniu lub je udostępnić.",
     "name": "Nazwa",
     "latitude": "Szerokość geograficzna",
     "longitude": "Długość geograficzna",
@@ -586,6 +590,8 @@
     }
   },
   "Remote": {
+    "savedPlace": "Zapisane miejsce",
+    "placePreviewLabel": "Podgląd polecenia zapisanego miejsca",
     "advancedTool": "Narzędzie zaawansowane",
     "title": "Zdalne sterowanie przez przeglądarkę",
     "device": "Urządzenie",

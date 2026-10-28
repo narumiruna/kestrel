@@ -213,6 +213,10 @@
     "copyCoordinates": "Kopyahin ang mga coordinate ng {name}"
   },
   "PlaceEditor": {
+    "detailsTitle": "Mga detalye ng lugar",
+    "savedPlace": "Naka-save na lugar",
+    "savedLocationHelp": "Ginagamit ng Device at Ibahagi ang naka-save na lokasyong ito. I-save para magamit ang iyong mga pagbabago.",
+    "saveToUse": "I-save ang lugar na ito para magamit sa device o maibahagi ito.",
     "name": "Pangalan",
     "latitude": "Latitude",
     "longitude": "Longitude",
@@ -586,6 +590,8 @@
     }
   },
   "Remote": {
+    "savedPlace": "Naka-save na lugar",
+    "placePreviewLabel": "Preview ng utos para sa naka-save na lugar",
     "advancedTool": "Advanced na tool",
     "title": "Web remote control",
     "device": "Device",

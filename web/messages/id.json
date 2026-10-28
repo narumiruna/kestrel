@@ -210,6 +210,10 @@
     "copyCoordinates": "Salin koordinat {name}"
   },
   "PlaceEditor": {
+    "detailsTitle": "Detail tempat",
+    "savedPlace": "Tempat tersimpan",
+    "savedLocationHelp": "Perangkat dan Bagikan menggunakan lokasi tersimpan ini. Simpan untuk menggunakan perubahan Anda.",
+    "saveToUse": "Simpan tempat ini untuk menggunakannya di perangkat atau membagikannya.",
     "name": "Nama",
     "latitude": "Lintang",
     "longitude": "Bujur",
@@ -583,6 +587,8 @@
     }
   },
   "Remote": {
+    "savedPlace": "Tempat tersimpan",
+    "placePreviewLabel": "Pratinjau perintah tempat tersimpan",
     "advancedTool": "Alat lanjutan",
     "title": "Kendali jarak jauh web",
     "device": "Perangkat",

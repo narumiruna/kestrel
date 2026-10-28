@@ -213,6 +213,10 @@
     "copyCoordinates": "Coördinaten voor {name} kopiëren"
   },
   "PlaceEditor": {
+    "detailsTitle": "Plaatsdetails",
+    "savedPlace": "Opgeslagen plaats",
+    "savedLocationHelp": "Apparaat en Delen gebruiken deze opgeslagen locatie. Sla op om je wijzigingen te gebruiken.",
+    "saveToUse": "Sla deze plaats op om deze op een apparaat te gebruiken of te delen.",
     "name": "Naam",
     "latitude": "Breedtegraad",
     "longitude": "Lengtegraad",
@@ -586,6 +590,8 @@
     }
   },
   "Remote": {
+    "savedPlace": "Opgeslagen plaats",
+    "placePreviewLabel": "Voorbeeld van opdracht voor opgeslagen plaats",
     "advancedTool": "Geavanceerd gereedschap",
     "title": "Webbediening op afstand",
     "device": "Apparaat",

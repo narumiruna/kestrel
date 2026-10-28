@@ -210,6 +210,10 @@
     "copyCoordinates": "Copia coordinate di {name}"
   },
   "PlaceEditor": {
+    "detailsTitle": "Dettagli del luogo",
+    "savedPlace": "Luogo salvato",
+    "savedLocationHelp": "Dispositivo e Condividi usano questa posizione salvata. Salva per usare le modifiche.",
+    "saveToUse": "Salva questo luogo per usarlo su un dispositivo o condividerlo.",
     "name": "Nome",
     "latitude": "Latitudine",
     "longitude": "Longitudine",
@@ -583,6 +587,8 @@
     }
   },
   "Remote": {
+    "savedPlace": "Luogo salvato",
+    "placePreviewLabel": "Anteprima del comando per il luogo salvato",
     "advancedTool": "Strumento avanzato",
     "title": "Controllo remoto web",
     "device": "Dispositivo",

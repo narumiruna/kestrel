@@ -210,6 +210,10 @@
     "copyCoordinates": "Salin koordinat untuk {name}"
   },
   "PlaceEditor": {
+    "detailsTitle": "Butiran tempat",
+    "savedPlace": "Tempat tersimpan",
+    "savedLocationHelp": "Peranti dan Kongsi menggunakan lokasi tersimpan ini. Simpan untuk menggunakan perubahan anda.",
+    "saveToUse": "Simpan tempat ini untuk menggunakannya pada peranti atau berkongsinya.",
     "name": "Nama",
     "latitude": "Latitud",
     "longitude": "Longitud",
@@ -583,6 +587,8 @@
     }
   },
   "Remote": {
+    "savedPlace": "Tempat tersimpan",
+    "placePreviewLabel": "Pratonton arahan tempat tersimpan",
     "advancedTool": "Alat lanjutan",
     "title": "Kawalan jauh web",
     "device": "Peranti",

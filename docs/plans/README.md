@@ -27,6 +27,8 @@ The [2026-10-18 Web Account settings plan](archived/2026-10-18_web-account-setti
 
 The [2026-10-28 Project structure cleanup](archived/2026-10-28_project-structure-plan.md) is complete: canonical public API documentation, Account CSS and navigation ownership, application-level Android remote-control lifecycle wiring, and ignored build caches. All local checks passed; physical-device verification limits remain documented in the plan and [PR #368](https://github.com/narumiruna/kestrel/pull/368).
 
+The [2026-10-28 Task-first Web place editing](archived/2026-10-28_web-place-editor-ux-plan.md) is complete: apply the generated design proposal to the Place inspector, separate saved-location actions, fix clipped completion controls, and preserve distinguishing Library link text. Web checks, all 18 catalogs, and 28 native Chrome checks passed; see [PR #369](https://github.com/narumiruna/kestrel/pull/369), based on #368.
+
 ## Security references
 
 - `../device-session-security.md` — session/device trust boundaries, step-up rules, revocation semantics, and remote-command cancellation limits.

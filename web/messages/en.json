@@ -210,6 +210,10 @@
     "copyCoordinates": "Copy coordinates for {name}"
   },
   "PlaceEditor": {
+    "detailsTitle": "Place details",
+    "savedPlace": "Saved place",
+    "savedLocationHelp": "Device and Share use this saved location. Save to use your changes.",
+    "saveToUse": "Save this place to use it on a device or share it.",
     "name": "Name",
     "latitude": "Latitude",
     "longitude": "Longitude",
@@ -583,6 +587,8 @@
     }
   },
   "Remote": {
+    "savedPlace": "Saved place",
+    "placePreviewLabel": "Saved place command preview",
     "advancedTool": "Advanced tool",
     "title": "Web remote control",
     "device": "Device",
