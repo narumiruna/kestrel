@@ -1,4 +1,9 @@
-import type { CreateRemoteCommandRequest, RemoteCommand, RemoteDevice } from '../../lib/api.ts';
+import {
+  ApiError,
+  type CreateRemoteCommandRequest,
+  type RemoteCommand,
+  type RemoteDevice,
+} from '../../lib/api.ts';
 
 export type PendingRemoteAction = 'primary' | 'stop';
 export type RemoteCommandSnapshot = {
@@ -157,8 +162,17 @@ export function createRemoteCommandTracker(transport: Transport) {
       }
       if (current(owner) && snapshot.pendingAction != null) update({ unconfirmed: true });
     } catch (error) {
-      // A lost POST response is ambiguous. Do not automatically submit it again.
-      if (current(owner)) update({ error, unconfirmed: true });
+      if (!current(owner)) return;
+      // These API rejections occur before enqueueing. Other failures can be ambiguous.
+      const rejected =
+        snapshot.command == null &&
+        error instanceof ApiError &&
+        [400, 401, 404, 409, 413].includes(error.status);
+      update({
+        error,
+        unconfirmed: !rejected,
+        ...(rejected ? { pendingAction: null } : {}),
+      });
     } finally {
       if (current(owner)) update({ isSubmitting: false, isPolling: false });
     }

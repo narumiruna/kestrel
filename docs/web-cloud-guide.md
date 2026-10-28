@@ -86,6 +86,8 @@ After sending a command, the dialog retains its command reference and last confi
 
 If the result cannot be confirmed, the command may still run. The send controls stay unavailable for that unresolved operation. If submission itself has no confirmed result, check Android; do not assume that the request failed or repeat it automatically.
 
+A confirmed API rejection, such as a device conflict, is different from an unknown result. The rejection error stays visible, but it does not keep an unresolved operation. Check the error and device status. You can select another device or send a new command when the selected device is ready. No command is retried automatically.
+
 **Close** or Escape closes the Device dialog without cancelling the command. Reopening the same Device action restores pending tracking, including a submission whose response has not arrived. Switching Route tabs also preserves that tracking. Reloading or leaving the current editor can end local tracking; these actions do not cancel a command already sent. Check Android before starting another operation after local tracking ends. Stop keeps its existing availability rules and is not an immediate cancellation guarantee.
 
 ## Cancellation and recovery

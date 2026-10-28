@@ -31,6 +31,8 @@ The [2026-10-28 Task-first Web place editing](archived/2026-10-28_web-place-edit
 
 The [2026-10-28 Web action-state review](archived/2026-10-28_web-action-state-review-plan.md) is implemented: request-owned Share state and read-only Retry, editor-owned command tracking across dialogs and Route tabs, matching-command Refresh, and 18-locale status messages. Node.js 22 Web checks passed with 241 tests and 332 Chrome checks. The archived plan retains external device limits and required human language review; keep the delivery PR in draft until language acceptance is recorded. PR #370's separate workspace findings remain open.
 
+The [2026-10-28 Remote command rejection recovery](archived/2026-10-28_remote-command-rejection-plan.md) resolves PR #372's confirmed-rejection lock. The error remains visible, explicit sends can recover, and unknown submissions keep duplicate-send protection. All 264 Web tests and 66 Chrome fixture checks passed. The original language and physical-device acceptance limits remain.
+
 ## Security references
 
 - `../device-session-security.md` — session/device trust boundaries, step-up rules, revocation semantics, and remote-command cancellation limits.

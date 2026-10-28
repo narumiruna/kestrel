@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
-import type { CreateRemoteCommandRequest, RemoteCommand, RemoteDevice } from '../../lib/api.ts';
+import {
+  ApiError,
+  type CreateRemoteCommandRequest,
+  type RemoteCommand,
+  type RemoteDevice,
+} from '../../lib/api.ts';
 import { createRemoteCommandTracker } from './remoteCommandState.ts';
 
 const time = '2026-10-28T08:00:00.000Z';
@@ -219,6 +224,128 @@ test('an ambiguous POST failure is not automatically submitted again or called r
   await s.tracker.refresh();
   assert.equal(attempts, 1);
   assert.equal(s.tracker.getSnapshot().pendingAction, 'primary');
+});
+
+for (const status of [400, 401, 404, 409, 413]) {
+  test(`confirmed POST rejection ${status} releases the guard without resubmitting`, async () => {
+    const s = setup();
+    const rejection = new ApiError('private rejection detail', status);
+    let posts = 0;
+    s.transport.createCommand = async () => {
+      posts += 1;
+      throw rejection;
+    };
+    await s.tracker.send(() => request, 'primary');
+    assert.equal(s.tracker.getSnapshot().command, null);
+    assert.equal(s.tracker.getSnapshot().pendingAction, null);
+    assert.equal(s.tracker.getSnapshot().isSubmitting, false);
+    assert.equal(s.tracker.getSnapshot().isPolling, false);
+    assert.equal(s.tracker.getSnapshot().unconfirmed, false);
+    assert.equal(s.tracker.getSnapshot().error, rejection);
+    assert.equal(s.counts().reads, 0);
+    await s.tracker.refresh();
+    assert.equal(posts, 1);
+    assert.equal(s.tracker.getSnapshot().error, rejection);
+    s.tracker.selectDevice('other-device');
+    assert.equal(s.tracker.getSnapshot().selectedDeviceId, 'other-device');
+    s.tracker.selectDevice('device-1');
+    s.transport.createCommand = async () => {
+      posts += 1;
+      return command('APPLIED');
+    };
+    await s.tracker.send(() => request, 'primary');
+    assert.equal(posts, 2);
+    assert.equal(s.tracker.getSnapshot().command?.status, 'APPLIED');
+    assert.equal(s.tracker.getSnapshot().error, null);
+  });
+
+  test(`status-read rejection ${status} does not release an accepted command's guard`, async () => {
+    const s = setup();
+    const failure = new ApiError('status read rejected', status);
+    s.setFailure(failure);
+    await s.tracker.send(() => request, 'primary');
+    await s.tracker.refresh();
+    assert.equal(s.tracker.getSnapshot().command?.id, 'command-1');
+    assert.equal(s.tracker.getSnapshot().pendingAction, 'primary');
+    assert.equal(s.tracker.getSnapshot().unconfirmed, true);
+    assert.equal(s.tracker.getSnapshot().error, failure);
+    await s.tracker.send(() => request, 'primary');
+    assert.equal(s.counts().posts, 1);
+  });
+}
+
+for (const [label, failure] of [
+  ['network', new TypeError('response lost')],
+  ['abort', new DOMException('aborted', 'AbortError')],
+  ['timeout', new DOMException('timed out', 'TimeoutError')],
+  ['malformed response', new SyntaxError('invalid response JSON')],
+  ['HTTP timeout', new ApiError('timeout', 408)],
+  ['unknown client error', new ApiError('unknown', 418)],
+  ['closed connection', new ApiError('closed', 499)],
+  ['server error', new ApiError('device is revoked', 500)],
+  ['gateway error', new ApiError('gateway unavailable', 502)],
+  ['unavailable', new ApiError('unavailable', 503)],
+  ['untyped status', { status: 409 }],
+] as const) {
+  test(`ambiguous POST ${label} retains the guard after Refresh`, async () => {
+    const s = setup();
+    let posts = 0;
+    s.transport.createCommand = async () => {
+      posts += 1;
+      throw failure;
+    };
+    await s.tracker.send(() => request, 'primary');
+    await s.tracker.refresh();
+    await s.tracker.send(() => request, 'stop');
+    s.tracker.selectDevice('other-device');
+    assert.equal(posts, 1);
+    assert.equal(s.tracker.getSnapshot().selectedDeviceId, 'device-1');
+    assert.equal(s.tracker.getSnapshot().command, null);
+    assert.equal(s.tracker.getSnapshot().pendingAction, 'primary');
+    assert.equal(s.tracker.getSnapshot().unconfirmed, true);
+    assert.equal(s.tracker.getSnapshot().error, failure);
+    assert.equal(s.tracker.getSnapshot().isSubmitting, false);
+  });
+}
+
+test('a rejected Stop releases its guard only after the POST settles', async () => {
+  const s = setup();
+  const submitted = deferred<RemoteCommand>();
+  let posts = 0;
+  s.transport.createCommand = async () => {
+    posts += 1;
+    return submitted.promise;
+  };
+  const work = s.tracker.send(() => request, 'stop');
+  await s.tracker.send(() => request, 'stop');
+  assert.equal(posts, 1);
+  assert.equal(s.tracker.getSnapshot().pendingAction, 'stop');
+  submitted.reject(new ApiError('disabled', 409));
+  await work;
+  assert.equal(s.tracker.getSnapshot().pendingAction, null);
+  assert.equal(s.tracker.getSnapshot().isSubmitting, false);
+  assert.equal(s.tracker.getSnapshot().unconfirmed, false);
+});
+
+test('a late POST rejection cannot release a new owner operation', async () => {
+  const s = setup();
+  const old = deferred<RemoteCommand>();
+  const next = deferred<RemoteCommand>();
+  s.transport.createCommand = async () => old.promise;
+  const oldWork = s.tracker.send(() => request, 'primary');
+  s.tracker.dispose();
+  s.tracker.activate();
+  s.tracker.selectDevice('device-1');
+  s.transport.createCommand = async () => next.promise;
+  const nextWork = s.tracker.send(() => request, 'stop');
+  old.reject(new ApiError('old owner rejected', 409));
+  await oldWork;
+  assert.equal(s.tracker.getSnapshot().pendingAction, 'stop');
+  assert.equal(s.tracker.getSnapshot().isSubmitting, true);
+  assert.equal(s.tracker.getSnapshot().error, null);
+  next.resolve(command('APPLIED', 'new-command'));
+  await nextWork;
+  assert.equal(s.tracker.getSnapshot().command?.id, 'new-command');
 });
 
 test('owner loss and disposal ignore late submissions and stop polling', async () => {
