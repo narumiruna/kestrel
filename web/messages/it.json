@@ -586,7 +586,20 @@
       "exchangeFailed": "Impossibile confermare il collegamento dell’account. Riprova il collegamento per verificarne l’esito."
     }
   },
+  "ShareState": {
+    "checking": "Verifica dello stato del link…",
+    "readError": "Impossibile verificare lo stato del link.",
+    "retry": "Riprova"
+  },
   "Remote": {
+    "refreshStatus": "Aggiorna stato",
+    "closeDoesNotCancel": "La chiusura di questa finestra non annulla il comando.",
+    "statusUnconfirmed": "Il risultato del comando non è confermato. Il comando potrebbe ancora essere eseguito.",
+    "statusReadError": "Impossibile verificare lo stato del comando. Il comando potrebbe ancora essere eseguito.",
+    "submissionUnknown": "Il risultato dell’invio è sconosciuto. Controlla Android prima di inviare un altro comando.",
+    "commandReference": "Comando {id}",
+    "lastConfirmed": "Ultimo stato confermato: {status}",
+    "submittedCommand": "Comando inviato",
     "savedPlace": "Luogo salvato",
     "placePreviewLabel": "Anteprima del comando per il luogo salvato",
     "advancedTool": "Strumento avanzato",

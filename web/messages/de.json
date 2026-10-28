@@ -592,7 +592,20 @@
       "exchangeFailed": "Die Kontoverknüpfung konnte nicht bestätigt werden. Versuche die Verknüpfung erneut, um das Ergebnis zu prüfen."
     }
   },
+  "ShareState": {
+    "checking": "Linkstatus wird geprüft…",
+    "readError": "Der Linkstatus konnte nicht geprüft werden.",
+    "retry": "Erneut versuchen"
+  },
   "Remote": {
+    "refreshStatus": "Status aktualisieren",
+    "closeDoesNotCancel": "Das Schließen dieses Dialogs bricht den Befehl nicht ab.",
+    "statusUnconfirmed": "Das Ergebnis des Befehls ist unbestätigt. Der Befehl wird möglicherweise noch ausgeführt.",
+    "statusReadError": "Der Befehlsstatus konnte nicht geprüft werden. Der Befehl wird möglicherweise noch ausgeführt.",
+    "submissionUnknown": "Das Ergebnis der Übermittlung ist unbekannt. Prüfe Android, bevor du einen weiteren Befehl sendest.",
+    "commandReference": "Befehl {id}",
+    "lastConfirmed": "Zuletzt bestätigt: {status}",
+    "submittedCommand": "Übermittelter Befehl",
     "savedPlace": "Gespeicherter Ort",
     "placePreviewLabel": "Vorschau des Befehls für den gespeicherten Ort",
     "advancedTool": "Erweitertes Werkzeug",

@@ -592,7 +592,20 @@
       "exchangeFailed": "No se pudo confirmar la vinculación de la cuenta. Reintenta la vinculación para comprobar el resultado."
     }
   },
+  "ShareState": {
+    "checking": "Comprobando el estado del enlace…",
+    "readError": "No se pudo comprobar el estado del enlace.",
+    "retry": "Reintentar"
+  },
   "Remote": {
+    "refreshStatus": "Actualizar estado",
+    "closeDoesNotCancel": "Cerrar este diálogo no cancela la orden.",
+    "statusUnconfirmed": "El resultado de la orden no está confirmado. La orden aún puede ejecutarse.",
+    "statusReadError": "No se pudo comprobar el estado de la orden. La orden aún puede ejecutarse.",
+    "submissionUnknown": "Se desconoce el resultado del envío. Comprueba Android antes de enviar otra orden.",
+    "commandReference": "Orden {id}",
+    "lastConfirmed": "Último estado confirmado: {status}",
+    "submittedCommand": "Orden enviada",
     "savedPlace": "Lugar guardado",
     "placePreviewLabel": "Vista previa de la orden del lugar guardado",
     "advancedTool": "Herramienta avanzada",

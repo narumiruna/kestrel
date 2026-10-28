@@ -589,7 +589,20 @@
       "exchangeFailed": "Nie udało się potwierdzić połączenia konta. Ponów łączenie, aby sprawdzić wynik."
     }
   },
+  "ShareState": {
+    "checking": "Sprawdzanie stanu linku…",
+    "readError": "Nie udało się sprawdzić stanu linku.",
+    "retry": "Spróbuj ponownie"
+  },
   "Remote": {
+    "refreshStatus": "Odśwież stan",
+    "closeDoesNotCancel": "Zamknięcie tego okna dialogowego nie anuluje polecenia.",
+    "statusUnconfirmed": "Wynik polecenia nie jest potwierdzony. Polecenie może nadal zostać wykonane.",
+    "statusReadError": "Nie udało się sprawdzić stanu polecenia. Polecenie może nadal zostać wykonane.",
+    "submissionUnknown": "Wynik wysłania jest nieznany. Sprawdź urządzenie z systemem Android przed wysłaniem kolejnego polecenia.",
+    "commandReference": "Polecenie {id}",
+    "lastConfirmed": "Ostatni potwierdzony stan: {status}",
+    "submittedCommand": "Wysłane polecenie",
     "savedPlace": "Zapisane miejsce",
     "placePreviewLabel": "Podgląd polecenia zapisanego miejsca",
     "advancedTool": "Narzędzie zaawansowane",
