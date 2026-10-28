@@ -52,6 +52,17 @@ i18n-check: _require-web-deps
     node --experimental-strip-types --test scripts/check-i18n.test.mjs
     node --experimental-strip-types scripts/check-i18n.mjs
 
+# publish canonical API and security documentation for the Web image
+[group('Docs')]
+public-docs:
+    node scripts/generate-public-docs.mjs
+
+# verify published documentation and generator regression fixtures
+[group('Docs')]
+public-docs-check:
+    node scripts/generate-public-docs.mjs --check
+    node --test scripts/generate-public-docs.test.mjs
+
 # regenerate Web and Android brand icon assets from the shared manifest
 [group('Branding')]
 icons:
@@ -163,10 +174,10 @@ web-install:
 web-format: _require-web-deps
     ./node_modules/.bin/biome check --write .
 
-# check Web formatting, lint, imports, and generated brand assets without writing changes
+# check Web formatting, lint, imports, generated brand assets, and public docs
 [group('Web')]
 [working-directory('web')]
-web-check: _require-web-deps icons-check
+web-check: _require-web-deps icons-check public-docs-check
     ./node_modules/.bin/biome ci .
 
 # run Web lint only

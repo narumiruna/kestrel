@@ -21,7 +21,6 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.getSystemService
 import dev.narumi.kestrel.MainActivity
 import dev.narumi.kestrel.R
-import dev.narumi.kestrel.core.cloud.RemoteControlPoller
 import dev.narumi.kestrel.core.data.KestrelPrefs
 import dev.narumi.kestrel.core.data.MockState
 import dev.narumi.kestrel.core.data.RouteState
@@ -51,7 +50,6 @@ class LocationService : Service() {
     private lateinit var mockProvider: MockProviderManager
     private lateinit var prefs: KestrelPrefs
     private lateinit var stateWriter: MockStateWriter
-    private lateinit var remoteControlPoller: RemoteControlPoller
     private lateinit var routeWakeLock: PowerManager.WakeLock
     private var routeExecution: RoutePlaybackExecution? = null
 
@@ -96,7 +94,6 @@ class LocationService : Service() {
         mockProvider = MockProviderManager(applicationContext)
         prefs = KestrelPrefs(applicationContext)
         stateWriter = MockStateWriter(snapshot = ::currentStateSnapshot, write = prefs::setMockState)
-        remoteControlPoller = RemoteControlPoller.getInstance(applicationContext)
         routeWakeLock =
             requireNotNull(getSystemService<PowerManager>())
                 .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Kestrel:RoutePlayback")
@@ -133,7 +130,7 @@ class LocationService : Service() {
             )
             Log.w(TAG, "location operation failed", error)
             if (_runtimeState.value == RuntimeState.Idle) {
-                setRemoteControlServiceLease(false)
+                setServiceActive(false)
                 stopForegroundCompat()
                 stopSelfResult(startId)
                 START_NOT_STICKY
@@ -167,7 +164,7 @@ class LocationService : Service() {
             _runtimeState.value = RuntimeState.Idle
             stateInitialized = true
         }
-        setRemoteControlServiceLease(false)
+        setServiceActive(false)
         scope.launch { stateWriter.persist() }
         stopForegroundCompat()
         completeOperation(intent, succeeded = true, message = UiMessage(R.string.location_mock_location_stopped))
@@ -204,7 +201,7 @@ class LocationService : Service() {
             _runtimeState.value = RuntimeState.Single(point)
             stateInitialized = true
         }
-        setRemoteControlServiceLease(true)
+        setServiceActive(true)
         refreshNotification()
         scope.launch { stateWriter.persist() }
         completeOperation(intent, succeeded = true, message = UiMessage(R.string.location_point_mock_started))
@@ -245,7 +242,7 @@ class LocationService : Service() {
             _runtimeState.value = checkNotNull(activeRoute).toRuntimeState(paused = false)
             stateInitialized = true
         }
-        setRemoteControlServiceLease(true)
+        setServiceActive(true)
         refreshNotification()
         scope.launch { stateWriter.persist() }
         completeOperation(intent, succeeded = true, message = UiMessage(R.string.location_route_playback_started))
@@ -326,7 +323,7 @@ class LocationService : Service() {
             stopSingleKeepAlive()
             stopMock()
         }
-        setRemoteControlServiceLease(false)
+        setServiceActive(false)
         scope.cancel()
         super.onDestroy()
     }
@@ -349,7 +346,7 @@ class LocationService : Service() {
                         _runtimeState.value = RuntimeState.Single(point)
                         stateInitialized = true
                     }
-                    setRemoteControlServiceLease(true)
+                    setServiceActive(true)
                     refreshNotification()
                     true
                 } ?: false
@@ -377,15 +374,13 @@ class LocationService : Service() {
             _runtimeState.value = checkNotNull(activeRoute).toRuntimeState(paused = false)
             stateInitialized = true
         }
-        setRemoteControlServiceLease(true)
+        setServiceActive(true)
         refreshNotification()
         return true
     }
 
-    private fun setRemoteControlServiceLease(active: Boolean) {
-        if (::remoteControlPoller.isInitialized) {
-            remoteControlPoller.setServiceActive(active)
-        }
+    private fun setServiceActive(active: Boolean) {
+        serviceActiveState.value = active
     }
 
     private fun updateRouteRuntimePaused(paused: Boolean) {
@@ -484,7 +479,7 @@ class LocationService : Service() {
         currentMode = MockState.Mode.Single
         _runtimeState.value = RuntimeState.Single(last)
         startSingleKeepAlive(last)
-        setRemoteControlServiceLease(true)
+        setServiceActive(true)
         refreshNotification()
     }
 
@@ -733,6 +728,11 @@ class LocationService : Service() {
 
         private val _currentMock = MutableStateFlow<LatLng?>(null)
         val currentMock: StateFlow<LatLng?> = _currentMock.asStateFlow()
+
+        private val serviceActiveState = MutableStateFlow(false)
+
+        /** Whether this service currently holds an active playback lease, including after restore. */
+        internal val serviceActive: StateFlow<Boolean> = serviceActiveState.asStateFlow()
 
         private val _runtimeState = MutableStateFlow<RuntimeState>(RuntimeState.Idle)
         private val _operationResults =

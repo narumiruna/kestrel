@@ -41,6 +41,28 @@ The UI supports 18 languages with English as the first-use and fallback language
 
 See [internationalization rules and checks](../docs/i18n.md) before changing UI messages or translations. Existing URLs and sign-in callback paths do not use language prefixes.
 
+## Public API documentation
+
+The canonical sources at the repository root are:
+
+- `docs/remote-control-api.md`
+- `docs/device-session-security.md`
+- `docs/android-qr-login-api.md`
+
+All three are published to keep their relative links valid. Do not edit their
+generated copies in `web/public/docs/`.
+
+After a source change, run these commands from the repository root:
+
+```bash
+just public-docs
+just public-docs-check
+```
+
+Include the generated Markdown files with the source change. Production Docker
+builds use only `web/` as their build context, so the generated files must remain
+in Git. The `--check` command fails for missing or stale copies and writes no files.
+
 ## Validation
 
 ```bash

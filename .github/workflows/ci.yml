@@ -46,6 +46,10 @@ jobs:
               - '.github/workflows/**'
             web:
               - 'web/**'
+              - 'docs/remote-control-api.md'
+              - 'docs/device-session-security.md'
+              - 'docs/android-qr-login-api.md'
+              - 'scripts/generate-public-docs*.mjs'
               - 'branding/**'
               - 'scripts/generate-kestrel-icons.mjs'
               - 'scripts/check-i18n*.mjs'
@@ -188,6 +192,11 @@ jobs:
 
       - name: Check generated brand icons
         run: node ../scripts/generate-kestrel-icons.mjs --check
+
+      - name: Check published documentation
+        run: |
+          node ../scripts/generate-public-docs.mjs --check
+          node --test ../scripts/generate-public-docs.test.mjs
 
       - name: Test
         run: npm test

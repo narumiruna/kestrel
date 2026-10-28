@@ -12,7 +12,6 @@
 
 .library-page-shell,
 .kc-shell-library,
-.kc-shell-account,
 .cartographer-stage-map {
   background: var(--workspace-canvas);
 }

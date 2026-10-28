@@ -637,15 +637,9 @@
 
 /* Keep secondary product surfaces visually related without merging their tasks. */
 .auth-card,
-.public-share-card,
-.account-security-panel {
+.public-share-card {
   border-color: var(--border);
   box-shadow: 0 16px 42px rgb(34 24 15 / 8%);
-}
-
-.account-security-show-more {
-  margin-top: 14px;
-  width: 100%;
 }
 
 .auth-card {

@@ -33,6 +33,7 @@ import {
   formatRouteDistanceFromWaypoints,
 } from '@/components/dashboard/utils';
 import { DEFAULT_MAP_CENTER } from '@/components/mapStyle';
+import { isCurrentTabNavigation } from '@/components/navigation';
 import {
   getRouteViewportControlState,
   type RouteMapCapability,
@@ -53,7 +54,7 @@ const ZoomStack = dynamic(
   { ssr: false },
 );
 
-import { createDraftActionGuard, isCurrentTabNavigation } from './navigationGuard';
+import { createDraftActionGuard } from './navigationGuard';
 
 type MapKind = 'places' | 'routes';
 type ViewportControls = {

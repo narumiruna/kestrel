@@ -4,6 +4,8 @@ Top-level `*-plan.md` files are active. Closed or superseded plans live in `arch
 
 ## Active files
 
+- [Project structure cleanup](2026-10-28_project-structure-plan.md) — resolve public documentation drift, Account CSS ownership, navigation ownership, Android remote-control lifecycle coupling, and tracked build caches.
+
 1. [Personal AI provider settings](2026-10-22_personal-ai-provider-settings-plan.md) — proposed stage 1: per-user provider login, encrypted credentials, and account-backed model/thinking settings.
 2. [Route assistant drafts](2026-10-22_route-assistant-drafts-plan.md) — proposed stage 2, depends on stage 1: restricted agent tools, candidate preview, explicit Apply, and existing manual Save.
 3. [Road route planning](2026-10-22_road-route-planning-plan.md) — proposed stage 3, depends on stages 1–2: service selection, place search, road geometry, and bounded distance-based loops.
