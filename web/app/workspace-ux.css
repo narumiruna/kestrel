@@ -130,8 +130,7 @@
   --workspace-gap: 16px;
 }
 
-.kc-shell-library,
-.kc-shell-account {
+.kc-shell-library {
   padding: 0 0 24px;
 }
 
@@ -480,8 +479,7 @@ button.route-marker.selected::after {
   width: calc(100% - 48px);
 }
 
-.library-catalog-header h1,
-.account-security-header h1 {
+.library-catalog-header h1 {
   font-size: 30px;
   line-height: 1.2;
 }
@@ -516,100 +514,9 @@ button.route-marker.selected::after {
   overflow-wrap: anywhere;
 }
 
-.account-security-shell {
-  min-height: 0;
-  padding-top: 16px;
-}
-
-.account-section-nav {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 24px;
-  margin-bottom: 12px;
-}
-
-.account-section-nav :where(a) {
-  align-items: center;
-  color: var(--text-secondary);
-  display: inline-flex;
-  min-height: 44px;
-}
-
-.account-security-back {
-  align-items: center;
-  color: var(--text-secondary);
-  display: inline-flex;
-  gap: 8px;
-  min-height: 44px;
-  margin-bottom: 8px;
-}
-
-.account-security-grid {
-  align-items: start;
-  gap: var(--workspace-gap);
-}
-
-.account-security-grid .account-security-sign-in {
-  grid-column: auto;
-}
-
-.account-security-panel h2 {
-  font-size: 20px;
-  scroll-margin-top: 16px;
-}
-
-.account-security-grid .account-security-android-login {
-  grid-column: auto;
-}
-
-.account-security-shell .account-security-panel {
-  border-radius: var(--workspace-radius);
-  padding: 20px;
-}
-
-.account-security-list {
-  gap: 0;
-}
-
-.account-security-row {
-  background: none;
-  border: 0;
-  border-top: 1px solid var(--border);
-  border-radius: 0;
-  padding: 12px 0;
-}
-
-.account-password-expansion {
-  border-top: 1px solid var(--border);
-  margin-top: 16px;
-  padding-top: 20px;
-}
-
-.account-password-expansion .change-password-form {
-  max-width: 480px;
-}
-
-.password-field .password-input input.rt-TextFieldInput {
-  background: transparent;
-  border: 0;
-  box-shadow: none;
-  min-height: 0;
-  padding: 0;
-}
-
-.password-field .password-visibility {
-  height: 44px;
-  min-width: 44px;
-}
-
 .route-editor-redesign .waypoint-menu-trigger {
   min-height: 44px;
   width: 44px;
-}
-
-.change-password-form .account-security-actions {
-  flex-wrap: wrap;
-  justify-content: flex-start;
 }
 
 @media (min-width: 1024px) {
@@ -760,12 +667,6 @@ button.route-marker.selected::after {
     grid-column: 1 / -1;
   }
 
-  .account-security-section-header {
-    align-items: center;
-    flex-direction: row;
-    flex-wrap: wrap;
-  }
-
   .library-item-title-row h3 {
     max-width: 100%;
   }
@@ -774,10 +675,6 @@ button.route-marker.selected::after {
   .library-item-actions > a,
   .library-row-actions > button {
     min-height: 44px;
-  }
-
-  .account-security-actions {
-    flex-wrap: wrap;
   }
 
   .route-editor-redesign .route-editor-title-row {

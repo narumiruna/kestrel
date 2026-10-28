@@ -39,7 +39,6 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import dev.narumi.kestrel.core.cloud.CloudSyncRepository
-import dev.narumi.kestrel.core.cloud.RemoteControlPoller
 import dev.narumi.kestrel.core.cloud.isOidcCallbackUri
 import dev.narumi.kestrel.core.i18n.AppLanguage
 import dev.narumi.kestrel.core.i18n.UiMessage
@@ -104,6 +103,16 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        (application as KestrelApplication).remoteControlLifecycle.setForegroundActive(true)
+    }
+
+    override fun onStop() {
+        (application as KestrelApplication).remoteControlLifecycle.setForegroundActive(false)
+        super.onStop()
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -295,18 +304,12 @@ private fun KestrelForegroundEffects(skipCloudSyncOnForeground: Boolean) {
     val lifecycleOwner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
     val syncRepository = remember { CloudSyncRepository.getInstance(context) }
-    val remoteControlPoller = remember { RemoteControlPoller.getInstance(context) }
     val syncOnForeground = !skipCloudSyncOnForeground
-    DisposableEffect(lifecycleOwner, syncRepository, remoteControlPoller, syncOnForeground) {
+    DisposableEffect(lifecycleOwner, syncRepository, syncOnForeground) {
         val observer =
             object : DefaultLifecycleObserver {
                 override fun onStart(owner: LifecycleOwner) {
-                    remoteControlPoller.setForegroundActive(true)
                     if (syncOnForeground) scope.launch { syncRepository.syncOnForeground() }
-                }
-
-                override fun onStop(owner: LifecycleOwner) {
-                    remoteControlPoller.setForegroundActive(false)
                 }
             }
         lifecycleOwner.lifecycle.addObserver(observer)

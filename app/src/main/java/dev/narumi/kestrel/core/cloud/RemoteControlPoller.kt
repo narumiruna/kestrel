@@ -3,14 +3,12 @@ package dev.narumi.kestrel.core.cloud
 import android.content.Context
 import android.util.Log
 import dev.narumi.kestrel.core.data.KestrelPrefs
-import dev.narumi.kestrel.core.location.LocationService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
@@ -45,13 +43,6 @@ internal class RemoteControlPoller private constructor(
                 }
             }
         }
-        scope.launch {
-            LocationService.runtimeState.drop(1).collect {
-                if (shouldPoll()) {
-                    pollNow()
-                }
-            }
-        }
     }
 
     fun setForegroundActive(active: Boolean) {
@@ -74,6 +65,10 @@ internal class RemoteControlPoller private constructor(
                 active && wasRunning && canPollLocked()
             }
         if (shouldPollNow) pollNow()
+    }
+
+    fun runtimeStateChanged() {
+        if (shouldPoll()) pollNow()
     }
 
     private fun pollNow() {

@@ -266,7 +266,6 @@
   width: min(360px, calc(100vw - 32px));
 }
 
-.ui-popover-popup.kc-account-popover,
 .ui-popover-popup.user-mark-popover {
   position: relative;
   right: auto;

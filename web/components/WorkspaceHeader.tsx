@@ -3,8 +3,8 @@
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { type MouseEvent, type RefObject, useRef, useState } from 'react';
-import { isCurrentTabNavigation } from '@/app/dashboard/map/navigationGuard';
 import { BrandMark } from '@/components/BrandMark';
+import { isCurrentTabNavigation } from '@/components/navigation';
 import {
   ChevronDownIcon,
   ChevronRightIcon,

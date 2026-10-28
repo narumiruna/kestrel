@@ -25,6 +25,8 @@ The [2026-10-05 Web workspace UI polish](archived/2026-10-05_web-workspace-ui-po
 
 The [2026-10-18 Web Account settings plan](archived/2026-10-18_web-account-settings-plan.md) is complete: Account settings is the first menu action, with Preferences and Security in a left-navigation layout. Web gates, 18-locale validation, and isolated Chrome DevTools checks passed; existing security state and API contracts remain unchanged.
 
+The [2026-10-28 Project structure cleanup](archived/2026-10-28_project-structure-plan.md) is complete: canonical public API documentation, Account CSS and navigation ownership, application-level Android remote-control lifecycle wiring, and ignored build caches. All local checks passed; physical-device verification limits remain documented in the plan and [PR #368](https://github.com/narumiruna/kestrel/pull/368).
+
 ## Security references
 
 - `../device-session-security.md` — session/device trust boundaries, step-up rules, revocation semantics, and remote-command cancellation limits.

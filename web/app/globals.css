@@ -1801,20 +1801,6 @@ label {
   width: 30px;
 }
 
-.kc-account-popover {
-  background: var(--overlay-surface);
-  border: 1px solid var(--kc-slate-200);
-  border-radius: 16px;
-  box-shadow: var(--shadow-sm);
-  color: var(--kc-slate-900);
-  padding: 16px;
-  position: absolute;
-  right: 0;
-  top: calc(100% + 10px);
-  width: min(360px, calc(100vw - 32px));
-  z-index: 40;
-}
-
 .kc-tabs {
   background: var(--toolbar-bg);
   border: 1px solid var(--kc-slate-200);
@@ -2333,7 +2319,6 @@ button.is-loading {
     background: linear-gradient(180deg, var(--bg-surface), var(--bg-subtle));
   }
 
-  .kc-account-popover,
   .kc-tabs,
   .dashboard-sidebar .card,
   .route-editor,
@@ -2547,11 +2532,6 @@ button.is-loading {
   .kc-avatar {
     height: 32px;
     width: 32px;
-  }
-
-  .kc-account-popover {
-    right: -10px;
-    width: min(360px, calc(100vw - 28px));
   }
 
   .kc-tabs {
@@ -6653,7 +6633,7 @@ button.route-marker:focus-visible {
   }
 }
 
-/* Account security ------------------------------------------------------- */
+/* Shared button links ---------------------------------------------------- */
 
 .button-link {
   align-items: center;
@@ -6672,189 +6652,6 @@ button.route-marker:focus-visible {
 .button-link:hover {
   border-color: var(--color-primary);
   box-shadow: var(--shadow-sm);
-}
-
-.account-security-shell {
-  margin: 0 auto;
-  max-width: 1180px;
-  min-height: 100vh;
-  padding: 32px clamp(16px, 4vw, 48px) 64px;
-}
-
-.account-security-header {
-  align-items: flex-start;
-  display: flex;
-  gap: 24px;
-  justify-content: space-between;
-  margin-bottom: 28px;
-}
-
-.account-security-header h1,
-.account-security-panel h2,
-.account-security-confirm h2 {
-  margin: 0;
-}
-
-.account-security-back {
-  color: var(--color-text-muted);
-  display: inline-block;
-  margin-bottom: 20px;
-  text-decoration: none;
-}
-
-.account-security-back:hover {
-  color: var(--color-primary);
-}
-
-.account-security-feedback {
-  margin-bottom: 16px;
-}
-
-.account-security-grid {
-  display: grid;
-  gap: 20px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.account-security-sign-in,
-.account-security-android-login {
-  grid-column: 1 / -1;
-}
-
-.account-security-panel,
-.account-security-confirm {
-  padding: clamp(18px, 3vw, 28px);
-}
-
-.account-security-section-header,
-.account-security-row,
-.account-security-row-title,
-.account-security-actions {
-  align-items: center;
-  display: flex;
-}
-
-.account-security-section-header,
-.account-security-row {
-  gap: 16px;
-  justify-content: space-between;
-}
-
-.account-security-section-header {
-  margin-bottom: 18px;
-}
-
-.account-security-list {
-  display: grid;
-  gap: 12px;
-}
-
-.account-security-row {
-  background: var(--bg-subtle);
-  border: 1px solid var(--color-border);
-  border-radius: 12px;
-  padding: 14px;
-}
-
-.account-security-row-title {
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 4px;
-}
-
-.account-security-row .muted {
-  overflow-wrap: anywhere;
-}
-
-.account-security-confirm {
-  display: grid;
-  gap: 24px;
-  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.8fr);
-  margin-top: 20px;
-}
-
-.account-security-confirm-form {
-  display: grid;
-  gap: 16px;
-}
-
-.account-security-actions {
-  gap: 10px;
-  justify-content: flex-end;
-}
-
-.android-qr-login-layout {
-  align-items: center;
-  display: grid;
-  gap: clamp(20px, 4vw, 40px);
-  grid-template-columns: minmax(200px, 240px) minmax(0, 1fr);
-}
-
-.android-qr-login-code {
-  display: grid;
-  gap: 8px;
-  justify-items: center;
-}
-
-.android-qr-login-code img {
-  background: #fff;
-  border: 1px solid var(--color-border);
-  border-radius: 12px;
-  height: auto;
-  max-width: 100%;
-  padding: 8px;
-}
-
-.android-qr-login-details {
-  display: grid;
-  gap: 10px;
-}
-
-.android-qr-login-matching-code {
-  font-size: 1.2rem;
-  letter-spacing: 0.04em;
-  margin: 4px 0;
-}
-
-.android-qr-login-feedback {
-  margin-top: 16px;
-}
-
-.android-qr-login-actions {
-  flex-wrap: wrap;
-  margin-top: 20px;
-}
-
-@media (max-width: 800px) {
-  .account-security-grid,
-  .account-security-confirm,
-  .android-qr-login-layout {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 560px) {
-  .account-security-shell {
-    padding-top: 18px;
-  }
-
-  .account-security-header,
-  .account-security-section-header,
-  .account-security-row {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .account-security-header .user-mark {
-    align-self: flex-end;
-    position: absolute;
-    right: 16px;
-    top: 18px;
-  }
-
-  .account-security-row button {
-    width: 100%;
-  }
 }
 
 /* Restore the Map / Library information architecture in cartographer chrome. */
