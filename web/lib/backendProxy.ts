@@ -10,39 +10,35 @@ export function backendRequestUrl(base: string, path: string[], search: string) 
   return url;
 }
 
-/** Count actual chunks before buffering; Content-Length is only an early rejection. */
-export async function boundedProxyBody(request: Request, limit = ASSISTANT_BODY_BYTES) {
-  const length = request.headers.get('content-length');
-  if (length && (!/^\d+$/.test(length) || Number(length) > limit))
-    throw new RangeError('body limit');
-  request.signal.throwIfAborted();
-  if (!request.body) return new ArrayBuffer(0);
-  const reader = request.body.getReader();
-  const body = new Uint8Array(limit);
-  let total = 0;
-  const abort = () => {
-    void reader.cancel().catch(() => undefined);
-  };
-  request.signal.addEventListener('abort', abort, { once: true });
-  try {
-    while (true) {
-      request.signal.throwIfAborted();
-      const next = await reader.read();
-      if (next.done) break;
-      const end = total + next.value.byteLength;
-      if (end > limit) {
-        void reader.cancel().catch(() => undefined);
-        throw new RangeError('body limit');
-      }
-      body.set(next.value, total);
-      total = end;
-    }
-    request.signal.throwIfAborted();
-    return body.buffer.slice(0, total);
-  } finally {
-    request.signal.removeEventListener('abort', abort);
-    reader.releaseLock();
+export class ProxyAuthenticationError extends Error {
+  readonly status: 401 | 403;
+  constructor(status: 401 | 403) {
+    super('Upload authentication failed');
+    this.status = status;
   }
+}
+
+/** Validate the session without accepting or forwarding the caller's upload body. */
+export async function authenticateProxyUpload(
+  request: Request,
+  base: string,
+  signal: AbortSignal,
+  fetcher: typeof fetch = fetch,
+) {
+  const authorization = request.headers.get('authorization');
+  if (!authorization || !/^Bearer \S+$/.test(authorization))
+    throw new ProxyAuthenticationError(401);
+  const response = await fetcher(backendRequestUrl(base, ['auth', 'session'], ''), {
+    method: 'GET',
+    headers: { Authorization: authorization },
+    signal,
+    redirect: 'manual',
+    cache: 'no-store',
+  });
+  if (response.body) void response.body.cancel().catch(() => undefined);
+  if (response.status === 401 || response.status === 403)
+    throw new ProxyAuthenticationError(response.status);
+  if (response.status !== 204) throw new Error('Backend authentication unavailable');
 }
 
 /** Downstream stream cancellation explicitly aborts the Backend fetch, not just its reader. */

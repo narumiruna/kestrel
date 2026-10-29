@@ -35,6 +35,7 @@ Paths are relative to the Backend mount. Web uses `/api/backend`. All responses 
 
 | Method and path | Body or result |
 | --- | --- |
+| `GET /auth/session` | Bodyless session validation (204), with `no-store` and `no-referrer`; no refresh, credential, or account mutation. Used before protected large uploads. |
 | `GET /ai/catalog` | `{ version, providers }`; all registry methods and models, bounded provider configuration fields, and operator configuration status. |
 | `GET /ai/settings` | `{ generation, selection, connections, connectionGenerations }`; no credentials. |
 | `PUT /ai/settings` | `{ generation, selection }`; validates provider/method, model operation/ID, and thinking. `selection` may be null. |

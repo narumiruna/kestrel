@@ -835,6 +835,19 @@ describe('AppController (e2e)', () => {
       username: 'alice',
     });
 
+    await request(server).get('/auth/session').expect(401);
+    await request(server)
+      .get('/auth/session')
+      .set('Authorization', 'Bearer invalid')
+      .expect(401);
+    const probe = await request(server)
+      .get('/auth/session')
+      .set('Authorization', `Bearer ${loginBody.accessToken}`)
+      .expect(204);
+    expect(probe.text).toBe('');
+    expect(probe.headers['cache-control']).toBe('no-store');
+    expect(probe.headers['referrer-policy']).toBe('no-referrer');
+
     const originalRefreshToken = loginBody.refreshToken;
     const refreshRequestId = 'e2e-refresh-request';
     const refreshResponse = await request(server)
@@ -874,6 +887,11 @@ describe('AppController (e2e)', () => {
         revokedAt: '2026-05-09T15:33:00.000Z',
       },
     });
+
+    await request(server)
+      .get('/auth/session')
+      .set('Authorization', `Bearer ${refreshBody.accessToken}`)
+      .expect(401);
 
     await request(server)
       .post('/auth/refresh')

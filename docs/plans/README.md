@@ -4,6 +4,8 @@ Top-level `*-plan.md` files are active. Closed or superseded plans live in `arch
 
 ## Active files
 
+- [Route assistant PR review fixes](2026-10-29_route-assistant-review-plan.md) — current-main conflicts and bounded authenticated upload handling are locally verified; PR delivery and review reply remain pending.
+
 - `2026-10-18_cross-platform-i18n-plan.md` — add Android and Web localization for 18 languages, with English as the default, persistent language selection, complete catalogs, and regression checks.
 
 - `dependency-refresh-plan.md` — Android, Backend, and Web dependency upgrades are implemented and verified except Android screenshot comparison, which needs approved reference images; keep the delivery PR in draft.

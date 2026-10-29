@@ -6,7 +6,7 @@ import { createAppRoutes } from './app.routes';
 import type { AuthVariables } from './auth/auth-request';
 import { createAuthRoutes } from './auth/auth.routes';
 import type { Container } from './container';
-import { enforceBodyLimit, handleError, handleNotFound } from './http/handlers';
+import { createBodyLimit, handleError, handleNotFound } from './http/handlers';
 import { createHttpRequestLogging } from './http-request-logging.middleware';
 import { createLibraryRoutes } from './library/library.routes';
 import { createRemoteControlRoutes } from './remote-control/remote-control.routes';
@@ -20,7 +20,7 @@ export function createApp(container: Container): Hono<{
   const app = new Hono<{ Variables: AuthVariables }>();
 
   app.use('*', createHttpRequestLogging());
-  app.use('*', enforceBodyLimit);
+  app.use('*', createBodyLimit(container.sessionAuth));
 
   app.route('/', createAppRoutes(container.appService));
   app.route(

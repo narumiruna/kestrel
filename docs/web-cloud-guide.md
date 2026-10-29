@@ -76,6 +76,7 @@ Open the single **Suggest a path** entry in the existing route inspector. It use
 
 - Capture waits at most **5 seconds**. Submit within **120 seconds** of capture. The submitted review image expires **10 minutes after capture**.
 - Camera, map size, style, or draft changes before submission require explicit recapture. After submission, camera-only panning does not change the frozen image or its coordinate conversion.
+- Upload authentication and reception have a **15-second** deadline. A timeout or busy service leaves the draft unchanged; capture and submit again explicitly. Requests are not replayed automatically.
 - One PNG is required: at most **2 MiB**, **1600 pixels per side**, and **2,560,000 pixels**. A loading, blank, incomplete, CORS-blocked, or unavailable map is not a valid capture.
 - Only OSM-based **plain**, **dark**, and **terrain** styles support capture; terrain is a color treatment, not elevation. Esri satellite capture is disabled pending source-owner permission. Manual satellite editing remains available. See [source terms and official evidence](route-assistant-source-terms.md).
 - Capture supports flat **Mercator at zero pitch**. The model supplies strict normalized image positions or retained point references, never geographic coordinates. Frozen conversion samples must round-trip within **0.25 output pixels**. Positions exclude the attribution footer. Unsupported views or repeated worlds require manual view adjustment, not an automatic camera reset.

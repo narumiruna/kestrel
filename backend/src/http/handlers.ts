@@ -2,6 +2,8 @@ import type { Context, ErrorHandler, NotFoundHandler } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import type { AppContext, AuthVariables } from '../auth/auth-request';
+import type { SessionAuth } from '../auth/session-auth.middleware';
+import { UploadError, withBoundedUpload } from './bounded-upload';
 import { createLogger } from '../logger';
 import { ROUTE_ASSISTANT_LIMITS } from '../route-assistant/route-assistant.models';
 import {
@@ -9,6 +11,8 @@ import {
   HttpException,
   HttpStatus,
   PayloadTooLargeException,
+  TooManyRequestsException,
+  UnauthorizedException,
 } from './errors';
 
 const logger = createLogger('HttpException');
@@ -80,62 +84,57 @@ const defaultBodyLimit = bodyLimit({
   },
 });
 
-// Hono's default shortcut trusts Content-Length. These larger payloads always
-// count received chunks before JSON parsing, including a misleading length.
-function boundedBodyLimit(maxSize: number): typeof defaultBodyLimit {
+/** Larger uploads are authenticated before any body read or owned allocation. */
+export function createBodyLimit(sessionAuth: SessionAuth): SessionAuth {
   return async (context, next) => {
-    const request = context.req.raw;
-    const declared = request.headers.get('content-length');
-    const oversized = () =>
-      new PayloadTooLargeException('request entity too large');
-    if (declared && (!/^\d+$/.test(declared) || Number(declared) > maxSize))
-      throw oversized();
-    if (!request.body) return next();
-    const reader = request.body.getReader();
-    const body = new Uint8Array(maxSize);
-    let total = 0;
-    const abort = () => {
-      void reader.cancel().catch(() => undefined);
-    };
-    request.signal.addEventListener('abort', abort, { once: true });
+    const method = context.req.method,
+      path = context.req.path;
+    const limit =
+      method === 'POST' && path === '/ai/route-assistant/runs'
+        ? ROUTE_ASSISTANT_LIMITS.bodyBytes
+        : (method === 'POST' && path === '/routes') ||
+            (method === 'PATCH' && /^\/routes\/[^/]+$/.test(path))
+          ? ROUTE_WRITE_BODY_BYTES
+          : null;
+    if (limit === null) return defaultBodyLimit(context, next);
     try {
-      while (true) {
-        request.signal.throwIfAborted();
-        const chunk = await reader.read();
-        if (chunk.done) break;
-        const end = total + chunk.value.byteLength;
-        if (end > maxSize) {
-          void reader.cancel().catch(() => undefined);
-          throw oversized();
-        }
-        body.set(chunk.value, total);
-        total = end;
+      await withBoundedUpload(
+        context.req.raw,
+        limit,
+        async () => {
+          let authenticated = false;
+          await sessionAuth(context, () => {
+            authenticated = true;
+            return Promise.resolve();
+          });
+          if (!authenticated)
+            throw new UnauthorizedException('missing authenticated session');
+        },
+        async (body) => {
+          context.req.raw = new Request(context.req.raw, { body });
+          await next();
+        },
+      );
+    } catch (error) {
+      if (error instanceof UploadError) {
+        if (error.kind === 'busy')
+          throw new TooManyRequestsException({
+            code: 'UPLOAD_BUSY',
+            message: 'Upload capacity reached',
+          });
+        throw new HttpException(
+          { code: 'UPLOAD_TIMEOUT', message: 'Upload deadline exceeded' },
+          408,
+        );
       }
-      request.signal.throwIfAborted();
-    } finally {
-      request.signal.removeEventListener('abort', abort);
-      reader.releaseLock();
+      if (error instanceof RangeError)
+        throw new PayloadTooLargeException('request entity too large');
+      if (error instanceof Error && error.name === 'AbortError')
+        throw new BadRequestException('Upload cancelled');
+      throw error;
     }
-    context.req.raw = new Request(request, { body: body.subarray(0, total) });
-    return next();
   };
 }
-const assistantBodyLimit = boundedBodyLimit(ROUTE_ASSISTANT_LIMITS.bodyBytes);
-const routeWriteBodyLimit = boundedBodyLimit(ROUTE_WRITE_BODY_BYTES);
-export const enforceBodyLimit: typeof defaultBodyLimit = (context, next) => {
-  if (
-    context.req.method === 'POST' &&
-    context.req.path === '/ai/route-assistant/runs'
-  )
-    return assistantBodyLimit(context, next);
-  if (
-    (context.req.method === 'POST' && context.req.path === '/routes') ||
-    (context.req.method === 'PATCH' &&
-      /^\/routes\/[^/]+$/.test(context.req.path))
-  )
-    return routeWriteBodyLimit(context, next);
-  return defaultBodyLimit(context, next);
-};
 
 function describeRequest(context: AppContext): {
   method: string;

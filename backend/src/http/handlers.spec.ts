@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { parseCreateRouteInput } from '../library/library.validation';
 import { BadRequestException, GoneException } from './errors';
 import {
-  enforceBodyLimit,
+  createBodyLimit,
   handleError,
   handleNotFound,
   readJsonBody,
@@ -11,7 +11,12 @@ import {
 describe('http handlers', () => {
   const app = new Hono();
 
-  app.use('*', enforceBodyLimit);
+  app.use(
+    '*',
+    createBodyLimit(async (_context, next) => {
+      await next();
+    }),
+  );
 
   app.post('/body', async (context) =>
     context.json(await readJsonBody(context)),

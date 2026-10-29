@@ -5,6 +5,7 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { writeFile } from "node:fs/promises";
+import { request as httpRequest } from "node:http";
 import { setTimeout as delay } from "node:timers/promises";
 
 const stage = process.argv[2] ?? "core";
@@ -168,6 +169,36 @@ async function field(selector, value) {
     `(()=>{const e=document.querySelector(${JSON.stringify(selector)});if(!e)throw Error('Missing field');const proto=e.tagName==='TEXTAREA'?HTMLTextAreaElement.prototype:HTMLInputElement.prototype;Object.getOwnPropertyDescriptor(proto,'value').set.call(e,${JSON.stringify(value)});e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));})()`,
   );
 }
+async function stalledUpload(port, path, authorization) {
+  return new Promise((resolve, reject) => {
+    const request = httpRequest(
+      {
+        hostname: "127.0.0.1",
+        port,
+        path,
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Transfer-Encoding": "chunked",
+          ...(authorization ? { Authorization: authorization } : {}),
+        },
+      },
+      (response) => {
+        response.resume();
+        response.once("end", () => {
+          request.destroy();
+          resolve(response.statusCode);
+        });
+      },
+    );
+    request.once("error", reject);
+    request.setTimeout(21000, () =>
+      request.destroy(new Error("Upload rejection deadline")),
+    );
+    request.write("{"); // Deliberately never finish the body.
+  });
+}
+
 async function load(count = 2) {
   await configure({ pointCount: count });
   await call("Page.navigate", {
@@ -287,7 +318,58 @@ try {
   await call("Page.addScriptToEvaluateOnNewDocument", {
     source: `if(location.origin===${JSON.stringify(origin)}){localStorage.setItem('kestrel-map-style','plain');localStorage.setItem('kestrel.web.session',${JSON.stringify(JSON.stringify(initial.session))});}`,
   });
-  if (stage === "core") {
+  if (stage === "uploads") {
+    for (const [port, path] of [
+      [4331, "/api/backend/ai/route-assistant/runs"],
+      [4330, "/ai/route-assistant/runs"],
+    ]) {
+      const statuses = await Promise.all(
+        Array.from({ length: 32 }, () => stalledUpload(port, path)),
+      );
+      check(
+        `32 anonymous stalled uploads rejected at ${port}`,
+        statuses.every((status) => status === 401 || status === 429),
+      );
+    }
+    const start = Date.now();
+    const statuses = await Promise.all([
+      stalledUpload(
+        4331,
+        "/api/backend/ai/route-assistant/runs",
+        `Bearer ${initial.session.accessToken}`,
+      ),
+      stalledUpload(
+        4330,
+        "/ai/route-assistant/runs",
+        `Bearer ${initial.session.accessToken}`,
+      ),
+    ]);
+    check(
+      "authenticated stalled uploads expire at both hops",
+      statuses.every((status) => status === 408) && Date.now() - start < 20000,
+    );
+    for (const url of [
+      `${origin}/api/backend/ai/route-assistant/runs`,
+      `${fixture}/ai/route-assistant/runs`,
+    ]) {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${initial.session.accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: "{}",
+      });
+      check(
+        "capacity recovers after rejection and timeout",
+        response.status === 400,
+      );
+    }
+    check(
+      "upload failures cannot invoke inference",
+      (await metrics()).aiRuns === initial.aiRuns,
+    );
+  } else if (stage === "core") {
     await load();
     check(
       "no inference before capture",

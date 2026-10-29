@@ -1,10 +1,14 @@
 import type { NextRequest } from 'next/server';
 import {
+  ASSISTANT_BODY_BYTES,
+  authenticateProxyUpload,
   backendRequestUrl,
-  boundedProxyBody,
+  ProxyAuthenticationError,
   proxyResponseBody,
   ROUTE_WRITE_BODY_BYTES,
 } from '../../../../lib/backendProxy';
+
+import { UploadError, withBoundedUpload } from '../../../../lib/boundedUpload';
 
 const API_BASE_URL = process.env.KESTREL_API_BASE_URL ?? 'http://localhost:3300';
 const HOP_BY_HOP_HEADERS = new Set([
@@ -57,21 +61,29 @@ async function proxyRequest(request: NextRequest, context: RouteContext<'/api/ba
     const routeWrite =
       (request.method === 'POST' && path.length === 1 && path[0] === 'routes') ||
       (request.method === 'PATCH' && path.length === 2 && path[0] === 'routes');
-    const response = await fetch(backendUrl, {
-      body:
-        request.method === 'GET' || request.method === 'HEAD'
-          ? undefined
-          : assistant
-            ? await boundedProxyBody(request)
-            : routeWrite
-              ? await boundedProxyBody(request, ROUTE_WRITE_BODY_BYTES)
+    const forward = (body?: ArrayBuffer) =>
+      fetch(backendUrl, {
+        body,
+        headers: createForwardHeaders(request.headers),
+        method: request.method,
+        redirect: 'manual',
+        signal: controller.signal,
+        cache: 'no-store',
+      });
+    const limit = assistant ? ASSISTANT_BODY_BYTES : routeWrite ? ROUTE_WRITE_BODY_BYTES : null;
+    const response =
+      limit === null
+        ? await forward(
+            request.method === 'GET' || request.method === 'HEAD'
+              ? undefined
               : await request.arrayBuffer(),
-      headers: createForwardHeaders(request.headers),
-      method: request.method,
-      redirect: 'manual',
-      signal: controller.signal,
-      cache: 'no-store',
-    });
+          )
+        : await withBoundedUpload(
+            request,
+            limit,
+            (signal) => authenticateProxyUpload(request, API_BASE_URL, signal),
+            forward,
+          );
     if (!response.body) cleanup();
     return new Response(
       response.body ? proxyResponseBody(response.body, controller, cleanup) : null,
@@ -87,16 +99,35 @@ async function proxyRequest(request: NextRequest, context: RouteContext<'/api/ba
     return Response.json(
       {
         code:
-          error instanceof RangeError
-            ? path.join('/') === 'ai/route-assistant/runs'
-              ? 'RA_BODY_LIMIT'
-              : 'BODY_TOO_LARGE'
-            : error instanceof URIError
-              ? 'INVALID_PATH'
-              : 'BACKEND_UNAVAILABLE',
+          error instanceof ProxyAuthenticationError
+            ? error.status === 401
+              ? 'UNAUTHORIZED'
+              : 'FORBIDDEN'
+            : error instanceof UploadError
+              ? error.kind === 'timeout'
+                ? 'UPLOAD_TIMEOUT'
+                : 'UPLOAD_BUSY'
+              : error instanceof RangeError
+                ? path.join('/') === 'ai/route-assistant/runs'
+                  ? 'RA_BODY_LIMIT'
+                  : 'BODY_TOO_LARGE'
+                : error instanceof URIError
+                  ? 'INVALID_PATH'
+                  : 'BACKEND_UNAVAILABLE',
       },
       {
-        status: error instanceof RangeError ? 413 : error instanceof URIError ? 400 : 503,
+        status:
+          error instanceof ProxyAuthenticationError
+            ? error.status
+            : error instanceof UploadError
+              ? error.kind === 'timeout'
+                ? 408
+                : 429
+              : error instanceof RangeError
+                ? 413
+                : error instanceof URIError
+                  ? 400
+                  : 503,
         headers: { 'Cache-Control': 'no-store' },
       },
     );

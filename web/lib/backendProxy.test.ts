@@ -1,11 +1,23 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  authenticateProxyUpload,
   backendRequestUrl,
-  boundedProxyBody,
+  ProxyAuthenticationError,
   proxyResponseBody,
   ROUTE_WRITE_BODY_BYTES,
 } from './backendProxy.ts';
+
+import { UploadBudget, withBoundedUpload } from './boundedUpload.ts';
+
+const boundedProxyBody = (request: Request, limit = 4 * 1024 * 1024) =>
+  withBoundedUpload(
+    request,
+    limit,
+    async () => undefined,
+    async (body) => body,
+    new UploadBudget(),
+  );
 
 function request(chunks: number[], headers?: Record<string, string>, signal?: AbortSignal) {
   let cancelled = false;
@@ -28,6 +40,59 @@ function request(chunks: number[], headers?: Record<string, string>, signal?: Ab
     cancelled: () => cancelled,
   };
 }
+
+test('large proxy uploads authenticate through a bodyless session probe before receiving data', async () => {
+  let calls = 0;
+  const fetcher: typeof fetch = async (input, init) => {
+    calls++;
+    assert.equal(String(input), 'http://backend:3300/auth/session');
+    assert.equal(init?.method, 'GET');
+    assert.equal(init?.body, undefined);
+    assert.equal(new Headers(init?.headers).get('authorization'), 'Bearer token');
+    return new Response(null, { status: 204 });
+  };
+  const anonymous = new Request('http://localhost/upload', {
+    method: 'POST',
+    body: 'private input',
+  });
+  await assert.rejects(
+    authenticateProxyUpload(
+      anonymous,
+      'http://backend:3300',
+      new AbortController().signal,
+      fetcher,
+    ),
+    (error) => error instanceof ProxyAuthenticationError && error.status === 401,
+  );
+  assert.equal(calls, 0);
+  assert.equal(anonymous.bodyUsed, false);
+  const owned = new Request('http://localhost/upload', {
+    method: 'POST',
+    headers: { Authorization: 'Bearer token' },
+    body: 'private input',
+  });
+  await authenticateProxyUpload(
+    owned,
+    'http://backend:3300',
+    new AbortController().signal,
+    fetcher,
+  );
+  assert.equal(calls, 1);
+  assert.equal(owned.bodyUsed, false);
+  for (const status of [401, 403])
+    await assert.rejects(
+      authenticateProxyUpload(
+        owned,
+        'http://backend:3300',
+        new AbortController().signal,
+        async () => new Response('private error', { status }),
+      ),
+      (error) =>
+        error instanceof ProxyAuthenticationError &&
+        error.status === status &&
+        !error.message.includes('private'),
+    );
+});
 
 test('proxy URL stays on the configured Backend and preserves its path prefix', () => {
   const base = 'http://backend:3300/api';

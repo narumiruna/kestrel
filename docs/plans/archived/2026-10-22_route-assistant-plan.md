@@ -176,7 +176,7 @@ All retained implementation and local-verification tasks passed. Source snapshot
 
 Local browser reports are `/tmp/kestrel-route-assistant-{core,lifecycle,captures,loops}.json`. Review/input/preview PNGs remain outside Git under `/tmp/kestrel-route-*`. Automated logs are also outside the repository. Fixture results do not prove live vision quality, account entitlement, provider billing/retention, deployed edge behavior, or physical-device rendering.
 
-The assistant body remains limited to 4 MiB, with fixed bounded readers at both hops. Route POST/PATCH has a separate 256 KiB cap so full-precision 1000-point paths remain saveable; other Backend bodies retain 100 KiB. The event reader is capped at 512 KiB. Review lifetime is ten minutes **from capture**, not submission. These are application limits, not a container-memory or provider-refund guarantee.
+The assistant body remains limited to 4 MiB. The [PR review follow-up](../2026-10-29_route-assistant-review-plan.md) replaces the original maximum-size preallocation with authenticated incremental readers at both hops, a 15-second upload deadline, 16 admitted uploads, and a 32 MiB owned-buffer budget per process. Route POST/PATCH retains a separate 256 KiB cap so full-precision 1000-point paths remain saveable; other Backend bodies retain 100 KiB. The event reader is capped at 512 KiB. Review lifetime is ten minutes **from capture**, not submission. These are application limits, not a container-memory or provider-refund guarantee.
 
 ## External Handoff
 

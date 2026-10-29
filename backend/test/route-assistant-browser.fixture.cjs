@@ -31,7 +31,7 @@ const { piRegistry } = require('../dist/ai/ai-catalog.js');
 const {
   createAssistantProposal,
 } = require('../dist/route-assistant/route-assistant.geometry.js');
-const { enforceBodyLimit } = require('../dist/http/handlers.js');
+const { createBodyLimit, handleError } = require('../dist/http/handlers.js');
 
 const USER = '11111111-1111-4111-8111-111111111111';
 const SESSION = '22222222-2222-4222-8222-222222222222';
@@ -435,8 +435,14 @@ async function main() {
     }
   };
   const service = new RouteAssistantService(fakeSettings, fakePrisma, worker);
+  const sessionAuth = async (context, next) => {
+    if (context.req.header('authorization') !== `Bearer ${TOKEN}`)
+      return context.json({ code: 'FIXTURE_AUTH_REQUIRED' }, 401);
+    context.set('auth', { userId: USER, sessionId: SESSION });
+    await next();
+  };
   const app = new Hono();
-  app.use('*', enforceBodyLimit);
+  app.use('*', createBodyLimit(sessionAuth));
   app.use('*', async (context, next) => {
     metrics.requests++;
     const origin = context.req.header('origin');
@@ -513,12 +519,7 @@ async function main() {
       ? context.json(session)
       : context.json({ code: 'FIXTURE_AUTH_REQUIRED' }, 401);
   });
-  const sessionAuth = async (context, next) => {
-    if (context.req.header('authorization') !== `Bearer ${TOKEN}`)
-      return context.json({ code: 'FIXTURE_AUTH_REQUIRED' }, 401);
-    context.set('auth', { userId: USER, sessionId: SESSION });
-    await next();
-  };
+  app.get('/auth/session', sessionAuth, (context) => context.body(null, 204));
   app.use('/places', sessionAuth);
   app.use('/routes', sessionAuth);
   app.use('/routes/*', sessionAuth);
@@ -593,9 +594,7 @@ async function main() {
   app.notFound((context) =>
     context.json({ code: 'FIXTURE_UNRECOGNIZED_REQUEST' }, 404),
   );
-  app.onError((_error, context) =>
-    context.json({ code: 'FIXTURE_REQUEST_FAILED' }, 500),
-  );
+  app.onError(handleError);
   const server = serve(
     { fetch: app.fetch, hostname: '127.0.0.1', port: 4330 },
     () => {
