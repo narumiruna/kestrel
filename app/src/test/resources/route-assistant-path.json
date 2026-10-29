@@ -1,0 +1,35 @@
+{
+  "id": "assistant-route",
+  "name": "Screenshot path fixture",
+  "description": null,
+  "defaultSpeedKmh": 15,
+  "mode": "ONCE",
+  "createdAt": "2026-10-28T00:00:00.000Z",
+  "updatedAt": "2026-10-28T00:00:00.000Z",
+  "currentRevision": {
+    "id": "assistant-revision",
+    "createdAt": "2026-10-28T00:00:00.000Z",
+    "createdBy": "fixture-user",
+    "revisionNumber": 1,
+    "defaultSpeedKmh": 15,
+    "mode": "ONCE",
+    "waypoints": [
+      { "sequence": 0, "latitude": 25.033, "longitude": 179.999, "speedKmh": 5, "pauseSeconds": 2 },
+      { "sequence": 1, "latitude": 25.033, "longitude": -179.99739999999997, "speedKmh": null, "pauseSeconds": null },
+      { "sequence": 2, "latitude": 25.029738125426846, "longitude": -179.99739999999997, "speedKmh": null, "pauseSeconds": null }
+    ]
+  },
+  "assistantCapture": {
+    "transform": {
+      "origin": [0.9999972222222223, 0.4281398059538808],
+      "xAxis": [0.00001, 0],
+      "yAxis": [0, 0.00001],
+      "checks": []
+    },
+    "entries": [
+      { "kind": "retain", "draftId": "event" },
+      { "kind": "image", "u": 1, "v": 0 },
+      { "kind": "image", "u": 1, "v": 1 }
+    ]
+  }
+}

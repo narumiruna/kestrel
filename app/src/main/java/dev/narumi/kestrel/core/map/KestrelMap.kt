@@ -28,11 +28,14 @@ import org.maplibre.android.maps.Style
 import org.maplibre.android.style.layers.CircleLayer
 import org.maplibre.android.style.layers.LineLayer
 import org.maplibre.android.style.layers.PropertyFactory
+import org.maplibre.android.style.sources.GeoJsonOptions
 import org.maplibre.android.style.sources.GeoJsonSource
 import org.maplibre.geojson.Feature
 import org.maplibre.geojson.FeatureCollection
 import org.maplibre.geojson.LineString
 import org.maplibre.geojson.Point
+import kotlin.math.abs
+import kotlin.math.round
 import org.maplibre.android.geometry.LatLng as MlLatLng
 
 private val EMPTY_FEATURES = FeatureCollection.fromFeatures(emptyList<Feature>())
@@ -221,7 +224,7 @@ private fun addRouteLayers(
     style: Style,
     colors: MapColors,
 ) {
-    style.addSource(GeoJsonSource(SOURCE_LINE))
+    style.addSource(GeoJsonSource(SOURCE_LINE, routeGeometryOptions()))
     style.addLayer(
         LineLayer(LAYER_LINE, SOURCE_LINE).withProperties(
             PropertyFactory.lineColor(colors.primary),
@@ -229,7 +232,7 @@ private fun addRouteLayers(
             PropertyFactory.lineOpacity(0.85f),
         ),
     )
-    style.addSource(GeoJsonSource(SOURCE_WAYPOINTS))
+    style.addSource(GeoJsonSource(SOURCE_WAYPOINTS, routeGeometryOptions()))
     style.addLayer(
         CircleLayer(LAYER_WAYPOINTS, SOURCE_WAYPOINTS).withProperties(
             PropertyFactory.circleRadius(5f),
@@ -244,7 +247,7 @@ private fun addPreviewLayers(
     style: Style,
     colors: MapColors,
 ) {
-    style.addSource(GeoJsonSource(SOURCE_PREVIEW_LINE))
+    style.addSource(GeoJsonSource(SOURCE_PREVIEW_LINE, routeGeometryOptions()))
     style.addLayer(
         LineLayer(LAYER_PREVIEW_LINE, SOURCE_PREVIEW_LINE).withProperties(
             PropertyFactory.lineColor(colors.preview),
@@ -253,7 +256,7 @@ private fun addPreviewLayers(
             PropertyFactory.lineDasharray(arrayOf(1.5f, 1.5f)),
         ),
     )
-    style.addSource(GeoJsonSource(SOURCE_PREVIEW_WAYPOINTS))
+    style.addSource(GeoJsonSource(SOURCE_PREVIEW_WAYPOINTS, routeGeometryOptions()))
     style.addLayer(
         CircleLayer(LAYER_PREVIEW_WAYPOINTS, SOURCE_PREVIEW_WAYPOINTS).withProperties(
             PropertyFactory.circleRadius(6f),
@@ -385,6 +388,19 @@ private fun UpdateCamera(
     }
 }
 
+internal fun routeGeometryOptions(): GeoJsonOptions = GeoJsonOptions().withTolerance(0f)
+
+// Unwrap only renderer coordinates; stored waypoints keep their exact longitude.
+internal fun routeLinePoints(polyline: List<LatLng>): List<Point> {
+    var previousLongitude = polyline.firstOrNull()?.lng ?: 0.0
+    return polyline.map { point ->
+        val delta = point.lng - previousLongitude
+        val longitude = if (abs(delta) > 180.0) point.lng - 360.0 * round(delta / 360.0) else point.lng
+        previousLongitude = longitude
+        Point.fromLngLat(longitude, point.lat)
+    }
+}
+
 @Composable
 private fun UpdateRoute(
     style: Style?,
@@ -399,7 +415,7 @@ private fun UpdateRoute(
             lineSource?.setGeoJson(EMPTY_FEATURES)
         } else {
             lineSource?.setGeoJson(
-                LineString.fromLngLats(polyline.map { Point.fromLngLat(it.lng, it.lat) }),
+                LineString.fromLngLats(routeLinePoints(polyline)),
             )
         }
         if (polyline.isEmpty()) {

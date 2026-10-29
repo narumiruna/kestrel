@@ -4,7 +4,15 @@ import { IconButton, TextField } from '@radix-ui/themes';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
-import { type RefObject, useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import {
+  type RefObject,
+  useCallback,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+} from 'react';
 import { IndexCard } from '@/components/cartographer/IndexCard';
 import { KeyboardCheatsheet } from '@/components/cartographer/KeyboardCheatsheet';
 import { ScaleBar } from '@/components/cartographer/ScaleBar';
@@ -13,6 +21,7 @@ import { useKeyboardShortcuts } from '@/components/cartographer/useKeyboardShort
 import { AiConfigurationSummary } from '@/components/dashboard/AiConfigurationSummary';
 import { matchesPlaceSearch, matchesRouteSearch } from '@/components/dashboard/librarySearch';
 import PlaceEditor from '@/components/dashboard/PlaceEditor';
+import { RouteAssistant } from '@/components/dashboard/RouteAssistant';
 import RouteEditor from '@/components/dashboard/RouteEditor';
 import {
   createRouteDraftState,
@@ -42,6 +51,7 @@ import { Button, ConfirmDialog, TextInput, Toggle, ToggleGroup } from '@/compone
 import { WorkspaceHeader } from '@/components/WorkspaceHeader';
 import { formatRelativeUpdated } from '@/i18n/format';
 import type { Place, PlaceInput, Route, RouteInput, RouteWaypoint } from '@/lib/api';
+import type { AssistantProposal, AssistantSnapshot } from '@/lib/route-assistant';
 
 const CartographerPlaceMap = dynamic(
   () => import('@/components/cartographer/CartographerPlaceMap'),
@@ -116,6 +126,19 @@ export default function DashboardMapPage() {
   const [fitRequest, setFitRequest] = useState(0);
   const [isNewRoute, setIsNewRoute] = useState(false);
   const [routeMapCapability, setRouteMapCapability] = useState<RouteMapCapability>('loading');
+  const [assistantCandidate, setAssistantCandidate] = useState<AssistantProposal | null>(null);
+  const [captureMap, setCaptureMap] = useState<
+    ((signal: AbortSignal) => Promise<Omit<AssistantSnapshot, 'binding'>>) | null
+  >(null);
+  const [captureViewGeneration, setCaptureViewGeneration] = useState(0);
+  const [newAssistantRouteId, setNewAssistantRouteId] = useState(
+    () => `new:${crypto.randomUUID()}`,
+  );
+  const captureReady = useCallback(
+    (capture: typeof captureMap) => setCaptureMap(() => capture),
+    [],
+  );
+  const captureViewChanged = useCallback(() => setCaptureViewGeneration((value) => value + 1), []);
   const [draftPlaceCoords, setDraftPlaceCoords] = useState<Coordinates | null>(null);
   const [isPlaceDirty, setIsPlaceDirty] = useState(false);
   const [isNewPlace, setIsNewPlace] = useState(false);
@@ -403,6 +426,7 @@ export default function DashboardMapPage() {
   function startNewRoute() {
     requestDraftAction(() => {
       resetDraftState();
+      setNewAssistantRouteId(`new:${crypto.randomUUID()}`);
       dispatchWorkflow({ type: 'mode', mode: 'edit' });
       setActiveKind('routes');
       setSelectedRouteId(null);
@@ -479,6 +503,9 @@ export default function DashboardMapPage() {
         selectedWaypointIndex={selectedWaypointIndex}
         waypoints={draftWaypoints}
         onCapabilityChange={setRouteMapCapability}
+        onCaptureReady={captureReady}
+        onCaptureViewChange={captureViewChanged}
+        candidateWaypoints={assistantCandidate?.waypoints ?? null}
         onChange={(waypoints) => {
           const next = replaceRoutePath(routeDraftState, waypoints);
           setRouteDraftState(next);
@@ -558,7 +585,28 @@ export default function DashboardMapPage() {
             <MapEmptySelection kind="route" />
           ) : (
             <RouteEditor
-              key={isNewRoute ? 'new-route' : selectedRoute?.id}
+              key={isNewRoute ? newAssistantRouteId : selectedRoute?.id}
+              assistant={
+                <RouteAssistant
+                  apiRequest={auth.apiRequest}
+                  session={auth.session}
+                  draftState={routeDraftState}
+                  setDraftState={setRouteDraftState}
+                  routeId={
+                    isNewRoute ? newAssistantRouteId : (selectedRoute?.id ?? newAssistantRouteId)
+                  }
+                  viewGeneration={captureViewGeneration}
+                  captureMap={captureMap ?? (() => Promise.reject(new Error('Map unavailable')))}
+                  isSaving={isRouteSaving || routeMapCapability !== 'ready'}
+                  onCandidateChange={setAssistantCandidate}
+                  onNavigateSettings={() => navigateIfDraftSafe('/dashboard/account#ai-assistant')}
+                  onApplied={() => {
+                    setSelectedWaypointId(null);
+                    setFocusTarget(null);
+                    setFitRequest((request) => request + 1);
+                  }}
+                />
+              }
               configurationSummary={
                 <AiConfigurationSummary
                   apiRequest={auth.apiRequest}

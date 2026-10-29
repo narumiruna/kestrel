@@ -19,11 +19,13 @@ import { ConfigService } from './config.service';
 import { LibraryService } from './library/library.service';
 import { PrismaService } from './prisma/prisma.service';
 import { RemoteControlService } from './remote-control/remote-control.service';
+import { RouteAssistantService } from './route-assistant/route-assistant.service';
 import { SharingService } from './sharing/sharing.service';
 import { SyncService } from './sync/sync.service';
 
 export type Container = {
   aiSettingsService: AiSettingsService;
+  routeAssistantService: RouteAssistantService;
   accessTokenService: AccessTokenService;
   accountSecurityService: AccountSecurityService;
   androidLoginService: AndroidLoginService;
@@ -85,6 +87,10 @@ export function createContainer(
 
   return {
     aiSettingsService,
+    routeAssistantService: new RouteAssistantService(
+      aiSettingsService,
+      prismaService,
+    ),
     accessTokenService,
     accountSecurityService: new AccountSecurityService(
       authService,

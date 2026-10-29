@@ -36,6 +36,32 @@ class GeoTest {
     }
 
     @Test
+    fun interpolationCrossesDatelineInBothDirectionsWithExactEndpoints() {
+        val west = LatLng(10.0, 179.9)
+        val east = LatLng(20.0, -179.9)
+        for ((a, b) in listOf(west to east, east to west)) {
+            assertEquals(a, lerpLatLng(a, b, 0.0))
+            assertEquals(b, lerpLatLng(a, b, 1.0))
+            val midpoint = lerpLatLng(a, b, 0.5)
+            assertEquals(15.0, midpoint.lat, 0.0)
+            assertEquals(180.0, abs(midpoint.lng), 0.0)
+            assertTrue(abs(lerpLatLng(a, b, 0.75).lng) > 179.0)
+        }
+    }
+
+    @Test
+    fun interpolationPreservesNonCrossingArithmeticIncludingHalfWorld() {
+        val a = LatLng(25.033, -90.0)
+        val b = LatLng(35.6764, 90.0)
+        for (t in listOf(0.25, 0.5, 0.75)) {
+            assertEquals(
+                LatLng(a.lat + (b.lat - a.lat) * t, a.lng + (b.lng - a.lng) * t),
+                lerpLatLng(a, b, t),
+            )
+        }
+    }
+
+    @Test
     fun destinationPointDistanceMatchesInputMeters() {
         val start = LatLng(25.033, 121.5654)
         val distance = 1_234.0

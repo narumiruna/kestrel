@@ -9,7 +9,8 @@ import {
   getRouteMarkerText,
   type RouteMarkerTranslator,
 } from '@/components/dashboard/routeMarkerLabels';
-import { getStyleByName } from '@/components/mapStyle';
+import { getRouteCoordinates } from '@/components/dashboard/routeViewport';
+import { getStyleByName, OSM_ATTRIBUTION } from '@/components/mapStyle';
 import { useMapStyle } from '@/hooks/useMapStyle';
 import type { RouteWaypoint } from '@/lib/api';
 
@@ -88,6 +89,8 @@ export default function RouteMapPreview({
           ? [121.5654, 25.033]
           : [firstWaypoint.longitude, firstWaypoint.latitude],
       container: containerRef.current,
+      // Keep credit for OSM-derived paths when the base style changes.
+      attributionControl: { compact: false, customAttribution: OSM_ATTRIBUTION },
       locale: {
         'Map.Title': tRef.current('title'),
         'AttributionControl.ToggleAttribution': tRef.current('toggleAttribution'),
@@ -245,6 +248,7 @@ function syncLineLayer(map: MapLibreMap, waypoints: RouteWaypoint[]) {
   if (map.getSource(LINE_SOURCE_ID) == null) {
     map.addSource(LINE_SOURCE_ID, {
       data: toLineFeature(waypoints),
+      tolerance: 0,
       type: 'geojson',
     });
   }
@@ -277,7 +281,7 @@ function updateLine(map: MapLibreMap, waypoints: RouteWaypoint[]) {
 function toLineFeature(waypoints: RouteWaypoint[]): Feature<LineString> {
   return {
     geometry: {
-      coordinates: waypoints.map((waypoint) => [waypoint.longitude, waypoint.latitude]),
+      coordinates: getRouteCoordinates(waypoints),
       type: 'LineString',
     },
     properties: {},

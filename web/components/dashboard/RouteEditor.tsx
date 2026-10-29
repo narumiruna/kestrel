@@ -80,6 +80,7 @@ type CoordinateDialogState =
 
 type Props = {
   configurationSummary?: ReactNode;
+  assistant?: ReactNode;
   draftState: RouteDraftState;
   hoveredWaypointIndex?: number | null;
   onBeforeNavigateAway?: () => boolean;
@@ -106,6 +107,7 @@ type Props = {
 
 export default function RouteEditor({
   configurationSummary,
+  assistant,
   draftState,
   hoveredWaypointIndex = null,
   onBeforeNavigateAway,
@@ -403,6 +405,7 @@ export default function RouteEditor({
             <Tabs.Trigger value="edit">{t('edit')}</Tabs.Trigger>
             <Tabs.Trigger value="playback">{t('playback')}</Tabs.Trigger>
           </Tabs.List>
+          {assistant}
           {(['view', 'edit'] as const).map((panelMode) => (
             <Tabs.Content key={panelMode} value={panelMode}>
               <section className="route-path-section" aria-labelledby="route-path-heading">

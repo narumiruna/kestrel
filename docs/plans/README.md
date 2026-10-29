@@ -4,10 +4,6 @@ Top-level `*-plan.md` files are active. Closed or superseded plans live in `arch
 
 ## Active files
 
-1. [Personal AI provider settings](2026-10-22_personal-ai-provider-settings-plan.md) — proposed stage 1: per-user provider login, encrypted credentials, and account-backed model/thinking settings.
-2. [Route assistant drafts](2026-10-22_route-assistant-drafts-plan.md) — proposed stage 2, depends on stage 1: restricted agent tools, candidate preview, explicit Apply, and existing manual Save.
-3. [Road route planning](2026-10-22_road-route-planning-plan.md) — proposed stage 3, depends on stages 1–2: service selection, place search, road geometry, and bounded distance-based loops.
-
 - `2026-10-18_cross-platform-i18n-plan.md` — add Android and Web localization for 18 languages, with English as the default, persistent language selection, complete catalogs, and regression checks.
 
 - `dependency-refresh-plan.md` — Android, Backend, and Web dependency upgrades are implemented and verified except Android screenshot comparison, which needs approved reference images; keep the delivery PR in draft.
@@ -29,9 +25,13 @@ The [2026-10-28 Project structure cleanup](archived/2026-10-28_project-structure
 
 The [2026-10-28 Task-first Web place editing](archived/2026-10-28_web-place-editor-ux-plan.md) is complete: apply the generated design proposal to the Place inspector, separate saved-location actions, fix clipped completion controls, and preserve distinguishing Library link text. Web checks, all 18 catalogs, and 28 native Chrome checks passed; see [PR #369](https://github.com/narumiruna/kestrel/pull/369), based on #368.
 
+The [Screenshot route assistant](archived/2026-10-22_route-assistant-plan.md) is complete: required reviewed images, user-owned image-capable chat inference, deterministic conversion, bounded approximate paths/loops, separate preview, and explicit Apply/manual Save. Backend, Web, Android, all 18 catalogs, and 102 production-build Chrome fixture checks passed. The former search/routing service requirements were withdrawn by the user's scope change, not implemented. Live providers, deployed edge behavior, device rendering, and satellite transfer permission remain unverified; satellite capture stays disabled.
+
 The [2026-10-28 Web action-state review](archived/2026-10-28_web-action-state-review-plan.md) is implemented: request-owned Share state and read-only Retry, editor-owned command tracking across dialogs and Route tabs, matching-command Refresh, and 18-locale status messages. Node.js 22 Web checks passed with 241 tests and 332 Chrome checks. The archived plan retains external device limits and required human language review; keep the delivery PR in draft until language acceptance is recorded. PR #370's separate workspace findings remain open.
 
 The [2026-10-28 Remote command rejection recovery](archived/2026-10-28_remote-command-rejection-plan.md) resolves PR #372's confirmed-rejection lock. The error remains visible, explicit sends can recover, and unknown submissions keep duplicate-send protection. All 264 Web tests and 66 Chrome fixture checks passed. The original language and physical-device acceptance limits remain.
+
+The [Route assistant PR review fixes](archived/2026-10-29_route-assistant-review-plan.md) resolve PR #373's current-main conflict and unauthenticated stalled-upload finding. Both hops authenticate before incremental buffering and enforce a 15-second deadline, 16-upload admission limit, and 32 MiB owned-buffer budget per process. Backend (509 unit / 21 e2e), Web (320 tests), offline SDK, 18-locale, and 109 production transport/Chrome checks passed. The branch is pushed and the evidence-backed review thread is resolved; deployed edge behavior remains unverified.
 
 ## Security references
 

@@ -265,6 +265,7 @@ describe('AI settings HTTP routes with real session authentication', () => {
           authMethod: 'oauth',
           generation: 1,
           status: 'connected',
+          refreshing: false,
         },
       ]);
       expect(JSON.stringify([...db.aiAuthorization.values()])).not.toContain(

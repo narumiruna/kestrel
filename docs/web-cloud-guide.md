@@ -19,11 +19,12 @@ Open **Map → Routes**, then select a saved route or choose **New**.
 
 A route draft follows one task sequence:
 
-1. **Path** tab — add, select, and manage the ordered waypoints shown on the map.
-2. **Playback** tab — preview the route with only its start/end markers, without adding or dragging points; choose the default speed and Once, Loop, or Ping-pong behavior.
-3. **Save & use** — save manually, then play the intended snapshot on Android or share the saved revision.
+1. **View** — inspect the route without adding or dragging points.
+2. **Edit** — add, select, and manage the ordered waypoints shown on the map.
+3. **Playback** — preview the route with only its start/end markers; choose the default speed and Once, Loop, or Ping-pong behavior.
+4. Save manually, then play the intended snapshot on Android or share the saved revision.
 
-Route name and compact status stay above the tabs. Switching tabs preserves the draft and Undo/Redo history; Save, Share, and device playback remain below both tabs. Optional description and compatibility visibility remain under **More details**.
+Route name and compact status stay above the tabs. Switching tabs preserves the draft and Undo/Redo history; Save, Share, and device playback use the existing controls below the panels. Optional description and compatibility visibility remain under **More details**.
 
 The map is a live preview of the draft. Kestrel does not auto-save routes: nothing is written to the cloud until **Save route** succeeds. A new route says **Not saved yet**, a changed route says **Unsaved changes** or **Not ready to save**, and a clean existing route shows its saved cloud revision without a disabled Save button.
 
@@ -31,7 +32,7 @@ The map is a live preview of the draft. Kestrel does not auto-save routes: nothi
 
 You can build the same path with pointer, touch, or keyboard:
 
-- In **Path**, click the map to append a waypoint when the route preview is ready.
+- In **Edit**, enable point addition and click the map to append a waypoint when the route preview is ready.
 - Choose **Saved place** to open a searchable dialog and append a Place from the cloud library.
 - Choose **Coordinates** to add an exact latitude and longitude without using the map.
 - Drag a numbered map marker to move it.
@@ -57,6 +58,44 @@ A → B → C becomes A → B → C → A
 ```
 
 This adds a visible return segment instead of letting playback jump directly from the old endpoint to the start. Repeating Close loop does not add another copy. Ping-pong already travels back along the route and does not need this action.
+
+## Suggest a path from a screenshot
+
+Manual editing needs no AI setup. It connects ordered waypoints with direct segments, not road snapping. Moving or removing points can cut corners, including after an assistant proposal.
+
+Open the single **Suggest a path** entry in the existing route inspector. It uses the same map and draft; no separate workspace or required mode switch is added.
+
+1. In personal AI settings, connect your provider and save an image-capable **chat** model and thinking setting. Image-generation, classifier, and text-only models do not qualify. There is no provider approval gate, shared credential, or silent model substitution. The settings link uses existing draft-navigation protection.
+2. Describe a visible path change (up to 2000 characters). Optionally enter a loop target from **0.1 to 20 km**.
+3. Choose **Capture map**. Review the exact PNG, capture time, dimensions, source, and selected provider/model. Capture includes the map, visible route markers/labels/leaders, and attribution, not the whole page, inspector, account UI, Places, or device data.
+4. Confirm image transfer, then choose **Generate path**. Opening the assistant, typing, and capture do not call the inference provider. Removing the image prevents submission; capture and confirm a new one. There is no image-free fallback.
+5. Review the separate approximate candidate on the existing map, point count, measured distance, source, and any loop error. Use **Apply path** once to replace only the path as one Undo step, or **Discard suggestion**. Confirm separately if event-bearing waypoints will be removed.
+6. Use the existing **Save route** action when ready. Apply does not save, share, sync, or send a device command. Name, description, visibility, playback mode, and default speed stay unchanged. Unchanged point references retain exact coordinates and speed/pause; explicit visible-point moves retain their identity and events. New points have null speed/pause. Undo is path-only.
+
+### Capture limits and source permission
+
+- Capture waits at most **5 seconds**. Submit within **120 seconds** of capture. The submitted review image expires **10 minutes after capture**.
+- Camera, map size, style, or draft changes before submission require explicit recapture. After submission, camera-only panning does not change the frozen image or its coordinate conversion.
+- Upload authentication and reception have a **15-second** deadline. A timeout or busy service leaves the draft unchanged; capture and submit again explicitly. Requests are not replayed automatically.
+- One PNG is required: at most **2 MiB**, **1600 pixels per side**, and **2,560,000 pixels**. A loading, blank, incomplete, CORS-blocked, or unavailable map is not a valid capture.
+- Only OSM-based **plain**, **dark**, and **terrain** styles support capture; terrain is a color treatment, not elevation. Esri satellite capture is disabled pending source-owner permission. Manual satellite editing remains available. See [source terms and official evidence](route-assistant-source-terms.md).
+- Capture supports flat **Mercator at zero pitch**. The model supplies strict normalized image positions or retained point references, never geographic coordinates. Frozen conversion samples must round-trip within **0.25 output pixels**. Positions exclude the attribution footer. Unsupported views or repeated worlds require manual view adjustment, not an automatic camera reset.
+
+### Accuracy, privacy, and recovery
+
+Every result is an **approximate visual path**, not verified roads, geocoding, or navigation. Only the confirmed screenshot supplies new-path evidence. There is no road graph, external search, routing service, geographic-memory lookup, Places lookup, or inferred off-screen connection. Identify ambiguous visible targets, adjust the map manually, and recapture when needed. Crossings, access, direction, barriers, and safety cannot be verified from the image.
+
+Distance is measured from the final direct-segment path. Loop proposals must stay within **±10%** of the target and close within **10 m**, with at most **3 candidate attempts**. Final paths require **2–1000 points**. Excessive or invalid geometry fails; it is not truncated or silently simplified. Preview, Apply, Save, sync, and playback use the same geometry; map route sources use zero simplification tolerance. OSM credit remains on the image and route editing/preview maps after Apply and Save; Android retains native OSM attribution. Redistribution must retain applicable source credit and licensing obligations.
+
+The image and request can reveal precise positions. Your provider can charge for image input and retain data under its own account terms. Full draft coordinates and conversion metadata stay inside the authenticated application; the provider receives the image, bounded request, dimensions/map rectangle, visible marker references, and optional loop target. Local transient storage does not guarantee provider deletion or no training.
+
+There is no automatic capture, recapture, submission, retry, or chat/image persistence. Reload or restart does not recover the conversation. Images and proposals are cleared on removal, invalidation, cancellation, expiry, Apply/discard, or session end. Manual Save alone persists approved route geometry.
+
+**Stop** aborts local work and requests cancellation. Stream loss or disconnect does not prove that upstream inference stopped, prevent charges, or guarantee a refund. After failure, review the state and explicitly capture/submit again; paid requests are not replayed automatically.
+
+Manual edits, edit → Undo, route switches, discard, successful Save/baseline changes, settings/credential changes, and logout invalidate affected runs and proposals. Late events cannot restore them. There is no automatic rebase; capture again. Apply is disabled while Save or credential refresh is running. Normal OAuth refresh keeps the same credential generation; an actual failure or credential change still invalidates the result. An invalid assistant loop field does not block manual Save. Failed Save keeps the draft but cannot revive an invalidated result. Cross-tab route-write compare-and-swap protection is **not implemented**.
+
+See the [API contract](route-assistant-api.md) and [operations requirements](operations.md#route-assistant-operations).
 
 ## Playback modes
 

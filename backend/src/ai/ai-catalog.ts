@@ -169,6 +169,10 @@ export class AiCatalogService {
               id: model.id,
               name: model.name,
               type: getModelType(model),
+              imageInput:
+                getModelType(model) === 'chat' &&
+                'input' in model &&
+                model.input.includes('image'),
               thinkingLevels:
                 getModelType(model) === 'chat'
                   ? getSupportedThinkingLevels(

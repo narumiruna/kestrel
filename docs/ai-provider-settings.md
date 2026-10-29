@@ -35,6 +35,7 @@ Paths are relative to the Backend mount. Web uses `/api/backend`. All responses 
 
 | Method and path | Body or result |
 | --- | --- |
+| `GET /auth/session` | Bodyless session validation (204), with `no-store` and `no-referrer`; no refresh, credential, or account mutation. Used before protected large uploads. |
 | `GET /ai/catalog` | `{ version, providers }`; all registry methods and models, bounded provider configuration fields, and operator configuration status. |
 | `GET /ai/settings` | `{ generation, selection, connections, connectionGenerations }`; no credentials. |
 | `PUT /ai/settings` | `{ generation, selection }`; validates provider/method, model operation/ID, and thinking. `selection` may be null. |
@@ -50,6 +51,8 @@ Paths are relative to the Backend mount. Web uses `/api/backend`. All responses 
 A selection is `{ authMethod, providerId, modelType, modelId, thinkingLevel }`. Model identity includes operation type: an identical chat/image/classifier ID is not interchangeable. Chat thinking must equal an advertised level. Image/classifier thinking must be null. Unsupported input and unknown mutation fields are rejected.
 
 Attempt metadata is `{ id, providerId, status, expiresAt, interaction? }`. Status is `pending`, `code_received`, `processing`, `completed`, `cancelled`, `failed`, or `expired`. Interaction may include `authorizationUrl`, `instructions`, `userCode`, `message`, and `prompt`. A prompt contains an unguessable `id`, `type`, `message`, and optional `placeholder`/`options`. Responses must match that prompt ID and the original session. Response values and raw provider errors are never returned. URLs must use HTTPS without user information, custom ports, or local/IP hosts. The Backend does not fetch an arbitrary browser interaction URL.
+
+Each connection includes `providerId`, `authMethod`, `generation`, `status`, and `refreshing`. `refreshing` is true only while an OAuth credential is temporarily quarantined under an active database lease. Lease IDs, expiry values, and credentials are not returned. A normal refresh does not increment the connection generation; callers must not treat this temporary status as a replacement or disconnect. Terminal refresh failure remains `reconnect_required` with `refreshing: false`. Credential reads still wait for the lease and never reuse the quarantined credential.
 
 Settings `generation` protects defaults only. Connection writes use the provider's `connectionGenerations[providerId]`, defaulting to zero only if no row exists. Disconnected tombstones retain their generations. Stale writes return `AI_CONFIGURATION_CHANGED` (409). Reload before another user-directed write.
 

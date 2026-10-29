@@ -19,6 +19,12 @@ export function createAuthRoutes(
 ): Hono<{ Variables: AuthVariables }> {
   const routes = new Hono<{ Variables: AuthVariables }>();
 
+  routes.get('/session', sessionAuth, (context) => {
+    context.header('Cache-Control', 'no-store');
+    context.header('Referrer-Policy', 'no-referrer');
+    return context.body(null, 204);
+  });
+
   routes.post('/register', async (context) =>
     context.json(await authService.register(await readJsonBody(context)), 201),
   );

@@ -11,12 +11,19 @@ import {
   getRouteMarkerText,
   type RouteMarkerTranslator,
 } from '@/components/dashboard/routeMarkerLabels';
-import { getRouteBounds, getRouteViewportPadding } from '@/components/dashboard/routeViewport';
-import { getStyleByName } from '@/components/mapStyle';
+import {
+  getRouteBounds,
+  getRouteCoordinates,
+  getRouteViewportPadding,
+} from '@/components/dashboard/routeViewport';
+import { getStyleByName, OSM_ATTRIBUTION } from '@/components/mapStyle';
+import { syncAssistantCandidate } from '@/components/route-assistant/candidateLayer';
+import { captureRouteMap } from '@/components/route-assistant/capture';
 import type { RouteMapCapability } from '@/components/routeMapCapability';
 import { Button } from '@/components/ui/radix-ui';
 import { useMapStyle } from '@/hooks/useMapStyle';
 import type { RouteWaypoint } from '@/lib/api';
+import type { AssistantSnapshot, AssistantWaypoint } from '@/lib/route-assistant';
 
 export type RouteMapControls = {
   fit: () => void;
@@ -33,6 +40,11 @@ type Props = {
   isAdding?: boolean;
   onCancelAdding?: () => void;
   onCapabilityChange?: (capability: RouteMapCapability) => void;
+  onCaptureReady?: (
+    capture: ((signal: AbortSignal) => Promise<Omit<AssistantSnapshot, 'binding'>>) | null,
+  ) => void;
+  onCaptureViewChange?: () => void;
+  candidateWaypoints?: RouteWaypoint[] | null;
   onChange: (waypoints: RouteWaypoint[]) => void;
   onHoverWaypoint?: (index: number | null) => void;
   onReady?: (controls: RouteMapControls) => void;
@@ -53,6 +65,9 @@ export default function RouteMapEditor({
   isAdding = false,
   onCancelAdding,
   onCapabilityChange,
+  onCaptureReady,
+  onCaptureViewChange,
+  candidateWaypoints = null,
   onChange,
   onHoverWaypoint,
   onReady,
@@ -61,6 +76,8 @@ export default function RouteMapEditor({
   waypoints,
 }: Props) {
   const t = useTranslations('routeMap');
+  const ta = useTranslations('RouteAssistant');
+  const te = useTranslations('routeEditor');
   const locale = useLocale();
   const tRef = useRef(t);
   const localeRef = useRef<string>(locale);
@@ -80,6 +97,9 @@ export default function RouteMapEditor({
   const onChangeRef = useRef(onChange);
   const onHoverWaypointRef = useRef(onHoverWaypoint);
   const onReadyRef = useRef(onReady);
+  const onCaptureReadyRef = useRef(onCaptureReady);
+  const onCaptureViewChangeRef = useRef(onCaptureViewChange);
+  const captureTileErrorRef = useRef(false);
   const onSelectWaypointRef = useRef(onSelectWaypoint);
   const hoveredWaypointIndexRef = useRef(hoveredWaypointIndex);
   const selectedWaypointIndexRef = useRef(selectedWaypointIndex);
@@ -128,6 +148,8 @@ export default function RouteMapEditor({
     };
     onHoverWaypointRef.current = onHoverWaypoint;
     onReadyRef.current = onReady;
+    onCaptureReadyRef.current = onCaptureReady;
+    onCaptureViewChangeRef.current = onCaptureViewChange;
     onSelectWaypointRef.current = onSelectWaypoint;
     selectedWaypointIndexRef.current = selectedWaypointIndex;
     waypointsRef.current = waypoints;
@@ -138,6 +160,8 @@ export default function RouteMapEditor({
     onChange,
     onHoverWaypoint,
     onReady,
+    onCaptureReady,
+    onCaptureViewChange,
     onSelectWaypoint,
     selectedWaypointIndex,
     waypoints,
@@ -169,6 +193,8 @@ export default function RouteMapEditor({
             ? [121.5654, 25.033]
             : [firstWaypoint.longitude, firstWaypoint.latitude],
         container: containerRef.current,
+        // Keep credit for OSM-derived paths when the base style changes.
+        attributionControl: { compact: false, customAttribution: OSM_ATTRIBUTION },
         locale: {
           'Map.Title': tRef.current('title'),
           'AttributionControl.ToggleAttribution': tRef.current('toggleAttribution'),
@@ -258,6 +284,35 @@ export default function RouteMapEditor({
         tRef.current,
       );
     };
+    captureTileErrorRef.current = false;
+    const changedView = () => onCaptureViewChangeRef.current?.();
+    const tileError = () => {
+      captureTileErrorRef.current = true;
+      changedView();
+    };
+    map.on('movestart', changedView);
+    map.on('resize', changedView);
+    map.on('error', tileError);
+    onCaptureReadyRef.current?.((signal) => {
+      if (
+        mapStatusRef.current !== 'ready' ||
+        captureTileErrorRef.current ||
+        map.getSource('route-assistant-candidate')
+      )
+        return Promise.reject(
+          new Error('Map capture is unavailable. Reload the map or discard the candidate.'),
+        );
+      const points = waypointsRef.current as AssistantWaypoint[];
+      if (points.some((p) => typeof p.draftId !== 'string'))
+        return Promise.reject(new Error('Draft references unavailable.'));
+      return captureRouteMap({
+        map,
+        markers: markersRef.current,
+        waypoints: points,
+        style: currentStyleNameRef.current,
+        signal,
+      });
+    });
     map.on('load', handleLoad);
     map.on('moveend', handleMoveEnd);
     map.on('resize', handleMoveEnd);
@@ -284,6 +339,10 @@ export default function RouteMapEditor({
       window.cancelAnimationFrame(resizeFrame);
       resizeObserver.disconnect();
       map.off('movestart', handleUserMove);
+      map.off('movestart', changedView);
+      map.off('resize', changedView);
+      map.off('error', tileError);
+      onCaptureReadyRef.current?.(null);
       clearMarkers(markersRef.current);
       window.clearTimeout(styleReadyTimeout);
       map.off('click', handleMapClick);
@@ -431,6 +490,8 @@ export default function RouteMapEditor({
     }
 
     currentStyleNameRef.current = styleName;
+    onCaptureViewChangeRef.current?.();
+    captureTileErrorRef.current = false;
 
     const center = map.getCenter();
     const zoom = map.getZoom();
@@ -500,9 +561,26 @@ export default function RouteMapEditor({
     };
   }, [styleName]);
 
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || mapStatus !== 'ready') return;
+    try {
+      syncAssistantCandidate(map, candidateWaypoints);
+    } catch {
+      mapStatusRef.current = 'route-preview-error';
+      setMapStatus('route-preview-error');
+    }
+  }, [candidateWaypoints, mapStatus]);
+
   return (
     <div className={`${className} route-map-shell route-map-capability-${mapStatus}`}>
       <div className="route-map-canvas" ref={containerRef} />
+      {candidateWaypoints ? (
+        <div className="route-assistant-map-legend" role="status">
+          <span className="route-assistant-current-label">{te('path')}</span>
+          <span className="route-assistant-candidate-label">{ta('approximate')}</span>
+        </div>
+      ) : null}
       {isAdding ? (
         <div className="route-map-add-notice" role="status">
           <span>{t('addHelp')}</span>
@@ -776,6 +854,7 @@ function syncLineLayer(map: MapLibreMap, waypoints: RouteWaypoint[]) {
   if (map.getSource(LINE_SOURCE_ID) == null) {
     map.addSource(LINE_SOURCE_ID, {
       data: toLineFeature(waypoints),
+      tolerance: 0,
       type: 'geojson',
     });
   }
@@ -850,7 +929,7 @@ function canSyncRouteLayer(map: MapLibreMap): boolean {
 function toLineFeature(waypoints: RouteWaypoint[]): Feature<LineString> {
   return {
     geometry: {
-      coordinates: waypoints.map((waypoint) => [waypoint.longitude, waypoint.latitude]),
+      coordinates: getRouteCoordinates(waypoints),
       type: 'LineString',
     },
     properties: {},

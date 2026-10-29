@@ -1,6 +1,6 @@
 # Route Assistant Drafts
 
-Status: Proposed. This plan authorizes no implementation, paid inference, database operation, or device action.
+Status: Superseded by [Route Assistant](2026-10-22_route-assistant-plan.md). Archived as a source snapshot, not as completed work. Track all unfinished tasks and completion requirements in the merged plan only. This document authorizes no implementation, paid inference, database operation, or device action.
 
 ## Goal
 

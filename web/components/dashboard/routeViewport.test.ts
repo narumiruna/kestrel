@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { getRouteBounds, getRouteViewportPadding } from './routeViewport.ts';
+import { getRouteBounds, getRouteCoordinates, getRouteViewportPadding } from './routeViewport.ts';
 
 test('empty routes do not request a camera change; a single point has finite bounds', () => {
   assert.equal(getRouteBounds([]), null);
@@ -24,17 +24,25 @@ test('route bounds contain all waypoints without changing their order or coordin
   assert.deepEqual(points, before);
 });
 
-test('bounds include the supplied longitude span without changing rendered route geometry', () => {
-  assert.deepEqual(
-    getRouteBounds([
-      { longitude: 179, latitude: 10 },
-      { longitude: -179, latitude: 11 },
-    ]),
-    [
-      [-179, 10],
-      [179, 11],
-    ],
-  );
+test('date-line bounds and rendering use the short arc without changing stored geometry', () => {
+  const points = [
+    { longitude: 179, latitude: 10 },
+    { longitude: -179, latitude: 11 },
+  ];
+  const before = structuredClone(points);
+  assert.deepEqual(getRouteBounds(points), [
+    [179, 10],
+    [181, 11],
+  ]);
+  assert.deepEqual(getRouteCoordinates(points), [
+    [179, 10],
+    [181, 11],
+  ]);
+  assert.deepEqual(getRouteCoordinates([...points].reverse()), [
+    [-179, 11],
+    [-181, 10],
+  ]);
+  assert.deepEqual(points, before);
 });
 
 test('desktop panels outside the actual map reserve no extra camera space', () => {

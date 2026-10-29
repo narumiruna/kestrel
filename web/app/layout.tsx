@@ -17,6 +17,7 @@ import './workspace-theme.css';
 import './radix-ui.css';
 import './account-ui.css';
 import './workspace-ux.css';
+import './route-assistant.css';
 import type { Metadata } from 'next';
 import { Inter, JetBrains_Mono } from 'next/font/google';
 import Script from 'next/script';

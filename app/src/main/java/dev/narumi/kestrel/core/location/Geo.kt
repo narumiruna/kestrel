@@ -39,11 +39,26 @@ fun lerpLatLng(
     a: LatLng,
     b: LatLng,
     t: Double,
-): LatLng =
-    LatLng(
+): LatLng {
+    if (t == 0.0) return a
+    if (t == 1.0) return b
+    val delta = b.lng - a.lng
+    val longitude =
+        when {
+            delta > 180.0 -> a.lng + (delta - 360.0) * t
+            delta < -180.0 -> a.lng + (delta + 360.0) * t
+            else -> a.lng + delta * t
+        }
+    return LatLng(
         lat = a.lat + (b.lat - a.lat) * t,
-        lng = a.lng + (b.lng - a.lng) * t,
+        lng =
+            when {
+                delta > 180.0 && longitude < -180.0 -> longitude + 360.0
+                delta < -180.0 && longitude > 180.0 -> longitude - 360.0
+                else -> longitude
+            },
     )
+}
 
 fun destinationPoint(
     from: LatLng,
