@@ -1,0 +1,44 @@
+.route-assistant {
+  border-block: 1px solid var(--sand-6);
+  margin-block: 12px;
+  padding-block: 10px;
+}
+.route-assistant textarea {
+  min-height: 90px;
+}
+.route-assistant img {
+  border: 1px solid var(--sand-6);
+  border-radius: var(--radius-2);
+  display: block;
+}
+/* Keep the fixed source credit above the map toolbar and scale bar. */
+.cartographer-stage-map .route-map-shell .maplibregl-ctrl-bottom-right {
+  bottom: 64px;
+}
+.route-assistant-map-legend {
+  background: var(--sand-1);
+  border: 1px solid var(--sand-6);
+  border-radius: var(--radius-2);
+  display: grid;
+  font-size: 12px;
+  gap: 6px;
+  left: 12px;
+  max-width: min(420px, calc(100% - 80px));
+  padding: 8px 10px;
+  pointer-events: none;
+  position: absolute;
+  top: 12px;
+  z-index: 5;
+}
+.route-assistant-map-legend span::before {
+  border-top: 3px solid var(--orange-10);
+  content: "";
+  display: inline-block;
+  margin-right: 7px;
+  vertical-align: middle;
+  width: 24px;
+}
+.route-assistant-map-legend .route-assistant-candidate-label::before {
+  border-top-color: var(--blue-10);
+  border-top-style: dashed;
+}

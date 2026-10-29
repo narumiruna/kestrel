@@ -58,6 +58,8 @@ export class AiSettingsService {
           authMethod: true,
           status: true,
           generation: true,
+          leaseId: true,
+          leaseExpiresAt: true,
         },
         orderBy: { providerId: 'asc' },
       }),
@@ -65,9 +67,21 @@ export class AiSettingsService {
     return {
       generation: settings?.generation ?? 0,
       selection: settings?.selection ?? null,
-      connections: connections.filter(
-        (connection) => connection.status !== 'disconnected',
-      ),
+      connections: connections
+        .filter((connection) => connection.status !== 'disconnected')
+        .map((connection) => ({
+          providerId: connection.providerId,
+          authMethod: connection.authMethod,
+          status: connection.status,
+          generation: connection.generation,
+          // OAuth refresh quarantines the old credential while its lease is held.
+          refreshing:
+            connection.authMethod === 'oauth' &&
+            connection.status === 'reconnect_required' &&
+            connection.leaseId !== null &&
+            !!connection.leaseExpiresAt &&
+            connection.leaseExpiresAt > new Date(),
+        })),
       connectionGenerations: Object.fromEntries(
         connections.map((connection) => [
           connection.providerId,

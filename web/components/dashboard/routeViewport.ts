@@ -36,17 +36,27 @@ export function getRouteViewportPadding(viewport: ViewportRect, obstacles: Viewp
   return padding;
 }
 
+/** Unwrap only at the renderer boundary; stored coordinates remain within ±180°. */
+export function getRouteCoordinates(points: Point[]): [number, number][] {
+  let longitude = points[0]?.longitude ?? 0;
+  return points.map((point) => {
+    longitude = point.longitude + 360 * Math.round((longitude - point.longitude) / 360);
+    return [longitude, point.latitude];
+  });
+}
+
 export function getRouteBounds(points: Point[]): [[number, number], [number, number]] | null {
   if (points.length === 0) return null;
-  let west = points[0].longitude;
+  const coordinates = getRouteCoordinates(points);
+  let west = coordinates[0][0];
   let east = west;
-  let south = points[0].latitude;
+  let south = coordinates[0][1];
   let north = south;
-  for (const point of points) {
-    west = Math.min(west, point.longitude);
-    east = Math.max(east, point.longitude);
-    south = Math.min(south, point.latitude);
-    north = Math.max(north, point.latitude);
+  for (const [longitude, latitude] of coordinates) {
+    west = Math.min(west, longitude);
+    east = Math.max(east, longitude);
+    south = Math.min(south, latitude);
+    north = Math.max(north, latitude);
   }
   return [
     [west, south],

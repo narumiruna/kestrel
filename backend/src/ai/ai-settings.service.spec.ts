@@ -114,6 +114,53 @@ describe('AiSettingsService (protocol double, not database isolation proof)', ()
     );
   });
 
+  it('distinguishes an in-progress OAuth refresh from a terminal reconnect requirement', async () => {
+    const { service, session } = setup();
+    const store = service.store('alice', session);
+    await store.replace(
+      'openrouter',
+      { type: 'oauth', access: 'old-access', refresh: 'refresh', expires: 1 },
+      0,
+    );
+    const started = deferred();
+    const complete = deferred();
+    const refreshing = store.modify('openrouter', async (credential) => {
+      if (credential?.type !== 'oauth') throw new Error('fixture credential');
+      started.resolve();
+      await complete.promise;
+      return {
+        ...credential,
+        access: 'new-access',
+        expires: Date.now() + 60000,
+      };
+    });
+    await started.promise;
+    for (let poll = 0; poll < 2; poll++)
+      expect(
+        (await service.settings('alice', session)).connections[0],
+      ).toMatchObject({
+        generation: 1,
+        status: 'reconnect_required',
+        refreshing: true,
+      });
+    complete.resolve();
+    await refreshing;
+    expect(
+      (await service.settings('alice', session)).connections[0],
+    ).toMatchObject({ generation: 1, status: 'connected', refreshing: false });
+    const failed = store.modify('openrouter', () =>
+      Promise.reject(new Error('fixture refresh failure')),
+    );
+    await expect(failed).rejects.toThrow('fixture refresh failure');
+    expect(
+      (await service.settings('alice', session)).connections[0],
+    ).toMatchObject({
+      generation: 1,
+      status: 'reconnect_required',
+      refreshing: false,
+    });
+  });
+
   it('retains disconnected generations independently of settings generations', async () => {
     const { service, session } = setup();
     await service.connect('alice', session, 'openrouter', {
@@ -429,6 +476,7 @@ describe('AiSettingsService (protocol double, not database isolation proof)', ()
         authMethod: 'api_key',
         status: 'connected',
         generation: 1,
+        refreshing: false,
       },
     ]);
     expect(bob.connections).toEqual([]);

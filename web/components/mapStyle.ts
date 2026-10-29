@@ -12,7 +12,8 @@ export const DEFAULT_MAP_CENTER = {
 
 export const DEFAULT_MAP_STYLE: MapStyleName = 'plain';
 
-const OSM_ATTRIBUTION = '© OpenStreetMap contributors';
+export const OSM_ATTRIBUTION =
+  '<a href="https://www.openstreetmap.org/copyright">© OpenStreetMap contributors</a>';
 const OSM_TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 
 const MAP_STYLE_OPTIONS: Array<{ name: MapStyleName }> = [

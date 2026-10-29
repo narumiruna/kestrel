@@ -6,10 +6,6 @@ Top-level `*-plan.md` files are active. Closed or superseded plans live in `arch
 
 - [Web action-state review](2026-10-28_web-action-state-review-plan.md) — plan three additional Share/Device fixes: stale reads that erase link creation, command Refresh that retains old results/errors, and pending state lost on dialog Close. Includes a generated-image specification and browser-local reproduction evidence; implementation remains open. Separate from PR #370.
 
-1. [Personal AI provider settings](2026-10-22_personal-ai-provider-settings-plan.md) — proposed stage 1: per-user provider login, encrypted credentials, and account-backed model/thinking settings.
-2. [Route assistant drafts](2026-10-22_route-assistant-drafts-plan.md) — proposed stage 2, depends on stage 1: restricted agent tools, candidate preview, explicit Apply, and existing manual Save.
-3. [Road route planning](2026-10-22_road-route-planning-plan.md) — proposed stage 3, depends on stages 1–2: service selection, place search, road geometry, and bounded distance-based loops.
-
 - `2026-10-18_cross-platform-i18n-plan.md` — add Android and Web localization for 18 languages, with English as the default, persistent language selection, complete catalogs, and regression checks.
 
 - `dependency-refresh-plan.md` — Android, Backend, and Web dependency upgrades are implemented and verified except Android screenshot comparison, which needs approved reference images; keep the delivery PR in draft.
@@ -30,6 +26,8 @@ The [2026-10-18 Web Account settings plan](archived/2026-10-18_web-account-setti
 The [2026-10-28 Project structure cleanup](archived/2026-10-28_project-structure-plan.md) is complete: canonical public API documentation, Account CSS and navigation ownership, application-level Android remote-control lifecycle wiring, and ignored build caches. All local checks passed; physical-device verification limits remain documented in the plan and [PR #368](https://github.com/narumiruna/kestrel/pull/368).
 
 The [2026-10-28 Task-first Web place editing](archived/2026-10-28_web-place-editor-ux-plan.md) is complete: apply the generated design proposal to the Place inspector, separate saved-location actions, fix clipped completion controls, and preserve distinguishing Library link text. Web checks, all 18 catalogs, and 28 native Chrome checks passed; see [PR #369](https://github.com/narumiruna/kestrel/pull/369), based on #368.
+
+The [Screenshot route assistant](archived/2026-10-22_route-assistant-plan.md) is complete: required reviewed images, user-owned image-capable chat inference, deterministic conversion, bounded approximate paths/loops, separate preview, and explicit Apply/manual Save. Backend, Web, Android, all 18 catalogs, and 102 production-build Chrome fixture checks passed. The former search/routing service requirements were withdrawn by the user's scope change, not implemented. Live providers, deployed edge behavior, device rendering, and satellite transfer permission remain unverified; satellite capture stays disabled.
 
 ## Security references
 

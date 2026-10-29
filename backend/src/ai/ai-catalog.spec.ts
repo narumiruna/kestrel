@@ -9,7 +9,7 @@ const providers = [
   { id: 'other', name: 'Other', auth: { oauth: true } },
 ];
 const models = [
-  { id: 'chat', name: 'Chat', type: 'chat' },
+  { id: 'chat', name: 'Chat', type: 'chat', input: ['text', 'image'] },
   { id: 'image', name: 'Image', type: 'image' },
   { id: 'classifier', name: 'Classifier', type: 'classifier' },
 ];
@@ -68,16 +68,36 @@ describe('AiCatalogService', () => {
         id: 'chat',
         name: 'Chat',
         type: 'chat',
+        imageInput: true,
         thinkingLevels: ['off', 'high'],
       },
-      { id: 'image', name: 'Image', type: 'image', thinkingLevels: [] },
+      {
+        id: 'image',
+        name: 'Image',
+        type: 'image',
+        imageInput: false,
+        thinkingLevels: [],
+      },
       {
         id: 'classifier',
         name: 'Classifier',
         type: 'classifier',
+        imageInput: false,
         thinkingLevels: [],
       },
     ]);
+  });
+
+  it('reports only chat image-input capability without changing operation identity', async () => {
+    getAllModels.mockReturnValue([
+      { id: 'text', name: 'Text', type: 'chat', input: ['text'] },
+      { id: 'image', name: 'Image', type: 'image', input: ['image'] },
+    ]);
+    expect(
+      (await service.catalog()).providers[0].models.map(
+        (entry) => entry.imageInput,
+      ),
+    ).toEqual([false, false]);
   });
 
   it.each([

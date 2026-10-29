@@ -38,6 +38,41 @@ rg -i '^x-request-id:' /tmp/kestrel-health.headers
 The backend healthcheck queries PostgreSQL before returning `200`.
 Web startup waits for this check.
 
+## Route assistant operations
+
+The screenshot assistant uses the requesting user's saved image-capable chat configuration. There is no shared provider key, provider approval gate, routing/search supplier, or image-free fallback. See the [API contract](route-assistant-api.md), [user guide](web-cloud-guide.md#suggest-a-path-from-a-screenshot), and [source evidence](route-assistant-source-terms.md).
+
+### Ingress and streaming
+
+These are deployment requirements, not a claim that a live ingress was configured or tested:
+
+- Bound assistant JSON uploads to **4 MiB** at ingress. Route creation/update accepts **256 KiB** so full-precision 1000-point paths remain saveable; other Backend bodies retain the existing 100 KiB limit. The Next.js proxy and Backend also count actual body chunks, including requests without a trusted `Content-Length`, before complete buffering/parsing. Keep those application limits; ingress limits do not replace them.
+- Permit the **90-second** run and upload/setup overhead through every timeout hop. Forward NDJSON incrementally without response buffering or transformation. Preserve `Cache-Control: no-store, no-transform` and `X-Accel-Buffering: no`; the latter is a hint, not proof of proxy behavior.
+- Propagate downstream abort to the Backend fetch and local worker. Test explicit Stop, dropped connections, timeout, and incomplete streams. Do not automatically retry POST after an ambiguous paid request.
+- Keep Authorization in headers, not URLs. Remove request bodies, query strings, images/base64, prompts, geometry, conversion metadata, provider arguments, raw errors, and thinking from ingress, application, tracing, and telemetry logs. Collect only bounded status/error codes and operational metadata.
+
+No reverse-proxy configuration is in this repository. Deployed edge/proxy-hop settings and evidence are not available locally. Local proxy fixtures cannot prove deployed upload bounds, streaming, timeout, abort behavior, or edge log policy. The deployment owner must inspect each actual hop and verify it after explicit authorization; do not claim deployment or live proxy verification from local results.
+
+### Process and recovery limits
+
+Production uses `compose.yaml`, with one Backend process. Assistant rate/concurrency/recent-ID controls are in-memory **per process**, not distributed: 4 starts/minute/user, 1 active run/user, 4 active runs total, and 256 recent run IDs retained for up to 10 minutes. Do not scale Backend replicas and assume these are fleet-wide limits. Restart clears these counters as well as active runs; it does not resume inference.
+
+Each run is limited to 90 seconds, 4 model turns, 16,384 total output tokens, 8 tools, and 3 candidates. The short-lived inference worker receives resolved user credentials in a cleared environment with fixed SDK safeguards and only required user cloud configuration. It does not inherit host provider keys, profiles, metadata credentials, proxy settings, or endpoint overrides. Bedrock uses the user's regional endpoint with one SDK attempt; Vertex requires an explicit key, not an ADC placeholder. Final provider payloads are capped after SDK thinking-budget expansion. This is not an operating-system sandbox. Production worker resource limits are 128 MiB old generation, 16 MiB young generation, and 4 MiB stack; source-mode fixtures use 256 MiB old generation. These are worker runtime limits, not a container memory quota or a guarantee about all native allocations. Compose does not define an assistant-specific resource reservation.
+
+Stop new runs before maintenance. Abort active work and clear unaccepted candidate/image state without deleting drafts, routes, or personal AI connections. Review expires 10 minutes after capture. Images/prompts/proposals are not stored in the database; reload/restart cannot recover chat or background work. Existing manual Save alone persists approved geometry. Saved geometry remains usable without AI; retain source attribution. No route-schema migration is introduced by this feature.
+
+Cancellation and worker termination do not prove upstream provider cancellation, deletion, or a refund. Provider charges and retention can continue after Stop, stream loss, disconnect, or process restart. There is no automatic paid retry, resume, exactly-once billing, or provider-refund guarantee. Do not replay a lost request automatically.
+
+Only OSM-based captures are enabled. Esri satellite capture remains disabled until the source/account owner obtains unresolved transfer/derived-output permission and resolves attribution. Keep OSM image and application credit after Apply/Save, including Android's native attribution and public/API consumers. No provider approval gate is required for a user's otherwise supported personal model.
+
+### Local verification and external evidence
+
+Use deterministic tiles, fake multimodal providers, and transient test state. `npm run test:ai:integration` runs registry/auth isolation, bounded image/tool loops, final provider-payload limits, file/endpoint/retry controls, and source/compiled worker fixtures under Node.js 22; `backend/test/route-assistant-browser.fixture.cjs` and `scripts/verify-route-assistant-browser.mjs` support local browser verification through Chrome DevTools. These fixtures are **local development verification, not deployment configuration**. Never expose fixture endpoints publicly or copy their test authentication into production. Keep screenshots outside the repository.
+
+Required coding checks remain mandatory: Backend validation/PNG/conversion/ownership/run tests, Web lifecycle/proxy tests, fake-provider and browser fixtures, and affected lint, typecheck, test, and build gates. Include body-size rejection through actual chunks, missing/invalid images, settings/auth changes, stale generations, Save races, explicit Stop, no automatic retry, source credit, and no sensitive context leakage. Fixture success does not prove live model quality, provider billing/retention, deployed ingress, or physical-device behavior.
+
+Source-owner permission actions, live inference/account changes, deployment/proxy inspection, and device checks require separate owner authorization. Record these as unverified until evidence exists. They do not block local coding or replace mandatory fixture checks. Do not mark the active plan complete on this documentation's authority; its owner records acceptance evidence.
+
 ## Logging
 
 The backend logs with [pino](https://getpino.io) and writes one NDJSON line per event to stdout, so `docker compose logs` and any log collector can parse it without a second pass.

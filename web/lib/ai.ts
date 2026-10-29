@@ -12,6 +12,7 @@ export type AiConnection = {
   authMethod: AiAuthMethod;
   generation: number;
   status: 'connected' | 'reconnect_required';
+  refreshing?: boolean;
 };
 export type AiSettings = {
   generation: number;
@@ -28,7 +29,13 @@ export type AiProvider = {
     reason: 'policy' | 'hosted_unverified' | 'operator_unconfigured' | null;
   }[];
   fields: { name: string; required: boolean }[];
-  models: { id: string; name: string; type: AiModelType; thinkingLevels: string[] }[];
+  models: {
+    id: string;
+    name: string;
+    type: AiModelType;
+    thinkingLevels: string[];
+    imageInput?: boolean;
+  }[];
 };
 export type AiCatalog = { version: string; providers: AiProvider[] };
 export type AiAttempt = {

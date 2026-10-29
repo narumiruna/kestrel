@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { parseCreateRouteInput } from '../library/library.validation';
 import { BadRequestException, GoneException } from './errors';
 import {
   enforceBodyLimit,
@@ -13,6 +14,15 @@ describe('http handlers', () => {
   app.use('*', enforceBodyLimit);
 
   app.post('/body', async (context) =>
+    context.json(await readJsonBody(context)),
+  );
+  app.post('/routes', async (context) =>
+    context.json(parseCreateRouteInput(await readJsonBody(context))),
+  );
+  app.patch('/routes/:id', async (context) =>
+    context.json(await readJsonBody(context)),
+  );
+  app.post('/ai/route-assistant/runs', async (context) =>
     context.json(await readJsonBody(context)),
   );
   app.get('/string-error', () => {
@@ -62,6 +72,57 @@ describe('http handlers', () => {
       statusCode: 413,
     });
   });
+
+  it('accepts full-precision 1000-point route writes within a separate 256 KiB cap', async () => {
+    const waypoints = Array.from({ length: 1000 }, (_, index) => ({
+      latitude: 25.0330123456789 + index / 1e10,
+      longitude: 121.56541234567891,
+      speedKmh: 5.123456789012345,
+      pauseSeconds: 2.123456789012345,
+    }));
+    const input = {
+      name: 'Full precision',
+      mode: 'ONCE',
+      defaultSpeedKmh: 5,
+      waypoints,
+    };
+    const body = JSON.stringify(input);
+    expect(Buffer.byteLength(body)).toBeGreaterThan(100 * 1024);
+    for (const [method, path] of [
+      ['POST', '/routes'],
+      ['PATCH', '/routes/route'],
+    ] as const) {
+      const response = await app.request(path, {
+        method,
+        body,
+        headers: { 'content-type': 'application/json' },
+      });
+      expect(response.status).toBe(200);
+      const result = (await response.json()) as typeof input;
+      expect(result.waypoints).toEqual(waypoints);
+      const oversized = await app.request(path, {
+        method,
+        body: JSON.stringify({ padding: 'x'.repeat(256 * 1024) }),
+        headers: { 'content-type': 'application/json' },
+      });
+      expect(oversized.status).toBe(413);
+    }
+  });
+
+  it.each([
+    ['/routes', 256 * 1024],
+    ['/ai/route-assistant/runs', 4 * 1024 * 1024],
+  ])(
+    'counts actual %s bytes despite a misleading Content-Length',
+    async (path, limit) => {
+      const response = await app.request(path, {
+        method: 'POST',
+        headers: { 'content-length': '1', 'content-type': 'application/json' },
+        body: JSON.stringify({ padding: 'x'.repeat(limit) }),
+      });
+      expect(response.status).toBe(413);
+    },
+  );
 
   it('rejects an oversized chunked body before buffering it', async () => {
     const chunk = new Uint8Array(64 * 1024);
