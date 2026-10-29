@@ -9,15 +9,15 @@ Resolve PR #373 merge conflicts against current `main` and fix the unauthenticat
 - [x] Merge `origin/main` locally without rewriting the published branch. Resolve manifests, catalogs, documentation, and editor conflicts while preserving both changes; validate catalogs and dependency locks.
 - [x] Authenticate large assistant/route uploads before body reads at the Web proxy and Backend. Replace maximum-size preallocation with bounded incremental storage; add an absolute upload deadline, admission limit, and process-wide retained-byte accounting. Release resources on every completion, error, timeout, and abort path.
 - [x] Add regression tests for unauthenticated and 32 stalled uploads, misleading/chunked lengths, timeout/cancellation, capacity exhaustion/recovery, exact valid uploads, and real authentication/streaming integration. No provider inference, database application, or device operation.
-- [ ] Run affected Backend/Web checks, SDK fixtures, locale checks, and relevant production-build Chrome fixtures. Review the final diff and update PR #373 with the resolution and evidence.
+- [x] Run affected Backend/Web checks, SDK fixtures, locale checks, and relevant production-build Chrome fixtures. Review the final diff and update PR #373 with the resolution and evidence.
 
 ## Completion Checklist
 
 - [x] No unresolved merge conflicts; upstream and assistant behavior is preserved.
 - [x] Unauthenticated uploads are rejected before large-body reads or allocation. Stalled uploads cannot reserve one maximum-size buffer each or remain admitted indefinitely.
 - [x] In-flight requests and retained body storage have fixed process-wide limits at both hops. No failure path leaks capacity; valid 1000-point and screenshot requests remain accepted.
-- [ ] Affected checks pass, only intended text files are committed, and `PLAN.md` remains unchanged.
-- [ ] The PR branch is updated and the review finding has a concise evidence-backed reply.
+- [x] Affected checks pass, only intended text files are committed, and `PLAN.md` remains unchanged.
+- [x] The PR branch is updated and the review finding has a concise evidence-backed reply.
 
 ## Verification Evidence
 
@@ -27,6 +27,12 @@ Resolve PR #373 merge conflicts against current `main` and fix the unauthenticat
 - Backend lint, 509 unit tests in 39 suites, 21 e2e tests in five suites, typecheck, build, and source/compiled offline SDK fixtures passed on Node.js 22.23.4. Web check/lint, 320 tests, typecheck, production build, and the 18-locale gate passed. Existing CSS-specificity/schema warnings and identical-to-English translation-review warnings remain; they did not fail these gates and are outside this fix.
 - Production Next.js and Backend transport checks rejected 32 anonymous stalled uploads at each hop, returned 408 for authenticated unfinished uploads within 20 seconds, recovered capacity, and made no inference call. All seven upload checks and 102 existing Chrome DevTools checks passed at 1440×900 light mode, including exact 1000-point Apply/Save, streaming, cancellation, and capture/lifecycle cases.
 - Reviewed the full follow-up diff for correctness, security, lifecycle safety, compatibility, regressions, and scope. No schema, Android source, image, or binary change is part of this follow-up. `git diff --check` passed. Reports and screenshots remain outside Git. This follow-up review was local; subagent startup failed, so no independent follow-up review is claimed.
+
+## Delivery Evidence
+
+- Pushed merge commit `e218d1a` and security fix `7541d4b` to the existing PR branch without force-push. GitHub reports PR #373 as mergeable against current `main`.
+- [Replied to the security finding](https://github.com/narumiruna/kestrel/pull/373#discussion_r4409909969) with the fix and regression evidence; the review thread is resolved. Updated the PR summary and verification counts. GitHub CI started after the push; local results above do not claim a CI result.
+- Commit hooks passed. Only intended text files were committed. The untracked `PLAN.md` retains SHA-256 `b9955b5fb9af485b88f5cb8a759e304fa13119176841330ffc27b8d839072604` and remains excluded.
 
 ## Limits and Recovery
 

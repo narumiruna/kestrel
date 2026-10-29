@@ -4,8 +4,6 @@ Top-level `*-plan.md` files are active. Closed or superseded plans live in `arch
 
 ## Active files
 
-- [Route assistant PR review fixes](2026-10-29_route-assistant-review-plan.md) — current-main conflicts and bounded authenticated upload handling are locally verified; PR delivery and review reply remain pending.
-
 - `2026-10-18_cross-platform-i18n-plan.md` — add Android and Web localization for 18 languages, with English as the default, persistent language selection, complete catalogs, and regression checks.
 
 - `dependency-refresh-plan.md` — Android, Backend, and Web dependency upgrades are implemented and verified except Android screenshot comparison, which needs approved reference images; keep the delivery PR in draft.
@@ -32,6 +30,8 @@ The [Screenshot route assistant](archived/2026-10-22_route-assistant-plan.md) is
 The [2026-10-28 Web action-state review](archived/2026-10-28_web-action-state-review-plan.md) is implemented: request-owned Share state and read-only Retry, editor-owned command tracking across dialogs and Route tabs, matching-command Refresh, and 18-locale status messages. Node.js 22 Web checks passed with 241 tests and 332 Chrome checks. The archived plan retains external device limits and required human language review; keep the delivery PR in draft until language acceptance is recorded. PR #370's separate workspace findings remain open.
 
 The [2026-10-28 Remote command rejection recovery](archived/2026-10-28_remote-command-rejection-plan.md) resolves PR #372's confirmed-rejection lock. The error remains visible, explicit sends can recover, and unknown submissions keep duplicate-send protection. All 264 Web tests and 66 Chrome fixture checks passed. The original language and physical-device acceptance limits remain.
+
+The [Route assistant PR review fixes](archived/2026-10-29_route-assistant-review-plan.md) resolve PR #373's current-main conflict and unauthenticated stalled-upload finding. Both hops authenticate before incremental buffering and enforce a 15-second deadline, 16-upload admission limit, and 32 MiB owned-buffer budget per process. Backend (509 unit / 21 e2e), Web (320 tests), offline SDK, 18-locale, and 109 production transport/Chrome checks passed. The branch is pushed and the evidence-backed review thread is resolved; deployed edge behavior remains unverified.
 
 ## Security references
 
