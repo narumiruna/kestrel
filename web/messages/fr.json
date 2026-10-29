@@ -589,7 +589,20 @@
       "exchangeFailed": "Impossible de confirmer l’association du compte. Réessayez l’association pour vérifier le résultat."
     }
   },
+  "ShareState": {
+    "checking": "Vérification de l’état du lien…",
+    "readError": "Impossible de vérifier l’état du lien.",
+    "retry": "Réessayer"
+  },
   "Remote": {
+    "refreshStatus": "Actualiser l’état",
+    "closeDoesNotCancel": "Fermer cette boîte de dialogue n’annule pas la commande.",
+    "statusUnconfirmed": "Le résultat de la commande n’est pas confirmé. La commande peut encore s’exécuter.",
+    "statusReadError": "Impossible de vérifier l’état de la commande. La commande peut encore s’exécuter.",
+    "submissionUnknown": "Le résultat de l’envoi est inconnu. Vérifiez Android avant d’envoyer une autre commande.",
+    "commandReference": "Commande {id}",
+    "lastConfirmed": "Dernier état confirmé : {status}",
+    "submittedCommand": "Commande envoyée",
     "savedPlace": "Lieu enregistré",
     "placePreviewLabel": "Aperçu de la commande du lieu enregistré",
     "advancedTool": "Outil avancé",

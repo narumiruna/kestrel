@@ -586,7 +586,20 @@
       "exchangeFailed": "Penautan akun tidak dapat dikonfirmasi. Coba tautkan lagi untuk memeriksa hasilnya."
     }
   },
+  "ShareState": {
+    "checking": "Memeriksa status tautan…",
+    "readError": "Status tautan tidak dapat diperiksa.",
+    "retry": "Coba lagi"
+  },
   "Remote": {
+    "refreshStatus": "Muat ulang status",
+    "closeDoesNotCancel": "Menutup dialog ini tidak membatalkan perintah.",
+    "statusUnconfirmed": "Hasil perintah belum dikonfirmasi. Perintah masih mungkin dijalankan.",
+    "statusReadError": "Status perintah tidak dapat diperiksa. Perintah masih mungkin dijalankan.",
+    "submissionUnknown": "Hasil pengiriman tidak diketahui. Periksa Android sebelum mengirim perintah lain.",
+    "commandReference": "Perintah {id}",
+    "lastConfirmed": "Status terakhir yang dikonfirmasi: {status}",
+    "submittedCommand": "Perintah yang dikirim",
     "savedPlace": "Tempat tersimpan",
     "placePreviewLabel": "Pratinjau perintah tempat tersimpan",
     "advancedTool": "Alat lanjutan",

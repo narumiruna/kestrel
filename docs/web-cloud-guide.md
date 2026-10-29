@@ -114,9 +114,23 @@ These actions intentionally use different snapshots:
 
 The **Mark route as public** compatibility flag does not create a public link. Use **Share** after saving to create, copy, disable, or re-enable the actual public link.
 
+### Share link checks
+
+Share checks the saved item's link status before enabling link creation or changes. **Checking link status…** is not a claim that no link exists. If the check fails, **Retry** reads the status again; it does not create or change a link. A failed Create or link change also requires this read before another write. A delayed older response cannot replace a newer successful result.
+
+### Device command status
+
+After sending a command, the dialog retains its command reference and last confirmed status. **Refresh status** reads the device response; it does not send another command. A matching Applied, Failed, or Expired result completes that operation. An unrelated or missing latest command does not confirm its result.
+
+If the result cannot be confirmed, the command may still run. The send controls stay unavailable for that unresolved operation. If submission itself has no confirmed result, check Android; do not assume that the request failed or repeat it automatically.
+
+A confirmed API rejection, such as a device conflict, is different from an unknown result. The rejection error stays visible, but it does not keep an unresolved operation. Check the error and device status. You can select another device or send a new command when the selected device is ready. No command is retried automatically.
+
+**Close** or Escape closes the Device dialog without cancelling the command. Reopening the same Device action restores pending tracking, including a submission whose response has not arrived. Switching Route tabs also preserves that tracking. Reloading or leaving the current editor can end local tracking; these actions do not cancel a command already sent. Check Android before starting another operation after local tracking ends. Stop keeps its existing availability rules and is not an immediate cancellation guarantee.
+
 ## Cancellation and recovery
 
-- Closing or cancelling a coordinate, Share, Device, or delete dialog has no side effects.
+- Closing an unsubmitted coordinate, Share, Device, or delete dialog does not submit its action. Closing after submission does not undo a completed or pending request.
 - Internal navigation with unsaved work asks whether to keep editing or discard the draft.
 - **Discard** restores the latest saved route and clears path history.
 - A failed Save keeps the complete draft and shows an actionable error near Save.

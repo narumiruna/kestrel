@@ -625,7 +625,20 @@
       "exchangeFailed": "無法確認帳號連結。請重試連結以檢查結果。"
     }
   },
+  "ShareState": {
+    "checking": "正在檢查連結狀態…",
+    "readError": "無法檢查連結狀態。",
+    "retry": "重試"
+  },
   "Remote": {
+    "refreshStatus": "重新整理狀態",
+    "closeDoesNotCancel": "關閉此對話框不會取消指令。",
+    "statusUnconfirmed": "指令結果尚未確認。指令仍可能執行。",
+    "statusReadError": "無法檢查指令狀態。指令仍可能執行。",
+    "submissionUnknown": "提交結果不明。傳送另一個指令前，請先檢查 Android。",
+    "commandReference": "指令 {id}",
+    "lastConfirmed": "上次確認的狀態：{status}",
+    "submittedCommand": "已提交的指令",
     "savedPlace": "已儲存地點",
     "placePreviewLabel": "已儲存地點指令預覽",
     "advancedTool": "進階工具",

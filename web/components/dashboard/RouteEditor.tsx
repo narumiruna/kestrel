@@ -40,6 +40,7 @@ import {
 } from '@/components/dashboard/routeEditorUtils';
 import { getRouteSavePresentation } from '@/components/dashboard/routeSavePresentation';
 import type { RouteWorkflowMode } from '@/components/dashboard/routeWorkflow';
+import { useRemoteDevices } from '@/components/dashboard/useRemoteDevices';
 import { formatRouteDistanceFromWaypoints } from '@/components/dashboard/utils';
 import {
   canEditRouteOnMap,
@@ -130,6 +131,7 @@ export default function RouteEditor({
   selectedWaypointIndex = null,
   setDraftState,
 }: Props) {
+  const remote = useRemoteDevices();
   const t = useTranslations('routeEditor');
   const ts = useTranslations('routeSave');
   const td = useTranslations('routeDraft');
@@ -715,6 +717,7 @@ export default function RouteEditor({
               <div className="route-use-actions">
                 {mode === 'playback' ? (
                   <RouteRemoteControlAction
+                    remote={remote}
                     isDirty={isDirty}
                     mode={draft.mode}
                     route={route}

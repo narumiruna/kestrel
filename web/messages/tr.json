@@ -589,7 +589,20 @@
       "exchangeFailed": "Hesap bağlama doğrulanamadı. Sonucu kontrol etmek için bağlamayı tekrar dene."
     }
   },
+  "ShareState": {
+    "checking": "Bağlantı durumu kontrol ediliyor…",
+    "readError": "Bağlantı durumu kontrol edilemedi.",
+    "retry": "Tekrar dene"
+  },
   "Remote": {
+    "refreshStatus": "Durumu yenile",
+    "closeDoesNotCancel": "Bu iletişim kutusunu kapatmak komutu iptal etmez.",
+    "statusUnconfirmed": "Komutun sonucu doğrulanmadı. Komut yine de çalışabilir.",
+    "statusReadError": "Komut durumu kontrol edilemedi. Komut yine de çalışabilir.",
+    "submissionUnknown": "Gönderim sonucu bilinmiyor. Başka bir komut göndermeden önce Android’i kontrol et.",
+    "commandReference": "Komut {id}",
+    "lastConfirmed": "Son doğrulanan durum: {status}",
+    "submittedCommand": "Gönderilen komut",
     "savedPlace": "Kayıtlı yer",
     "placePreviewLabel": "Kayıtlı yer komutu önizlemesi",
     "advancedTool": "Gelişmiş araç",

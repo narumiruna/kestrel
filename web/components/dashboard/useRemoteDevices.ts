@@ -1,180 +1,145 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import { errorMessage } from '@/i18n/errors';
-import type {
-  CreateRemoteCommandRequest,
-  RemoteCommand,
-  RemoteCommandStatus,
-  RemoteDevice,
-  RemoteDevicesResponse,
-} from '@/lib/api';
+import type { RemoteCommand, RemoteDevice, RemoteDevicesResponse } from '@/lib/api';
+import { createRemoteCommandTracker, waitForRemoteCommandPoll } from './remoteCommandState';
 
-const COMMAND_POLL_ATTEMPTS = 75;
-const COMMAND_POLL_INTERVAL_MS = 2_000;
-const TERMINAL_COMMAND_STATUSES = new Set<RemoteCommandStatus>(['APPLIED', 'FAILED', 'EXPIRED']);
-
-export type PollCommandStatusOptions = {
-  attempts?: number;
-  intervalMs?: number;
-  onUpdate?: (command: RemoteCommand) => void;
+type DeviceData = {
+  owner: string | null;
+  devices: RemoteDevice[];
+  failure: unknown;
+  isLoading: boolean;
 };
+const emptyDeviceData = (owner: string | null): DeviceData => ({
+  owner,
+  devices: [],
+  failure: null,
+  isLoading: false,
+});
 
+// Mounted by the saved Place action or Route editor, never by a dialog or Route tab.
 export function useRemoteDevices() {
   const t = useTranslations('Remote');
   const errorT = useTranslations('Errors');
   const auth = useAuth();
-  const isAuthReady = auth.isHydrated && auth.isAuthenticated;
+  const owner =
+    auth.isHydrated && auth.session != null
+      ? JSON.stringify([auth.session.user.id, auth.session.session.id])
+      : null;
+  const ownerRef = useRef(owner);
+  ownerRef.current = owner;
+  const apiRef = useRef(auth.apiRequest);
+  apiRef.current = auth.apiRequest;
+  const translatorRef = useRef(t);
+  translatorRef.current = t;
   const mountedRef = useRef(false);
-  const authReadyRef = useRef(isAuthReady);
-  const [devices, setDevices] = useState<RemoteDevice[]>([]);
-  const [error, setError] = useState<unknown>(null);
-  const [isLoading, setIsLoading] = useState(false);
-
-  const controllableDevices = useMemo(
-    () => devices.filter((device) => isRemoteDeviceCommandReady(device)),
-    [devices],
-  );
+  const readVersionRef = useRef(0);
+  const [data, setData] = useState(() => emptyDeviceData(owner));
+  const visibleData = data.owner === owner ? data : emptyDeviceData(owner);
+  const devicesRef = useRef(visibleData.devices);
+  devicesRef.current = visibleData.devices;
 
   useEffect(() => {
     mountedRef.current = true;
-
     return () => {
       mountedRef.current = false;
     };
   }, []);
 
-  useEffect(() => {
-    authReadyRef.current = isAuthReady;
-
-    if (!isAuthReady) {
-      setDevices([]);
-      setError(null);
-      setIsLoading(false);
-    }
-  }, [isAuthReady]);
-
   const loadDevices = useCallback(
-    async ({ showLoading = true }: { showLoading?: boolean } = {}): Promise<RemoteDevice[]> => {
-      if (!authReadyRef.current) {
-        return [];
-      }
-
-      if (showLoading && mountedRef.current) {
-        setIsLoading(true);
-      }
-
-      if (mountedRef.current && authReadyRef.current) {
-        setError(null);
-      }
-
+    async ({
+      showLoading,
+      signal,
+    }: {
+      showLoading: boolean;
+      signal: AbortSignal;
+    }): Promise<RemoteDevice[]> => {
+      const current = () =>
+        mountedRef.current && owner != null && ownerRef.current === owner && !signal.aborted;
+      if (!current()) return [];
+      const version = ++readVersionRef.current;
+      setData((previous) => ({
+        ...(previous.owner === owner ? previous : emptyDeviceData(owner)),
+        failure: null,
+        isLoading: showLoading || (previous.owner === owner && previous.isLoading),
+      }));
       try {
-        const response = await auth.apiRequest<RemoteDevicesResponse>('/devices');
-
-        if (mountedRef.current && authReadyRef.current) {
-          setDevices(response.devices);
+        const response = await apiRef.current<RemoteDevicesResponse>('/devices', { signal });
+        if (current() && version === readVersionRef.current) {
+          setData((previous) => ({ ...previous, owner, devices: response.devices, failure: null }));
         }
-
         return response.devices;
-      } catch (nextError) {
-        if (mountedRef.current && authReadyRef.current) {
-          setError(nextError);
+      } catch (failure) {
+        if (current() && version === readVersionRef.current) {
+          setData((previous) => ({ ...previous, owner, failure }));
         }
-
-        throw nextError;
+        throw failure;
       } finally {
-        if (showLoading && mountedRef.current && authReadyRef.current) {
-          setIsLoading(false);
+        if (showLoading && current()) {
+          setData((previous) =>
+            previous.owner === owner ? { ...previous, isLoading: false } : previous,
+          );
         }
       }
     },
-    [auth],
+    [owner],
+  );
+
+  const tracker = useMemo(
+    () =>
+      createRemoteCommandTracker({
+        isCurrentOwner: () => mountedRef.current && owner != null && ownerRef.current === owner,
+        validateDevice: (deviceId) => {
+          const device = devicesRef.current.find((candidate) => candidate.id === deviceId) ?? null;
+          const reason = getRemoteDeviceUnavailableReason(device, translatorRef.current);
+          if (reason != null) throw new Error(reason);
+        },
+        createCommand: async (deviceId, request) => {
+          return apiRef.current<RemoteCommand>(`/devices/${deviceId}/commands`, {
+            method: 'POST',
+            body: JSON.stringify(request),
+          });
+        },
+        loadDevices,
+        waitForPoll: waitForRemoteCommandPoll,
+      }),
+    [owner, loadDevices],
+  );
+  const commandState = useSyncExternalStore(
+    tracker.subscribe,
+    tracker.getSnapshot,
+    tracker.getSnapshot,
   );
 
   useEffect(() => {
-    if (!isAuthReady) {
-      return;
-    }
+    tracker.activate();
+    void tracker.refresh();
+    return tracker.dispose;
+  }, [tracker]);
 
-    void loadDevices().catch(() => {
-      // The hook stores the formatted error for the caller.
-    });
-  }, [isAuthReady, loadDevices]);
-
-  const createCommand = useCallback(
-    async (deviceId: string, request: CreateRemoteCommandRequest): Promise<RemoteCommand> => {
-      const device = devices.find((currentDevice) => currentDevice.id === deviceId) ?? null;
-      const unavailableReason = getRemoteDeviceUnavailableReason(device, t);
-
-      if (unavailableReason != null) {
-        throw new Error(unavailableReason);
-      }
-
-      const command = await auth.apiRequest<RemoteCommand>(`/devices/${deviceId}/commands`, {
-        body: JSON.stringify(request),
-        method: 'POST',
-      });
-
-      void loadDevices({ showLoading: false }).catch(() => {
-        // Keep the queued command; polling will surface later refresh failures.
-      });
-
-      return command;
-    },
-    [auth, devices, loadDevices, t],
+  const controllableDevices = useMemo(
+    () => visibleData.devices.filter(isRemoteDeviceCommandReady),
+    [visibleData.devices],
   );
-
-  const pollCommandStatus = useCallback(
-    async (
-      command: RemoteCommand,
-      options: PollCommandStatusOptions = {},
-    ): Promise<RemoteCommand> => {
-      const attempts = options.attempts ?? COMMAND_POLL_ATTEMPTS;
-      const intervalMs = options.intervalMs ?? COMMAND_POLL_INTERVAL_MS;
-      let latestCommand = command;
-
-      for (let attempt = 0; attempt < attempts; attempt += 1) {
-        if (attempt > 0) {
-          await wait(intervalMs);
-        }
-
-        if (!mountedRef.current || !authReadyRef.current) {
-          return latestCommand;
-        }
-
-        const nextDevices = await loadDevices({ showLoading: false });
-        const refreshedCommand = findCommand(nextDevices, latestCommand);
-
-        if (refreshedCommand != null) {
-          latestCommand = refreshedCommand;
-          options.onUpdate?.(latestCommand);
-        }
-
-        if (TERMINAL_COMMAND_STATUSES.has(latestCommand.status)) {
-          return latestCommand;
-        }
-      }
-
-      return latestCommand;
-    },
-    [loadDevices],
-  );
-
+  const { error: commandError, ...operation } = commandState;
   return {
+    devices: visibleData.devices,
     controllableDevices,
-    createCommand,
-    devices,
     error:
-      error == null
+      visibleData.failure == null
         ? null
-        : errorMessage(error, (key, values) =>
+        : errorMessage(visibleData.failure, (key, values) =>
             ['unexpected', 'http', 'server'].includes(key) ? t('loadError') : errorT(key, values),
           ),
-    isLoading,
-    pollCommandStatus,
-    refresh: loadDevices,
+    isLoading: visibleData.isLoading,
+    ...operation,
+    commandError,
+    selectDevice: tracker.selectDevice,
+    sendCommand: tracker.send,
+    refresh: tracker.refresh,
   };
 }
 
@@ -186,41 +151,9 @@ export function getRemoteDeviceUnavailableReason(
   device: RemoteDevice | null,
   t: ReturnType<typeof useTranslations<'Remote'>>,
 ): string | null {
-  if (device == null) {
-    return t('selectDevice');
-  }
-
-  if (device.revokedAt != null) {
-    return t('revokedDevice');
-  }
-
-  if (!device.remoteControlEnabled) {
-    return t('enableRemote');
-  }
-
-  if (!device.online) {
-    return t('openAndroid');
-  }
-
+  if (device == null) return t('selectDevice');
+  if (device.revokedAt != null) return t('revokedDevice');
+  if (!device.remoteControlEnabled) return t('enableRemote');
+  if (!device.online) return t('openAndroid');
   return null;
-}
-
-export function isTerminalRemoteCommandStatus(status: RemoteCommandStatus): boolean {
-  return TERMINAL_COMMAND_STATUSES.has(status);
-}
-
-function findCommand(devices: RemoteDevice[], command: RemoteCommand): RemoteCommand | null {
-  const device = devices.find((currentDevice) => currentDevice.id === command.deviceId);
-
-  if (device?.lastCommand?.id === command.id) {
-    return device.lastCommand;
-  }
-
-  return null;
-}
-
-function wait(milliseconds: number): Promise<void> {
-  return new Promise((resolve) => {
-    window.setTimeout(resolve, milliseconds);
-  });
 }

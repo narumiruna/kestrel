@@ -586,7 +586,20 @@
       "exchangeFailed": "Não foi possível confirmar a associação da conta. Tente associar novamente para verificar o resultado."
     }
   },
+  "ShareState": {
+    "checking": "A verificar o estado do link…",
+    "readError": "Não foi possível verificar o estado do link.",
+    "retry": "Tentar novamente"
+  },
   "Remote": {
+    "refreshStatus": "Atualizar estado",
+    "closeDoesNotCancel": "Fechar esta caixa de diálogo não cancela o comando.",
+    "statusUnconfirmed": "O resultado do comando não está confirmado. O comando ainda pode ser executado.",
+    "statusReadError": "Não foi possível verificar o estado do comando. O comando ainda pode ser executado.",
+    "submissionUnknown": "O resultado do envio é desconhecido. Verifique o Android antes de enviar outro comando.",
+    "commandReference": "Comando {id}",
+    "lastConfirmed": "Último estado confirmado: {status}",
+    "submittedCommand": "Comando enviado",
     "savedPlace": "Local guardado",
     "placePreviewLabel": "Pré-visualização do comando do local guardado",
     "advancedTool": "Ferramenta avançada",

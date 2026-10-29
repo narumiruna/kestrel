@@ -628,7 +628,20 @@
       "exchangeFailed": "Không thể xác nhận liên kết tài khoản. Hãy thử liên kết lại để kiểm tra kết quả."
     }
   },
+  "ShareState": {
+    "checking": "Đang kiểm tra trạng thái liên kết…",
+    "readError": "Không thể kiểm tra trạng thái liên kết.",
+    "retry": "Thử lại"
+  },
   "Remote": {
+    "refreshStatus": "Làm mới trạng thái",
+    "closeDoesNotCancel": "Đóng hộp thoại này không hủy lệnh.",
+    "statusUnconfirmed": "Kết quả của lệnh chưa được xác nhận. Lệnh vẫn có thể được thực thi.",
+    "statusReadError": "Không thể kiểm tra trạng thái lệnh. Lệnh vẫn có thể được thực thi.",
+    "submissionUnknown": "Chưa rõ kết quả gửi lệnh. Kiểm tra Android trước khi gửi lệnh khác.",
+    "commandReference": "Lệnh {id}",
+    "lastConfirmed": "Trạng thái được xác nhận gần nhất: {status}",
+    "submittedCommand": "Lệnh đã gửi",
     "savedPlace": "Địa điểm đã lưu",
     "placePreviewLabel": "Xem trước lệnh địa điểm đã lưu",
     "advancedTool": "Công cụ nâng cao",

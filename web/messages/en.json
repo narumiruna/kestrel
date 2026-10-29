@@ -586,7 +586,20 @@
       "exchangeFailed": "Could not confirm account linking. Retry linking to check the result."
     }
   },
+  "ShareState": {
+    "checking": "Checking link status…",
+    "readError": "Could not check link status.",
+    "retry": "Retry"
+  },
   "Remote": {
+    "refreshStatus": "Refresh status",
+    "closeDoesNotCancel": "Closing this dialog does not cancel the command.",
+    "statusUnconfirmed": "The command result is unconfirmed. The command may still run.",
+    "statusReadError": "Could not check command status. The command may still run.",
+    "submissionUnknown": "Submission result unknown. Check Android before sending another command.",
+    "commandReference": "Command {id}",
+    "lastConfirmed": "Last confirmed: {status}",
+    "submittedCommand": "Submitted command",
     "savedPlace": "Saved place",
     "placePreviewLabel": "Saved place command preview",
     "advancedTool": "Advanced tool",

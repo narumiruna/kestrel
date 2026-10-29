@@ -586,7 +586,20 @@
       "exchangeFailed": "Pemautan akaun tidak dapat disahkan. Cuba pautkan semula untuk menyemak hasilnya."
     }
   },
+  "ShareState": {
+    "checking": "Sedang menyemak status pautan…",
+    "readError": "Status pautan tidak dapat disemak.",
+    "retry": "Cuba lagi"
+  },
   "Remote": {
+    "refreshStatus": "Muat semula status",
+    "closeDoesNotCancel": "Menutup dialog ini tidak membatalkan arahan.",
+    "statusUnconfirmed": "Hasil arahan belum disahkan. Arahan mungkin masih dijalankan.",
+    "statusReadError": "Status arahan tidak dapat disemak. Arahan mungkin masih dijalankan.",
+    "submissionUnknown": "Hasil penghantaran tidak diketahui. Semak Android sebelum menghantar arahan lain.",
+    "commandReference": "Arahan {id}",
+    "lastConfirmed": "Status terakhir yang disahkan: {status}",
+    "submittedCommand": "Arahan yang dihantar",
     "savedPlace": "Tempat tersimpan",
     "placePreviewLabel": "Pratonton arahan tempat tersimpan",
     "advancedTool": "Alat lanjutan",

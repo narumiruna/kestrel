@@ -625,7 +625,20 @@
       "exchangeFailed": "アカウント連携を確認できませんでした。連携を再試行して結果を確認してください。"
     }
   },
+  "ShareState": {
+    "checking": "リンクの状態を確認中…",
+    "readError": "リンクの状態を確認できませんでした。",
+    "retry": "再試行"
+  },
   "Remote": {
+    "refreshStatus": "状態を更新",
+    "closeDoesNotCancel": "このダイアログを閉じても、コマンドはキャンセルされません。",
+    "statusUnconfirmed": "コマンドの結果は未確認です。コマンドが実行される可能性があります。",
+    "statusReadError": "コマンドの状態を確認できませんでした。コマンドが実行される可能性があります。",
+    "submissionUnknown": "送信結果は不明です。別のコマンドを送信する前に Android を確認してください。",
+    "commandReference": "コマンド {id}",
+    "lastConfirmed": "最後に確認した状態：{status}",
+    "submittedCommand": "送信済みコマンド",
     "savedPlace": "保存済みの場所",
     "placePreviewLabel": "保存済みの場所のコマンドプレビュー",
     "advancedTool": "高度なツール",

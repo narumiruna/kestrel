@@ -625,7 +625,20 @@
       "exchangeFailed": "계정 연결을 확인하지 못했습니다. 연결을 다시 시도하여 결과를 확인하세요."
     }
   },
+  "ShareState": {
+    "checking": "링크 상태 확인 중…",
+    "readError": "링크 상태를 확인하지 못했습니다.",
+    "retry": "다시 시도"
+  },
   "Remote": {
+    "refreshStatus": "상태 새로고침",
+    "closeDoesNotCancel": "이 대화 상자를 닫아도 명령은 취소되지 않습니다.",
+    "statusUnconfirmed": "명령 결과가 확인되지 않았습니다. 명령이 실행될 수 있습니다.",
+    "statusReadError": "명령 상태를 확인하지 못했습니다. 명령이 실행될 수 있습니다.",
+    "submissionUnknown": "전송 결과를 알 수 없습니다. 다른 명령을 보내기 전에 Android를 확인하세요.",
+    "commandReference": "명령 {id}",
+    "lastConfirmed": "마지막으로 확인된 상태: {status}",
+    "submittedCommand": "전송된 명령",
     "savedPlace": "저장된 장소",
     "placePreviewLabel": "저장된 장소 명령 미리보기",
     "advancedTool": "고급 도구",
