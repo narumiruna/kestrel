@@ -4,6 +4,10 @@
 
 Resolve the six source-review findings in Web uploads, coordinate previews, Place draft refresh, library request ordering, password retries, and browser history. Add regression evidence and open one pull request without changing database schema, physical devices, or production services.
 
+## Outcome
+
+Opened [PR #390](https://github.com/narumiruna/kestrel/pull/390) from `narumi/fix/web-review-findings` to `main`; the fix commit is `d0f7f02`. Local checks and commit hooks pass. This plan is archived after completion; merge, release, deployment, live-service acceptance, and physical-device validation remain outside this task.
+
 ## Context
 
 - Review baseline: `a21c561` on `main`.
@@ -30,7 +34,7 @@ Resolve the six source-review findings in Web uploads, coordinate previews, Plac
 - [x] Validate Place preview coordinates and preserve existing/new dirty drafts on refresh; add regressions for invalid text and same-session credential changes. Coordinate/draft tests cover invalid and incomplete text, clean/dirty refresh, discard baseline, and save rebasing; Chrome keeps latitude `100` and `-` editable without a workspace error.
 - [x] Extend draft navigation protection to browser Back/Forward and Sign out. Test cancel/confirm, exact-once traversal, clean navigation, query entries, repeated cancellation, focus recovery, and history-state preservation. Ten history/action tests pass, including rapid Back and native fragments. Chrome verifies same-Place query discard, repeated Back cancellation, dirty Forward, focus recovery, and cancelled/confirmed Sign out.
 - [x] Run Web format/lint/tests/typecheck/build, relevant Backend lint/tests/e2e/typecheck/build, and Chrome checks at 1440×900 in light mode. Keep captures outside Git and record results. All required local gates pass; details are below.
-- [ ] Review the complete diff, update completion evidence, stage only intended text files, commit, push, and open a Conventional Commits pull request that summarizes the outcome.
+- [x] Review the complete diff, update completion evidence, stage only intended text files, commit, push, and open a Conventional Commits pull request that summarizes the outcome. Commit `d0f7f02` is pushed and PR #390 is open; all commit hooks pass.
 
 ## Validation
 
@@ -56,4 +60,4 @@ Revert the scoped code changes if regression gates fail. There is no migration o
 - [x] All six findings have tested fixes, with no unresolved implementation correctness issue.
 - [x] Web and affected Backend gates pass; Chrome verifies draft/history and coordinate behavior with dummy data.
 - [x] The final diff contains only intended text files, no binary images, generated caches, secrets, or unrelated changes. The staged diff contains 27 intended text paths; `git diff --cached --check` and the binary-file check pass.
-- [ ] The commit is pushed and a pull request is open; no merge, release, deployment, or device operation was performed.
+- [x] The commit is pushed and a pull request is open; no merge, release, deployment, or device operation was performed.
