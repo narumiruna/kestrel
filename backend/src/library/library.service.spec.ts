@@ -411,28 +411,24 @@ describe('LibraryService', () => {
   });
 
   it('creates a route with its initial immutable revision', async () => {
+    const createdRoute = { id: 'created-route-1' };
+    const createdRevision = { id: 'created-revision-1' };
     prismaService.libraryItem.findFirst.mockResolvedValue({
       sortOrder: 1,
     });
-    prismaService.route.create.mockResolvedValue({
-      id: 'route-1',
-    });
-    prismaService.routeRevision.create.mockResolvedValue({
-      id: 'revision-1',
-    });
-    prismaService.route.update.mockResolvedValue({
-      id: 'route-1',
-    });
+    prismaService.route.create.mockResolvedValue(createdRoute);
+    prismaService.routeRevision.create.mockResolvedValue(createdRevision);
+    prismaService.route.update.mockResolvedValue(createdRoute);
     prismaService.libraryItem.create.mockResolvedValue({
       id: 'library-item-2',
     });
     prismaService.route.findUniqueOrThrow.mockResolvedValue(
       createRouteRecord({
         defaultSpeedKmh: 20,
-        id: 'route-1',
+        id: createdRoute.id,
         libraryItemId: 'library-item-2',
         mode: RouteMode.LOOP,
-        revisionId: 'revision-1',
+        revisionId: createdRevision.id,
         revisionNumber: 1,
       }),
     );
@@ -478,15 +474,20 @@ describe('LibraryService', () => {
           ],
         },
         revisionNumber: 1,
-        routeId: 'route-1',
+        routeId: createdRoute.id,
       },
       select: {
         id: true,
       },
     });
+    expect(prismaService.route.update).toHaveBeenCalledTimes(1);
+    expect(prismaService.route.update).toHaveBeenCalledWith({
+      data: { currentRevisionId: createdRevision.id },
+      where: { id: createdRoute.id },
+    });
     expectSyncEvents(prismaService.syncEvent.create, [
       {
-        entityId: 'route-1',
+        entityId: createdRoute.id,
         entityType: SyncEntityType.ROUTE,
         operation: SyncOperation.UPSERT,
         userId: 'user-1',
@@ -515,11 +516,11 @@ describe('LibraryService', () => {
     );
     expect(result).toMatchObject({
       currentRevision: {
-        id: 'revision-1',
+        id: createdRevision.id,
         revisionNumber: 1,
       },
       defaultSpeedKmh: 20,
-      id: 'route-1',
+      id: createdRoute.id,
       libraryItem: {
         id: 'library-item-2',
         kind: LibraryItemKind.ROUTE,

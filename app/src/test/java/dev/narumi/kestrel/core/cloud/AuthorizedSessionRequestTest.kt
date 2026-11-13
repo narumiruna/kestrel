@@ -119,6 +119,49 @@ class AuthorizedSessionRequestTest {
         }
 
     @Test
+    fun cancellationDuringRefreshPropagatesWithoutRetryOrFallback() =
+        runBlocking {
+            val cancellation = CancellationException("refresh cancelled")
+            val auth = FakeSessionProvider(refreshed, refreshCancellation = cancellation)
+            val credentials = mutableListOf<String>()
+            val result =
+                runCatching {
+                    withAuthorizedSession(auth, original) {
+                        credentials += it.accessToken
+                        throw CloudApiException(401, message = "expired")
+                    }
+                }
+            assertSame(cancellation, result.exceptionOrNull())
+            assertEquals(1, credentials.size)
+            assertEquals(listOf("old"), credentials)
+            assertEquals(1, auth.refreshes)
+            assertEquals(original, auth.expectedSession)
+            assertEquals(0, auth.currentSessionReads)
+        }
+
+    @Test
+    fun cancellationDuringSecondRequestPropagatesWithoutAnotherRefreshOrFallback() =
+        runBlocking {
+            val cancellation = CancellationException("retry cancelled")
+            val auth = FakeSessionProvider(original, refreshed)
+            val credentials = mutableListOf<String>()
+            val result =
+                runCatching {
+                    withAuthorizedSession(auth, original) {
+                        credentials += it.accessToken
+                        if (credentials.size == 1) throw CloudApiException(401, message = "expired")
+                        throw cancellation
+                    }
+                }
+            assertSame(cancellation, result.exceptionOrNull())
+            assertEquals(2, credentials.size)
+            assertEquals(listOf("old", "new"), credentials)
+            assertEquals(1, auth.refreshes)
+            assertEquals(original, auth.expectedSession)
+            assertEquals(0, auth.currentSessionReads)
+        }
+
+    @Test
     fun cancellationPropagatesWithoutRefresh() =
         runBlocking {
             val auth = FakeSessionProvider(original)
@@ -130,15 +173,21 @@ class AuthorizedSessionRequestTest {
     private class FakeSessionProvider(
         var stored: CloudSession?,
         private val next: CloudSession? = null,
+        private val refreshCancellation: CancellationException? = null,
     ) : CloudSyncSessionProvider {
         var refreshes = 0
         var expectedSession: CloudSession? = null
+        var currentSessionReads = 0
 
-        override fun currentSession(): CloudSession? = stored
+        override fun currentSession(): CloudSession? {
+            currentSessionReads++
+            return stored
+        }
 
         override suspend fun refreshSessionIfCurrent(expectedSession: CloudSession): CloudSession? {
             refreshes++
             this.expectedSession = expectedSession
+            refreshCancellation?.let { throw it }
             return next?.also { stored = it }
         }
     }
