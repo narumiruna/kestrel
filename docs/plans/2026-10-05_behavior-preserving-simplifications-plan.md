@@ -4,7 +4,7 @@
 
 Resolve all eight confirmed findings from the full-repository simplification review. Reduce independent implementations, unused capabilities, and misleading APIs while preserving current API responses, stored data, transaction ordering, authentication semantics, and user interactions.
 
-Status: all eight refactors were delivered in [PR #327](https://github.com/narumiruna/kestrel/pull/327), merged as `73c13fa`. Follow-up work on `narumi/test/simplification-verification` closes the route-linkage and helper-cancellation test gaps. Verification remains incomplete: Android screenshot references are missing, and the historical QR e2e failure has no established cause. Keep this plan active and the follow-up pull request in draft; do not archive the plan or claim completion.
+Status: all eight refactors were delivered in [PR #327](https://github.com/narumiruna/kestrel/pull/327), merged as `73c13fa`. Follow-up work in [PR #381](https://github.com/narumiruna/kestrel/pull/381), on `narumi/test/simplification-verification`, closes the route-linkage and helper-cancellation test gaps. Verification remains incomplete: Android screenshot references are missing, and the historical QR e2e failure has no established cause. Keep this plan active and the follow-up pull request in draft; do not archive the plan or claim completion.
 
 The original, untracked root `PLAN.md` was deleted at the user's explicit request after the current source review. This file is the sole tracker for these eight refactors.
 
