@@ -4,6 +4,7 @@ import { useTranslations } from 'next-intl';
 import { type FormEvent, useEffect, useId, useRef, useState } from 'react';
 import {
   getPlacePreviewCoordinates,
+  isPlaceCoordinateValid,
   type PlaceCoordinates,
   parsePlaceCoordinate,
 } from '@/components/dashboard/placeCoordinates';
@@ -163,7 +164,11 @@ export default function PlaceEditor({
   }
 
   function setDraftField(field: keyof PlaceDraft, value: string) {
-    if ((field === 'latitude' && latitudeInvalid) || (field === 'longitude' && longitudeInvalid))
+    if (
+      ((field === 'latitude' && latitudeInvalid) || (field === 'longitude' && longitudeInvalid)) &&
+      value.trim() !== '' &&
+      isPlaceCoordinateValid(Number(value), field)
+    )
       setError(null);
     setDraftState((current) => ({ ...current, draft: { ...current.draft, [field]: value } }));
   }

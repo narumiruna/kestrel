@@ -41,8 +41,8 @@ Opened [PR #390](https://github.com/narumiruna/kestrel/pull/390) from `narumi/fi
 - Web: `just web-check`, `just web-lint`, `just web-test` (366 tests), `just web-typecheck`, and `just web-build` pass on Node.js 22.23.4. Biome reports 43 existing specificity warnings in unchanged CSS files, with no errors.
 - Backend: lint, unit tests (39 suites / 517 tests), e2e tests (5 suites / 21 tests), typecheck, and production build pass.
 - `just i18n-check` passes, including 16 validator tests; public documentation checks pass, including 10 generator tests.
-- `scripts/verify-web-review-browser.mjs` passes 24 Chrome 157 checks against the current production Web build and loopback-only fixtures at 1440×900 in light mode. There are no application runtime exceptions. External page requests are intercepted; live tiles, provider inference, real accounts, production services, and physical devices are not used.
-- Browser evidence: `/var/folders/1z/_34kfpzn7q37z3rk3t15jtgh0000gn/T/kestrel-web-review-8tkKiN/results.json` and `draft.png`, both outside Git.
+- `scripts/verify-web-review-browser.mjs` passes 25 Chrome 157 checks against the current production Web build and loopback-only fixtures at 1440×900 in light mode. There are no application runtime exceptions. External page requests are intercepted; live tiles, provider inference, real accounts, production services, and physical devices are not used.
+- Browser evidence: `/var/folders/1z/_34kfpzn7q37z3rk3t15jtgh0000gn/T/kestrel-web-review-ekMZLf/results.json` and `draft.png`, both outside Git.
 - An independent final source review reports no actionable findings after the browser-history and Place discard integration corrections.
 
 ## Risks

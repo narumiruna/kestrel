@@ -366,10 +366,16 @@ try {
   check(
     "incomplete coordinate text is not replaced by preview refresh",
     await p.evaluate(
-      `document.querySelector(${JSON.stringify(latInput)})?.value==='-'&&!document.querySelector(${JSON.stringify(latInput)})?.hasAttribute('aria-invalid')`,
+      `document.querySelector(${JSON.stringify(latInput)})?.value==='-'&&document.querySelector(${JSON.stringify(latInput)})?.getAttribute('aria-invalid')==='true'`,
     ),
   );
   await p.field(latInput, "26.25");
+  check(
+    "corrected coordinate clears the submitted error state",
+    await p.evaluate(
+      `!document.querySelector(${JSON.stringify(latInput)})?.hasAttribute('aria-invalid')&&!document.querySelector('.place-editor [role=alert]')`,
+    ),
+  );
   await p.evaluate(
     `history.pushState(history.state,'',location.href+'&check=same-place')`,
   );
