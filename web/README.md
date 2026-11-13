@@ -63,6 +63,30 @@ Include the generated Markdown files with the source change. Production Docker
 builds use only `web/` as their build context, so the generated files must remain
 in Git. The `--check` command fails for missing or stale copies and writes no files.
 
+## Focused browser regression
+
+`scripts/verify-web-review-browser.mjs` checks upload limits, password retry, library request ordering, coordinate editing, cross-tab refresh, and draft exits through Chrome DevTools Protocol. It uses in-memory fixtures, intercepts external page requests, and writes captures outside Git. It does not use a database, real account, AI provider, or physical device.
+
+Use separate terminals for the local servers:
+
+```bash
+node scripts/web-review-browser.fixture.mjs
+```
+
+```bash
+cd web
+npm run build
+KESTREL_API_BASE_URL=http://127.0.0.1:4330 ./node_modules/.bin/next start --hostname 127.0.0.1 --port 4331
+```
+
+Start an isolated headless Chrome profile with remote debugging on port `9335`. Use `--disable-background-networking` and `--no-first-run`; use `--use-gl=angle --use-angle=swiftshader --enable-unsafe-swiftshader` when hardware WebGL is unavailable. Then run:
+
+```bash
+node scripts/verify-web-review-browser.mjs
+```
+
+Restart the fixture before each run. The checks use a 1440×900 light-mode viewport. Synthetic tiles do not verify live basemap availability.
+
 ## Validation
 
 ```bash

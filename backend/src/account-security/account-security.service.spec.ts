@@ -275,6 +275,62 @@ describe('AccountSecurityService', () => {
     });
   });
 
+  it.each([
+    'oidc_link',
+    'session_revoke_target',
+    'sessions_revoke_others',
+    'device_revoke',
+  ])('preserves the current-password error code for %s', async (event) => {
+    prisma.session.findFirst.mockResolvedValue(
+      sessionRecord({ id: 'session-other' }),
+    );
+    prisma.device.findFirst.mockResolvedValue({
+      id: 'device-1',
+      name: 'Pixel',
+      platform: DevicePlatform.ANDROID,
+      revokedAt: null,
+    });
+    const rejection = new UnauthorizedException({
+      code: 'INVALID_CURRENT_PASSWORD',
+      message: 'invalid current password',
+      statusCode: 401,
+    });
+    authService.confirmCurrentPassword.mockRejectedValue(rejection);
+    const body = { currentPassword: 'wrong-password' };
+    const operations: Record<string, () => Promise<unknown>> = {
+      oidc_link: () =>
+        service.startOidcLink('user-1', 'session-current', {
+          ...body,
+          clientNonce: 'link-attempt:1234567890abcdef',
+        }),
+      session_revoke_target: () =>
+        service.revokeSession(
+          'user-1',
+          'session-current',
+          'session-other',
+          body,
+        ),
+      sessions_revoke_others: () =>
+        service.revokeOtherSessions('user-1', 'session-current', body),
+      device_revoke: () =>
+        service.revokeDevice('user-1', 'session-current', 'device-1', body),
+    };
+
+    await expect(operations[event]()).rejects.toBe(rejection);
+    expect(authService.confirmCurrentPassword).toHaveBeenCalledTimes(1);
+    expect(revocationService.revokeSessions).not.toHaveBeenCalled();
+    expect(revocationService.revokeDevice).not.toHaveBeenCalled();
+    expect(oidcService.startLink).not.toHaveBeenCalled();
+    expect(auditService.log).toHaveBeenCalledWith({
+      authMethod: 'password',
+      event,
+      failureReason: 'step_up_failed',
+      outcome: 'failure',
+      sessionId: 'session-current',
+      userId: 'user-1',
+    });
+  });
+
   it('propagates failed password step-up without revoking', async () => {
     prisma.session.findFirst.mockResolvedValue(
       sessionRecord({ id: 'session-2' }),

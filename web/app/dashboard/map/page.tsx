@@ -18,6 +18,7 @@ import { KeyboardCheatsheet } from '@/components/cartographer/KeyboardCheatsheet
 import { ScaleBar } from '@/components/cartographer/ScaleBar';
 import { type MobileWorkspacePanel, Stage } from '@/components/cartographer/Stage';
 import { useKeyboardShortcuts } from '@/components/cartographer/useKeyboardShortcuts';
+import { useDraftHistoryGuard } from '@/components/DraftHistoryProvider';
 import { AiConfigurationSummary } from '@/components/dashboard/AiConfigurationSummary';
 import { matchesPlaceSearch, matchesRouteSearch } from '@/components/dashboard/librarySearch';
 import PlaceEditor from '@/components/dashboard/PlaceEditor';
@@ -103,8 +104,10 @@ export default function DashboardMapPage() {
   const hasAppliedInitialRequestRef = useRef(false);
   const initialCreationKindRef = useRef<MapKind | null>(null);
   const routeDraftRouteIdRef = useRef<string | null>(null);
+  const placeDraftPlaceIdRef = useRef<string | null>(null);
   const routeSaveInFlightRef = useRef(false);
   const [isRouteSaving, setIsRouteSaving] = useState(false);
+  const [historyNavigationVersion, setHistoryNavigationVersion] = useState(0);
   const [activeKind, setActiveKind] = useState<MapKind>('routes');
   const [query, setQuery] = useState('');
   const [viewportControls, setViewportControls] = useState<ViewportControls | null>(null);
@@ -141,6 +144,8 @@ export default function DashboardMapPage() {
   const captureViewChanged = useCallback(() => setCaptureViewGeneration((value) => value + 1), []);
   const [draftPlaceCoords, setDraftPlaceCoords] = useState<Coordinates | null>(null);
   const [isPlaceDirty, setIsPlaceDirty] = useState(false);
+  const placeDraftIsDirtyRef = useRef(isPlaceDirty);
+  placeDraftIsDirtyRef.current = isPlaceDirty;
   const [isNewPlace, setIsNewPlace] = useState(false);
   const [placeDraftNonce, setPlaceDraftNonce] = useState(0);
   const [pendingDraftAction, setPendingDraftAction] = useState<(() => void) | null>(null);
@@ -191,8 +196,23 @@ export default function DashboardMapPage() {
     dispatchWorkflow({ type: 'cancel-add' });
   }, [selectedRouteId]);
   const hasDirtyDraft = isRouteDirty || isPlaceDirty;
+  const resetDraftState = useCallback(() => {
+    dispatchWorkflow({ type: 'cancel-add' });
+    dispatchWorkflow({ type: 'mode', mode: 'view' });
+    setSelectedWaypointId(null);
+    setHoveredWaypointIndex(null);
+    setFocusTarget(null);
+    setRouteDraftState(resetRouteDraft);
+    setDraftPlaceCoords(null);
+    setPlaceDraftNonce((nonce) => nonce + 1);
+    setIsPlaceDirty(false);
+    setIsNewRoute(false);
+    setIsNewPlace(false);
+  }, []);
+  useDraftHistoryGuard(hasDirtyDraft || isRouteSaving, (proceed) => requestDraftAction(proceed));
 
   useEffect(() => {
+    void historyNavigationVersion;
     if (isLoading || hasAppliedInitialRequestRef.current) {
       return;
     }
@@ -227,7 +247,18 @@ export default function DashboardMapPage() {
     } else if (routes.some((route) => route.id === requestedId)) {
       setSelectedRouteId(requestedId);
     }
-  }, [isLoading, places, routes, setSelectedPlaceId, setSelectedRouteId]);
+  }, [historyNavigationVersion, isLoading, places, routes, setSelectedPlaceId, setSelectedRouteId]);
+
+  useEffect(() => {
+    const syncHistorySelection = () => {
+      if (window.location.pathname !== '/dashboard/map') return;
+      resetDraftState();
+      hasAppliedInitialRequestRef.current = false;
+      setHistoryNavigationVersion((version) => version + 1);
+    };
+    window.addEventListener('popstate', syncHistorySelection);
+    return () => window.removeEventListener('popstate', syncHistorySelection);
+  }, [resetDraftState]);
 
   useEffect(() => {
     if (isNewRoute || initialCreationKindRef.current === 'routes') {
@@ -263,6 +294,9 @@ export default function DashboardMapPage() {
       return;
     }
 
+    const placeId = selectedPlace?.id ?? null;
+    if (placeDraftIsDirtyRef.current && placeDraftPlaceIdRef.current === placeId) return;
+    placeDraftPlaceIdRef.current = placeId;
     setDraftPlaceCoords(
       selectedPlace == null
         ? null
@@ -354,21 +388,22 @@ export default function DashboardMapPage() {
             method: 'PATCH',
           });
 
-    setIsPlaceDirty(false);
     setIsNewPlace(false);
     setSelectedPlaceId(savedPlace.id);
-    setDraftPlaceCoords({ latitude: savedPlace.latitude, longitude: savedPlace.longitude });
     router.replace(`/dashboard/map?kind=places&selected=${encodeURIComponent(savedPlace.id)}`);
     await refresh();
+    return savedPlace;
   }
 
   function requestDraftAction(action: () => void) {
     if (hasDirtyDraft || routeSaveInFlightRef.current) {
       const activeElement = document.activeElement;
       pendingDraftRestoreFocusRef.current =
-        activeElement instanceof HTMLElement && activeElement !== document.body
-          ? activeElement
-          : document.querySelector<HTMLElement>('.notebook-entry[aria-pressed="true"]');
+        activeElement instanceof HTMLElement && activeElement.closest('.kc-account-popover')
+          ? document.querySelector<HTMLElement>('.kc-user-button')
+          : activeElement instanceof HTMLElement && activeElement !== document.body
+            ? activeElement
+            : document.querySelector<HTMLElement>('.notebook-entry[aria-pressed="true"]');
       draftActionGuard.request(true, action);
       setPendingDraftAction(() => () => draftActionGuard.confirm());
     } else {
@@ -445,22 +480,9 @@ export default function DashboardMapPage() {
       setSelectedPlaceId(null);
       setDraftPlaceCoords(DEFAULT_MAP_CENTER);
       setIsNewPlace(true);
-      setPlaceDraftNonce((current) => current + 1);
       setMobilePanel('inspector');
       router.replace('/dashboard/map?kind=places&new=1');
     });
-  }
-
-  function resetDraftState() {
-    dispatchWorkflow({ type: 'cancel-add' });
-    dispatchWorkflow({ type: 'mode', mode: 'view' });
-    setSelectedWaypointId(null);
-    setHoveredWaypointIndex(null);
-    setFocusTarget(null);
-    setRouteDraftState(resetRouteDraft);
-    setIsPlaceDirty(false);
-    setIsNewRoute(false);
-    setIsNewPlace(false);
   }
 
   function refreshMapData() {
@@ -550,7 +572,7 @@ export default function DashboardMapPage() {
           navigateIfDraftSafe(href);
           return false;
         }}
-        onLogout={auth.logout}
+        onLogout={() => requestDraftAction(() => void auth.logout())}
         onRefresh={refreshMapData}
       />
       <MapLibraryPanel

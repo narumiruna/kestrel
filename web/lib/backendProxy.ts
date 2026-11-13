@@ -1,5 +1,70 @@
+import { type UploadBudget, withBoundedUpload } from './boundedUpload.ts';
+
+export const DEFAULT_BODY_BYTES = 100 * 1024;
 export const ASSISTANT_BODY_BYTES = 4 * 1024 * 1024;
 export const ROUTE_WRITE_BODY_BYTES = 256 * 1024;
+
+const HOP_BY_HOP_HEADERS = new Set([
+  'connection',
+  'content-length',
+  'keep-alive',
+  'proxy-authenticate',
+  'proxy-authorization',
+  'te',
+  'trailer',
+  'transfer-encoding',
+  'upgrade',
+]);
+
+export function proxyHeaders(headers: Headers): Headers {
+  const forwarded = new Headers();
+  for (const [name, value] of headers) {
+    if (!HOP_BY_HOP_HEADERS.has(name.toLowerCase())) forwarded.set(name, value);
+  }
+  return forwarded;
+}
+
+/** Every body-bearing method shares upload admission, storage and reception limits. */
+export async function forwardProxyRequest(
+  request: Request,
+  base: string,
+  path: string[],
+  signal: AbortSignal,
+  fetcher: typeof fetch = fetch,
+  budget?: UploadBudget,
+): Promise<Response> {
+  const backendUrl = backendRequestUrl(base, path, new URL(request.url).search);
+  const forward = (body?: ArrayBuffer) =>
+    fetcher(backendUrl, {
+      body,
+      headers: proxyHeaders(request.headers),
+      method: request.method,
+      redirect: 'manual',
+      signal,
+      cache: 'no-store',
+    });
+  if (request.method === 'GET' || request.method === 'HEAD') return forward();
+
+  const assistant = request.method === 'POST' && path.join('/') === 'ai/route-assistant/runs';
+  const routeWrite =
+    (request.method === 'POST' && path.length === 1 && path[0] === 'routes') ||
+    (request.method === 'PATCH' && path.length === 2 && path[0] === 'routes');
+  const limit = assistant
+    ? ASSISTANT_BODY_BYTES
+    : routeWrite
+      ? ROUTE_WRITE_BODY_BYTES
+      : DEFAULT_BODY_BYTES;
+  return withBoundedUpload(
+    request,
+    limit,
+    async (uploadSignal) => {
+      if (assistant || routeWrite)
+        await authenticateProxyUpload(request, base, uploadSignal, fetcher);
+    },
+    forward,
+    budget,
+  );
+}
 
 /** Path parameters cannot replace the configured Backend authority or escape its prefix. */
 export function backendRequestUrl(base: string, path: string[], search: string) {

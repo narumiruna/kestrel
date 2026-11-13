@@ -11,6 +11,7 @@ import {
   useState,
 } from 'react';
 import { ApiError, type AuthSession, apiFetch, refreshSession } from '@/lib/api';
+import { withAccessTokenRetry } from '@/lib/authRetry';
 
 type AuthContextValue = {
   apiRequest: <T>(path: string, options?: RequestInit) => Promise<T>;
@@ -599,13 +600,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return response;
       };
 
-      try {
-        return await requestForSession(requestSession);
-      } catch (error) {
-        if (!(error instanceof ApiError) || error.status !== 401) {
-          throw error;
-        }
-
+      const request = () => requestForSession(requestSession);
+      return withAccessTokenRetry(request, async () => {
         const latestSession = sessionRef.current;
         if (latestSession == null) {
           throw new ApiError('Not authenticated', 401, 'NOT_AUTHENTICATED');
@@ -675,7 +671,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         return requestForSession(refreshedSession);
-      }
+      });
     },
     [clearSession, persistSession, refreshAndSaveSession],
   );

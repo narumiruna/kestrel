@@ -1,17 +1,31 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
-import { type FormEvent, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { type FormEvent, useEffect, useId, useRef, useState } from 'react';
+import {
+  getPlacePreviewCoordinates,
+  type PlaceCoordinates,
+  parsePlaceCoordinate,
+} from '@/components/dashboard/placeCoordinates';
+import {
+  applyPlaceMapCoordinates,
+  createPlaceDraftState,
+  discardPlaceDraft,
+  isPlaceDraftDirty,
+  type PlaceDraft,
+  rebasePlaceDraftAfterSave,
+  refreshPlaceDraft,
+} from '@/components/dashboard/placeDraftState';
 import { PlaceRemoteControlAction } from '@/components/dashboard/RemoteControlPanel';
 import { ShareLinkFeedback } from '@/components/dashboard/ShareLinkFeedback';
 import { getSavedPlaceSnapshot } from '@/components/dashboard/savedPlaceSnapshot';
 import { useShareLink } from '@/components/dashboard/useShareLink';
-import { normalizeNullable, parseNumber, toAbsolutePublicUrl } from '@/components/dashboard/utils';
+import { normalizeNullable, toAbsolutePublicUrl } from '@/components/dashboard/utils';
 import { DEFAULT_MAP_CENTER } from '@/components/mapStyle';
 import { Share2Icon } from '@/components/ui/icons';
 import { Button, DialogFrame, Disclosure, TextArea, TextInput } from '@/components/ui/radix-ui';
 import { errorMessage } from '@/i18n/errors';
-import type { Place, PlaceInput } from '@/lib/api';
+import { ApiError, type Place, type PlaceInput } from '@/lib/api';
 
 export default function PlaceEditor({
   draftCoords,
@@ -21,78 +35,61 @@ export default function PlaceEditor({
   onSave,
   place,
 }: {
-  draftCoords?: { latitude: number; longitude: number };
-  onCoordinatesChange?: (coords: { latitude: number; longitude: number }) => void;
+  draftCoords?: PlaceCoordinates;
+  onCoordinatesChange?: (coords: PlaceCoordinates) => void;
   onDirtyChange?: (isDirty: boolean) => void;
-  onDiscard?: (coords: { latitude: number; longitude: number }) => void;
-  onSave: (input: PlaceInput) => void;
+  onDiscard?: (coords: PlaceCoordinates) => void;
+  onSave: (input: PlaceInput) => Place | void | Promise<Place> | Promise<void>;
   place: Place | null;
 }) {
   const t = useTranslations('PlaceEditor');
   const mapT = useTranslations('MapWorkspace');
   const coordinateHelpId = useId();
+  const coordinateErrorId = useId();
+  const latitudeRef = useRef<HTMLInputElement | null>(null);
+  const longitudeRef = useRef<HTMLInputElement | null>(null);
   const savedPlaceHeadingId = useId();
   const savedPlace = getSavedPlaceSnapshot(place);
-  const [name, setName] = useState(place?.name ?? '');
-  const [latitude, setLatitude] = useState(() =>
-    formatCoordinateInput(place?.latitude ?? draftCoords?.latitude ?? DEFAULT_MAP_CENTER.latitude),
+  const [draftState, setDraftState] = useState(() =>
+    createPlaceDraftState(place, draftCoords ?? DEFAULT_MAP_CENTER),
   );
-  const [longitude, setLongitude] = useState(() =>
-    formatCoordinateInput(
-      place?.longitude ?? draftCoords?.longitude ?? DEFAULT_MAP_CENTER.longitude,
-    ),
-  );
-  const [description, setDescription] = useState(place?.description ?? '');
-  const [tags, setTags] = useState(place?.tags.join(', ') ?? '');
+  const { name, latitude, longitude, description, tags } = draftState.draft;
   const te = useTranslations('Errors');
   const [error, setError] = useState<unknown>(null);
+  const latitudeInvalid = error instanceof ApiError && error.code === 'INVALID_LATITUDE';
+  const longitudeInvalid = error instanceof ApiError && error.code === 'INVALID_LONGITUDE';
   const [saveNotice, setSaveNotice] = useState<'savedNotice' | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const saveNoticeTimeoutRef = useRef<number | null>(null);
-  const lastEmittedCoordsRef = useRef<{ latitude: number; longitude: number } | null>(null);
+  const lastEmittedCoordsRef = useRef<PlaceCoordinates | null>(null);
   const onDirtyChangeRef = useRef(onDirtyChange);
-  const [newPlaceBaselineCoords] = useState(() => ({
-    latitude: draftCoords?.latitude ?? DEFAULT_MAP_CENTER.latitude,
-    longitude: draftCoords?.longitude ?? DEFAULT_MAP_CENTER.longitude,
-  }));
-  const baselineCoords = useMemo(
-    () =>
-      place == null
-        ? newPlaceBaselineCoords
-        : { latitude: place.latitude, longitude: place.longitude },
-    [newPlaceBaselineCoords, place],
-  );
-
-  const baseline = useMemo(() => getPlaceBaseline(place, baselineCoords), [baselineCoords, place]);
-  const isDirty = !isPlaceDraftEqual(
-    {
-      description,
-      latitude,
-      longitude,
-      name,
-      tags,
-    },
-    baseline,
-  );
+  const isDirty = isPlaceDraftDirty(draftState);
+  const draftLatitude = draftCoords?.latitude;
+  const draftLongitude = draftCoords?.longitude;
 
   useEffect(() => {
-    if (draftCoords == null) {
+    setDraftState((current) => refreshPlaceDraft(current, place));
+  }, [place]);
+
+  useEffect(() => {
+    if (draftLatitude == null || draftLongitude == null) {
       return;
     }
 
     const lastEmittedCoords = lastEmittedCoordsRef.current;
     if (
-      lastEmittedCoords?.latitude === draftCoords.latitude &&
-      lastEmittedCoords.longitude === draftCoords.longitude
+      lastEmittedCoords?.latitude === draftLatitude &&
+      lastEmittedCoords.longitude === draftLongitude
     ) {
-      lastEmittedCoordsRef.current = null;
       return;
     }
 
-    setLatitude(formatCoordinateInput(draftCoords.latitude));
-    setLongitude(formatCoordinateInput(draftCoords.longitude));
-  }, [draftCoords]);
+    lastEmittedCoordsRef.current = null;
+    setDraftState((current) =>
+      applyPlaceMapCoordinates(current, { latitude: draftLatitude, longitude: draftLongitude }),
+    );
+  }, [draftLatitude, draftLongitude]);
 
   useEffect(() => {
     onDirtyChangeRef.current = onDirtyChange;
@@ -123,16 +120,20 @@ export default function PlaceEditor({
     setIsSaving(true);
 
     try {
-      await onSave({
+      const submittedState = draftState;
+      const saved = await onSave({
         description: normalizeNullable(description),
-        latitude: parseNumber(latitude, 'latitude'),
-        longitude: parseNumber(longitude, 'longitude'),
+        latitude: parsePlaceCoordinate(latitude, 'latitude'),
+        longitude: parsePlaceCoordinate(longitude, 'longitude'),
         name,
         tags: tags
           .split(',')
           .map((tag) => tag.trim())
           .filter(Boolean),
       });
+      setDraftState((current) =>
+        rebasePlaceDraftAfterSave(current, submittedState, saved ?? undefined),
+      );
       setSaveNotice('savedNotice');
       saveNoticeTimeoutRef.current = window.setTimeout(() => {
         setSaveNotice(null);
@@ -140,33 +141,40 @@ export default function PlaceEditor({
       }, 1000);
     } catch (nextError) {
       setError(nextError);
+      if (nextError instanceof ApiError && nextError.code === 'INVALID_LATITUDE')
+        latitudeRef.current?.focus();
+      if (nextError instanceof ApiError && nextError.code === 'INVALID_LONGITUDE')
+        longitudeRef.current?.focus();
     } finally {
       setIsSaving(false);
     }
   }
 
   function discardChanges() {
-    setName(baseline.name);
-    setLatitude(baseline.latitude);
-    setLongitude(baseline.longitude);
-    setDescription(baseline.description);
-    setTags(baseline.tags);
+    const coords = getPlacePreviewCoordinates(
+      draftState.baseline.latitude,
+      draftState.baseline.longitude,
+    );
+    lastEmittedCoordsRef.current = coords;
+    setDraftState(discardPlaceDraft(draftState));
     setError(null);
     setSaveNotice(null);
-    onDiscard?.(baselineCoords);
+    if (coords != null) onDiscard?.(coords);
+  }
+
+  function setDraftField(field: keyof PlaceDraft, value: string) {
+    if ((field === 'latitude' && latitudeInvalid) || (field === 'longitude' && longitudeInvalid))
+      setError(null);
+    setDraftState((current) => ({ ...current, draft: { ...current.draft, [field]: value } }));
   }
 
   function updateCoordinate(axis: 'latitude' | 'longitude', value: string) {
-    if (axis === 'latitude') {
-      setLatitude(value);
-    } else {
-      setLongitude(value);
-    }
-
-    const nextLatitude = Number(axis === 'latitude' ? value : latitude);
-    const nextLongitude = Number(axis === 'longitude' ? value : longitude);
-    if (Number.isFinite(nextLatitude) && Number.isFinite(nextLongitude)) {
-      const coords = { latitude: nextLatitude, longitude: nextLongitude };
+    setDraftField(axis, value);
+    const coords = getPlacePreviewCoordinates(
+      axis === 'latitude' ? value : latitude,
+      axis === 'longitude' ? value : longitude,
+    );
+    if (coords != null) {
       lastEmittedCoordsRef.current = coords;
       onCoordinatesChange?.(coords);
     }
@@ -179,7 +187,7 @@ export default function PlaceEditor({
     >
       <div className="place-editor-content stack">
         {error == null ? null : (
-          <div className="error" role="alert">
+          <div className="error" id={coordinateErrorId} role="alert">
             {errorMessage(error, te)}
           </div>
         )}
@@ -194,7 +202,7 @@ export default function PlaceEditor({
             id="radix-field-components-dashboard-placeeditor-tsx-1"
             required
             value={name}
-            onChange={(event) => setName(event.target.value)}
+            onChange={(event) => setDraftField('name', event.target.value)}
           />
         </label>
         <div className="split">
@@ -202,7 +210,11 @@ export default function PlaceEditor({
             {t('latitude')}
             <TextInput
               id="radix-field-components-dashboard-placeeditor-tsx-2"
-              aria-describedby={coordinateHelpId}
+              ref={latitudeRef}
+              aria-invalid={latitudeInvalid || undefined}
+              aria-describedby={
+                latitudeInvalid ? `${coordinateHelpId} ${coordinateErrorId}` : coordinateHelpId
+              }
               required
               inputMode="decimal"
               value={latitude}
@@ -213,7 +225,11 @@ export default function PlaceEditor({
             {t('longitude')}
             <TextInput
               id="radix-field-components-dashboard-placeeditor-tsx-3"
-              aria-describedby={coordinateHelpId}
+              ref={longitudeRef}
+              aria-invalid={longitudeInvalid || undefined}
+              aria-describedby={
+                longitudeInvalid ? `${coordinateHelpId} ${coordinateErrorId}` : coordinateHelpId
+              }
               required
               inputMode="decimal"
               value={longitude}
@@ -231,7 +247,7 @@ export default function PlaceEditor({
               <TextInput
                 id="radix-field-components-dashboard-placeeditor-tsx-4"
                 value={tags}
-                onChange={(event) => setTags(event.target.value)}
+                onChange={(event) => setDraftField('tags', event.target.value)}
               />
             </label>
             <label htmlFor="radix-field-components-dashboard-placeeditor-tsx-5">
@@ -239,7 +255,7 @@ export default function PlaceEditor({
               <TextArea
                 id="radix-field-components-dashboard-placeeditor-tsx-5"
                 value={description}
-                onChange={(event) => setDescription(event.target.value)}
+                onChange={(event) => setDraftField('description', event.target.value)}
               />
             </label>
           </div>
@@ -306,53 +322,6 @@ export default function PlaceEditor({
       </footer>
     </form>
   );
-}
-
-function getPlaceBaseline(
-  place: Place | null,
-  draftCoords: { latitude: number; longitude: number },
-) {
-  return {
-    description: place?.description ?? '',
-    latitude: formatCoordinateInput(place?.latitude ?? draftCoords.latitude),
-    longitude: formatCoordinateInput(place?.longitude ?? draftCoords.longitude),
-    name: place?.name ?? '',
-    tags: place?.tags.join(', ') ?? '',
-  };
-}
-
-function isPlaceDraftEqual(
-  draft: {
-    description: string;
-    latitude: string;
-    longitude: string;
-    name: string;
-    tags: string;
-  },
-  baseline: ReturnType<typeof getPlaceBaseline>,
-): boolean {
-  return (
-    normalizeNullable(draft.description) === normalizeNullable(baseline.description) &&
-    numberInputsEqual(draft.latitude, baseline.latitude) &&
-    numberInputsEqual(draft.longitude, baseline.longitude) &&
-    draft.name.trim() === baseline.name.trim() &&
-    normalizeTagsInput(draft.tags) === normalizeTagsInput(baseline.tags)
-  );
-}
-
-function numberInputsEqual(left: string, right: string): boolean {
-  const leftNumber = Number(left);
-  const rightNumber = Number(right);
-
-  return Number.isFinite(leftNumber) && Number.isFinite(rightNumber) && leftNumber === rightNumber;
-}
-
-function normalizeTagsInput(value: string): string {
-  return value
-    .split(',')
-    .map((tag) => tag.trim())
-    .filter(Boolean)
-    .join('\n');
 }
 
 function PlaceSharePanel({ place }: { place: Place | null }) {
@@ -486,8 +455,4 @@ function PlaceSharePanel({ place }: { place: Place | null }) {
       ) : null}
     </section>
   );
-}
-
-function formatCoordinateInput(value: number): string {
-  return value.toFixed(6);
 }
