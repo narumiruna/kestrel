@@ -1,27 +1,14 @@
 import type { NextRequest } from 'next/server';
 import {
-  ASSISTANT_BODY_BYTES,
-  authenticateProxyUpload,
-  backendRequestUrl,
+  forwardProxyRequest,
   ProxyAuthenticationError,
+  proxyHeaders,
   proxyResponseBody,
-  ROUTE_WRITE_BODY_BYTES,
 } from '../../../../lib/backendProxy';
 
-import { UploadError, withBoundedUpload } from '../../../../lib/boundedUpload';
+import { UploadError } from '../../../../lib/boundedUpload';
 
 const API_BASE_URL = process.env.KESTREL_API_BASE_URL ?? 'http://localhost:3300';
-const HOP_BY_HOP_HEADERS = new Set([
-  'connection',
-  'content-length',
-  'keep-alive',
-  'proxy-authenticate',
-  'proxy-authorization',
-  'te',
-  'trailer',
-  'transfer-encoding',
-  'upgrade',
-]);
 
 export async function GET(request: NextRequest, context: RouteContext<'/api/backend/[...path]'>) {
   return proxyRequest(request, context);
@@ -48,7 +35,6 @@ export async function DELETE(
 
 async function proxyRequest(request: NextRequest, context: RouteContext<'/api/backend/[...path]'>) {
   const { path } = await context.params;
-  const url = new URL(request.url);
 
   const controller = new AbortController();
   const abort = () => controller.abort();
@@ -56,39 +42,12 @@ async function proxyRequest(request: NextRequest, context: RouteContext<'/api/ba
   request.signal.addEventListener('abort', abort, { once: true });
   if (request.signal.aborted) controller.abort();
   try {
-    const backendUrl = backendRequestUrl(API_BASE_URL, path, url.search);
-    const assistant = request.method === 'POST' && path.join('/') === 'ai/route-assistant/runs';
-    const routeWrite =
-      (request.method === 'POST' && path.length === 1 && path[0] === 'routes') ||
-      (request.method === 'PATCH' && path.length === 2 && path[0] === 'routes');
-    const forward = (body?: ArrayBuffer) =>
-      fetch(backendUrl, {
-        body,
-        headers: createForwardHeaders(request.headers),
-        method: request.method,
-        redirect: 'manual',
-        signal: controller.signal,
-        cache: 'no-store',
-      });
-    const limit = assistant ? ASSISTANT_BODY_BYTES : routeWrite ? ROUTE_WRITE_BODY_BYTES : null;
-    const response =
-      limit === null
-        ? await forward(
-            request.method === 'GET' || request.method === 'HEAD'
-              ? undefined
-              : await request.arrayBuffer(),
-          )
-        : await withBoundedUpload(
-            request,
-            limit,
-            (signal) => authenticateProxyUpload(request, API_BASE_URL, signal),
-            forward,
-          );
+    const response = await forwardProxyRequest(request, API_BASE_URL, path, controller.signal);
     if (!response.body) cleanup();
     return new Response(
       response.body ? proxyResponseBody(response.body, controller, cleanup) : null,
       {
-        headers: createResponseHeaders(response.headers),
+        headers: proxyHeaders(response.headers),
         status: response.status,
         statusText: response.statusText,
       },
@@ -132,28 +91,4 @@ async function proxyRequest(request: NextRequest, context: RouteContext<'/api/ba
       },
     );
   }
-}
-
-function createForwardHeaders(headers: Headers): Headers {
-  const forwardedHeaders = new Headers();
-
-  for (const [name, value] of headers) {
-    if (!HOP_BY_HOP_HEADERS.has(name.toLowerCase())) {
-      forwardedHeaders.set(name, value);
-    }
-  }
-
-  return forwardedHeaders;
-}
-
-function createResponseHeaders(headers: Headers): Headers {
-  const responseHeaders = new Headers();
-
-  for (const [name, value] of headers) {
-    if (!HOP_BY_HOP_HEADERS.has(name.toLowerCase())) {
-      responseHeaders.set(name, value);
-    }
-  }
-
-  return responseHeaders;
 }

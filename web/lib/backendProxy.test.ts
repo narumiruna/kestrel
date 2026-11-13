@@ -1,14 +1,23 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { setImmediate as turn } from 'node:timers/promises';
 import {
+  ASSISTANT_BODY_BYTES,
   authenticateProxyUpload,
   backendRequestUrl,
+  DEFAULT_BODY_BYTES,
+  forwardProxyRequest,
   ProxyAuthenticationError,
   proxyResponseBody,
   ROUTE_WRITE_BODY_BYTES,
 } from './backendProxy.ts';
 
-import { UploadBudget, withBoundedUpload } from './boundedUpload.ts';
+import {
+  UPLOAD_DEADLINE_MS,
+  UploadBudget,
+  UploadError,
+  withBoundedUpload,
+} from './boundedUpload.ts';
 
 const boundedProxyBody = (request: Request, limit = 4 * 1024 * 1024) =>
   withBoundedUpload(
@@ -197,4 +206,261 @@ test('proxy forwards response chunks without waiting for completion and releases
   output.close();
   assert.equal((await reader.read()).done, true);
   assert.equal(cleaned, 1);
+});
+
+const BACKEND = 'http://backend:3300/api';
+
+function forward(request: Request, path: string[], fetcher: typeof fetch, budget?: UploadBudget) {
+  return forwardProxyRequest(request, BACKEND, path, request.signal, fetcher, budget);
+}
+
+function upload(
+  method: string,
+  sizes: number[],
+  headers: Record<string, string> = {},
+  signal?: AbortSignal,
+) {
+  let cancelled = false;
+  let readers = 0;
+  const request = new Request('http://localhost/api/backend/upload?key=value', {
+    method,
+    headers,
+    signal,
+    body: new ReadableStream<Uint8Array>({
+      start(controller) {
+        for (const size of sizes) controller.enqueue(new Uint8Array(size));
+      },
+      cancel() {
+        cancelled = true;
+      },
+    }),
+    duplex: 'half',
+  } as RequestInit);
+  assert.ok(request.body);
+  const body = request.body;
+  const getReader = body.getReader.bind(body);
+  Object.defineProperty(body, 'getReader', {
+    value: () => {
+      readers++;
+      return getReader();
+    },
+  });
+  return { request, cancelled: () => cancelled, readers: () => readers };
+}
+
+test('actual forwarding permits public login, preserves bytes and strips transport headers', async () => {
+  const body = JSON.stringify({ username: 'admin', password: 'admin' });
+  const request = new Request('http://localhost/api/backend/auth/login?key=value', {
+    method: 'POST',
+    body,
+    headers: { 'content-type': 'application/json', 'content-length': String(body.length) },
+  });
+  let calls = 0;
+  const response = await forward(request, ['auth', 'login'], async (url, init) => {
+    calls++;
+    assert.equal(String(url), `${BACKEND}/auth/login?key=value`);
+    assert.equal(init?.method, 'POST');
+    assert.equal(new TextDecoder().decode(init?.body as ArrayBuffer), body);
+    assert.equal(new Headers(init?.headers).get('content-type'), 'application/json');
+    assert.equal(new Headers(init?.headers).has('content-length'), false);
+    assert.equal(init?.redirect, 'manual');
+    assert.equal(init?.cache, 'no-store');
+    return Response.json({ ok: true });
+  });
+  assert.equal(calls, 1);
+  assert.deepEqual(await response.json(), { ok: true });
+});
+
+test('default forwarding accepts the exact cap and empty POST bodies without an auth probe', async () => {
+  for (const body of [new Uint8Array(DEFAULT_BODY_BYTES), undefined]) {
+    let calls = 0;
+    await forward(
+      new Request('http://localhost/api/backend/auth/login', { method: 'POST', body }),
+      ['auth', 'login'],
+      async (url, init) => {
+        calls++;
+        assert.equal(String(url), `${BACKEND}/auth/login`);
+        assert.ok(init?.body instanceof ArrayBuffer);
+        assert.equal(init.body.byteLength, body?.byteLength ?? 0);
+        return new Response(null, { status: 204 });
+      },
+    );
+    assert.equal(calls, 1);
+  }
+});
+
+test('default proxy cap rejects declared and chunked excess on every body-bearing method', async () => {
+  for (const [method, path] of [
+    ['POST', ['auth', 'login']],
+    ['PUT', ['devices', 'id']],
+    ['PATCH', ['places', 'id']],
+    ['DELETE', ['account', 'sessions', 'id']],
+    ['POST', ['routes', 'id', 'share-links']],
+    ['POST', ['ai', 'other']],
+  ] as const) {
+    for (const declared of [true, false]) {
+      const source = upload(
+        method,
+        declared ? [1] : [DEFAULT_BODY_BYTES, 1],
+        declared ? { 'content-length': String(DEFAULT_BODY_BYTES + 1) } : {},
+      );
+      const budget = new UploadBudget();
+      await assert.rejects(
+        forward(
+          source.request,
+          [...path],
+          async () => assert.fail('oversized default request reached Backend'),
+          budget,
+        ),
+        RangeError,
+      );
+      assert.equal(source.cancelled(), true);
+      assert.equal(source.readers(), declared ? 0 : 1);
+      assert.deepEqual(budget.usage, { bytes: 0, requests: 0 });
+    }
+  }
+});
+
+test('GET and HEAD forward without a body, authentication probe or upload admission', async () => {
+  for (const method of ['GET', 'HEAD']) {
+    const request = new Request('http://localhost/api/backend/routes', { method });
+    Object.defineProperty(request, 'arrayBuffer', {
+      value: () => assert.fail('bodyless method read its body'),
+    });
+    let calls = 0;
+    await forward(
+      request,
+      ['routes'],
+      async (_url, init) => {
+        calls++;
+        assert.equal(init?.method, method);
+        assert.equal(init?.body, undefined);
+        return new Response(null, { status: 204 });
+      },
+      new UploadBudget(0, 0),
+    );
+    assert.equal(calls, 1);
+  }
+});
+
+test('route and assistant selections authenticate before readers and retain larger limits', async () => {
+  for (const [method, path, limit] of [
+    ['POST', ['routes'], ROUTE_WRITE_BODY_BYTES],
+    ['PATCH', ['routes', 'id'], ROUTE_WRITE_BODY_BYTES],
+    ['POST', ['ai', 'route-assistant', 'runs'], ASSISTANT_BODY_BYTES],
+  ] as const) {
+    const anonymous = upload(method, [1]);
+    await assert.rejects(
+      forward(anonymous.request, [...path], async () => assert.fail('anonymous upload probed')),
+      (error) => error instanceof ProxyAuthenticationError && error.status === 401,
+    );
+    assert.equal(anonymous.readers(), 0);
+    assert.equal(anonymous.cancelled(), true);
+
+    const rejected = upload(method, [1], { Authorization: 'Bearer expired' });
+    await assert.rejects(
+      forward(rejected.request, [...path], async (url, init) => {
+        assert.equal(String(url), `${BACKEND}/auth/session`);
+        assert.equal(init?.body, undefined);
+        assert.equal(rejected.readers(), 0);
+        return new Response(null, { status: 401 });
+      }),
+      (error) => error instanceof ProxyAuthenticationError && error.status === 401,
+    );
+    assert.equal(rejected.readers(), 0);
+    assert.equal(rejected.cancelled(), true);
+
+    const allowed = new Request('http://localhost/api/backend/upload', {
+      method,
+      headers: { Authorization: 'Bearer valid' },
+      body: new Uint8Array(limit),
+    });
+    let calls = 0;
+    await forward(allowed, [...path], async (url, init) => {
+      calls++;
+      if (calls === 1) {
+        assert.equal(String(url), `${BACKEND}/auth/session`);
+        assert.equal(allowed.bodyUsed, false);
+        return new Response(null, { status: 204 });
+      }
+      assert.equal(String(url), `${BACKEND}/${path.join('/')}`);
+      assert.ok(init?.body instanceof ArrayBuffer);
+      assert.equal(init.body.byteLength, limit);
+      return new Response(null, { status: 204 });
+    });
+    assert.equal(calls, 2);
+
+    const excessive = upload(method, [limit, 1], { Authorization: 'Bearer valid' });
+    let probes = 0;
+    await assert.rejects(
+      forward(excessive.request, [...path], async (url) => {
+        probes++;
+        assert.equal(String(url), `${BACKEND}/auth/session`);
+        return new Response(null, { status: 204 });
+      }),
+      RangeError,
+    );
+    assert.equal(probes, 1);
+    assert.equal(excessive.cancelled(), true);
+  }
+});
+
+test('default uploads use the reception deadline and release admission on timeout', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const budget = new UploadBudget();
+  const source = upload('POST', []);
+  const result = forward(
+    source.request,
+    ['auth', 'login'],
+    async () => assert.fail('stalled body reached Backend'),
+    budget,
+  );
+  const rejected = assert.rejects(
+    result,
+    (error) => error instanceof UploadError && error.kind === 'timeout',
+  );
+  await turn();
+  assert.deepEqual(budget.usage, { bytes: 0, requests: 1 });
+  t.mock.timers.tick(UPLOAD_DEADLINE_MS);
+  await rejected;
+  assert.equal(source.cancelled(), true);
+  assert.deepEqual(budget.usage, { bytes: 0, requests: 0 });
+});
+
+test('default and larger uploads share admission while forwarded bodies remain accounted', async () => {
+  const budget = new UploadBudget(DEFAULT_BODY_BYTES, 1);
+  let finish!: () => void;
+  const pending = new Promise<void>((resolve) => {
+    finish = resolve;
+  });
+  const first = forward(
+    new Request('http://localhost/upload', { method: 'POST', body: 'login' }),
+    ['auth', 'login'],
+    async () => {
+      await pending;
+      return new Response(null, { status: 204 });
+    },
+    budget,
+  );
+  await turn();
+  assert.deepEqual(budget.usage, { bytes: 5, requests: 1 });
+  const second = upload('PATCH', [], { Authorization: 'Bearer valid' });
+  try {
+    await assert.rejects(
+      forward(
+        second.request,
+        ['routes', 'id'],
+        async () => assert.fail('busy upload reached Backend'),
+        budget,
+      ),
+      (error) => error instanceof UploadError && error.kind === 'busy',
+    );
+    assert.equal(second.readers(), 0);
+    assert.equal(second.cancelled(), true);
+    assert.deepEqual(budget.usage, { bytes: 5, requests: 1 });
+  } finally {
+    finish();
+    await first;
+  }
+  assert.deepEqual(budget.usage, { bytes: 0, requests: 0 });
 });

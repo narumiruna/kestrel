@@ -23,6 +23,7 @@ import { Inter, JetBrains_Mono } from 'next/font/google';
 import Script from 'next/script';
 import { getLocale, getMessages, getTranslations } from 'next-intl/server';
 import { AuthProvider } from '@/components/AuthProvider';
+import { DraftHistoryProvider } from '@/components/DraftHistoryProvider';
 import { I18nProvider } from '@/components/I18nProvider';
 import { ThemeProvider } from '@/components/ThemeProvider';
 
@@ -59,7 +60,9 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         </Script>
         <I18nProvider locale={locale} messages={messages} fallbackMessage={t('messageUnavailable')}>
           <ThemeProvider>
-            <AuthProvider>{children}</AuthProvider>
+            <AuthProvider>
+              <DraftHistoryProvider>{children}</DraftHistoryProvider>
+            </AuthProvider>
           </ThemeProvider>
         </I18nProvider>
       </body>

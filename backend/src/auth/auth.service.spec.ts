@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  TooManyRequestsException,
   UnauthorizedException,
 } from '../http/errors';
 import { Prisma } from '@prisma/client';
@@ -922,11 +923,103 @@ describe('AuthService', () => {
 
     await expect(
       authService.confirmCurrentPassword('user-1', 'wrong'),
-    ).rejects.toBeInstanceOf(UnauthorizedException);
+    ).rejects.toMatchObject({
+      response: {
+        code: 'INVALID_CURRENT_PASSWORD',
+        message: 'invalid current password',
+        statusCode: 401,
+      },
+      status: 401,
+    });
+    expect(authRateLimitService.assertAllowed).toHaveBeenCalledWith(
+      AUTH_RATE_LIMIT_TYPE.PASSWORD,
+      'alice',
+    );
+    expect(authRateLimitService.recordFailure).toHaveBeenCalledTimes(1);
     expect(authRateLimitService.recordFailure).toHaveBeenCalledWith(
       AUTH_RATE_LIMIT_TYPE.PASSWORD,
       'alice',
     );
+    expect(authRateLimitService.reset).not.toHaveBeenCalled();
+  });
+
+  it('codes password-change rejections without updating the password or resetting failures', async () => {
+    const passwordHash = await hash('correct-password', { type: argon2id });
+    prismaService.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      passwordHash,
+      username: 'alice',
+    });
+
+    await expect(
+      authService.changePassword('user-1', {
+        currentPassword: 'wrong-password',
+        newPassword: 'new-very-secure-password',
+      }),
+    ).rejects.toMatchObject({
+      response: {
+        code: 'INVALID_CURRENT_PASSWORD',
+        message: 'invalid current password',
+        statusCode: 401,
+      },
+      status: 401,
+    });
+    expect(authRateLimitService.assertAllowed).toHaveBeenCalledWith(
+      AUTH_RATE_LIMIT_TYPE.PASSWORD,
+      'alice',
+    );
+    expect(authRateLimitService.recordFailure).toHaveBeenCalledTimes(1);
+    expect(authRateLimitService.recordFailure).toHaveBeenCalledWith(
+      AUTH_RATE_LIMIT_TYPE.PASSWORD,
+      'alice',
+    );
+    expect(authRateLimitService.reset).not.toHaveBeenCalled();
+    expect(prismaService.user.update).not.toHaveBeenCalled();
+    expect(authAuditService.log).toHaveBeenCalledWith({
+      authMethod: 'password',
+      event: 'password_change',
+      failureReason: 'invalid_current_password',
+      outcome: 'failure',
+      userId: 'user-1',
+      username: 'alice',
+    });
+  });
+
+  it.each(['step-up', 'password-change'])(
+    'preserves rate-limit rejection during %s',
+    async (operation) => {
+      prismaService.user.findUnique.mockResolvedValue({
+        id: 'user-1',
+        username: 'alice',
+      });
+      const limited = new TooManyRequestsException('password rate limit');
+      authRateLimitService.assertAllowed.mockRejectedValue(limited);
+      await expect(
+        operation === 'step-up'
+          ? authService.confirmCurrentPassword('user-1', 'wrong-password')
+          : authService.changePassword('user-1', {
+              currentPassword: 'wrong-password',
+              newPassword: 'new-very-secure-password',
+            }),
+      ).rejects.toBe(limited);
+      expect(authRateLimitService.recordFailure).not.toHaveBeenCalled();
+      expect(authRateLimitService.reset).not.toHaveBeenCalled();
+      expect(prismaService.user.update).not.toHaveBeenCalled();
+    },
+  );
+
+  it('keeps missing-user authentication failures separate from current-password failures', async () => {
+    prismaService.user.findUnique.mockResolvedValue(null);
+    await expect(
+      authService.confirmCurrentPassword('missing-user', 'password'),
+    ).rejects.toMatchObject({
+      response: {
+        message: 'missing authenticated user',
+        statusCode: 401,
+      },
+      status: 401,
+    });
+    expect(authRateLimitService.recordFailure).not.toHaveBeenCalled();
   });
 
   it('changes the authenticated user password', async () => {

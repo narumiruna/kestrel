@@ -663,7 +663,18 @@ export class AuthService {
       throw new UnauthorizedException('missing authenticated user');
     }
 
-    await this.authenticateUser(user.username, currentPassword);
+    try {
+      await this.authenticateUser(user.username, currentPassword);
+    } catch (error) {
+      if (error instanceof UnauthorizedException) {
+        throw new UnauthorizedException({
+          code: 'INVALID_CURRENT_PASSWORD',
+          message: 'invalid current password',
+          statusCode: 401,
+        });
+      }
+      throw error;
+    }
   }
 
   async changePassword(
@@ -704,7 +715,11 @@ export class AuthService {
         userId: user.id,
         username: user.username,
       });
-      throw new UnauthorizedException('invalid current password');
+      throw new UnauthorizedException({
+        code: 'INVALID_CURRENT_PASSWORD',
+        message: 'invalid current password',
+        statusCode: 401,
+      });
     }
 
     await this.authRateLimitService.reset(

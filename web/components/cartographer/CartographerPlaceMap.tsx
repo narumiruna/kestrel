@@ -4,6 +4,7 @@ import type { Map as MapLibreMap, Marker } from 'maplibre-gl';
 import * as maplibregl from 'maplibre-gl';
 import { useTranslations } from 'next-intl';
 import { type MutableRefObject, useEffect, useRef } from 'react';
+import { arePlaceCoordinatesValid } from '@/components/dashboard/placeCoordinates';
 import { DEFAULT_MAP_CENTER, getStyleByName } from '@/components/mapStyle';
 import { useMapStyle } from '@/hooks/useMapStyle';
 import { mapLibreLocale, updateMapLabels } from '@/i18n/map';
@@ -60,9 +61,9 @@ export default function CartographerPlaceMap({
     }
 
     const initialCenter =
-      initialStateRef.current.draftCoords ??
-      initialStateRef.current.places[0] ??
-      DEFAULT_MAP_CENTER;
+      (arePlaceCoordinatesValid(initialStateRef.current.draftCoords)
+        ? initialStateRef.current.draftCoords
+        : initialStateRef.current.places.find(arePlaceCoordinatesValid)) ?? DEFAULT_MAP_CENTER;
     const map = new maplibregl.Map({
       center: [initialCenter.longitude, initialCenter.latitude],
       container: containerRef.current,
@@ -99,10 +100,13 @@ export default function CartographerPlaceMap({
         return;
       }
 
-      callbacksRef.current.onChangeDraftCoords({
+      const coords = {
         latitude: roundCoord(event.lngLat.lat),
         longitude: roundCoord(event.lngLat.lng),
-      });
+      };
+      if (arePlaceCoordinatesValid(coords)) {
+        callbacksRef.current.onChangeDraftCoords(coords);
+      }
     });
 
     mapRef.current = map;
@@ -209,7 +213,7 @@ function syncPlaceMarkers({
   });
   markersRef.length = 0;
 
-  places.forEach((place) => {
+  places.filter(arePlaceCoordinatesValid).forEach((place) => {
     const isActive = place.id === selectedPlaceId;
     const marker = new maplibregl.Marker({
       element: createPlaceMarkerElement({
@@ -227,7 +231,7 @@ function syncPlaceMarkers({
     markersRef.push(marker);
   });
 
-  if (draftCoords == null) {
+  if (!arePlaceCoordinatesValid(draftCoords)) {
     draftMarkerRef.current?.remove();
     draftMarkerRef.current = null;
     return;
@@ -244,10 +248,11 @@ function syncPlaceMarkers({
     createdMarker.on('dragend', () => {
       const lngLat = createdMarker.getLngLat();
 
-      onChangeDraftCoords?.({
+      const coords = {
         latitude: roundCoord(lngLat.lat),
         longitude: roundCoord(lngLat.lng),
-      });
+      };
+      if (arePlaceCoordinatesValid(coords)) onChangeDraftCoords?.(coords);
     });
     draftMarkerRef.current = createdMarker;
     draftMarker = createdMarker;
@@ -276,7 +281,7 @@ function panToSelectedPlace(
 ) {
   const selectedPlace = places.find((place) => place.id === selectedPlaceId);
 
-  if (selectedPlace == null) {
+  if (!arePlaceCoordinatesValid(selectedPlace)) {
     return;
   }
 
@@ -293,8 +298,8 @@ function fitPlaces(
   draftCoords: { latitude: number; longitude: number } | null,
 ) {
   const points = [
-    ...places.map((place) => ({ latitude: place.latitude, longitude: place.longitude })),
-    ...(draftCoords == null ? [] : [draftCoords]),
+    ...places.filter(arePlaceCoordinatesValid),
+    ...(arePlaceCoordinatesValid(draftCoords) ? [draftCoords] : []),
   ];
 
   if (points.length === 0) {
