@@ -33,10 +33,14 @@ export async function runVisualAgent(
   streamOverride?: StreamFn,
   modelOverride?: Model<Api>,
 ): Promise<void> {
-  const [{ Agent }, { builtinModels }, { Type }] = await Promise.all([
+  const [
+    { Agent },
+    { builtinModels },
+    { arr, lit, num, obj, oneOf, opt, str, union },
+  ] = await Promise.all([
     import('@earendil-works/pi-agent-core'),
     import('@earendil-works/pi-ai/providers/all'),
-    import('@earendil-works/pi-ai'),
+    import('@earendil-works/pi-schema'),
   ]);
   const registry = builtinModels({
     authContext: {
@@ -91,32 +95,23 @@ export async function runVisualAgent(
       label: 'Validate approximate path',
       description:
         'Submit a complete approximate path using only retained references and normalized image positions.',
-      parameters: Type.Object(
-        {
-          points: Type.Array(
-            Type.Union([
-              Type.Object(
-                {
-                  kind: Type.Literal('retain'),
-                  draftId: Type.String({ maxLength: 128 }),
-                },
-                { additionalProperties: false },
-              ),
-              Type.Object(
-                {
-                  kind: Type.Literal('image'),
-                  u: Type.Number({ minimum: 0, maximum: 1 }),
-                  v: Type.Number({ minimum: 0, maximum: 1 }),
-                  draftId: Type.Optional(Type.String({ maxLength: 128 })),
-                },
-                { additionalProperties: false },
-              ),
-            ]),
-            { minItems: 2, maxItems: L.points },
-          ),
-        },
-        { additionalProperties: false },
-      ),
+      parameters: obj({
+        points: arr(
+          union([
+            obj({
+              kind: lit('retain'),
+              draftId: str({ maxLength: 128 }),
+            }),
+            obj({
+              kind: lit('image'),
+              u: num({ minimum: 0, maximum: 1 }),
+              v: num({ minimum: 0, maximum: 1 }),
+              draftId: opt(str({ maxLength: 128 })),
+            }),
+          ]),
+          { minItems: 2, maxItems: L.points },
+        ),
+      }),
       execute: (_id, args) => {
         bounded.throwIfAborted();
         if (++candidates > L.candidates) {
@@ -175,16 +170,9 @@ export async function runVisualAgent(
       label: 'Request clarification',
       description:
         'Stop and ask for a fresh clear screenshot or visible target identification.',
-      parameters: Type.Object(
-        {
-          reason: Type.Union(
-            ['unclear', 'ambiguous', 'offscreen', 'unsupported'].map((reason) =>
-              Type.Literal(reason),
-            ),
-          ),
-        },
-        { additionalProperties: false },
-      ),
+      parameters: obj({
+        reason: oneOf(['unclear', 'ambiguous', 'offscreen', 'unsupported']),
+      }),
       execute: (_id, args) => {
         bounded.throwIfAborted();
         accepted = true;

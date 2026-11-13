@@ -128,11 +128,12 @@ async function run() {
   assert.deepEqual(Object.keys(first).sort(), ['checkAuth', 'getAuth']);
   const registry = await piRegistry();
   const providers = registry.models.getProviders();
-  assert.equal(providers.length, 42);
+  // Catalog snapshot for the pinned Pi 1.5.2 packages.
+  assert.equal(providers.length, 43);
   const counts = { chat: 0, image: 0, classifier: 0 };
   for (const model of registry.models.getAllModels())
     counts[registry.getModelType(model)]++;
-  assert.deepEqual(counts, { chat: 1599, image: 63, classifier: 51 });
+  assert.deepEqual(counts, { chat: 1643, image: 66, classifier: 64 });
   const productionCatalog = new AiCatalogService(
     { get: () => 'https://fixture.kestrel.test' },
     { available: () => true },
@@ -144,7 +145,7 @@ async function run() {
       (count, provider) => count + provider.models.length,
       0,
     ),
-    1713,
+    1773,
   );
   for (const provider of publicCatalog.providers) {
     const model = provider.models[0];
@@ -166,7 +167,7 @@ async function run() {
   const methods = { api_key: 0, oauth: 0 };
   for (const provider of publicCatalog.providers)
     for (const method of provider.methods) methods[method.type]++;
-  assert.deepEqual(methods, { api_key: 41, oauth: 9 });
+  assert.deepEqual(methods, { api_key: 42, oauth: 9 });
   const noOrigin = new AiCatalogService(
     { get: () => '' },
     { available: () => true },

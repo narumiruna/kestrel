@@ -155,9 +155,9 @@ lint-baseline:
 # update JavaScript packages within their declared ranges and update Android libraries
 [group('Setup')]
 update:
-    npx --yes npm-check-updates@19.1.1 --packageFile backend/package.json --target semver --peer --upgrade
+    npx --yes npm-check-updates@23.1.1 --packageFile backend/package.json --target semver --peer --upgrade
     npm install --prefix backend
-    npx --yes npm-check-updates@19.1.1 --packageFile web/package.json --target semver --peer --upgrade
+    npx --yes npm-check-updates@23.1.1 --packageFile web/package.json --target semver --peer --upgrade
     npm install --prefix web
     cd web && ./node_modules/.bin/biome migrate --write
     {{ gradle }} versionCatalogUpdate

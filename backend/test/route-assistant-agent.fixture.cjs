@@ -9,6 +9,7 @@ const {
 } = require('../dist/route-assistant/route-assistant.worker-client.js');
 
 async function main() {
+  const { compile } = await import('@earendil-works/pi-schema');
   const { createFauxCore, fauxAssistantMessage, fauxToolCall } =
     await import('@earendil-works/pi-ai/providers/faux');
   const originalFetch = globalThis.fetch;
@@ -131,6 +132,46 @@ async function main() {
         .sort(),
       ['ask_for_clarification', 'submit_path'],
     );
+    if (requests === 1) {
+      const tools = context.messages
+        .filter((message) => message.role === 'system')
+        .flatMap((message) => message.toolsAdded ?? []);
+      const path = compile(
+        tools.find((tool) => tool.name === 'submit_path').parameters,
+      );
+      assert.ok(path.check({ points }));
+      assert.ok(
+        path.check({
+          points: [
+            { kind: 'retain', draftId: 'visible' },
+            { ...points[1], draftId: 'new' },
+          ],
+        }),
+      );
+      for (const invalid of [
+        { points: [] },
+        { points: [points[0]] },
+        { points: Array(1001).fill(points[0]) },
+        { points, extra: true },
+        { points: [{ kind: 'retain' }, points[1]] },
+        { points: [{ kind: 'retain', draftId: 'a'.repeat(129) }, points[1]] },
+        { points: [{ ...points[0], u: -0.1 }, points[1]] },
+        { points: [{ ...points[0], v: 1.1 }, points[1]] },
+        { points: [{ ...points[0], latitude: 0 }, points[1]] },
+        { points: [{ ...points[0], kind: 'other' }, points[1]] },
+      ])
+        assert.equal(path.check(invalid), false);
+      const clarification = compile(
+        tools.find((tool) => tool.name === 'ask_for_clarification').parameters,
+      );
+      for (const reason of ['unclear', 'ambiguous', 'offscreen', 'unsupported'])
+        assert.ok(clarification.check({ reason }));
+      assert.equal(clarification.check({ reason: 'other' }), false);
+      assert.equal(
+        clarification.check({ reason: 'unclear', extra: true }),
+        false,
+      );
+    }
     return core.streamSimple(model, context, options);
   };
   const run = (responses, extraInput = input, model = core.getModel()) => {
