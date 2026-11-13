@@ -33,10 +33,11 @@ jobs:
             exit 1
           fi
 
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           token: ${{ secrets.PAT_TOKEN }}
+          persist-credentials: false
 
       - name: Resolve shared version metadata
         id: meta
@@ -46,22 +47,28 @@ jobs:
       - name: Skip when release tag already exists
         id: existing-tag
         env:
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
           RELEASE_TAG: ${{ steps.meta.outputs.tag }}
         run: |
-          if git ls-remote --tags origin "refs/tags/${RELEASE_TAG}" | grep -q .; then
+          if git -c credential.helper= -c 'credential.helper=!gh auth git-credential' ls-remote --exit-code --tags origin "refs/tags/${RELEASE_TAG}"; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
             echo "Tag ${RELEASE_TAG} already exists; skipping"
           else
+            status=$?
+            if [ "$status" -ne 2 ]; then
+              exit "$status"
+            fi
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Create and push release tag
         if: steps.existing-tag.outputs.exists == 'false'
         env:
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
           RELEASE_TAG: ${{ steps.meta.outputs.tag }}
           RELEASE_VERSION: ${{ steps.meta.outputs.version_name }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git tag -a "$RELEASE_TAG" -m "Release $RELEASE_VERSION"
-          git push origin "$RELEASE_TAG"
+          git -c credential.helper= -c 'credential.helper=!gh auth git-credential' push origin "$RELEASE_TAG"

@@ -23,22 +23,27 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           fetch-depth: 0
           ref: "${{ inputs.tag || github.ref }}"
 
-      - uses: actions/setup-java@v6.2.0
+      - uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
         with:
           distribution: temurin
           java-version: 26
 
-      - uses: gradle/actions/setup-gradle@v6
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6
+        with:
+          cache-disabled: true
 
       - name: Resolve release metadata
         id: meta
+        env:
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
         run: |
-          scripts/resolve-release-metadata.sh "${{ inputs.tag || github.ref_name }}"
+          scripts/resolve-release-metadata.sh "$RELEASE_TAG"
 
       - name: Decode release keystore
         env:
@@ -57,25 +62,40 @@ jobs:
         run: ./gradlew :app:assembleRelease
 
       - name: Verify and rename release artifact
+        env:
+          APK_NAME: ${{ steps.meta.outputs.apk_name }}
         run: |
           apksigner="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
           test -x "$apksigner"
           "$apksigner" verify --verbose --print-certs app/build/outputs/apk/release/app-release.apk
           cp \
             app/build/outputs/apk/release/app-release.apk \
-            app/build/outputs/apk/release/${{ steps.meta.outputs.apk_name }}
+            "app/build/outputs/apk/release/$APK_NAME"
 
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: "app-release-${{ steps.meta.outputs.version_name }}"
           path: "app/build/outputs/apk/release/${{ steps.meta.outputs.apk_name }}"
           if-no-files-found: error
 
       - name: Publish GitHub release
-        uses: softprops/action-gh-release@v3
-        with:
-          tag_name: "${{ steps.meta.outputs.tag }}"
-          name: "Kestrel ${{ steps.meta.outputs.tag }}"
-          generate_release_notes: true
-          prerelease: ${{ contains(steps.meta.outputs.version_name, '-') }}
-          files: "app/build/outputs/apk/release/${{ steps.meta.outputs.apk_name }}"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ steps.meta.outputs.tag }}
+          APK_NAME: ${{ steps.meta.outputs.apk_name }}
+          PRERELEASE: ${{ contains(steps.meta.outputs.version_name, '-') }}
+        run: |
+          if gh release view "$RELEASE_TAG" > /dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" "app/build/outputs/apk/release/$APK_NAME" --clobber
+            gh release edit "$RELEASE_TAG" \
+              --title "Kestrel $RELEASE_TAG" \
+              --prerelease="$PRERELEASE" \
+              --draft=false
+          else
+            gh release create "$RELEASE_TAG" "app/build/outputs/apk/release/$APK_NAME" \
+              --verify-tag \
+              --title "Kestrel $RELEASE_TAG" \
+              --generate-notes \
+              --prerelease="$PRERELEASE"
+          fi
