@@ -11,14 +11,14 @@ Resolve the reported zizmor findings without changing version bump, tag, deploym
 - [x] Pass script inputs through quoted environment variables. Use step-scoped PAT authentication for Git network commands.
 - [x] Replace the release action with GitHub CLI commands that support new and existing releases.
 - [x] Validate workflows and review the diff.
-- [ ] Open a pull request.
+- [x] Open a pull request: [PR #382](https://github.com/narumiruna/kestrel/pull/382).
 
 ## Completion Checklist
 
 - [x] `zizmor .github/` and the repository-wide CI scan pass without new suppressions.
 - [x] Workflow syntax and shell checks pass.
 - [x] Local regression checks cover input quoting, temporary Git authentication, and release create/update commands without external writes.
-- [ ] Only the intended text files are committed; the pull request records validation and limits.
+- [x] Only the intended text files are committed; the pull request records validation and limits.
 
 ## Validation Evidence
 
