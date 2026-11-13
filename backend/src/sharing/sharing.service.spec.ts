@@ -589,6 +589,11 @@ describe('SharingService', () => {
         id: true,
       },
     });
+    expect(prismaService.route.update).toHaveBeenCalledTimes(1);
+    expect(prismaService.route.update).toHaveBeenCalledWith({
+      data: { currentRevisionId: 'copied-revision-1' },
+      where: { id: 'copied-route-1' },
+    });
     expect(prismaService.libraryItem.create).toHaveBeenCalledWith({
       data: {
         kind: LibraryItemKind.ROUTE,
